@@ -1,7 +1,7 @@
 # PROGRESS: App Vision & Roadmap
 
 ## Overview
-**Progress** is an interactive application designed for building, sequencing, and refining chord progressions. It goes beyond simple chord generation by integrating professional music theory concepts, allowing users to craft emotionally powerful harmonic sequences. The app serves as both a composition tool and a curated library, designed to help users contextually audition, tweak, and perfect their progressions for actual song production.
+**Progress** is an interactive application designed for building, sequencing, and refining advanced chord progressions. It goes beyond simple chord generation by integrating professional music theory concepts to craft emotionally powerful, mind-bending, and complex harmonic sequences. The app is specifically tailored to act as a "creative frontend" for AI song generation (e.g., prompting "advanced music theory electronica"). It allows users to contextually audition, tweak, and perfect their progressions, ultimately exporting them as rich MIDI data or structural text prompts that yield chart-worthy AI generations.
 
 ## Core Application Features
 
@@ -18,6 +18,13 @@
 - **Alternative Selection:** Where there are several functional alternatives for a specific chord in a sequence, the app provides a mode to temporarily swap them in.
 - **Live Auditioning:** Hear the results of a selected alternative *live* while the progression (or looped section) is playing, without losing the original chord.
 - **Finalization:** Once an alternative chord proves to be the best fit for the emotional intent of the sequence, the user can finalize the choice to permanently replace the original chord.
+
+### 4. Advanced Sequencer View (Future Goal)
+- **Visual Timeline:** Instead of a simple tray, view chords on a timeline or piano-roll-style grid.
+- **Adjustable Duration:** Click and drag to change the length of each chord.
+- **Snap to Grid:** Toggle a grid for precise rhythmic alignment (e.g., whole, half, quarter notes).
+- **Free Positioning:** Drag chords freely along the timeline when snap is off.
+- **Ripple Editing:** Optionally, have the timeline automatically push subsequent chords forward when a preceding chord's duration is extended, maintaining the overall sequence.
 
 ---
 
@@ -65,5 +72,11 @@ The structural climax tool.
 
 ---
 
-## Future Expansion
-*(This section is reserved for future ideas, UI/UX wireframes, and technical architecture notes as the app develops.)*
+## Advanced Electronica & AI Synergy (Future Expansion)
+To achieve a "mind-bending" electronica aesthetic, the app will eventually support:
+- **Tension & Release Mapping:** A visual UI curve that maps the harmonic tension of the progression, allowing the user to architect dramatic emotional arcs before rendering notes.
+- **Extended & Altered Voicings:** 9ths, 11ths, 13ths, and altered dominants (e.g., `7♯9♭13`) specifically voiced for lush, atmospheric synth pads.
+- **Polyrhythmic Arpeggiation:** Exporting the chords not just as blocks, but as sequenced MIDI patterns typical of advanced electronica (e.g., 5/16 arp patterns over a 4/4 bassline).
+- **AI Text Prompt Generation:** The app will generate a separate, copy-able text block describing the progression's key, mood, and harmonic rhythm. This text is designed to be pasted directly into the prompt field of AI music generators to guide the style of the generated track.
+- **Reference Audio Rendering:** Exporting the progression as a clean WAV file (e.g., using a simple sine/pad synth) to serve as a clear harmonic audio prompt for full-fledged AI music generators like ACE Studio 2.0, or for audio-to-MIDI conversion in a DAW.
+- **Microtonal/Jazz Modulations:** Support for complex Neo-Riemannian transformations and Coltrane changes to push the boundaries of standard pop/electronic structures.

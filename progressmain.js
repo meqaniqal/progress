@@ -1,3 +1,5 @@
+import { saveState, loadState } from './storage.js';
+
 // MIDI note numbers (C4 = 60)
         // Storing root-position triads for C Major and common borrowed chords
         const chordDictionary = {
@@ -15,13 +17,34 @@
         let currentProgression = [];
 
         function addChord(numeral) {
+            console.log(`[addChord] Entering. Intent: Add ${numeral} to progression.`);
             currentProgression.push(numeral);
+            persistAppState();
             renderProgression();
         }
 
         function removeChord(index) {
             currentProgression.splice(index, 1);
+            persistAppState();
             renderProgression();
+        }
+
+        function clearProgression() {
+            console.log('[clearProgression] Intent: Clear all chords.');
+            stopProgression();
+            currentProgression = [];
+            persistAppState();
+            renderProgression();
+        }
+
+        function persistAppState() {
+            const state = {
+                currentProgression,
+                bpm: document.getElementById('bpm-slider').value,
+                loop: document.getElementById('loop-playback').checked,
+                voiceLeading: document.getElementById('voice-leading').checked
+            };
+            saveState(state);
         }
 
         function renderProgression() {
@@ -30,10 +53,92 @@
             currentProgression.forEach((chord, index) => {
                 const el = document.createElement('div');
                 el.className = 'progression-item';
-                el.innerHTML = `${chord} <button class="remove-btn" onclick="removeChord(${index})">×</button>`;
+
+                const textNode = document.createTextNode(`${chord} `);
+                el.appendChild(textNode);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-btn';
+                removeBtn.textContent = '×';
+                removeBtn.onclick = (e) => {
+                    e.stopPropagation(); // Prevents the audition handler from firing
+                    removeChord(index);
+                };
+                el.appendChild(removeBtn);
+                
+                // Add audition click handler
+                el.onclick = () => {
+                    auditionChord(index);
+                };
+
+                // Make item draggable and store its index
+                el.draggable = true;
+                el.dataset.index = index;
+
                 display.appendChild(el);
             });
         }
+
+        function auditionChord(index) {
+            console.log(`[auditionChord] Intent: Audition chord at index ${index}.`);
+            initAudio();
+
+            const chordSymbol = currentProgression[index];
+            if (!chordSymbol) return;
+
+            const chordNotes = chordDictionary[chordSymbol];
+            const rootNoteMidi = chordNotes[0] - 24;
+            const auditionDuration = 0.8;
+            const now = audioCtx.currentTime;
+
+            // Play chord and bass note without interrupting main playback loop
+            chordNotes.forEach(note => playTone(midiToFreq(note), now, auditionDuration, 'sine'));
+            playTone(midiToFreq(rootNoteMidi), now, auditionDuration, 'triangle');
+        }
+
+        // --- Drag and Drop Logic ---
+        let draggedIndex = null;
+
+        function setupDragAndDrop() {
+            const display = document.getElementById('progression-display');
+
+            display.addEventListener('dragstart', (e) => {
+                if (e.target.classList.contains('progression-item')) {
+                    draggedIndex = parseInt(e.target.dataset.index, 10);
+                    e.dataTransfer.effectAllowed = 'move';
+                    // Add a slight delay to allow the browser to create the drag image
+                    setTimeout(() => {
+                        e.target.classList.add('dragging');
+                    }, 0);
+                }
+            });
+
+            display.addEventListener('dragend', (e) => {
+                if (e.target.classList.contains('progression-item')) {
+                    e.target.classList.remove('dragging');
+                }
+                draggedIndex = null;
+            });
+
+            display.addEventListener('dragover', (e) => {
+                e.preventDefault(); // This is necessary to allow a drop
+            });
+
+            display.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const dropTarget = e.target.closest('.progression-item');
+                if (dropTarget && draggedIndex !== null) {
+                    const droppedOnIndex = parseInt(dropTarget.dataset.index, 10);
+                    if (draggedIndex === droppedOnIndex) return;
+
+                    const itemToMove = currentProgression.splice(draggedIndex, 1)[0];
+                    currentProgression.splice(droppedOnIndex, 0, itemToMove);
+                    persistAppState();
+                    renderProgression(); // Re-render to reflect the new order
+                }
+            });
+        }
+        document.addEventListener('DOMContentLoaded', setupDragAndDrop);
 
         // --- Core Algorithm: Voice Leading ---
         // Calculates the inversion of a target chord that has the shortest 
@@ -96,6 +201,7 @@
         // --- Export Logic ---
         function exportMidi() {
             if (currentProgression.length === 0) {
+                console.log("[exportMidi] Aborted: Progression is empty.");
                 alert("Please add some chords to the progression first!");
                 return;
             }
@@ -136,7 +242,9 @@
                 }));
             });
 
-            const write = new MidiWriter.Writer([track, bassTrack]);
+            const bpm = document.getElementById('bpm-slider').value;
+            const write = new MidiWriter.Writer([track, bassTrack], { tempo: parseInt(bpm, 10) });
+            console.log(`[exportMidi] Exporting MIDI with tempo: ${bpm} BPM.`);
             const dataUri = write.dataUri();
 
             // Trigger download
@@ -147,6 +255,161 @@
             link.click();
             document.body.removeChild(link);
         }
+
+        // --- Web Audio API Engine ---
+        let audioCtx;
+        let activeOscillators = [];
+        let loopTimeoutId = null;
+        let uiTimeouts = [];
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function midiToFreq(m) {
+            return Math.pow(2, (m - 69) / 12) * 440;
+        }
+
+        function playTone(freq, startTime, duration, type = 'sine') {
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc.type = type;
+            osc.frequency.value = freq;
+
+            // Envelope to avoid clicks: Attack -> Sustain -> Release
+            gainNode.gain.setValueAtTime(0, startTime);
+            gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.05); // Attack
+            gainNode.gain.setValueAtTime(0.15, startTime + duration - 0.1); // Sustain
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration); // Release
+
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+
+            activeOscillators.push(osc);
+        }
+
+        function highlightChordInUI(index) {
+            const items = document.querySelectorAll('.progression-item');
+            items.forEach(el => el.classList.remove('playing'));
+            if (items[index]) {
+                items[index].classList.add('playing');
+            }
+        }
+
+        function playProgression() {
+            const isLooping = document.getElementById('loop-playback').checked;
+            console.log(`[playProgression] Intent: Play ${currentProgression.length} chords. Looping: ${isLooping}`);
+            if (currentProgression.length === 0) return;
+            
+            initAudio();
+            // Clear any previous loop timeout before stopping oscillators
+            if (loopTimeoutId) clearTimeout(loopTimeoutId);
+            stopProgression(); // Clear existing playback
+
+            const useVoiceLeading = document.getElementById('voice-leading').checked;
+            const notesToPlay = useVoiceLeading ? applyVoiceLeading(currentProgression) : currentProgression.map(c => chordDictionary[c]);
+            
+            const bpm = document.getElementById('bpm-slider').value;
+            const chordDuration = 60 / bpm; // Duration of a quarter note in seconds.
+            console.log(`[playProgression] BPM: ${bpm}, Chord Duration: ${chordDuration}s`);
+
+            const now = audioCtx.currentTime;
+
+            notesToPlay.forEach((chordNotes, index) => {
+                const startTime = now + (index * chordDuration);
+                
+                // Play Track 1 (Chords) - Sine waves for clean reference
+                chordNotes.forEach(note => playTone(midiToFreq(note), startTime, chordDuration, 'sine'));
+
+                // Play Track 2 (Bass) - Triangle wave, down 2 octaves
+                const rootSymbol = currentProgression[index];
+                const rootNoteMidi = chordDictionary[rootSymbol][0] - 24; 
+                playTone(midiToFreq(rootNoteMidi), startTime, chordDuration, 'triangle');
+
+                // Schedule UI Highlight
+                const delayMs = (index * chordDuration) * 1000;
+                uiTimeouts.push(setTimeout(() => {
+                    highlightChordInUI(index);
+                }, delayMs));
+            });
+
+            // If looping is enabled, set a timeout to call this function again
+            if (isLooping) {
+                const totalDurationMs = notesToPlay.length * chordDuration * 1000;
+                console.log(`[playProgression] Scheduling loop in ${totalDurationMs.toFixed(0)}ms.`);
+                loopTimeoutId = setTimeout(playProgression, totalDurationMs);
+            }
+        }
+
+        function stopProgression() {
+            console.log(`[stopProgression] Intent: Stop all playback.`);
+            if (loopTimeoutId) clearTimeout(loopTimeoutId);
+            loopTimeoutId = null;
+
+            uiTimeouts.forEach(clearTimeout);
+            uiTimeouts = [];
+            highlightChordInUI(-1); // Clear all highlights
+
+            activeOscillators.forEach(osc => {
+                try {
+                    osc.stop();
+                    osc.disconnect();
+                } catch (e) {}
+            });
+            activeOscillators = [];
+        }
+
+// --- Initialization & Event Listeners ---
+function initApp() {
+    console.log('[initApp] Starting app initialization.');
+    setupDragAndDrop();
+    
+    const chordBtns = document.querySelectorAll('.chord-btn');
+    console.log(`[initApp] Found ${chordBtns.length} chord buttons. Attaching listeners.`);
+    chordBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            console.log(`[UI Click] Button clicked. Dispatching addChord for: ${btn.dataset.chord}`);
+            addChord(btn.dataset.chord);
+        });
+    });
+
+    document.getElementById('btn-play').addEventListener('click', playProgression);
+    document.getElementById('btn-stop').addEventListener('click', stopProgression);
+    document.getElementById('btn-clear').addEventListener('click', clearProgression);
+    document.getElementById('btn-export').addEventListener('click', exportMidi);
+    
+    document.getElementById('bpm-slider').addEventListener('input', persistAppState);
+    document.getElementById('loop-playback').addEventListener('change', persistAppState);
+    document.getElementById('voice-leading').addEventListener('change', persistAppState);
+
+    const savedState = loadState();
+    if (savedState) {
+        console.log('[initApp] Loaded saved state:', savedState);
+        if (savedState.currentProgression) currentProgression = savedState.currentProgression;
+        if (savedState.bpm) document.getElementById('bpm-slider').value = savedState.bpm;
+        if (savedState.loop !== undefined) document.getElementById('loop-playback').checked = savedState.loop;
+        if (savedState.voiceLeading !== undefined) document.getElementById('voice-leading').checked = savedState.voiceLeading;
+    }
+    
+    renderProgression();
+    console.log('[initApp] Initialization complete.');
+}
+
+// Robust initialization: handle cases where DOM is already loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
 
 // --- Jest Testing Exports ---
 // This check ensures the browser doesn't throw an error when running normally, 

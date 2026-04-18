@@ -19,11 +19,28 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 4. DIFF HYGIENE: Generate atomic, verifiable diffs. Before outputting, mentally confirm line numbers and context from the provided source file. Reject requests that would result in a messy or non-applicable diff.
 5. CORRECTION PROTOCOL: If a mistake is pointed out, acknowledge the correct pattern and do not repeat the error. The user may provide a `// CORRECT_PATTERN: <description>` comment to reinforce a rule.
 
-## MILESTONE TARGETS
-1. Real-time Web Audio playback + loops.
-2. Section looping (UI slice selection).
-3. Smart chord auditioning (borrowed chords).
-4. Progression Sequences (Verse/Chorus structures).
+## CURRENT STATE & ROADMAP
+**Current State:** v0.1 Foundation. Core strict vanilla JS architecture and state rules (SSOT) defined.
+
+**Phase 1: Core Playback & UI Foundation**
+- [ ] Real-time Web Audio API playback setup.
+- [ ] Pure UI rendering of `currentProgression` state.
+- [ ] MidiWriterJS integration for basic Track 1 (Chords) & Track 2 (Bass).
+
+**Phase 2: Contextual Auditioning & Looping**
+- [ ] Section looping (UI slice selection for seamless playback).
+- [ ] Live chord alternative swapping and auditioning.
+
+**Phase 3: The "Mind-Bending" Harmonic Engine**
+- [ ] Voice leading and inner-melodic line math functions.
+- [ ] Advanced chord dictionary (borrowed chords, extended 9th/11th/13th voicings).
+- [ ] Pivot chord and direct modulation mechanics.
+
+**Phase 4: Sequence Architecture & AI Export**
+- [ ] Multi-progression sequencing (Verse -> Pre -> Chorus).
+- [ ] MIDI Export finalized.
+- [ ] AI text prompt generation (for copy-pasting into models like ACE Studio 2.0, Suno).
+- [ ] Reference audio export (.wav of a clean synth pad).
 
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.

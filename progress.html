@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Konstrux</title>
     <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@2.1.4/browser/midiwriter.js"></script>
-    <script src="progressmain.js" defer></script>
+    <script type="module" src="progressmain.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,29 +21,40 @@
         <h3>2. Build Progression</h3>
         <div>
             <strong>Diatonic:</strong>
-            <button class="chord-btn" onclick="addChord('I')">I (C Maj)</button>
-            <button class="chord-btn" onclick="addChord('ii')">ii (D Min)</button>
-            <button class="chord-btn" onclick="addChord('iii')">iii (E Min)</button>
-            <button class="chord-btn" onclick="addChord('IV')">IV (F Maj)</button>
-            <button class="chord-btn" onclick="addChord('V')">V (G Maj)</button>
-            <button class="chord-btn" onclick="addChord('vi')">vi (A Min)</button>
+            <button class="chord-btn" data-chord="I">I (C Maj)</button>
+            <button class="chord-btn" data-chord="ii">ii (D Min)</button>
+            <button class="chord-btn" data-chord="iii">iii (E Min)</button>
+            <button class="chord-btn" data-chord="IV">IV (F Maj)</button>
+            <button class="chord-btn" data-chord="V">V (G Maj)</button>
+            <button class="chord-btn" data-chord="vi">vi (A Min)</button>
         </div>
         <div style="margin-top: 10px;">
             <strong>Borrowed (Modal Mixture):</strong>
-            <button class="chord-btn borrowed" onclick="addChord('iv')">iv (F Min)</button>
-            <button class="chord-btn borrowed" onclick="addChord('bVI')">♭VI (Ab Maj)</button>
-            <button class="chord-btn borrowed" onclick="addChord('bVII')">♭VII (Bb Maj)</button>
+            <button class="chord-btn borrowed" data-chord="iv">iv (F Min)</button>
+            <button class="chord-btn borrowed" data-chord="bVI">♭VI (Ab Maj)</button>
+            <button class="chord-btn borrowed" data-chord="bVII">♭VII (Bb Maj)</button>
         </div>
 
         <div id="progression-display"></div>
     </div>
 
     <div class="panel controls">
+        <button class="export" id="btn-play" style="background: #3b82f6;">Play</button>
+        <button class="export" id="btn-stop" style="background: #ef4444;">Stop</button>
+        <button class="export" id="btn-clear" style="background: #f59e0b;">Clear</button>
+        <label>
+            <strong>BPM:</strong>
+            <input type="number" id="bpm-slider" value="90" min="40" max="240" style="width: 60px;">
+        </label>
+        <label>
+            <input type="checkbox" id="loop-playback"> 
+            <strong>Loop</strong>
+        </label>
         <label>
             <input type="checkbox" id="voice-leading" checked> 
             <strong>Apply Voice Leading</strong> (Minimizes note movement between chords)
         </label>
-        <button class="export" onclick="exportMidi()">Download MIDI</button>
+        <button class="export" id="btn-export">Download MIDI</button>
     </div>
 
 </body>
