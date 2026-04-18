@@ -35,5 +35,5 @@ http.createServer((req, res) => {
         }
     });
 }).listen(PORT, () => {
-    console.log(`🚀 Konstrux Dev Server running at: http://localhost:${PORT}/`);
+    console.log(`🚀 Progress Dev Server running at: http://localhost:${PORT}/`);
 });
