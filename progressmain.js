@@ -1,300 +1,172 @@
 import { saveState, loadState } from './storage.js';
+import { chordDictionary, applyVoiceLeading } from './theory.js';
+import { CONFIG } from './config.js';
+import { auditionChord, playProgression, stopProgression } from './audio.js';
+import { setupDragZone, setupDraggableSource } from './dragdrop.js';
+import { exportToMidi } from './midi.js';
 
-// MIDI note numbers (C4 = 60)
-        // Storing root-position triads for C Major and common borrowed chords
-        const chordDictionary = {
-            'I':    [60, 64, 67], // C, E, G
-            'ii':   [62, 65, 69], // D, F, A
-            'iii':  [64, 67, 71], // E, G, B
-            'IV':   [65, 69, 72], // F, A, C (C5)
-            'V':    [67, 71, 74], // G, B, D (D5)
-            'vi':   [69, 72, 76], // A, C, E (E5)
-            'iv':   [65, 68, 72], // F, Ab, C - Borrowed from C min
-            'bVI':  [68, 72, 75], // Ab, C, Eb - Borrowed from C min
-            'bVII': [70, 74, 77]  // Bb, D, F - Borrowed from C min
+        // --- Single Source of Truth ---
+        const state = {
+            currentProgression: [],
+            bpm: 90,
+            isLooping: true,
+            useVoiceLeading: true,
+            loopStart: 0,
+            loopEnd: 0,
+            theme: 'light'
         };
+        let isPlaying = false;
 
-        let currentProgression = [];
+        function sanitizeLoopBounds() {
+            const len = state.currentProgression.length;
+            if (typeof state.loopStart !== 'number') state.loopStart = 0;
+            if (typeof state.loopEnd !== 'number') state.loopEnd = len;
+            
+            if (len === 0) {
+                state.loopStart = 0;
+                state.loopEnd = 0;
+                return;
+            }
+            
+            // Ensure bounds are always mathematically valid and surround >= 1 chord
+            if (state.loopStart < 0) state.loopStart = 0;
+            if (state.loopStart >= len) state.loopStart = len - 1;
+            
+            if (state.loopEnd <= state.loopStart) state.loopEnd = state.loopStart + 1;
+            if (state.loopEnd > len) state.loopEnd = len;
+        }
 
         function addChord(numeral) {
-            console.log(`[addChord] Entering. Intent: Add ${numeral} to progression.`);
-            currentProgression.push(numeral);
+            const isAtEnd = state.loopEnd === state.currentProgression.length;
+            state.currentProgression.push(numeral);
+            
+            if (isAtEnd) state.loopEnd = state.currentProgression.length;
+            
+            sanitizeLoopBounds();
             persistAppState();
             renderProgression();
         }
 
         function removeChord(index) {
-            currentProgression.splice(index, 1);
+            const isAtEnd = state.loopEnd === state.currentProgression.length;
+            state.currentProgression.splice(index, 1);
+            
+            if (isAtEnd) {
+                state.loopEnd = state.currentProgression.length;
+            } else if (index < state.loopEnd) {
+                state.loopEnd--;
+            }
+            
+            if (index < state.loopStart) {
+                state.loopStart--;
+            }
+            
+            sanitizeLoopBounds();
             persistAppState();
             renderProgression();
         }
 
         function clearProgression() {
-            console.log('[clearProgression] Intent: Clear all chords.');
-            stopProgression();
-            currentProgression = [];
+            stopProgression(highlightChordInUI);
+            isPlaying = false;
+            if (document.getElementById('btn-play-toggle')) document.getElementById('btn-play-toggle').textContent = '▶';
+            state.currentProgression = [];
+            sanitizeLoopBounds();
             persistAppState();
             renderProgression();
         }
 
         function persistAppState() {
-            const state = {
-                currentProgression,
-                bpm: document.getElementById('bpm-slider').value,
-                loop: document.getElementById('loop-playback').checked,
-                voiceLeading: document.getElementById('voice-leading').checked
-            };
             saveState(state);
         }
 
+        function createBracketElement(id, text) {
+            const br = document.createElement('div');
+            br.id = id;
+            br.textContent = text;
+            br.draggable = true;
+            Object.assign(br.style, {
+                display: 'inline-block',
+                fontSize: '36px',
+                fontWeight: '200',
+                color: 'var(--bracket-color)',
+                margin: '0 4px',
+                cursor: 'ew-resize',
+                userSelect: 'none',
+                verticalAlign: 'top',
+                lineHeight: '40px',
+                fontFamily: 'monospace'
+            });
+            return br;
+        }
+
+        // --- UI Rendering ---
         function renderProgression() {
             const display = document.getElementById('progression-display');
-            display.innerHTML = '';
-            currentProgression.forEach((chord, index) => {
-                const el = document.createElement('div');
-                el.className = 'progression-item';
+            const existingItems = display.querySelectorAll('.progression-item');
 
-                const textNode = document.createTextNode(`${chord} `);
-                el.appendChild(textNode);
-
-                const removeBtn = document.createElement('button');
-                removeBtn.className = 'remove-btn';
-                removeBtn.textContent = '×';
-                removeBtn.onclick = (e) => {
-                    e.stopPropagation(); // Prevents the audition handler from firing
-                    removeChord(index);
-                };
-                el.appendChild(removeBtn);
+            state.currentProgression.forEach((chord, index) => {
+                let el = existingItems[index];
                 
-                // Add audition click handler
-                el.onclick = () => {
-                    auditionChord(index);
-                };
+                if (!el) {
+                    // Create new element if we have more state items than DOM nodes
+                    el = document.createElement('div');
+                    el.className = 'progression-item';
 
-                // Make item draggable and store its index
-                el.draggable = true;
+                    const textNode = document.createTextNode(`${chord} `);
+                    el.appendChild(textNode);
+
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'remove-btn';
+                    removeBtn.textContent = '×';
+                    el.appendChild(removeBtn);
+                    
+                    el.draggable = true;
+                    display.appendChild(el);
+                } else {
+                    // Update existing element text in-place (childNodes[0] is the textNode)
+                    el.childNodes[0].textContent = `${chord} `;
+                }
+
+                // Dataset index updated so Event Delegation can route the click correctly
                 el.dataset.index = index;
 
-                display.appendChild(el);
-            });
-        }
-
-        function auditionChord(index) {
-            console.log(`[auditionChord] Intent: Audition chord at index ${index}.`);
-            initAudio();
-
-            const chordSymbol = currentProgression[index];
-            if (!chordSymbol) return;
-
-            const chordNotes = chordDictionary[chordSymbol];
-            const rootNoteMidi = chordNotes[0] - 24;
-            const auditionDuration = 0.8;
-            const now = audioCtx.currentTime;
-
-            // Play chord and bass note without interrupting main playback loop
-            chordNotes.forEach(note => playTone(midiToFreq(note), now, auditionDuration, 'sine'));
-            playTone(midiToFreq(rootNoteMidi), now, auditionDuration, 'triangle');
-        }
-
-        // --- Drag and Drop Logic ---
-        let draggedIndex = null;
-
-        function setupDragAndDrop() {
-            const display = document.getElementById('progression-display');
-
-            display.addEventListener('dragstart', (e) => {
-                if (e.target.classList.contains('progression-item')) {
-                    draggedIndex = parseInt(e.target.dataset.index, 10);
-                    e.dataTransfer.effectAllowed = 'move';
-                    // Add a slight delay to allow the browser to create the drag image
-                    setTimeout(() => {
-                        e.target.classList.add('dragging');
-                    }, 0);
+                // Highlight items within the loop visually
+                const isInsideLoop = state.isLooping && index >= state.loopStart && index < state.loopEnd;
+                if (isInsideLoop) {
+                    el.classList.add('in-loop');
+                } else {
+                    el.classList.remove('in-loop');
                 }
             });
 
-            display.addEventListener('dragend', (e) => {
-                if (e.target.classList.contains('progression-item')) {
-                    e.target.classList.remove('dragging');
-                }
-                draggedIndex = null;
-            });
+            // Remove excess DOM elements if the progression shrank
+            for (let i = state.currentProgression.length; i < existingItems.length; i++) {
+                display.removeChild(existingItems[i]);
+            }
 
-            display.addEventListener('dragover', (e) => {
-                e.preventDefault(); // This is necessary to allow a drop
-            });
-
-            display.addEventListener('drop', (e) => {
-                e.preventDefault();
-                const dropTarget = e.target.closest('.progression-item');
-                if (dropTarget && draggedIndex !== null) {
-                    const droppedOnIndex = parseInt(dropTarget.dataset.index, 10);
-                    if (draggedIndex === droppedOnIndex) return;
-
-                    const itemToMove = currentProgression.splice(draggedIndex, 1)[0];
-                    currentProgression.splice(droppedOnIndex, 0, itemToMove);
-                    persistAppState();
-                    renderProgression(); // Re-render to reflect the new order
-                }
-            });
-        }
-        document.addEventListener('DOMContentLoaded', setupDragAndDrop);
-
-        // --- Core Algorithm: Voice Leading ---
-        // Calculates the inversion of a target chord that has the shortest 
-        // total melodic distance from the previous chord.
-        function applyVoiceLeading(progression) {
-            if (progression.length === 0) return [];
-            
-            // Start the first chord in root position, dropped down an octave for warmth (C3 range)
-            let processed = [chordDictionary[progression[0]].map(n => n - 12)]; 
-
-            for (let i = 1; i < progression.length; i++) {
-                let prevChord = processed[i - 1];
-                let targetNotes = chordDictionary[progression[i]];
+            // Ensure brackets are rendered natively into the flex flow if looping is enabled
+            if (state.currentProgression.length > 0 && state.isLooping) {
+                let startBr = document.getElementById('bracket-start') || createBracketElement('bracket-start', '[');
+                let endBr = document.getElementById('bracket-end') || createBracketElement('bracket-end', ']');
                 
-                // Generate possible inversions (moving notes up/down octaves)
-                let inversions = generateInversions(targetNotes);
+                startBr.style.display = 'inline-block';
+                endBr.style.display = 'inline-block';
+
+                const updatedItems = display.querySelectorAll('.progression-item');
                 
-                // Find the inversion with the smallest movement delta
-                let bestInversion = inversions[0];
-                let smallestDistance = Infinity;
+                if (updatedItems[state.loopStart]) display.insertBefore(startBr, updatedItems[state.loopStart]);
+                else display.appendChild(startBr);
 
-                inversions.forEach(inv => {
-                    let distance = calculateDistance(prevChord, inv);
-                    if (distance < smallestDistance) {
-                        smallestDistance = distance;
-                        bestInversion = inv;
-                    }
-                });
-
-                processed.push(bestInversion);
-            }
-            return processed;
-        }
-
-        function generateInversions(chord) {
-            // Generates Root, 1st, and 2nd inversions, plus octave shifted versions
-            const [n1, n2, n3] = chord;
-            return [
-                [n1 - 12, n2 - 12, n3 - 12], // Down an octave
-                [n1 - 12, n2 - 12, n3],      // Spread
-                [n1, n2, n3],                // Root 
-                [n2 - 12, n3 - 12, n1],      // 1st inversion (lower)
-                [n2, n3, n1 + 12],           // 1st inversion
-                [n3 - 12, n1, n2],           // 2nd inversion
-                [n3, n1 + 12, n2 + 12]       // 2nd inversion (higher)
-            ];
-        }
-
-        function calculateDistance(chordA, chordB) {
-            // Sort to compare bottom-to-bottom, middle-to-middle, top-to-top
-            let sortedA = [...chordA].sort((a,b)=>a-b);
-            let sortedB = [...chordB].sort((a,b)=>a-b);
-            let dist = 0;
-            for (let i = 0; i < 3; i++) {
-                dist += Math.abs(sortedA[i] - sortedB[i]);
-            }
-            return dist;
-        }
-
-        // --- Export Logic ---
-        function exportMidi() {
-            if (currentProgression.length === 0) {
-                console.log("[exportMidi] Aborted: Progression is empty.");
-                alert("Please add some chords to the progression first!");
-                return;
-            }
-
-            const useVoiceLeading = document.getElementById('voice-leading').checked;
-            let midiNotesToWrite = [];
-
-            if (useVoiceLeading) {
-                midiNotesToWrite = applyVoiceLeading(currentProgression);
+                if (updatedItems[state.loopEnd]) display.insertBefore(endBr, updatedItems[state.loopEnd]);
+                else display.appendChild(endBr);
             } else {
-                // Just use block root position chords
-                midiNotesToWrite = currentProgression.map(c => chordDictionary[c]);
+                // Hide brackets if looping is disabled or progression is empty
+                const startBr = document.getElementById('bracket-start');
+                const endBr = document.getElementById('bracket-end');
+                if (startBr && startBr.parentNode) startBr.parentNode.removeChild(startBr);
+                if (endBr && endBr.parentNode) endBr.parentNode.removeChild(endBr);
             }
-
-            // Initialize MidiWriterJS
-            const track = new MidiWriter.Track();
-            track.addEvent(new MidiWriter.ProgramChangeEvent({instrument: 1})); // Acoustic Grand Piano
-
-            // Add chords to track (Whole notes, length '1')
-            midiNotesToWrite.forEach(notes => {
-                const chordEvent = new MidiWriter.NoteEvent({
-                    pitch: notes,
-                    duration: '1',
-                    velocity: 80 
-                });
-                track.addEvent(chordEvent);
-            });
-
-            // Add a bass line! (Root notes played down two octaves)
-            // This satisfies the "drafting the bass line first" concept from the text
-            const bassTrack = new MidiWriter.Track();
-            currentProgression.forEach(chordSymbol => {
-                const rootNote = chordDictionary[chordSymbol][0] - 24; 
-                bassTrack.addEvent(new MidiWriter.NoteEvent({
-                    pitch: [rootNote],
-                    duration: '1',
-                    velocity: 90
-                }));
-            });
-
-            const bpm = document.getElementById('bpm-slider').value;
-            const write = new MidiWriter.Writer([track, bassTrack], { tempo: parseInt(bpm, 10) });
-            console.log(`[exportMidi] Exporting MIDI with tempo: ${bpm} BPM.`);
-            const dataUri = write.dataUri();
-
-            // Trigger download
-            const link = document.createElement('a');
-            link.href = dataUri;
-            link.download = 'Harmonic_Progression.mid';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        // --- Web Audio API Engine ---
-        let audioCtx;
-        let activeOscillators = [];
-        let loopTimeoutId = null;
-        let uiTimeouts = [];
-
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-        }
-
-        function midiToFreq(m) {
-            return Math.pow(2, (m - 69) / 12) * 440;
-        }
-
-        function playTone(freq, startTime, duration, type = 'sine') {
-            const osc = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-
-            osc.type = type;
-            osc.frequency.value = freq;
-
-            // Envelope to avoid clicks: Attack -> Sustain -> Release
-            gainNode.gain.setValueAtTime(0, startTime);
-            gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.05); // Attack
-            gainNode.gain.setValueAtTime(0.15, startTime + duration - 0.1); // Sustain
-            gainNode.gain.linearRampToValueAtTime(0, startTime + duration); // Release
-
-            osc.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-
-            osc.start(startTime);
-            osc.stop(startTime + duration);
-
-            activeOscillators.push(osc);
         }
 
         function highlightChordInUI(index) {
@@ -305,103 +177,185 @@ import { saveState, loadState } from './storage.js';
             }
         }
 
-        function playProgression() {
-            const isLooping = document.getElementById('loop-playback').checked;
-            console.log(`[playProgression] Intent: Play ${currentProgression.length} chords. Looping: ${isLooping}`);
-            if (currentProgression.length === 0) return;
-            
-            initAudio();
-            // Clear any previous loop timeout before stopping oscillators
-            if (loopTimeoutId) clearTimeout(loopTimeoutId);
-            stopProgression(); // Clear existing playback
-
-            const useVoiceLeading = document.getElementById('voice-leading').checked;
-            const notesToPlay = useVoiceLeading ? applyVoiceLeading(currentProgression) : currentProgression.map(c => chordDictionary[c]);
-            
-            const bpm = document.getElementById('bpm-slider').value;
-            const chordDuration = 60 / bpm; // Duration of a quarter note in seconds.
-            console.log(`[playProgression] BPM: ${bpm}, Chord Duration: ${chordDuration}s`);
-
-            const now = audioCtx.currentTime;
-
-            notesToPlay.forEach((chordNotes, index) => {
-                const startTime = now + (index * chordDuration);
-                
-                // Play Track 1 (Chords) - Sine waves for clean reference
-                chordNotes.forEach(note => playTone(midiToFreq(note), startTime, chordDuration, 'sine'));
-
-                // Play Track 2 (Bass) - Triangle wave, down 2 octaves
-                const rootSymbol = currentProgression[index];
-                const rootNoteMidi = chordDictionary[rootSymbol][0] - 24; 
-                playTone(midiToFreq(rootNoteMidi), startTime, chordDuration, 'triangle');
-
-                // Schedule UI Highlight
-                const delayMs = (index * chordDuration) * 1000;
-                uiTimeouts.push(setTimeout(() => {
-                    highlightChordInUI(index);
-                }, delayMs));
-            });
-
-            // If looping is enabled, set a timeout to call this function again
-            if (isLooping) {
-                const totalDurationMs = notesToPlay.length * chordDuration * 1000;
-                console.log(`[playProgression] Scheduling loop in ${totalDurationMs.toFixed(0)}ms.`);
-                loopTimeoutId = setTimeout(playProgression, totalDurationMs);
+        function updateLoopButtonUI() {
+            const loopToggleBtn = document.getElementById('btn-loop-toggle');
+            if (state.isLooping) {
+                loopToggleBtn.className = 'control-btn primary';
+            } else {
+                loopToggleBtn.className = 'control-btn secondary';
             }
-        }
-
-        function stopProgression() {
-            console.log(`[stopProgression] Intent: Stop all playback.`);
-            if (loopTimeoutId) clearTimeout(loopTimeoutId);
-            loopTimeoutId = null;
-
-            uiTimeouts.forEach(clearTimeout);
-            uiTimeouts = [];
-            highlightChordInUI(-1); // Clear all highlights
-
-            activeOscillators.forEach(osc => {
-                try {
-                    osc.stop();
-                    osc.disconnect();
-                } catch (e) {}
-            });
-            activeOscillators = [];
         }
 
 // --- Initialization & Event Listeners ---
 function initApp() {
-    console.log('[initApp] Starting app initialization.');
-    setupDragAndDrop();
+    const display = document.getElementById('progression-display');
+    
+    setupDragZone(
+        display,
+        (oldIndex, newIndex, newLoopStart, newLoopEnd) => { // onReorder Event
+            if (oldIndex === null || newIndex === null) {
+                renderProgression(); // Clean up visually
+                return;
+            }
+            
+            if (oldIndex !== newIndex) {
+                const itemToMove = state.currentProgression.splice(oldIndex, 1)[0];
+                state.currentProgression.splice(newIndex, 0, itemToMove);
+            }
+            
+            if (newLoopStart !== null && newLoopEnd !== null) {
+                state.loopStart = newLoopStart;
+                state.loopEnd = newLoopEnd;
+            }
+            
+            sanitizeLoopBounds();
+            persistAppState();
+            renderProgression();
+        },
+        (sourceChord, insertIndex, newLoopStart, newLoopEnd) => { // onAddFromSource Event
+            if (insertIndex === null) insertIndex = state.currentProgression.length;
+            
+            const isAtEnd = state.loopEnd === state.currentProgression.length;
+            state.currentProgression.splice(insertIndex, 0, sourceChord);
+            
+            if (newLoopStart !== null && newLoopEnd !== null) {
+                state.loopStart = newLoopStart;
+                state.loopEnd = newLoopEnd;
+            } else {
+                // Fallback math if looping is off and brackets are hidden
+                if (isAtEnd) state.loopEnd = state.currentProgression.length;
+                else if (insertIndex < state.loopEnd) state.loopEnd++;
+                
+                if (insertIndex <= state.loopStart) state.loopStart++;
+            }
+            
+            sanitizeLoopBounds();
+            persistAppState();
+            renderProgression();
+        },
+        (bracketId, insertIndex, newLoopStart, newLoopEnd) => { // onBracketDrop Event
+            if (newLoopStart !== null && newLoopEnd !== null) {
+                state.loopStart = newLoopStart;
+                state.loopEnd = newLoopEnd;
+            } else {
+                if (insertIndex === null) insertIndex = state.currentProgression.length;
+                if (bracketId === 'bracket-start') state.loopStart = insertIndex;
+                else if (bracketId === 'bracket-end') state.loopEnd = insertIndex;
+            }
+            
+            sanitizeLoopBounds();
+            persistAppState();
+            renderProgression();
+        },
+        () => renderProgression(), // onDragCancel Event
+        (index) => state.currentProgression[index] // State lookup
+    );
+
+    // --- Event Delegation ---
+    // A single listener catches all clicks efficiently, eliminating listener thrashing on render.
+    display.addEventListener('click', (e) => {
+        const item = e.target.closest('.progression-item');
+        if (!item) return;
+        
+        const index = parseInt(item.dataset.index, 10);
+        if (e.target.classList.contains('remove-btn')) {
+            removeChord(index);
+        } else {
+            auditionChord(state.currentProgression[index]);
+        }
+    });
     
     const chordBtns = document.querySelectorAll('.chord-btn');
-    console.log(`[initApp] Found ${chordBtns.length} chord buttons. Attaching listeners.`);
     chordBtns.forEach(btn => {
+        setupDraggableSource(btn);
         btn.addEventListener('click', () => {
-            console.log(`[UI Click] Button clicked. Dispatching addChord for: ${btn.dataset.chord}`);
+            auditionChord(btn.dataset.chord);
+        });
+        btn.addEventListener('dblclick', () => {
             addChord(btn.dataset.chord);
         });
     });
 
-    document.getElementById('btn-play').addEventListener('click', playProgression);
-    document.getElementById('btn-stop').addEventListener('click', stopProgression);
+    const playToggleBtn = document.getElementById('btn-play-toggle');
+    playToggleBtn.addEventListener('click', () => {
+        if (isPlaying) {
+            stopProgression(highlightChordInUI);
+            playToggleBtn.textContent = '▶';
+            isPlaying = false;
+        } else {
+            playProgression(
+                () => state, 
+                highlightChordInUI,
+                () => { // onComplete
+                    playToggleBtn.textContent = '▶';
+                    isPlaying = false;
+                }
+            );
+            playToggleBtn.textContent = '■';
+            isPlaying = true;
+        }
+    });
+
+    // Spacebar to play/stop
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+            e.preventDefault(); // Prevent page scroll and default button clicks
+            playToggleBtn.click();
+        }
+    });
+
     document.getElementById('btn-clear').addEventListener('click', clearProgression);
-    document.getElementById('btn-export').addEventListener('click', exportMidi);
+    document.getElementById('btn-export').addEventListener('click', () => exportToMidi(state));
     
-    document.getElementById('bpm-slider').addEventListener('input', persistAppState);
-    document.getElementById('loop-playback').addEventListener('change', persistAppState);
-    document.getElementById('voice-leading').addEventListener('change', persistAppState);
+    document.getElementById('bpm-slider').addEventListener('input', (e) => {
+        state.bpm = parseInt(e.target.value, 10);
+        persistAppState();
+    });
+    document.getElementById('btn-loop-toggle').addEventListener('click', () => {
+        state.isLooping = !state.isLooping;
+        updateLoopButtonUI();
+        sanitizeLoopBounds();
+        persistAppState();
+        renderProgression();
+    });
+    document.getElementById('voice-leading').addEventListener('change', (e) => {
+        state.useVoiceLeading = e.target.checked;
+        persistAppState();
+    });
 
     const savedState = loadState();
     if (savedState) {
-        console.log('[initApp] Loaded saved state:', savedState);
-        if (savedState.currentProgression) currentProgression = savedState.currentProgression;
-        if (savedState.bpm) document.getElementById('bpm-slider').value = savedState.bpm;
-        if (savedState.loop !== undefined) document.getElementById('loop-playback').checked = savedState.loop;
-        if (savedState.voiceLeading !== undefined) document.getElementById('voice-leading').checked = savedState.voiceLeading;
+        if (savedState.currentProgression) state.currentProgression = savedState.currentProgression;
+        if (savedState.bpm) state.bpm = savedState.bpm;
+        // Handle transition from old schema names (loop -> isLooping, voiceLeading -> useVoiceLeading)
+        if (savedState.isLooping !== undefined || savedState.loop !== undefined) state.isLooping = savedState.isLooping ?? savedState.loop;
+        if (savedState.useVoiceLeading !== undefined || savedState.voiceLeading !== undefined) state.useVoiceLeading = savedState.useVoiceLeading ?? savedState.voiceLeading;
+        if (savedState.loopStart !== undefined) state.loopStart = savedState.loopStart;
+        if (savedState.loopEnd !== undefined) state.loopEnd = savedState.loopEnd;
+        if (savedState.theme !== undefined) state.theme = savedState.theme;
     }
+    sanitizeLoopBounds();
+    
+    // --- Theme Management ---
+    document.documentElement.setAttribute('data-theme', state.theme);
+    
+    const themeToggleBtn = document.createElement('button');
+    themeToggleBtn.id = 'theme-toggle';
+    themeToggleBtn.textContent = state.theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+    themeToggleBtn.addEventListener('click', () => {
+        state.theme = state.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', state.theme);
+        themeToggleBtn.textContent = state.theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+        persistAppState();
+    });
+    document.body.appendChild(themeToggleBtn);
+
+    // Sync UI to State
+    document.getElementById('bpm-slider').value = state.bpm;
+    updateLoopButtonUI();
+    document.getElementById('voice-leading').checked = state.useVoiceLeading;
     
     renderProgression();
-    console.log('[initApp] Initialization complete.');
 }
 
 // Robust initialization: handle cases where DOM is already loaded
@@ -409,11 +363,4 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
 } else {
     initApp();
-}
-
-// --- Jest Testing Exports ---
-// This check ensures the browser doesn't throw an error when running normally, 
-// but allows Node.js to import these functions for testing.
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { applyVoiceLeading, generateInversions, calculateDistance };
 }

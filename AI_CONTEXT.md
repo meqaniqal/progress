@@ -3,10 +3,11 @@ ROLE: Sr. Audio/Frontend Eng.
 TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHub/Cloudflare Pages).
 
 ## ARCHITECTURE & STATE
-- SSOT: `currentProgression` (string[]). UI reads only; dispatches intents. No direct mutation.
+- SSOT: Pure JS `AppState` object. UI reads only; dispatches intents. No direct mutation. **Never read state from the DOM during performance-critical loops.**
 - UI: Pure render logic. Zero music theory/math inside UI components.
-- AUDIO/MIDI: Chords (Track 1). Bassline (Track 2: roots -2 octaves).
+- AUDIO/MIDI: Chords (Track 1). Bassline (Track 2: roots -2 octaves). **All audio must pass through a Master Bus/Compressor to prevent digital clipping.**
 - THEORY: Roman Numeral -> MIDI Pitch Array `[60, 64, 67]`. Math/Voice Leading fns must be pure.
+- CONSTANTS: No magic numbers in code. Extract all configuration values to a top-level `CONFIG` object.
 
 ## MANDATORY WORKFLOW
 1. PLAN: Formulate/agree on plan before coding.
@@ -16,18 +17,14 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
    - Fix in a separate commit from logs.
    - NEVER remove logs until user explicitly confirms resolution.
 3. REFACTOR: Atomic commits. Verify import/export graphs on relocation.
-4. DIFF HYGIENE: Generate atomic, verifiable diffs. Before outputting, mentally confirm line numbers and context from the provided source file. Reject requests that would result in a messy or non-applicable diff.
-5. CORRECTION PROTOCOL: If a mistake is pointed out, acknowledge the correct pattern and do not repeat the error. The user may provide a `// CORRECT_PATTERN: <description>` comment to reinforce a rule.
+4. TESTING: All factored-out modules must be Jest-testable by default (wherever appropriate). Include a `.test.js` file with tests verifying common edge cases, problem areas, and expected behaviors for pure logic when creating or extracting new modules.
+5. DIFF HYGIENE: Generate atomic, verifiable diffs. Before outputting, mentally confirm line numbers and context from the provided source file. Reject requests that would result in a messy or non-applicable diff.
+6. CORRECTION PROTOCOL: If a mistake is pointed out, acknowledge the correct pattern and do not repeat the error. The user may provide a `// CORRECT_PATTERN: <description>` comment to reinforce a rule.
 
 ## CURRENT STATE & ROADMAP
-**Current State:** v0.1 Foundation. Core strict vanilla JS architecture and state rules (SSOT) defined.
+**Current State:** v0.2 Foundation & Refactoring Complete. Codebase is modularized, tested, and optimized.
 
-**Phase 1: Core Playback & UI Foundation**
-- [ ] Real-time Web Audio API playback setup.
-- [ ] Pure UI rendering of `currentProgression` state.
-- [ ] MidiWriterJS integration for basic Track 1 (Chords) & Track 2 (Bass).
-
-**Phase 2: Contextual Auditioning & Looping**
+**Phase 2: Contextual Auditioning & Looping (Current Focus)**
 - [ ] Section looping (UI slice selection for seamless playback).
 - [ ] Live chord alternative swapping and auditioning.
 

@@ -39,22 +39,18 @@
     </div>
 
     <div class="panel controls">
-        <button class="export" id="btn-play" style="background: #3b82f6;">Play</button>
-        <button class="export" id="btn-stop" style="background: #ef4444;">Stop</button>
-        <button class="export" id="btn-clear" style="background: #f59e0b;">Clear</button>
+        <button class="control-btn primary" id="btn-play-toggle" title="Play/Stop">▶</button>
+        <button class="control-btn primary" id="btn-loop-toggle" title="Toggle Loop">🔁</button>
+        <button class="control-btn primary" id="btn-clear" title="Clear Progression">🗑</button>
         <label>
             <strong>BPM:</strong>
             <input type="number" id="bpm-slider" value="90" min="40" max="240" style="width: 60px;">
         </label>
         <label>
-            <input type="checkbox" id="loop-playback"> 
-            <strong>Loop</strong>
-        </label>
-        <label>
             <input type="checkbox" id="voice-leading" checked> 
-            <strong>Apply Voice Leading</strong> (Minimizes note movement between chords)
+            <strong>Minimize note movement between chords</strong>
         </label>
-        <button class="export" id="btn-export">Download MIDI</button>
+        <button class="control-btn primary" id="btn-export">⤓ Download MIDI</button>
     </div>
 
 </body>
