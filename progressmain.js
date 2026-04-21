@@ -1,7 +1,7 @@
 import { saveState, loadState } from './storage.js';
 import { applyVoiceLeading, getAlternatives } from './theory.js';
 import { CONFIG } from './config.js';
-import { auditionChord, playProgression, stopProgression } from './audio.js';
+import { auditionChord, playProgression, stopAllAudio } from './audio.js';
 import { setupDragZone, setupDraggableSource } from './dragdrop.js';
 import { exportToMidi } from './midi.js';
 import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder, calculateLoopBounds } from './stateUtils.js';
@@ -19,6 +19,7 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
             theme: 'light'
         };
         let isPlaying = false;
+        let currentPlaybackStopFunction = null; // Stores the stop function returned by audio.playProgression
         let activeMenuIndex = null;
 
         const KEY_NAMES = {
@@ -74,7 +75,7 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
         function clearProgression() {
             state.temporarySwaps = {};
             activeMenuIndex = null;
-            stopProgression(highlightChordInUI);
+            if (currentPlaybackStopFunction) currentPlaybackStopFunction(); // Stop current playback
             isPlaying = false;
             if (document.getElementById('btn-play-toggle')) document.getElementById('btn-play-toggle').textContent = '▶';
             state.currentProgression = [];
@@ -382,16 +383,18 @@ function initApp() {
     const playToggleBtn = document.getElementById('btn-play-toggle');
     playToggleBtn.addEventListener('click', () => {
         if (isPlaying) {
-            stopProgression(highlightChordInUI);
+            if (currentPlaybackStopFunction) currentPlaybackStopFunction();
             playToggleBtn.textContent = '▶';
             isPlaying = false;
+            currentPlaybackStopFunction = null;
         } else {
-            playProgression(
+            currentPlaybackStopFunction = playProgression(
                 () => ({ ...state, currentProgression: getActiveProgression() }), // Injects active swaps
                 highlightChordInUI,
                 () => { // onComplete
                     playToggleBtn.textContent = '▶';
                     isPlaying = false;
+                    currentPlaybackStopFunction = null;
                 }
             );
             playToggleBtn.textContent = '■';
