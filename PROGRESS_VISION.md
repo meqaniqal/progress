@@ -15,9 +15,10 @@
 - **Section Looping:** Select specific sections of a chord progression sequence to loop continuously. This allows the user to tweak individual notes and voicings to ensure they work perfectly in context.
 
 ### 3. Smart Chord Alternatives & Swapping
-- **Alternative Selection:** Where there are several functional alternatives for a specific chord in a sequence, the app provides a mode to temporarily swap them in.
-- **Live Auditioning:** Hear the results of a selected alternative *live* while the progression (or looped section) is playing, without losing the original chord.
-- **Finalization:** Once an alternative chord proves to be the best fit for the emotional intent of the sequence, the user can finalize the choice to permanently replace the original chord.
+- **Guided & Non-Destructive Selection:** Click a chord to view functional theory alternatives. The app suggests options that can be temporarily swapped in without immediately losing the original chord.
+- **Live Auditioning (Multi-Temporary):** Hear the results of selected alternatives *live* while the progression (or looped section) is playing. Multiple chords across the sequence can be in this "temporary/unfinalized" state simultaneously, allowing you to audition entire alternate phrases.
+- **Visual Indicators:** Temporary alternative chords are displayed in a distinct color to clearly differentiate them from finalized chords in the sequence.
+- **Inline Finalization:** Once an alternative chord proves to be the best fit, the user can finalize the choice via an inline indicator/icon directly on the chord badge (rather than a separate, disjointed UI element), permanently replacing the original.
 
 ### 4. Advanced Sequencer View (Future Goal)
 - **Visual Timeline:** Instead of a simple tray, view chords on a timeline or piano-roll-style grid.

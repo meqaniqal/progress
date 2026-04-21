@@ -11,6 +11,22 @@ export const chordDictionary = {
     'bVII': [70, 74, 77]  // Bb, D, F - Borrowed from C min
 };
 
+// Returns functional theory alternatives for substituting chords
+export function getAlternatives(chordSymbol) {
+    const map = {
+        'I':    ['iii', 'vi', 'IV', 'bVI'],
+        'ii':   ['IV', 'V', 'bVII'],
+        'iii':  ['I', 'vi', 'V'],
+        'IV':   ['ii', 'vi', 'iv'],
+        'V':    ['vi', 'iii', 'bVII'], // V -> vi is a classic deceptive cadence
+        'vi':   ['I', 'IV', 'iii'],
+        'iv':   ['bVI', 'V', 'bVII'],
+        'bVI':  ['iv', 'bVII', 'I'],
+        'bVII': ['V', 'bVI', 'IV']
+    };
+    return map[chordSymbol] || ['I', 'IV', 'V', 'vi'];
+}
+
 // --- Core Algorithm: Voice Leading ---
 // Calculates the inversion of a target chord that has the shortest 
 // total melodic distance from the previous chord.

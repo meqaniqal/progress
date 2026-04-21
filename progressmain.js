@@ -1,5 +1,5 @@
 import { saveState, loadState } from './storage.js';
-import { chordDictionary, applyVoiceLeading } from './theory.js';
+import { chordDictionary, applyVoiceLeading, getAlternatives } from './theory.js';
 import { CONFIG } from './config.js';
 import { auditionChord, playProgression, stopProgression } from './audio.js';
 import { setupDragZone, setupDraggableSource } from './dragdrop.js';
@@ -8,6 +8,7 @@ import { exportToMidi } from './midi.js';
         // --- Single Source of Truth ---
         const state = {
             currentProgression: [],
+            temporarySwaps: {}, // Map of index -> temporary chord string (e.g. { 1: 'vi' })
             bpm: 90,
             isLooping: true,
             useVoiceLeading: true,
@@ -16,6 +17,20 @@ import { exportToMidi } from './midi.js';
             theme: 'light'
         };
         let isPlaying = false;
+        let activeMenuIndex = null;
+
+        // Resolves the progression with any active temporary swaps applied
+        function getActiveProgression() {
+            return state.currentProgression.map((chord, index) => 
+                state.temporarySwaps[index] !== undefined ? state.temporarySwaps[index] : chord
+            );
+        }
+
+        // Changing the structure resets the temporary swap state
+        function clearTemporarySwaps() {
+            state.temporarySwaps = {};
+            activeMenuIndex = null;
+        }
 
         function sanitizeLoopBounds() {
             const len = state.currentProgression.length;
@@ -37,6 +52,7 @@ import { exportToMidi } from './midi.js';
         }
 
         function addChord(numeral) {
+            clearTemporarySwaps();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
             state.currentProgression.push(numeral);
             
@@ -48,6 +64,7 @@ import { exportToMidi } from './midi.js';
         }
 
         function removeChord(index) {
+            clearTemporarySwaps();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
             state.currentProgression.splice(index, 1);
             
@@ -67,6 +84,7 @@ import { exportToMidi } from './midi.js';
         }
 
         function clearProgression() {
+            clearTemporarySwaps();
             stopProgression(highlightChordInUI);
             isPlaying = false;
             if (document.getElementById('btn-play-toggle')) document.getElementById('btn-play-toggle').textContent = '▶';
@@ -113,19 +131,63 @@ import { exportToMidi } from './midi.js';
                     el = document.createElement('div');
                     el.className = 'progression-item';
 
-                    const textNode = document.createTextNode(`${chord} `);
+                    const textNode = document.createTextNode('');
                     el.appendChild(textNode);
 
                     const removeBtn = document.createElement('button');
                     removeBtn.className = 'remove-btn';
+                    removeBtn.title = 'Remove Chord';
                     removeBtn.textContent = '×';
                     el.appendChild(removeBtn);
                     
                     el.draggable = true;
                     display.appendChild(el);
+                }
+
+                // Reconcile specific UI features
+                const isTemp = state.temporarySwaps[index] !== undefined;
+                const displayChord = isTemp ? state.temporarySwaps[index] : chord;
+                
+                el.childNodes[0].textContent = `${displayChord} `;
+                el.querySelector('.remove-btn').title = isTemp ? 'Revert Swap' : 'Remove Chord';
+
+                // Handle temporary swap styling and finalize button inline
+                if (isTemp) {
+                    el.classList.add('temporary');
+                    let finalizeBtn = el.querySelector('.finalize-btn');
+                    if (!finalizeBtn) {
+                        finalizeBtn = document.createElement('button');
+                        finalizeBtn.className = 'finalize-btn';
+                        finalizeBtn.title = 'Finalize Swap';
+                        finalizeBtn.textContent = '✓';
+                        el.insertBefore(finalizeBtn, el.querySelector('.remove-btn'));
+                    }
                 } else {
-                    // Update existing element text in-place (childNodes[0] is the textNode)
-                    el.childNodes[0].textContent = `${chord} `;
+                    el.classList.remove('temporary');
+                    const finalizeBtn = el.querySelector('.finalize-btn');
+                    if (finalizeBtn) finalizeBtn.remove();
+                }
+
+                // Handle swap menu rendering
+                if (activeMenuIndex === index && !isTemp) {
+                    let swapMenu = el.querySelector('.swap-menu');
+                    if (!swapMenu) {
+                        swapMenu = document.createElement('div');
+                        swapMenu.className = 'swap-menu';
+                        
+                        const alts = getAlternatives(chord);
+                        alts.forEach(alt => {
+                            const btn = document.createElement('button');
+                            btn.className = 'chord-btn swap-menu-btn';
+                            btn.textContent = alt;
+                            btn.dataset.alt = alt; // Handled by Event Delegation
+                            swapMenu.appendChild(btn);
+                        });
+                        el.appendChild(swapMenu);
+                    }
+                } else {
+                    const swapMenu = el.querySelector('.swap-menu');
+                    if (swapMenu) swapMenu.remove();
                 }
 
                 // Dataset index updated so Event Delegation can route the click correctly
@@ -198,6 +260,8 @@ function initApp() {
                 return;
             }
             
+            clearTemporarySwaps(); // Reset swap state on layout changes
+            
             if (oldIndex !== newIndex) {
                 const itemToMove = state.currentProgression.splice(oldIndex, 1)[0];
                 state.currentProgression.splice(newIndex, 0, itemToMove);
@@ -215,6 +279,7 @@ function initApp() {
         (sourceChord, insertIndex, newLoopStart, newLoopEnd) => { // onAddFromSource Event
             if (insertIndex === null) insertIndex = state.currentProgression.length;
             
+            clearTemporarySwaps();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
             state.currentProgression.splice(insertIndex, 0, sourceChord);
             
@@ -251,17 +316,57 @@ function initApp() {
         (index) => state.currentProgression[index] // State lookup
     );
 
+    // Close context menu if clicked outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.progression-item')) {
+            if (activeMenuIndex !== null) {
+                activeMenuIndex = null;
+                renderProgression();
+            }
+        }
+    });
+
     // --- Event Delegation ---
-    // A single listener catches all clicks efficiently, eliminating listener thrashing on render.
     display.addEventListener('click', (e) => {
         const item = e.target.closest('.progression-item');
         if (!item) return;
         
         const index = parseInt(item.dataset.index, 10);
+        
         if (e.target.classList.contains('remove-btn')) {
-            removeChord(index);
-        } else {
-            auditionChord(state.currentProgression[index]);
+            if (state.temporarySwaps[index] !== undefined) {
+                delete state.temporarySwaps[index];
+                renderProgression();
+            } else {
+                removeChord(index);
+            }
+            return;
+        }
+
+        if (e.target.classList.contains('finalize-btn')) {
+            state.currentProgression[index] = state.temporarySwaps[index];
+            delete state.temporarySwaps[index];
+            persistAppState();
+            renderProgression();
+            return;
+        }
+
+        if (e.target.classList.contains('swap-menu-btn')) {
+            state.temporarySwaps[index] = e.target.dataset.alt;
+            activeMenuIndex = null;
+            auditionChord(state.temporarySwaps[index]);
+            renderProgression();
+            return;
+        }
+
+        // Clicked the chord badge itself
+        const displayChord = state.temporarySwaps[index] || state.currentProgression[index];
+        auditionChord(displayChord);
+
+        // Toggle Context Menu
+        if (state.temporarySwaps[index] === undefined) {
+            activeMenuIndex = activeMenuIndex === index ? null : index;
+            renderProgression();
         }
     });
     
@@ -284,7 +389,7 @@ function initApp() {
             isPlaying = false;
         } else {
             playProgression(
-                () => state, 
+                () => ({ ...state, currentProgression: getActiveProgression() }), // Injects active swaps
                 highlightChordInUI,
                 () => { // onComplete
                     playToggleBtn.textContent = '▶';
@@ -305,7 +410,10 @@ function initApp() {
     });
 
     document.getElementById('btn-clear').addEventListener('click', clearProgression);
-    document.getElementById('btn-export').addEventListener('click', () => exportToMidi(state));
+    document.getElementById('btn-export').addEventListener('click', () => {
+        const exportState = { ...state, currentProgression: getActiveProgression() };
+        exportToMidi(exportState);
+    });
     
     document.getElementById('bpm-slider').addEventListener('input', (e) => {
         state.bpm = parseInt(e.target.value, 10);
