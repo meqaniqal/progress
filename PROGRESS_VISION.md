@@ -15,10 +15,9 @@
 - **Section Looping:** Select specific sections of a chord progression sequence to loop continuously. This allows the user to tweak individual notes and voicings to ensure they work perfectly in context.
 
 ### 3. Smart Chord Alternatives & Swapping
-- **Guided & Non-Destructive Selection:** Click a chord to view functional theory alternatives. The app suggests options that can be temporarily swapped in without immediately losing the original chord.
-- **Live Auditioning (Multi-Temporary):** Hear the results of selected alternatives *live* while the progression (or looped section) is playing. Multiple chords across the sequence can be in this "temporary/unfinalized" state simultaneously, allowing you to audition entire alternate phrases.
-- **Visual Indicators:** Temporary alternative chords are displayed in a distinct color to clearly differentiate them from finalized chords in the sequence.
-- **Inline Finalization:** Once an alternative chord proves to be the best fit, the user can finalize the choice via an inline indicator/icon directly on the chord badge (rather than a separate, disjointed UI element), permanently replacing the original.
+- **Alternative Selection:** Where there are several functional alternatives for a specific chord in a sequence, the app provides a mode to temporarily swap them in.
+- **Live Auditioning:** Hear the results of a selected alternative *live* while the progression (or looped section) is playing, without losing the original chord.
+- **Finalization:** Once an alternative chord proves to be the best fit for the emotional intent of the sequence, the user can finalize the choice to permanently replace the original chord.
 
 ### 4. Advanced Sequencer View (Future Goal)
 - **Visual Timeline:** Instead of a simple tray, view chords on a timeline or piano-roll-style grid.
@@ -71,6 +70,14 @@ The structural climax tool.
 - **Pivot Chord Modulation:** Uses a shared chord between two keys; feels earned and smooth.
 - **Direct Half-Step Modulation:** Shifts the key center abruptly; acts like a release valve. Both are enormously effective when timed right.
 
+#### 5. Intelligent Key & Emotional Architecture
+- **Base Key Selection:** Establish a global base key that the user can dynamically alter.
+- **Context-Aware Modulation Suggestions:** Intelligently suggest transition chords (pivot chords, secondary dominants) to bridge the old key and the newly selected key, preserving smooth musicality.
+- **Algorithmic Key Recommendations:** Suggest potential keys to modulate to based on the user's immediate context (e.g., the last clicked, inserted, or modified chords in the tray) to encourage seamless, professional transitions.
+- **Tension & Release Mechanics:** Analyze how adding, deleting, replacing, or swapping chords shifts the tension, emotional weight, and release of the surrounding sequence in real-time.
+- **Generative Harmonic Analysis:** Evolve beyond descriptive, table-based correlations (like simple shared-tone counting). Implement a generative engine that mathematically analyzes the frequency relationships and intervals within and between chords. This will calculate a "harmonic tension" or "consonance" score, enabling the system to suggest and even auto-generate novel, previously unexplored chord progressions that are guaranteed to be musically and emotionally resonant.
+- **Emotional Evocation Palette:** Provide a UI palette of known emotional evocations mapped to specific chord transitions and groups (e.g., "Nostalgic", "Triumphant", "Anxious"). Users can select a target emotion to filter the app's suggested chords and modulation paths, turning abstract music theory into pure emotional guidance.
+
 ---
 
 ## Advanced Electronica & AI Synergy (Future Expansion)
@@ -80,4 +87,4 @@ To achieve a "mind-bending" electronica aesthetic, the app will eventually suppo
 - **Polyrhythmic Arpeggiation:** Exporting the chords not just as blocks, but as sequenced MIDI patterns typical of advanced electronica (e.g., 5/16 arp patterns over a 4/4 bassline).
 - **AI Text Prompt Generation:** The app will generate a separate, copy-able text block describing the progression's key, mood, and harmonic rhythm. This text is designed to be pasted directly into the prompt field of AI music generators to guide the style of the generated track.
 - **Reference Audio Rendering:** Exporting the progression as a clean WAV file (e.g., using a simple sine/pad synth) to serve as a clear harmonic audio prompt for full-fledged AI music generators like ACE Studio 2.0, or for audio-to-MIDI conversion in a DAW.
-- **Microtonal/Jazz Modulations:** Support for complex Neo-Riemannian transformations and Coltrane changes to push the boundaries of standard pop/electronic structures.
+- **Omni-Scale & Microtonal Framework:** Expand the harmonic foundation far beyond traditional Western major/minor keys. Introduce dynamic support for all global scales (e.g., Harmonic Minor, Phrygian Dominant, Whole-Tone) and eventually full microtonal/xenharmonic systems (e.g., 24-TET, Bohlen-Pierce). This enables maximum harmonic diversity and unprecedented emotional evocation, pushing the boundaries of standard pop/electronic structures.

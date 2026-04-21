@@ -1,30 +1,83 @@
-// Storing root-position triads for C Major and common borrowed chords (C4 = 60)
-export const chordDictionary = {
-    'I':    [60, 64, 67], // C, E, G
-    'ii':   [62, 65, 69], // D, F, A
-    'iii':  [64, 67, 71], // E, G, B
-    'IV':   [65, 69, 72], // F, A, C (C5)
-    'V':    [67, 71, 74], // G, B, D (D5)
-    'vi':   [69, 72, 76], // A, C, E (E5)
-    'iv':   [65, 68, 72], // F, Ab, C - Borrowed from C min
-    'bVI':  [68, 72, 75], // Ab, C, Eb - Borrowed from C min
-    'bVII': [70, 74, 77]  // Bb, D, F - Borrowed from C min
+// --- Dynamic Chord Generation & Base Key Management ---
+let currentBaseKeyMidi = 60; // Default to C4 (60)
+
+// Define chords purely by their intervals (semitones from the root)
+const CHORD_INTERVALS = {
+    // --- Triads ---
+    'I':      [0, 4, 7],   // Major
+    'ii':     [2, 5, 9],   // Minor
+    'iii':    [4, 7, 11],  // Minor
+    'IV':     [5, 9, 12],  // Major
+    'V':      [7, 11, 14], // Major
+    'vi':     [9, 12, 16], // Minor
+    'iv':     [5, 8, 12],  // Minor (Borrowed)
+    'bVI':    [8, 12, 15], // Major (Borrowed)
+    'bVII':   [10, 14, 17], // Major (Borrowed)
+    
+    // --- 7ths ---
+    'Imaj7':  [0, 4, 7, 11],
+    'ii7':    [2, 5, 9, 12], // 12 represents root up an octave
+    'iii7':   [4, 7, 11, 14],
+    'IVmaj7': [5, 9, 12, 16],
+    'V7':     [7, 11, 14, 17],
+    'vi7':    [9, 12, 16, 19],
+    
+    // --- Extended & Altered Borrowed ---
+    'Imaj9':  [0, 4, 7, 11, 14],
+    'V9':     [7, 11, 14, 17, 21],
+    'iv7':    [5, 8, 12, 15],
+    'bVImaj7':[8, 12, 15, 19],
+    'bVII7':  [10, 14, 17, 20]
 };
 
-// Returns functional theory alternatives for substituting chords
+// The active dictionary exported for the audio and UI engines
+export const chordDictionary = {};
+
+// Rebuilds the dictionary array whenever the base key changes
+export function setBaseKey(midiNote) {
+    currentBaseKeyMidi = midiNote;
+    // Clear existing keys to safely overwrite the exported object reference
+    Object.keys(chordDictionary).forEach(k => delete chordDictionary[k]);
+    
+    for (const [numeral, intervals] of Object.entries(CHORD_INTERVALS)) {
+        chordDictionary[numeral] = intervals.map(interval => currentBaseKeyMidi + interval);
+    }
+}
+
+// Initialize with default C Major
+setBaseKey(currentBaseKeyMidi);
+
+// --- Harmonic Function Alternatives ---
+// Returns chords that share a similar harmonic function for contextual swapping
+// This is a dynamic calculation, not a static map, allowing it to scale
+// with any new chords added to the CHORD_INTERVALS dictionary.
 export function getAlternatives(chordSymbol) {
-    const map = {
-        'I':    ['iii', 'vi', 'IV', 'bVI'],
-        'ii':   ['IV', 'V', 'bVII'],
-        'iii':  ['I', 'vi', 'V'],
-        'IV':   ['ii', 'vi', 'iv'],
-        'V':    ['vi', 'iii', 'bVII'], // V -> vi is a classic deceptive cadence
-        'vi':   ['I', 'IV', 'iii'],
-        'iv':   ['bVI', 'V', 'bVII'],
-        'bVI':  ['iv', 'bVII', 'I'],
-        'bVII': ['V', 'bVI', 'IV']
-    };
-    return map[chordSymbol] || ['I', 'IV', 'V', 'vi'];
+    const sourceNotes = chordDictionary[chordSymbol]?.map(n => n % 12);
+    if (!sourceNotes) return [];
+
+    const allChords = Object.keys(chordDictionary);
+    const scoredAlternatives = [];
+
+    for (const targetSymbol of allChords) {
+        if (targetSymbol === chordSymbol || !chordDictionary[targetSymbol]) continue;
+
+        // Compare based on pitch class (0-11) to ignore octave differences
+        const targetNotes = chordDictionary[targetSymbol].map(n => n % 12);
+        const sharedNotes = sourceNotes.filter(note => targetNotes.includes(note));
+        
+        // Only suggest chords with significant overlap (at least 2 shared notes for triads/7ths)
+        if (sharedNotes.length >= 2) {
+            scoredAlternatives.push({
+                symbol: targetSymbol,
+                score: sharedNotes.length
+            });
+        }
+    }
+
+    // Sort by the number of shared tones (descending) and return the top 3 for a clean UI
+    return scoredAlternatives.sort((a, b) => b.score - a.score)
+                             .map(alt => alt.symbol)
+                             .slice(0, 3);
 }
 
 // --- Core Algorithm: Voice Leading ---
@@ -63,27 +116,42 @@ export function applyVoiceLeading(progression) {
 }
 
 export function generateInversions(chord) {
-    const [n1, n2, n3] = chord;
     const inversions = [];
     
-    // Generate closed Root, 1st, and 2nd inversions across multiple octaves
+    // Generate closed inversions across multiple octaves
     // so the voice leading algorithm can find the closest register smoothly.
     for (let oct of [-24, -12, 0, 12]) {
-        inversions.push([n1 + oct, n2 + oct, n3 + oct]);           // Root
-        inversions.push([n2 + oct - 12, n3 + oct - 12, n1 + oct]); // 1st Inversion
-        inversions.push([n3 + oct - 12, n1 + oct, n2 + oct]);      // 2nd Inversion
+        const base = chord.map(n => n + oct);
+        inversions.push([...base]); // Root Position
+        
+        // Dynamically generate inversions for N-length chords (7ths, 9ths, etc.)
+        for (let i = 1; i < chord.length; i++) {
+            const inv = [...base];
+            for (let j = 0; j < i; j++) {
+                inv[j] += 12; // Shift bottom notes up an octave
+            }
+            inversions.push(inv.sort((a, b) => a - b));
+        }
     }
     
     return inversions;
 }
 
 export function calculateDistance(chordA, chordB) {
-    // Sort to compare bottom-to-bottom, middle-to-middle, top-to-top
+    // Sort to compare voices lowest to highest
     let sortedA = [...chordA].sort((a,b)=>a-b);
     let sortedB = [...chordB].sort((a,b)=>a-b);
     let dist = 0;
-    for (let i = 0; i < 3; i++) {
+    
+    const len = Math.min(sortedA.length, sortedB.length);
+    for (let i = 0; i < len; i++) {
         dist += Math.abs(sortedA[i] - sortedB[i]);
     }
+    
+    // Lightly penalize jumps between chords of different sizes (e.g. Triad -> 9th)
+    if (sortedA.length !== sortedB.length) {
+        dist += Math.abs(sortedA.length - sortedB.length) * 12;
+    }
+    
     return dist;
 }

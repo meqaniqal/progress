@@ -1,5 +1,5 @@
 import { saveState, loadState } from './storage.js';
-import { chordDictionary, applyVoiceLeading, getAlternatives } from './theory.js';
+import { setBaseKey, chordDictionary, applyVoiceLeading, getAlternatives } from './theory.js';
 import { CONFIG } from './config.js';
 import { auditionChord, playProgression, stopProgression } from './audio.js';
 import { setupDragZone, setupDraggableSource } from './dragdrop.js';
@@ -9,6 +9,7 @@ import { exportToMidi } from './midi.js';
         const state = {
             currentProgression: [],
             temporarySwaps: {}, // Map of index -> temporary chord string (e.g. { 1: 'vi' })
+            baseKey: 60, // C4
             bpm: 90,
             isLooping: true,
             useVoiceLeading: true,
@@ -18,6 +19,11 @@ import { exportToMidi } from './midi.js';
         };
         let isPlaying = false;
         let activeMenuIndex = null;
+
+        const KEY_NAMES = {
+            60: 'C Major', 61: 'C♯/D♭ Major', 62: 'D Major', 63: 'D♯/E♭ Major', 64: 'E Major', 65: 'F Major',
+            66: 'F♯/G♭ Major', 67: 'G Major', 68: 'G♯/A♭ Major', 69: 'A Major', 70: 'A♯/B♭ Major', 71: 'B Major'
+        };
 
         // Resolves the progression with any active temporary swaps applied
         function getActiveProgression() {
@@ -149,7 +155,16 @@ import { exportToMidi } from './midi.js';
                 const displayChord = isTemp ? state.temporarySwaps[index] : chord;
                 
                 el.childNodes[0].textContent = `${displayChord} `;
-                el.querySelector('.remove-btn').title = isTemp ? 'Revert Swap' : 'Remove Chord';
+
+                // Get the action button and set its icon and title based on the state
+                const actionBtn = el.querySelector('.remove-btn');
+                if (isTemp) {
+                    actionBtn.title = 'Revert Swap';
+                    actionBtn.textContent = '↺';
+                } else {
+                    actionBtn.title = 'Remove Chord';
+                    actionBtn.textContent = '×';
+                }
 
                 // Handle temporary swap styling and finalize button inline
                 if (isTemp) {
@@ -354,14 +369,18 @@ function initApp() {
         if (e.target.classList.contains('swap-menu-btn')) {
             state.temporarySwaps[index] = e.target.dataset.alt;
             activeMenuIndex = null;
-            auditionChord(state.temporarySwaps[index]);
+            if (!isPlaying) {
+                auditionChord(state.temporarySwaps[index]);
+            }
             renderProgression();
             return;
         }
 
         // Clicked the chord badge itself
         const displayChord = state.temporarySwaps[index] || state.currentProgression[index];
-        auditionChord(displayChord);
+        if (!isPlaying) {
+            auditionChord(displayChord);
+        }
 
         // Toggle Context Menu
         if (state.temporarySwaps[index] === undefined) {
@@ -431,6 +450,15 @@ function initApp() {
         persistAppState();
     });
 
+    document.getElementById('key-selector').addEventListener('change', (e) => {
+        const newKey = parseInt(e.target.value, 10);
+        state.baseKey = newKey;
+        setBaseKey(newKey);
+        document.getElementById('key-display').textContent = KEY_NAMES[newKey] || 'C Major';
+        persistAppState();
+        // The audio engine will pick up the new key automatically on the next scheduled note.
+    });
+
     const savedState = loadState();
     if (savedState) {
         if (savedState.currentProgression) state.currentProgression = savedState.currentProgression;
@@ -440,8 +468,11 @@ function initApp() {
         if (savedState.useVoiceLeading !== undefined || savedState.voiceLeading !== undefined) state.useVoiceLeading = savedState.useVoiceLeading ?? savedState.voiceLeading;
         if (savedState.loopStart !== undefined) state.loopStart = savedState.loopStart;
         if (savedState.loopEnd !== undefined) state.loopEnd = savedState.loopEnd;
+        if (savedState.baseKey !== undefined) state.baseKey = savedState.baseKey;
         if (savedState.theme !== undefined) state.theme = savedState.theme;
     }
+    // Set the initial key for the theory engine before any rendering
+    setBaseKey(state.baseKey);
     sanitizeLoopBounds();
     
     // --- Theme Management ---
@@ -459,6 +490,8 @@ function initApp() {
     document.body.appendChild(themeToggleBtn);
 
     // Sync UI to State
+    document.getElementById('key-selector').value = state.baseKey;
+    document.getElementById('key-display').textContent = KEY_NAMES[state.baseKey] || 'C Major';
     document.getElementById('bpm-slider').value = state.bpm;
     updateLoopButtonUI();
     document.getElementById('voice-leading').checked = state.useVoiceLeading;

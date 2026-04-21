@@ -13,26 +13,39 @@
     <p>Build neuroharmonic chord progressions</p>
 
     <div class="panel">
-        <h3>1. Select Key (Default: C Major)</h3>
-        <p><em>Currently locked to C Major/A Minor</em></p>
+        <h3>1. Select Key: <span id="key-display">C Major</span></h3>
+        <select id="key-selector">
+            <option value="60">C Major</option>
+            <option value="61">C♯/D♭ Major</option>
+            <option value="62">D Major</option>
+            <option value="63">D♯/E♭ Major</option>
+            <option value="64">E Major</option>
+            <option value="65">F Major</option>
+            <option value="66">F♯/G♭ Major</option>
+            <option value="67">G Major</option>
+            <option value="68">G♯/A♭ Major</option>
+            <option value="69">A Major</option>
+            <option value="70">A♯/B♭ Major</option>
+            <option value="71">B Major</option>
+        </select>
     </div>
 
     <div class="panel">
         <h3>2. Build Progression</h3>
         <div>
             <strong>Diatonic:</strong>
-            <button class="chord-btn" data-chord="I">I (C Maj)</button>
-            <button class="chord-btn" data-chord="ii">ii (D Min)</button>
-            <button class="chord-btn" data-chord="iii">iii (E Min)</button>
-            <button class="chord-btn" data-chord="IV">IV (F Maj)</button>
-            <button class="chord-btn" data-chord="V">V (G Maj)</button>
-            <button class="chord-btn" data-chord="vi">vi (A Min)</button>
+            <button class="chord-btn" data-chord="I">I</button>
+            <button class="chord-btn" data-chord="ii">ii</button>
+            <button class="chord-btn" data-chord="iii">iii</button>
+            <button class="chord-btn" data-chord="IV">IV</button>
+            <button class="chord-btn" data-chord="V">V</button>
+            <button class="chord-btn" data-chord="vi">vi</button>
         </div>
         <div style="margin-top: 10px;">
             <strong>Borrowed (Modal Mixture):</strong>
-            <button class="chord-btn borrowed" data-chord="iv">iv (F Min)</button>
-            <button class="chord-btn borrowed" data-chord="bVI">♭VI (Ab Maj)</button>
-            <button class="chord-btn borrowed" data-chord="bVII">♭VII (Bb Maj)</button>
+            <button class="chord-btn borrowed" data-chord="iv">iv</button>
+            <button class="chord-btn borrowed" data-chord="bVI">♭VI</button>
+            <button class="chord-btn borrowed" data-chord="bVII">♭VII</button>
         </div>
 
         <div id="progression-display"></div>
