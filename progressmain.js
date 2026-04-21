@@ -2,7 +2,7 @@ import { saveState, loadState } from './storage.js';
 import { applyVoiceLeading, getAlternatives } from './theory.js';
 import { CONFIG } from './config.js';
 import { auditionChord, playProgression, stopAllAudio } from './audio.js';
-import { setupDragZone, setupDraggableSource } from './dragdrop.js';
+import { initDragAndDrop } from './dragdrop.js';
 import { exportToMidi } from './midi.js';
 import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder, calculateLoopBounds } from './stateUtils.js';
 
@@ -243,75 +243,61 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
             }
         }
 
-// --- Initialization & Event Listeners ---
-function initApp() {
-    const display = document.getElementById('progression-display');
+// --- Initialization Helpers ---
+function _loadAndApplyInitialState() {
+    const savedState = loadState();
+    if (savedState) {
+        if (savedState.baseKey !== undefined) state.baseKey = savedState.baseKey;
+        if (savedState.currentProgression) {
+            // Gracefully upgrade legacy string arrays to objects
+            state.currentProgression = savedState.currentProgression.map(item => 
+                typeof item === 'string' ? { symbol: item, key: state.baseKey } : item
+            );
+        }
+        if (savedState.bpm) state.bpm = savedState.bpm;
+        // Handle transition from old schema names
+        if (savedState.isLooping !== undefined || savedState.loop !== undefined) state.isLooping = savedState.isLooping ?? savedState.loop;
+        if (savedState.useVoiceLeading !== undefined || savedState.voiceLeading !== undefined) state.useVoiceLeading = savedState.useVoiceLeading ?? savedState.voiceLeading;
+        if (savedState.loopStart !== undefined) state.loopStart = savedState.loopStart;
+        if (savedState.loopEnd !== undefined) state.loopEnd = savedState.loopEnd;
+        if (savedState.temporarySwaps) state.temporarySwaps = savedState.temporarySwaps;
+        if (savedState.theme !== undefined) state.theme = savedState.theme;
+    }
+    applyLoopBounds();
     
-    setupDragZone(
-        display,
-        (oldIndex, newIndex, newLoopStart, newLoopEnd) => { // onReorder Event
-            if (oldIndex === null || newIndex === null) {
-                renderProgression(); // Clean up visually
-                return;
-            }
-            
-            if (oldIndex !== newIndex) {
-                state.temporarySwaps = calculateSwapsOnReorder(state.temporarySwaps, state.currentProgression.length, oldIndex, newIndex);
-                activeMenuIndex = null;
-                const itemToMove = state.currentProgression.splice(oldIndex, 1)[0];
-                state.currentProgression.splice(newIndex, 0, itemToMove);
-            } // If no move, still need to update loop bounds from bracket drag
-            
-            if (newLoopStart !== null && newLoopEnd !== null) {
-                state.loopStart = newLoopStart;
-                state.loopEnd = newLoopEnd;
-            }
-            
-            applyLoopBounds();
-            persistAppState();
-            renderProgression();
-        },
-        (sourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd) => { // onAddFromSource Event
-            if (insertIndex === null) insertIndex = state.currentProgression.length;
-            
-            const isAtEnd = state.loopEnd === state.currentProgression.length;
-            state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
-            activeMenuIndex = null;
-            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey });
-            
-            if (newLoopStart !== null && newLoopEnd !== null) {
-                state.loopStart = newLoopStart;
-                state.loopEnd = newLoopEnd;
-            } else {
-                if (isAtEnd) state.loopEnd = state.currentProgression.length;
-                else if (insertIndex < state.loopEnd) state.loopEnd++;
-                
-                if (insertIndex <= state.loopStart) state.loopStart++;
-            }
-            
-            applyLoopBounds();
-            persistAppState();
-            renderProgression();
-        },
-        (bracketId, insertIndex, newLoopStart, newLoopEnd) => { // onBracketDrop Event
-            if (newLoopStart !== null && newLoopEnd !== null) {
-                state.loopStart = newLoopStart;
-                state.loopEnd = newLoopEnd;
-            } else {
-                if (insertIndex === null) insertIndex = state.currentProgression.length;
-                if (bracketId === 'bracket-start') state.loopStart = insertIndex;
-                else if (bracketId === 'bracket-end') state.loopEnd = insertIndex;
-            }
-            
-            applyLoopBounds();
-            persistAppState();
-            renderProgression();
-        },
-        () => renderProgression(), // onDragCancel Event
-        (index) => state.currentProgression[index].symbol // State lookup
-    );
+    // Sync UI to State
+    document.getElementById('key-selector').value = state.baseKey;
+    document.getElementById('key-display').textContent = KEY_NAMES[state.baseKey] || 'C Major';
+    document.getElementById('bpm-slider').value = state.bpm;
+    updateLoopButtonUI();
+    document.getElementById('voice-leading').checked = state.useVoiceLeading;
+}
 
-    // Close context menu if clicked outside
+function _setupThemeToggle() {
+    document.documentElement.setAttribute('data-theme', state.theme);
+    
+    const themeToggleBtn = document.createElement('button');
+    themeToggleBtn.id = 'theme-toggle';
+    themeToggleBtn.textContent = state.theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+    themeToggleBtn.addEventListener('click', () => {
+        state.theme = state.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', state.theme);
+        themeToggleBtn.textContent = state.theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+        persistAppState();
+    });
+    document.body.appendChild(themeToggleBtn);
+}
+
+function _setupKeySelector() {
+    document.getElementById('key-selector').addEventListener('change', (e) => {
+        const newKey = parseInt(e.target.value, 10);
+        state.baseKey = newKey;
+        document.getElementById('key-display').textContent = KEY_NAMES[newKey] || 'C Major';
+        persistAppState();
+    });
+}
+
+function _setupProgressionDisplayEvents(display) {
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.progression-item')) {
             if (activeMenuIndex !== null) {
@@ -321,7 +307,6 @@ function initApp() {
         }
     });
 
-    // --- Event Delegation ---
     display.addEventListener('click', (e) => {
         const item = e.target.closest('.progression-item');
         if (!item) return;
@@ -368,10 +353,11 @@ function initApp() {
         activeMenuIndex = activeMenuIndex === index ? null : index;
         renderProgression();
     });
-    
+}
+
+function _setupChordButtons() {
     const chordBtns = document.querySelectorAll('.chord-btn');
     chordBtns.forEach(btn => {
-        setupDraggableSource(btn, () => state.baseKey);
         btn.addEventListener('click', () => {
             auditionChord(btn.dataset.chord, state.baseKey);
         });
@@ -379,7 +365,9 @@ function initApp() {
             addChord(btn.dataset.chord);
         });
     });
+}
 
+function _setupControlButtons() {
     const playToggleBtn = document.getElementById('btn-play-toggle');
     playToggleBtn.addEventListener('click', () => {
         if (isPlaying) {
@@ -431,55 +419,86 @@ function initApp() {
         state.useVoiceLeading = e.target.checked;
         persistAppState();
     });
+}
 
-    document.getElementById('key-selector').addEventListener('change', (e) => {
-        const newKey = parseInt(e.target.value, 10);
-        state.baseKey = newKey;
-        document.getElementById('key-display').textContent = KEY_NAMES[newKey] || 'C Major';
-        persistAppState();
+function _setupDragAndDrop(display) {
+    initDragAndDrop({
+        display,
+        sourceButtons: document.querySelectorAll('.chord-btn'),
+        onReorder: (oldIndex, newIndex, newLoopStart, newLoopEnd) => {
+            if (oldIndex === null || newIndex === null) {
+                renderProgression(); 
+                return;
+            }
+            
+            if (oldIndex !== newIndex) {
+                state.temporarySwaps = calculateSwapsOnReorder(state.temporarySwaps, state.currentProgression.length, oldIndex, newIndex);
+                activeMenuIndex = null;
+                const itemToMove = state.currentProgression.splice(oldIndex, 1)[0];
+                state.currentProgression.splice(newIndex, 0, itemToMove);
+            } 
+            
+            if (newLoopStart !== null && newLoopEnd !== null) {
+                state.loopStart = newLoopStart;
+                state.loopEnd = newLoopEnd;
+            }
+            
+            applyLoopBounds();
+            persistAppState();
+            renderProgression();
+        },
+        onAddFromSource: (sourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd) => {
+            if (insertIndex === null) insertIndex = state.currentProgression.length;
+            
+            const isAtEnd = state.loopEnd === state.currentProgression.length;
+            state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
+            activeMenuIndex = null;
+            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey });
+            
+            if (newLoopStart !== null && newLoopEnd !== null) {
+                state.loopStart = newLoopStart;
+                state.loopEnd = newLoopEnd;
+            } else {
+                if (isAtEnd) state.loopEnd = state.currentProgression.length;
+                else if (insertIndex < state.loopEnd) state.loopEnd++;
+                
+                if (insertIndex <= state.loopStart) state.loopStart++;
+            }
+            
+            applyLoopBounds();
+            persistAppState();
+            renderProgression();
+        },
+        onBracketDrop: (bracketId, insertIndex, newLoopStart, newLoopEnd) => {
+            if (newLoopStart !== null && newLoopEnd !== null) {
+                state.loopStart = newLoopStart;
+                state.loopEnd = newLoopEnd;
+            } else {
+                if (insertIndex === null) insertIndex = state.currentProgression.length;
+                if (bracketId === 'bracket-start') state.loopStart = insertIndex;
+                else if (bracketId === 'bracket-end') state.loopEnd = insertIndex;
+            }
+            
+            applyLoopBounds();
+            persistAppState();
+            renderProgression();
+        },
+        onDragCancel: () => renderProgression(),
+        getProgressionItemText: (index) => state.currentProgression[index].symbol,
+        getBaseKey: () => state.baseKey
     });
+}
 
-    const savedState = loadState();
-    if (savedState) {
-        if (savedState.baseKey !== undefined) state.baseKey = savedState.baseKey;
-        if (savedState.currentProgression) {
-            // Gracefully upgrade legacy string arrays to objects
-            state.currentProgression = savedState.currentProgression.map(item => 
-                typeof item === 'string' ? { symbol: item, key: state.baseKey } : item
-            );
-        }
-        if (savedState.bpm) state.bpm = savedState.bpm;
-        // Handle transition from old schema names (loop -> isLooping, voiceLeading -> useVoiceLeading)
-        if (savedState.isLooping !== undefined || savedState.loop !== undefined) state.isLooping = savedState.isLooping ?? savedState.loop;
-        if (savedState.useVoiceLeading !== undefined || savedState.voiceLeading !== undefined) state.useVoiceLeading = savedState.useVoiceLeading ?? savedState.voiceLeading;
-        if (savedState.loopStart !== undefined) state.loopStart = savedState.loopStart;
-        if (savedState.loopEnd !== undefined) state.loopEnd = savedState.loopEnd;
-        if (savedState.temporarySwaps) state.temporarySwaps = savedState.temporarySwaps;
-        if (savedState.theme !== undefined) state.theme = savedState.theme;
-    }
-    applyLoopBounds();
-    
-    // --- Theme Management ---
-    document.documentElement.setAttribute('data-theme', state.theme);
-    
-    const themeToggleBtn = document.createElement('button');
-    themeToggleBtn.id = 'theme-toggle';
-    themeToggleBtn.textContent = state.theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
-    themeToggleBtn.addEventListener('click', () => {
-        state.theme = state.theme === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', state.theme);
-        themeToggleBtn.textContent = state.theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
-        persistAppState();
-    });
-    document.body.appendChild(themeToggleBtn);
-
-    // Sync UI to State
-    document.getElementById('key-selector').value = state.baseKey;
-    document.getElementById('key-display').textContent = KEY_NAMES[state.baseKey] || 'C Major';
-    document.getElementById('bpm-slider').value = state.bpm;
-    updateLoopButtonUI();
-    document.getElementById('voice-leading').checked = state.useVoiceLeading;
-    
+// --- Main Entry Point ---
+function initApp() {
+    const display = document.getElementById('progression-display');
+    _loadAndApplyInitialState();
+    _setupThemeToggle();
+    _setupKeySelector();
+    _setupControlButtons();
+    _setupChordButtons();
+    _setupProgressionDisplayEvents(display);
+    _setupDragAndDrop(display);
     renderProgression();
 }
 

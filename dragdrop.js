@@ -1,37 +1,5 @@
 import { CONFIG } from './config.js';
 
-let draggedIndex = null;
-let draggedBracket = null;
-let currentAfterElement = undefined;
-
-// Safely initialize DOM elements (protects against Jest Node.js environment)
-const dragPlaceholder = typeof document !== 'undefined' ? document.createElement('div') : null;
-
-if (dragPlaceholder) {
-    dragPlaceholder.className = 'progression-placeholder';
-}
-
-function createCustomDragImage(text) {
-    const el = document.createElement('div');
-    el.textContent = text;
-    Object.assign(el.style, {
-        position: 'absolute',
-        top: '-1000px',
-        background: 'var(--bg-panel)',
-        color: 'var(--text-main)',
-        padding: '8px 16px',
-        borderRadius: '6px',
-        fontSize: '16px',
-        fontWeight: 'bold',
-        fontFamily: 'sans-serif',
-        pointerEvents: 'none',
-        zIndex: '9999',
-        boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
-    });
-    document.body.appendChild(el);
-    return el;
-}
-
 export function getDragAfterElement(container, x, y) {
     const draggableElements = [...container.querySelectorAll('.progression-item:not(.dragging), #bracket-start:not(.dragging), #bracket-end:not(.dragging)')];
 
@@ -47,7 +15,48 @@ export function getDragAfterElement(container, x, y) {
     return null; // Mouse is at the very end or in an empty area
 }
 
-export function setupDragZone(display, onReorder, onAddFromSource, onBracketDrop, onDragCancel, getProgressionItemText) {
+export function initDragAndDrop({
+    display,
+    sourceButtons,
+    onReorder,
+    onAddFromSource,
+    onBracketDrop,
+    onDragCancel,
+    getProgressionItemText,
+    getBaseKey
+}) {
+    let draggedIndex = null;
+    let draggedBracket = null;
+    let currentAfterElement = undefined;
+
+    // Safely initialize DOM elements (protects against Jest Node.js environment)
+    const dragPlaceholder = typeof document !== 'undefined' ? document.createElement('div') : null;
+
+    if (dragPlaceholder) {
+        dragPlaceholder.className = 'progression-placeholder';
+    }
+
+    function createCustomDragImage(text) {
+        const el = document.createElement('div');
+        el.textContent = text;
+        Object.assign(el.style, {
+            position: 'absolute',
+            top: '-1000px',
+            background: 'var(--bg-panel)',
+            color: 'var(--text-main)',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            fontFamily: 'sans-serif',
+            pointerEvents: 'none',
+            zIndex: '9999',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+        });
+        document.body.appendChild(el);
+        return el;
+    }
+
     display.addEventListener('dragstart', (e) => {
         if (e.target.classList.contains('progression-item')) {
             draggedIndex = parseInt(e.target.dataset.index, 10);
@@ -209,38 +218,40 @@ export function setupDragZone(display, onReorder, onAddFromSource, onBracketDrop
             draggedIndex = null; // Consume intent
         }
     });
-}
 
-export function setupDraggableSource(btn, getBaseKey) {
-    btn.draggable = true;
-    btn.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('source-chord', btn.dataset.chord);
-        e.dataTransfer.setData('source-key', getBaseKey().toString());
-        e.dataTransfer.effectAllowed = 'copy';
-        draggedIndex = null;
-        
-        dragPlaceholder.className = 'progression-placeholder';
-        dragPlaceholder.textContent = '';
-        Object.assign(dragPlaceholder.style, {
-            transition: 'width 0.2s ease-out, margin 0.2s ease-out, opacity 0.2s ease-out',
-            display: 'inline-block',
-            border: '2px dashed #888',
-            borderRadius: '4px',
-            boxSizing: 'border-box',
-            height: '36px',
-            verticalAlign: 'top',
-            pointerEvents: 'none',
-            color: 'transparent'
+    if (sourceButtons) {
+        sourceButtons.forEach(btn => {
+            btn.draggable = true;
+            btn.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('source-chord', btn.dataset.chord);
+                e.dataTransfer.setData('source-key', getBaseKey().toString());
+                e.dataTransfer.effectAllowed = 'copy';
+                draggedIndex = null;
+                
+                dragPlaceholder.className = 'progression-placeholder';
+                dragPlaceholder.textContent = '';
+                Object.assign(dragPlaceholder.style, {
+                    transition: 'width 0.2s ease-out, margin 0.2s ease-out, opacity 0.2s ease-out',
+                    display: 'inline-block',
+                    border: '2px dashed #888',
+                    borderRadius: '4px',
+                    boxSizing: 'border-box',
+                    height: '36px',
+                    verticalAlign: 'top',
+                    pointerEvents: 'none',
+                    color: 'transparent'
+                });
+
+                const dragImg = createCustomDragImage(btn.dataset.chord);
+                e.dataTransfer.setDragImage(dragImg, CONFIG.DRAG_OFFSET_X, CONFIG.DRAG_OFFSET_Y);
+                setTimeout(() => document.body.removeChild(dragImg), 0);
+            });
+
+            btn.addEventListener('dragend', () => {
+                if (dragPlaceholder && dragPlaceholder.parentNode) {
+                    dragPlaceholder.parentNode.removeChild(dragPlaceholder);
+                }
+            });
         });
-
-        const dragImg = createCustomDragImage(btn.dataset.chord);
-        e.dataTransfer.setDragImage(dragImg, CONFIG.DRAG_OFFSET_X, CONFIG.DRAG_OFFSET_Y);
-        setTimeout(() => document.body.removeChild(dragImg), 0);
-    });
-
-    btn.addEventListener('dragend', () => {
-        if (dragPlaceholder && dragPlaceholder.parentNode) {
-            dragPlaceholder.parentNode.removeChild(dragPlaceholder);
-        }
-    });
+    }
 }
