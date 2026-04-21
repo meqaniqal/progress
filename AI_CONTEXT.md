@@ -24,11 +24,11 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 ## CURRENT STATE & ROADMAP
 **Current State:** v0.2 Foundation & Refactoring Complete. Codebase is modularized, tested, and optimized.
 
-**Phase 2: Contextual Auditioning & Looping (Current Focus)**
-- [ ] Section looping (UI slice selection for seamless playback).
-- [ ] Live chord alternative swapping and auditioning.
+**Phase 2: Contextual Auditioning & Looping (Complete)**
+- [x] Section looping (UI slice selection for seamless playback).
+- [x] Live chord alternative swapping, auditioning, and Synesthetic UI dynamic coloring.
 
-**Phase 3: The "Mind-Bending" Harmonic Engine**
+**Phase 3: The "Mind-Bending" Harmonic Engine (Current Focus)**
 - [ ] Voice leading and inner-melodic line math functions.
 - [ ] Advanced chord dictionary (borrowed chords, extended 9th/11th/13th voicings).
 - [ ] Pivot chord and direct modulation mechanics.

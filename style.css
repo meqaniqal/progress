@@ -17,9 +17,7 @@
     --borrowed-hover-bg: #fef3c7;
 
     --display-bg: #f3f4f6;
-    --item-bg: #4f46e5;
     --item-text: #ffffff;
-    --item-playing-bg: #10b981;
     --item-in-loop-shadow: 0 0 0 3px #60a5fa;
 
     --placeholder-bg: rgba(79, 70, 229, 0.1);
@@ -32,10 +30,9 @@
     --ctrl-secondary-hover: #f3f4f6;
     --ctrl-secondary-text: #374151;
 
-    /* Temporary / Audition Chord State */
-    --temp-chord-bg: rgba(155, 89, 182, 0.15);
-    --temp-chord-border: rgba(155, 89, 182, 0.8);
-    --temp-chord-text: #9b59b6;
+    /* Synesthetic Base Theme */
+    --item-base-lum: 55%;
+    --original-chord-highlight: #10b981;
 }
 
 [data-theme="dark"] {
@@ -57,9 +54,7 @@
     --borrowed-hover-bg: #78350f;
 
     --display-bg: #18181b;
-    --item-bg: #3730a3;
     --item-text: #e0e0e0;
-    --item-playing-bg: #059669;
     --item-in-loop-shadow: 0 0 0 3px #818cf8;
 
     --placeholder-bg: rgba(129, 140, 248, 0.1);
@@ -72,10 +67,9 @@
     --ctrl-secondary-hover: #404040;
     --ctrl-secondary-text: #e0e0e0;
 
-    /* Temporary / Audition Chord State */
-    --temp-chord-bg: rgba(187, 134, 252, 0.15);
-    --temp-chord-border: rgba(187, 134, 252, 0.8);
-    --temp-chord-text: #bb86fc;
+    /* Synesthetic Base Theme */
+    --item-base-lum: 40%;
+    --original-chord-highlight: #059669;
 }
 
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 2rem; max-width: 950px; margin: 0 auto; background: var(--bg-body); color: var(--text-main); transition: background-color 0.3s ease, color 0.3s ease; }
@@ -86,32 +80,24 @@ h1 { border-bottom: 2px solid var(--border-main); padding-bottom: 0.5rem; }
 .borrowed { border-style: dashed; border-color: var(--borrowed-border); color: var(--borrowed-text); }
 .borrowed:hover { background: var(--borrowed-hover-bg); border-color: var(--borrowed-border); }
 #progression-display { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; min-height: 50px; padding: 10px; background: var(--display-bg); border-radius: 4px; transition: background-color 0.3s ease; }
-.progression-item { position: relative; background: var(--item-bg); color: var(--item-text); padding: 8px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.15s ease-in-out; }
-.progression-item.playing { background: var(--item-playing-bg); transform: scale(1.05); box-shadow: 0 4px 6px rgba(0,0,0,0.15); z-index: 2; }
+.progression-item { 
+    position: relative; 
+    --dyn-hue: 240; 
+    --dyn-sat: 50%; 
+    --dyn-lum-offset: 0%; 
+    background-color: hsl(var(--dyn-hue), var(--dyn-sat), calc(var(--item-base-lum) + var(--dyn-lum-offset))); 
+    color: var(--item-text); padding: 8px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.15s ease-in-out; 
+}
+.progression-item.playing { 
+    background-color: hsl(var(--dyn-hue), 90%, calc(var(--item-base-lum) + 15%)); 
+    transform: scale(1.05); 
+    box-shadow: 0 4px 12px hsl(var(--dyn-hue), 80%, calc(var(--item-base-lum) + 10%)); 
+    z-index: 2; 
+}
 .progression-item.in-loop { box-shadow: var(--item-in-loop-shadow); z-index: 1; }
 .remove-btn { background: none; border: none; color: var(--item-text); cursor: pointer; font-size: 16px; padding: 0; line-height: 1; opacity: 0.7; }
 .remove-btn:hover { opacity: 1; }
 .progression-item.dragging { display: none; }
-
-/* --- Temporary/Audition Chord Styles --- */
-.progression-item.temporary {
-    background-color: var(--temp-chord-bg);
-    border: 2px dashed var(--temp-chord-border);
-    color: var(--temp-chord-text);
-    animation: temp-pulse 2s infinite alternate;
-}
-@keyframes temp-pulse {
-    0% { box-shadow: 0 0 0px var(--temp-chord-bg); }
-    100% { box-shadow: 0 0 8px var(--temp-chord-border); }
-}
-.progression-item.temporary.playing {
-    background-color: var(--temp-chord-border);
-    color: #fff;
-    border-style: solid;
-}
-.finalize-btn { position: absolute; top: 4px; right: 24px; background: transparent; border: none; color: #2ecc71; font-size: 16px; font-weight: bold; cursor: pointer; opacity: 0.7; transition: opacity 0.2s, transform 0.1s; padding: 0 4px; line-height: 1; }
-.finalize-btn:hover { opacity: 1; transform: scale(1.2); }
-.finalize-btn:active { transform: scale(0.9); }
 
 /* Swap Menu Popover */
 .swap-menu { position: absolute; top: 100%; left: 0; margin-top: 8px; background: var(--bg-panel); border: 1px solid var(--border-main); border-radius: 6px; box-shadow: 0 4px 12px var(--shadow-panel); display: flex; gap: 4px; padding: 8px; z-index: 100; cursor: default; }
@@ -122,12 +108,12 @@ h1 { border-bottom: 2px solid var(--border-main); padding-bottom: 0.5rem; }
 
 /* Special style for the button in the swap menu that reverts to the original chord */
 .swap-menu-btn.original-swap-option {
-    border-color: var(--item-playing-bg);
-    color: var(--item-playing-bg);
+    border-color: var(--original-chord-highlight);
+    color: var(--original-chord-highlight);
     font-weight: 600;
 }
 .swap-menu-btn.original-swap-option:hover {
-    background-color: var(--item-playing-bg);
+    background-color: var(--original-chord-highlight);
     color: var(--item-text);
 }
 

@@ -14,12 +14,13 @@
 - **Contextual Editing:** Audition and edit all chords in real-time.
 - **Section Looping:** Select specific sections of a chord progression sequence to loop continuously. This allows the user to tweak individual notes and voicings to ensure they work perfectly in context.
 
-### 3. Smart Chord Alternatives & Swapping
-- **Alternative Selection:** Where there are several functional alternatives for a specific chord in a sequence, the app provides a mode to temporarily swap them in.
+### 3. Synesthetic Harmonic UI & Seamless Chord Swapping
+- **Fluid Auditioning:** Where there are several functional alternatives for a specific chord in a sequence, the user can seamlessly swap them in. The audio engine adapts instantly.
 - **Live Auditioning:** Hear the results of a selected alternative *live* while the progression (or looped section) is playing, without losing the original chord.
-- **Finalization:** Once an alternative chord proves to be the best fit for the emotional intent of the sequence, the user can finalize the choice to permanently replace the original chord.
+- **Reverting & History:** The app remembers the original chord of any swapped position, allowing the user to seamlessly revert via the contextual menu.
+- **Dynamic Color Mapping:** Chords are not static badges. Their background colors dynamically shift based on their harmonic relationship to the base key and surrounding context. By mapping the Circle of Fifths to the Color Wheel (Hue), Harmonic Function to Luminosity, and Modal Mixture to Saturation, users intuitively *see* tension, release, and dissonance.
 
-### 4. Advanced Sequencer View & Pattern Editing (Future Goal)
+### 4. Advanced Sequencer View & Pattern Editing
 - **Visual Timeline:** Instead of a simple tray, view chords on a timeline or piano-roll-style grid.
 - **Global Rhythm Construction:** Construct master rhythms that act as the foundational basis for chord playback. This standalone rhythm track can also be exported as MIDI.
 - **Per-Chord Timing Editor:** Mutate the base rhythm for any specific chord. Create dynamic patterns that start with the global timing but can be shifted strictly on-grid or nudged off-grid.

@@ -17,3 +17,10 @@
 - Optimized `renderProgression` (DOM node reconciliation, eliminating nuclear `innerHTML = ''` re-renders).
 - Modularization: Extracted `theory.js`, `audio.js`, and `dragdrop.js` out of the main controller.
 - Voice Leading math fix: Multi-octave inversion generation.
+
+## Phase 2: Contextual Auditioning & Looping (Complete)
+- Implemented UI section slice looping via drag-and-drop brackets.
+- Added seamless live chord alternative swapping with instant audio injection.
+- Built a Synesthetic Harmonic UI: mapped absolute chord roots to color hues via the Circle of Fifths.
+- Added bi-directional tension ripple: chords dynamically adjust saturation and luminosity based on contextual harmonic tension.
+- Supported true multi-key progressions by decoupling the global key selector from existing chords in the sequence.

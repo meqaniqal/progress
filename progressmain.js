@@ -1,5 +1,5 @@
 import { saveState, loadState } from './storage.js';
-import { applyVoiceLeading, getAlternatives } from './theory.js';
+import { applyVoiceLeading, getAlternatives, getHarmonicProfile, getChordNotes } from './theory.js';
 import { CONFIG } from './config.js';
 import { auditionChord, playProgression, stopAllAudio } from './audio.js';
 import { initDragAndDrop } from './dragdrop.js';
@@ -150,8 +150,45 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
                 } else {
                     el.classList.remove('temporary');
                 }
-                const finalizeBtn = el.querySelector('.finalize-btn');
-                if (finalizeBtn) finalizeBtn.remove();
+
+                // Apply Synesthetic Color Mapping
+                const profile = getHarmonicProfile(displayChord.symbol);
+                
+                // 1. Absolute Key Coloring (Circle of Fifths mapped to Hue)
+                const chordNotes = getChordNotes(displayChord.symbol, displayChord.key);
+                let absoluteHue = 240; 
+                if (chordNotes) {
+                    const rootMidi = chordNotes[0];
+                    const pitchClass = rootMidi % 12;
+                    const circlePos = (pitchClass * 7) % 12; // Maps pitch class to [0..11] Circle of Fifths index
+                    absoluteHue = (240 + (circlePos * 30)) % 360;
+                }
+
+                // 2. Contextual Dynamic Coloring (Bi-directional Tension Ripple)
+                let backwardTensionDelta = 0;
+                let forwardTensionDelta = 0;
+                
+                if (index > 0) {
+                    const prevChord = state.temporarySwaps[index - 1] || state.currentProgression[index - 1];
+                    const prevProfile = getHarmonicProfile(prevChord.symbol);
+                    backwardTensionDelta = profile.tension - prevProfile.tension;
+                }
+                
+                if (index < state.currentProgression.length - 1) {
+                    const nextChord = state.temporarySwaps[index + 1] || state.currentProgression[index + 1];
+                    const nextProfile = getHarmonicProfile(nextChord.symbol);
+                    forwardTensionDelta = nextProfile.tension - profile.tension;
+                }
+
+                // Saturation: Base + Heat from previous jump + Anticipation heat for next jump
+                let satValue = profile.isBorrowed ? 85 : 50 + Math.max(0, backwardTensionDelta * 15) + Math.max(0, forwardTensionDelta * 10);
+                
+                // Luminosity: Base function + impact of arriving + anticipation of leaving
+                const lumOffset = (profile.tension * 8) + (backwardTensionDelta * 4) + (forwardTensionDelta * 2);
+
+                el.style.setProperty('--dyn-hue', absoluteHue);
+                el.style.setProperty('--dyn-sat', `${Math.min(100, satValue)}%`);
+                el.style.setProperty('--dyn-lum-offset', `${lumOffset}%`);
 
                 // Handle swap menu rendering
                 if (activeMenuIndex === index) {
@@ -319,10 +356,6 @@ function _setupProgressionDisplayEvents(display) {
             return;
         }
 
-        if (e.target.classList.contains('finalize-btn')) {
-            return;
-        }
-
         if (e.target.classList.contains('swap-menu-btn')) {
             const selectedAltSymbol = e.target.dataset.alt;
 
@@ -334,10 +367,10 @@ function _setupProgressionDisplayEvents(display) {
                 state.temporarySwaps[index] = { symbol: selectedAltSymbol, key: parseInt(e.target.dataset.altKey, 10) };
             }
             activeMenuIndex = null;
-            if (!isPlaying) {
                 const chordToAudition = state.temporarySwaps[index] || originalChord;
-                auditionChord(chordToAudition.symbol, chordToAudition.key);
-            }
+                if (!isPlaying || item.classList.contains('playing')) {
+                    auditionChord(chordToAudition.symbol, chordToAudition.key);
+                }
             persistAppState();
             renderProgression();
             return;
@@ -345,9 +378,9 @@ function _setupProgressionDisplayEvents(display) {
 
         // Clicked the chord badge itself
         const displayChord = state.temporarySwaps[index] || originalChord;
-        if (!isPlaying) {
-            auditionChord(displayChord.symbol, displayChord.key);
-        }
+            if (!isPlaying || item.classList.contains('playing')) {
+                auditionChord(displayChord.symbol, displayChord.key);
+            }
 
         // Toggle Context Menu
         activeMenuIndex = activeMenuIndex === index ? null : index;

@@ -66,6 +66,33 @@ export function getAlternatives(chordSymbol) {
                              .slice(0, 3);
 }
 
+// --- Synesthetic Color Mapping ---
+export function getHarmonicProfile(symbol) {
+    // Strip extensions for base functional analysis
+    const baseFunc = symbol.replace(/maj7|maj9|7|9/g, '');
+    
+    let fifthsFromTonic = 0;
+    let isBorrowed = false;
+    let tension = 0; // -1.0 (Home/Rest) to 1.0 (High Tension)
+
+    switch(baseFunc) {
+        // Diatonic
+        case 'I':  fifthsFromTonic = 0;  tension = -1.0; break;
+        case 'IV': fifthsFromTonic = -1; tension = 0.2;  break;
+        case 'V':  fifthsFromTonic = 1;  tension = 1.0;  break;
+        case 'ii': fifthsFromTonic = 2;  tension = 0.5;  break;
+        case 'vi': fifthsFromTonic = 3;  tension = -0.5; break;
+        case 'iii': fifthsFromTonic = 4; tension = 0.1;  break;
+        
+        // Borrowed
+        case 'iv':   fifthsFromTonic = -1; isBorrowed = true; tension = 0.6; break;
+        case 'bVI':  fifthsFromTonic = -4; isBorrowed = true; tension = 0.4; break;
+        case 'bVII': fifthsFromTonic = -2; isBorrowed = true; tension = 0.8; break;
+    }
+
+    return { fifthsFromTonic, isBorrowed, tension };
+}
+
 // --- Core Algorithm: Voice Leading ---
 // Calculates the inversion of a target chord that has the shortest 
 // total melodic distance from the previous chord.
