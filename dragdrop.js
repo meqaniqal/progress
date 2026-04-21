@@ -197,8 +197,10 @@ export function setupDragZone(display, onReorder, onAddFromSource, onBracketDrop
         if (dragPlaceholder.parentNode) dragPlaceholder.parentNode.removeChild(dragPlaceholder);
 
         const sourceChord = e.dataTransfer.getData('source-chord');
+        const sourceKeyStr = e.dataTransfer.getData('source-key');
+        const sourceKey = sourceKeyStr ? parseInt(sourceKeyStr, 10) : 60;
         if (sourceChord) {
-            onAddFromSource(sourceChord, insertIndex, newLoopStart, newLoopEnd);
+            onAddFromSource(sourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd);
         } else if (draggedBracket) {
             onBracketDrop(draggedBracket, insertIndex, newLoopStart, newLoopEnd);
             draggedBracket = null;
@@ -209,10 +211,11 @@ export function setupDragZone(display, onReorder, onAddFromSource, onBracketDrop
     });
 }
 
-export function setupDraggableSource(btn) {
+export function setupDraggableSource(btn, getBaseKey) {
     btn.draggable = true;
     btn.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('source-chord', btn.dataset.chord);
+        e.dataTransfer.setData('source-key', getBaseKey().toString());
         e.dataTransfer.effectAllowed = 'copy';
         draggedIndex = null;
         

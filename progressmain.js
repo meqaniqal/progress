@@ -1,9 +1,10 @@
 import { saveState, loadState } from './storage.js';
-import { setBaseKey, chordDictionary, applyVoiceLeading, getAlternatives } from './theory.js';
+import { applyVoiceLeading, getAlternatives } from './theory.js';
 import { CONFIG } from './config.js';
 import { auditionChord, playProgression, stopProgression } from './audio.js';
 import { setupDragZone, setupDraggableSource } from './dragdrop.js';
 import { exportToMidi } from './midi.js';
+import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder, calculateLoopBounds } from './stateUtils.js';
 
         // --- Single Source of Truth ---
         const state = {
@@ -32,46 +33,27 @@ import { exportToMidi } from './midi.js';
             );
         }
 
-        // Changing the structure resets the temporary swap state
-        function clearTemporarySwaps() {
-            state.temporarySwaps = {};
-            activeMenuIndex = null;
-        }
-
-        function sanitizeLoopBounds() {
-            const len = state.currentProgression.length;
-            if (typeof state.loopStart !== 'number') state.loopStart = 0;
-            if (typeof state.loopEnd !== 'number') state.loopEnd = len;
-            
-            if (len === 0) {
-                state.loopStart = 0;
-                state.loopEnd = 0;
-                return;
-            }
-            
-            // Ensure bounds are always mathematically valid and surround >= 1 chord
-            if (state.loopStart < 0) state.loopStart = 0;
-            if (state.loopStart >= len) state.loopStart = len - 1;
-            
-            if (state.loopEnd <= state.loopStart) state.loopEnd = state.loopStart + 1;
-            if (state.loopEnd > len) state.loopEnd = len;
+        function applyLoopBounds() {
+            const bounds = calculateLoopBounds(state.currentProgression.length, state.loopStart, state.loopEnd);
+            state.loopStart = bounds.start;
+            state.loopEnd = bounds.end;
         }
 
         function addChord(numeral) {
-            clearTemporarySwaps();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
-            state.currentProgression.push(numeral);
+            state.currentProgression.push({ symbol: numeral, key: state.baseKey });
             
             if (isAtEnd) state.loopEnd = state.currentProgression.length;
             
-            sanitizeLoopBounds();
+            applyLoopBounds();
             persistAppState();
             renderProgression();
         }
 
         function removeChord(index) {
-            clearTemporarySwaps();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
+            state.temporarySwaps = calculateSwapsOnRemove(state.temporarySwaps, index);
+            activeMenuIndex = null;
             state.currentProgression.splice(index, 1);
             
             if (isAtEnd) {
@@ -84,18 +66,19 @@ import { exportToMidi } from './midi.js';
                 state.loopStart--;
             }
             
-            sanitizeLoopBounds();
+            applyLoopBounds();
             persistAppState();
             renderProgression();
         }
 
         function clearProgression() {
-            clearTemporarySwaps();
+            state.temporarySwaps = {};
+            activeMenuIndex = null;
             stopProgression(highlightChordInUI);
             isPlaying = false;
             if (document.getElementById('btn-play-toggle')) document.getElementById('btn-play-toggle').textContent = '▶';
             state.currentProgression = [];
-            sanitizeLoopBounds();
+            applyLoopBounds();
             persistAppState();
             renderProgression();
         }
@@ -153,54 +136,50 @@ import { exportToMidi } from './midi.js';
                 // Reconcile specific UI features
                 const isTemp = state.temporarySwaps[index] !== undefined;
                 const displayChord = isTemp ? state.temporarySwaps[index] : chord;
-                
-                el.childNodes[0].textContent = `${displayChord} `;
 
-                // Get the action button and set its icon and title based on the state
-                const actionBtn = el.querySelector('.remove-btn');
-                if (isTemp) {
-                    actionBtn.title = 'Revert Swap';
-                    actionBtn.textContent = '↺';
-                } else {
-                    actionBtn.title = 'Remove Chord';
-                    actionBtn.textContent = '×';
-                }
+                el.childNodes[0].textContent = `${displayChord.symbol} `;
 
-                // Handle temporary swap styling and finalize button inline
+                // The action button is always a remove button.
+                el.querySelector('.remove-btn').title = 'Remove Chord';
+                el.querySelector('.remove-btn').textContent = '×';
+
+                // Handle temporary swap styling
                 if (isTemp) {
                     el.classList.add('temporary');
-                    let finalizeBtn = el.querySelector('.finalize-btn');
-                    if (!finalizeBtn) {
-                        finalizeBtn = document.createElement('button');
-                        finalizeBtn.className = 'finalize-btn';
-                        finalizeBtn.title = 'Finalize Swap';
-                        finalizeBtn.textContent = '✓';
-                        el.insertBefore(finalizeBtn, el.querySelector('.remove-btn'));
-                    }
                 } else {
                     el.classList.remove('temporary');
-                    const finalizeBtn = el.querySelector('.finalize-btn');
-                    if (finalizeBtn) finalizeBtn.remove();
                 }
+                const finalizeBtn = el.querySelector('.finalize-btn');
+                if (finalizeBtn) finalizeBtn.remove();
 
                 // Handle swap menu rendering
-                if (activeMenuIndex === index && !isTemp) {
+                if (activeMenuIndex === index) {
+                    el.style.position = 'relative';
+                    el.style.zIndex = '100'; // Elevate to render over chords on the next row
+
                     let swapMenu = el.querySelector('.swap-menu');
                     if (!swapMenu) {
                         swapMenu = document.createElement('div');
                         swapMenu.className = 'swap-menu';
-                        
-                        const alts = getAlternatives(chord);
-                        alts.forEach(alt => {
+                        const alts = getAlternatives(displayChord.symbol);
+                        if (isTemp) {
+                            alts.unshift(chord.symbol); // Add original chord as first option
+                        }
+                        alts.forEach((alt, i) => {
                             const btn = document.createElement('button');
                             btn.className = 'chord-btn swap-menu-btn';
                             btn.textContent = alt;
                             btn.dataset.alt = alt; // Handled by Event Delegation
+                            btn.dataset.altKey = chord.key; // Lock the alternative to the chord's original key!
+                            if (isTemp && i === 0) {
+                                btn.classList.add('original-swap-option');
+                            }
                             swapMenu.appendChild(btn);
                         });
                         el.appendChild(swapMenu);
                     }
                 } else {
+                    el.style.zIndex = ''; // Reset z-index
                     const swapMenu = el.querySelector('.swap-menu');
                     if (swapMenu) swapMenu.remove();
                 }
@@ -275,41 +254,41 @@ function initApp() {
                 return;
             }
             
-            clearTemporarySwaps(); // Reset swap state on layout changes
-            
             if (oldIndex !== newIndex) {
+                state.temporarySwaps = calculateSwapsOnReorder(state.temporarySwaps, state.currentProgression.length, oldIndex, newIndex);
+                activeMenuIndex = null;
                 const itemToMove = state.currentProgression.splice(oldIndex, 1)[0];
                 state.currentProgression.splice(newIndex, 0, itemToMove);
-            }
+            } // If no move, still need to update loop bounds from bracket drag
             
             if (newLoopStart !== null && newLoopEnd !== null) {
                 state.loopStart = newLoopStart;
                 state.loopEnd = newLoopEnd;
             }
             
-            sanitizeLoopBounds();
+            applyLoopBounds();
             persistAppState();
             renderProgression();
         },
-        (sourceChord, insertIndex, newLoopStart, newLoopEnd) => { // onAddFromSource Event
+        (sourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd) => { // onAddFromSource Event
             if (insertIndex === null) insertIndex = state.currentProgression.length;
             
-            clearTemporarySwaps();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
-            state.currentProgression.splice(insertIndex, 0, sourceChord);
+            state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
+            activeMenuIndex = null;
+            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey });
             
             if (newLoopStart !== null && newLoopEnd !== null) {
                 state.loopStart = newLoopStart;
                 state.loopEnd = newLoopEnd;
             } else {
-                // Fallback math if looping is off and brackets are hidden
                 if (isAtEnd) state.loopEnd = state.currentProgression.length;
                 else if (insertIndex < state.loopEnd) state.loopEnd++;
                 
                 if (insertIndex <= state.loopStart) state.loopStart++;
             }
             
-            sanitizeLoopBounds();
+            applyLoopBounds();
             persistAppState();
             renderProgression();
         },
@@ -323,12 +302,12 @@ function initApp() {
                 else if (bracketId === 'bracket-end') state.loopEnd = insertIndex;
             }
             
-            sanitizeLoopBounds();
+            applyLoopBounds();
             persistAppState();
             renderProgression();
         },
         () => renderProgression(), // onDragCancel Event
-        (index) => state.currentProgression[index] // State lookup
+        (index) => state.currentProgression[index].symbol // State lookup
     );
 
     // Close context menu if clicked outside
@@ -347,53 +326,53 @@ function initApp() {
         if (!item) return;
         
         const index = parseInt(item.dataset.index, 10);
+        const originalChord = state.currentProgression[index];
         
         if (e.target.classList.contains('remove-btn')) {
-            if (state.temporarySwaps[index] !== undefined) {
-                delete state.temporarySwaps[index];
-                renderProgression();
-            } else {
-                removeChord(index);
-            }
+            removeChord(index);
             return;
         }
 
         if (e.target.classList.contains('finalize-btn')) {
-            state.currentProgression[index] = state.temporarySwaps[index];
-            delete state.temporarySwaps[index];
+            return;
+        }
+
+        if (e.target.classList.contains('swap-menu-btn')) {
+            const selectedAltSymbol = e.target.dataset.alt;
+
+            // If the selected alternative is the original chord, revert the swap.
+            if (selectedAltSymbol === originalChord.symbol) {
+                delete state.temporarySwaps[index];
+            } else {
+                // Otherwise, set the new temporary swap.
+                state.temporarySwaps[index] = { symbol: selectedAltSymbol, key: parseInt(e.target.dataset.altKey, 10) };
+            }
+            activeMenuIndex = null;
+            if (!isPlaying) {
+                const chordToAudition = state.temporarySwaps[index] || originalChord;
+                auditionChord(chordToAudition.symbol, chordToAudition.key);
+            }
             persistAppState();
             renderProgression();
             return;
         }
 
-        if (e.target.classList.contains('swap-menu-btn')) {
-            state.temporarySwaps[index] = e.target.dataset.alt;
-            activeMenuIndex = null;
-            if (!isPlaying) {
-                auditionChord(state.temporarySwaps[index]);
-            }
-            renderProgression();
-            return;
-        }
-
         // Clicked the chord badge itself
-        const displayChord = state.temporarySwaps[index] || state.currentProgression[index];
+        const displayChord = state.temporarySwaps[index] || originalChord;
         if (!isPlaying) {
-            auditionChord(displayChord);
+            auditionChord(displayChord.symbol, displayChord.key);
         }
 
         // Toggle Context Menu
-        if (state.temporarySwaps[index] === undefined) {
-            activeMenuIndex = activeMenuIndex === index ? null : index;
-            renderProgression();
-        }
+        activeMenuIndex = activeMenuIndex === index ? null : index;
+        renderProgression();
     });
     
     const chordBtns = document.querySelectorAll('.chord-btn');
     chordBtns.forEach(btn => {
-        setupDraggableSource(btn);
+        setupDraggableSource(btn, () => state.baseKey);
         btn.addEventListener('click', () => {
-            auditionChord(btn.dataset.chord);
+            auditionChord(btn.dataset.chord, state.baseKey);
         });
         btn.addEventListener('dblclick', () => {
             addChord(btn.dataset.chord);
@@ -441,7 +420,7 @@ function initApp() {
     document.getElementById('btn-loop-toggle').addEventListener('click', () => {
         state.isLooping = !state.isLooping;
         updateLoopButtonUI();
-        sanitizeLoopBounds();
+        applyLoopBounds();
         persistAppState();
         renderProgression();
     });
@@ -453,27 +432,29 @@ function initApp() {
     document.getElementById('key-selector').addEventListener('change', (e) => {
         const newKey = parseInt(e.target.value, 10);
         state.baseKey = newKey;
-        setBaseKey(newKey);
         document.getElementById('key-display').textContent = KEY_NAMES[newKey] || 'C Major';
         persistAppState();
-        // The audio engine will pick up the new key automatically on the next scheduled note.
     });
 
     const savedState = loadState();
     if (savedState) {
-        if (savedState.currentProgression) state.currentProgression = savedState.currentProgression;
+        if (savedState.baseKey !== undefined) state.baseKey = savedState.baseKey;
+        if (savedState.currentProgression) {
+            // Gracefully upgrade legacy string arrays to objects
+            state.currentProgression = savedState.currentProgression.map(item => 
+                typeof item === 'string' ? { symbol: item, key: state.baseKey } : item
+            );
+        }
         if (savedState.bpm) state.bpm = savedState.bpm;
         // Handle transition from old schema names (loop -> isLooping, voiceLeading -> useVoiceLeading)
         if (savedState.isLooping !== undefined || savedState.loop !== undefined) state.isLooping = savedState.isLooping ?? savedState.loop;
         if (savedState.useVoiceLeading !== undefined || savedState.voiceLeading !== undefined) state.useVoiceLeading = savedState.useVoiceLeading ?? savedState.voiceLeading;
         if (savedState.loopStart !== undefined) state.loopStart = savedState.loopStart;
         if (savedState.loopEnd !== undefined) state.loopEnd = savedState.loopEnd;
-        if (savedState.baseKey !== undefined) state.baseKey = savedState.baseKey;
+        if (savedState.temporarySwaps) state.temporarySwaps = savedState.temporarySwaps;
         if (savedState.theme !== undefined) state.theme = savedState.theme;
     }
-    // Set the initial key for the theory engine before any rendering
-    setBaseKey(state.baseKey);
-    sanitizeLoopBounds();
+    applyLoopBounds();
     
     // --- Theme Management ---
     document.documentElement.setAttribute('data-theme', state.theme);

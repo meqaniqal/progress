@@ -98,7 +98,6 @@ h1 { border-bottom: 2px solid var(--border-main); padding-bottom: 0.5rem; }
     background-color: var(--temp-chord-bg);
     border: 2px dashed var(--temp-chord-border);
     color: var(--temp-chord-text);
-    padding-right: 48px; /* Make extra room for the second inline button */
     animation: temp-pulse 2s infinite alternate;
 }
 @keyframes temp-pulse {
@@ -120,6 +119,17 @@ h1 { border-bottom: 2px solid var(--border-main); padding-bottom: 0.5rem; }
 .swap-menu::before { content: ''; position: absolute; top: -6px; left: 16px; width: 10px; height: 10px; background: var(--bg-panel); border-left: 1px solid var(--border-main); border-top: 1px solid var(--border-main); transform: rotate(45deg); }
 .swap-menu-btn { margin: 0; padding: 6px 10px; font-size: 14px; z-index: 101; position: relative; }
 .swap-menu-btn:hover { transform: translateY(-2px); }
+
+/* Special style for the button in the swap menu that reverts to the original chord */
+.swap-menu-btn.original-swap-option {
+    border-color: var(--item-playing-bg);
+    color: var(--item-playing-bg);
+    font-weight: 600;
+}
+.swap-menu-btn.original-swap-option:hover {
+    background-color: var(--item-playing-bg);
+    color: var(--item-text);
+}
 
 .progression-placeholder { width: 50px; height: 34px; background: var(--placeholder-bg); border: 2px dashed var(--placeholder-border); border-radius: 4px; box-sizing: border-box; }
 .controls { display: flex; gap: 20px; align-items: center; margin-top: 20px; flex-wrap: wrap; }

@@ -19,12 +19,18 @@
 - **Live Auditioning:** Hear the results of a selected alternative *live* while the progression (or looped section) is playing, without losing the original chord.
 - **Finalization:** Once an alternative chord proves to be the best fit for the emotional intent of the sequence, the user can finalize the choice to permanently replace the original chord.
 
-### 4. Advanced Sequencer View (Future Goal)
+### 4. Advanced Sequencer View & Pattern Editing (Future Goal)
 - **Visual Timeline:** Instead of a simple tray, view chords on a timeline or piano-roll-style grid.
+- **Global Rhythm Construction:** Construct master rhythms that act as the foundational basis for chord playback. This standalone rhythm track can also be exported as MIDI.
+- **Per-Chord Timing Editor:** Mutate the base rhythm for any specific chord. Create dynamic patterns that start with the global timing but can be shifted strictly on-grid or nudged off-grid.
+- **Micro-Arrangement:** Within the pattern editor, apply repeats, arpeggiated sections, octave shifts, specific inversions, and custom voicings to individual instances of the chord, including full manual editing of notes. All edits render into the final exported MIDI.
 - **Adjustable Duration:** Click and drag to change the length of each chord.
-- **Snap to Grid:** Toggle a grid for precise rhythmic alignment (e.g., whole, half, quarter notes).
-- **Free Positioning:** Drag chords freely along the timeline when snap is off.
 - **Ripple Editing:** Optionally, have the timeline automatically push subsequent chords forward when a preceding chord's duration is extended, maintaining the overall sequence.
+
+### 5. Intelligent Bassline Generation (Future Goal)
+- **Rhythm-Informed Generation:** Utilize the constructed rhythm track to generate intelligent, genre-appropriate basslines.
+- **Contextual Suggestions:** The engine acts as a safety net, suggesting the best locations and pitches for bass notes based on the current harmonic progression.
+- **Symbiotic Editing:** If the user manually edits the chord pattern or the bassline, the system dynamically informs changes across the board. The bassline notes, chord pattern elements, and master rhythm continually cross-reference each other to ensure everything locks together musically from moment to moment.
 
 ---
 

@@ -1,4 +1,4 @@
-import { chordDictionary, applyVoiceLeading } from './theory.js';
+import { getChordNotes, applyVoiceLeading } from './theory.js';
 import { CONFIG } from './config.js';
 
 export function exportToMidi(state) {
@@ -13,7 +13,7 @@ export function exportToMidi(state) {
         midiNotesToWrite = applyVoiceLeading(state.currentProgression);
     } else {
         // Just use block root position chords
-        midiNotesToWrite = state.currentProgression.map(c => chordDictionary[c]);
+        midiNotesToWrite = state.currentProgression.map(chord => getChordNotes(chord.symbol, chord.key));
     }
 
     // Initialize MidiWriterJS (assumes MidiWriter is available globally)
@@ -32,8 +32,8 @@ export function exportToMidi(state) {
 
     // Add a bass line! (Root notes played down two octaves)
     const bassTrack = new MidiWriter.Track();
-    state.currentProgression.forEach(chordSymbol => {
-        const rootNote = chordDictionary[chordSymbol][0] + CONFIG.BASS_OCTAVE_DROP; 
+    state.currentProgression.forEach(chord => {
+        const rootNote = getChordNotes(chord.symbol, chord.key)[0] + CONFIG.BASS_OCTAVE_DROP; 
         bassTrack.addEvent(new MidiWriter.NoteEvent({
             pitch: [rootNote],
             duration: '1',

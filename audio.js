@@ -1,4 +1,4 @@
-import { chordDictionary, applyVoiceLeading } from './theory.js';
+import { getChordNotes, applyVoiceLeading } from './theory.js';
 import { CONFIG } from './config.js';
 
 let audioCtx;
@@ -67,10 +67,10 @@ function playTone(freq, startTime, duration, type = 'sine') {
     activeOscillators.push(osc);
 }
 
-export function auditionChord(chordSymbol) {
+export function auditionChord(chordSymbol, baseKey) {
     initAudio();
 
-    const chordNotes = chordDictionary[chordSymbol];
+    const chordNotes = getChordNotes(chordSymbol, baseKey);
     if (!chordNotes) return;
 
     const rootNoteMidi = chordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
@@ -112,7 +112,7 @@ function scheduleNote(chordIndexRel, time) {
         const vlSlice = applyVoiceLeading(sliceToPlay);
         notesToPlay = vlSlice[chordIndexRel];
     } else {
-        notesToPlay = chordDictionary[sliceToPlay[chordIndexRel]];
+        notesToPlay = getChordNotes(sliceToPlay[chordIndexRel].symbol, sliceToPlay[chordIndexRel].key);
     }
     
     if (!notesToPlay) return;
@@ -123,9 +123,11 @@ function scheduleNote(chordIndexRel, time) {
     notesToPlay.forEach(note => playTone(midiToFreq(note), time, chordDuration, 'sine'));
     
     // Play Bass (Track 2)
-    const rootSymbol = sliceToPlay[chordIndexRel];
-    if (chordDictionary[rootSymbol]) {
-        const rootNoteMidi = chordDictionary[rootSymbol][0] + CONFIG.BASS_OCTAVE_DROP;
+    const rootSymbol = sliceToPlay[chordIndexRel].symbol;
+    const rootKey = sliceToPlay[chordIndexRel].key;
+    const rootChordNotes = getChordNotes(rootSymbol, rootKey);
+    if (rootChordNotes) {
+        const rootNoteMidi = rootChordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
         playTone(midiToFreq(rootNoteMidi), time, chordDuration, 'triangle');
     }
 

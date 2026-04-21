@@ -1,6 +1,4 @@
-// --- Dynamic Chord Generation & Base Key Management ---
-let currentBaseKeyMidi = 60; // Default to C4 (60)
-
+// --- Dynamic Chord Generation ---
 // Define chords purely by their intervals (semitones from the root)
 const CHORD_INTERVALS = {
     // --- Triads ---
@@ -30,39 +28,27 @@ const CHORD_INTERVALS = {
     'bVII7':  [10, 14, 17, 20]
 };
 
-// The active dictionary exported for the audio and UI engines
-export const chordDictionary = {};
-
-// Rebuilds the dictionary array whenever the base key changes
-export function setBaseKey(midiNote) {
-    currentBaseKeyMidi = midiNote;
-    // Clear existing keys to safely overwrite the exported object reference
-    Object.keys(chordDictionary).forEach(k => delete chordDictionary[k]);
-    
-    for (const [numeral, intervals] of Object.entries(CHORD_INTERVALS)) {
-        chordDictionary[numeral] = intervals.map(interval => currentBaseKeyMidi + interval);
-    }
+export function getChordNotes(symbol, baseKey) {
+    const intervals = CHORD_INTERVALS[symbol];
+    if (!intervals) return null;
+    return intervals.map(interval => baseKey + interval);
 }
-
-// Initialize with default C Major
-setBaseKey(currentBaseKeyMidi);
 
 // --- Harmonic Function Alternatives ---
 // Returns chords that share a similar harmonic function for contextual swapping
-// This is a dynamic calculation, not a static map, allowing it to scale
-// with any new chords added to the CHORD_INTERVALS dictionary.
+// Calculates shared tones purely by modulo interval mapping, making it key-agnostic.
 export function getAlternatives(chordSymbol) {
-    const sourceNotes = chordDictionary[chordSymbol]?.map(n => n % 12);
-    if (!sourceNotes) return [];
-
-    const allChords = Object.keys(chordDictionary);
+    const sourceIntervals = CHORD_INTERVALS[chordSymbol];
+    if (!sourceIntervals) return [];
+    
+    const sourceNotes = sourceIntervals.map(n => n % 12);
+    const allChords = Object.keys(CHORD_INTERVALS);
     const scoredAlternatives = [];
 
     for (const targetSymbol of allChords) {
-        if (targetSymbol === chordSymbol || !chordDictionary[targetSymbol]) continue;
+        if (targetSymbol === chordSymbol) continue;
 
-        // Compare based on pitch class (0-11) to ignore octave differences
-        const targetNotes = chordDictionary[targetSymbol].map(n => n % 12);
+        const targetNotes = CHORD_INTERVALS[targetSymbol].map(n => n % 12);
         const sharedNotes = sourceNotes.filter(note => targetNotes.includes(note));
         
         // Only suggest chords with significant overlap (at least 2 shared notes for triads/7ths)
@@ -84,16 +70,17 @@ export function getAlternatives(chordSymbol) {
 // Calculates the inversion of a target chord that has the shortest 
 // total melodic distance from the previous chord.
 export function applyVoiceLeading(progression) {
-    // Defensive programming: Filter out any invalid chords gracefully
-    const validProgression = progression.filter(chord => chordDictionary[chord]);
+    // progression is now an array of objects: { symbol: 'I', key: 60 }
+    const validProgression = progression.filter(chord => getChordNotes(chord.symbol, chord.key));
     if (validProgression.length === 0) return [];
     
     // Start the first chord in root position, dropped down an octave for warmth (C3 range)
-    let processed = [chordDictionary[validProgression[0]].map(n => n - 12)]; 
+    const firstNotes = getChordNotes(validProgression[0].symbol, validProgression[0].key);
+    let processed = [firstNotes.map(n => n - 12)]; 
 
     for (let i = 1; i < validProgression.length; i++) {
         let prevChord = processed[i - 1];
-        let targetNotes = chordDictionary[validProgression[i]];
+        let targetNotes = getChordNotes(validProgression[i].symbol, validProgression[i].key);
         
         // Generate possible inversions (moving notes up/down octaves)
         let inversions = generateInversions(targetNotes);

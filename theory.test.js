@@ -1,4 +1,4 @@
-import { applyVoiceLeading, generateInversions, calculateDistance, chordDictionary } from './theory.js';
+import { applyVoiceLeading, generateInversions, calculateDistance } from './theory.js';
 
 describe('Theory & Voice Leading Module', () => {
     
@@ -34,7 +34,7 @@ describe('Theory & Voice Leading Module', () => {
         });
         
         it('should return the first chord dropped by one octave for C3 warmth', () => {
-            const result = applyVoiceLeading(['I']);
+            const result = applyVoiceLeading([{symbol: 'I', key: 60}]);
             expect(result[0]).toEqual([48, 52, 55]); // C3 range: 60-12, 64-12, 67-12
         });
         
@@ -43,7 +43,7 @@ describe('Theory & Voice Leading Module', () => {
             // I dropped 1 oct: [48, 52, 55] (C3, E3, G3)
             // A raw V chord is [67, 71, 74]. Jumping from [48, 52, 55] directly would be a distance of 19+19+19 = 57.
             // Voice leading should pick a closer inversion (e.g. [47, 50, 55] or similar).
-            const result = applyVoiceLeading(['I', 'V']);
+            const result = applyVoiceLeading([{symbol: 'I', key: 60}, {symbol: 'V', key: 60}]);
             expect(result.length).toBe(2);
             const dist = calculateDistance(result[0], result[1]);
             expect(dist).toBeLessThan(15); // Assert that the jump is small and musical
