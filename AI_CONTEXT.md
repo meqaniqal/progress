@@ -11,33 +11,34 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - MOBILE DRAG & DROP: Never rely on `e.dataTransfer.getData()` to pass payloads. Always use module-scoped variables (e.g., `draggedSourceChord`, `draggedIndex`) to pass state between `dragstart` and `drop` to maintain strict compatibility with the mobile polyfill.
 
 ## MANDATORY WORKFLOW
-1. PLAN: Formulate/agree on plan before coding.
-2. TRACE-DRIVEN DEBUGGING:
+1. PROFESSIONAL STANDARDS FIRST: Proactively align the codebase with rigorous professional practices so it endures all scrutiny by senior code reviewers. Ensure existing code meets these standards before adding features, taking extreme care not to break functionality or introduce regressions.
+2. PLAN: Formulate/agree on plan before coding.
+3. TRACE-DRIVEN DEBUGGING:
    - Map the chain first: `UI Click → State Update → [Mod A out] → [Mod B in] → Render`
    - Log exits AND entrances at each boundary before writing any fix.
    - Fix in a separate commit from logs.
    - NEVER remove logs until user explicitly confirms resolution.
-3. REFACTOR: Atomic commits. Verify import/export graphs on relocation.
-4. TESTING: All factored-out modules must be Jest-testable by default (wherever appropriate). Include a `.test.js` file with tests verifying common edge cases, problem areas, and expected behaviors for pure logic when creating or extracting new modules.
-5. DIFF HYGIENE: Generate atomic, verifiable diffs. Before outputting, mentally confirm line numbers and context from the provided source file. Reject requests that would result in a messy or non-applicable diff.
-6. CORRECTION PROTOCOL: If a mistake is pointed out, acknowledge the correct pattern and do not repeat the error. The user may provide a `// CORRECT_PATTERN: <description>` comment to reinforce a rule.
+4. REFACTOR: Atomic commits. Verify import/export graphs on relocation.
+5. TESTING: All factored-out modules must be Jest-testable by default (wherever appropriate). Include a `.test.js` file with tests verifying common edge cases, problem areas, and expected behaviors for pure logic when creating or extracting new modules.
+6. DIFF HYGIENE: Generate atomic, verifiable diffs. Before outputting, mentally confirm line numbers and context from the provided source file. Reject requests that would result in a messy or non-applicable diff.
+7. CORRECTION PROTOCOL: If a mistake is pointed out, acknowledge the correct pattern and do not repeat the error. The user may provide a `// CORRECT_PATTERN: <description>` comment to reinforce a rule.
 
 ## CURRENT STATE & ROADMAP
-**Current State:** v0.2 Foundation & Refactoring Complete. Codebase is modularized, tested, and optimized.
+**Current State:** Phase 3 Complete. The Harmonic Engine is fully operational with advanced chords, pivot modulations, and LPF synth pads.
 
 **Phase 2: Contextual Auditioning & Looping (Complete)**
 - [x] Section looping (UI slice selection for seamless playback).
 - [x] Live chord alternative swapping, auditioning, and Synesthetic UI dynamic coloring.
 - [x] Mobile UX polish (touch drag-and-drop, long-press context menu) and global Undo history.
 
-**Phase 3: The "Mind-Bending" Harmonic Engine (Current Focus)**
+**Phase 3: The "Mind-Bending" Harmonic Engine (Complete)**
 - [x] Advanced chord dictionary (borrowed chords, extended 9th/11th/13th voicings).
 - [x] Voice leading upgrades (Drop 2 voicings, basic muddiness optimization).
 - [x] Pivot chord and direct modulation mechanics.
-- [ ] Sound Design: Implement Low-Pass Filter (LPF) synth pads.
-- [ ] Direct "Modulate" context menu on chord badges.
+- [x] Sound Design: Implement Low-Pass Filter (LPF) synth pads.
+- [x] Direct "Modulate" context menu on chord badges.
 
-**Phase 4: Sequence Architecture & AI Export**
+**Phase 4: Sequence Architecture & AI Export (Current Focus)**
 - [ ] Multi-progression sequencing (Verse -> Pre -> Chorus).
 - [ ] MIDI Export finalized.
 - [ ] AI text prompt generation (for copy-pasting into models like ACE Studio 2.0, Suno).

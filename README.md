@@ -28,12 +28,13 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Synesthetic Harmonic UI:** Chords dynamically change color based on absolute root note (Circle of Fifths), harmonic tension, and bi-directional contextual ripple.
 - **Seamless Chord Swapping:** Swap and audition chord alternatives instantly without interrupting workflow, with full support for multi-key modulations.
 
-### Phase 3: The "Mind-Bending" Harmonic Engine (Up Next 🚧)
+### Phase 3: The "Mind-Bending" Harmonic Engine (Complete ✅)
 - **Advanced Chord Dictionary:** Extended 9ths, 11ths, 13ths, and altered dominants.
 - **Complex Voice Leading:** Inner-melodic line math to dictate moving hidden voices.
 - **Modulation:** Pivot chord and direct modulation mechanics.
+- **Sound Design:** Low-Pass Filter (LPF) synth pads and clean bass separation.
 
-### Phase 4: Sequence Architecture & AI Export
+### Phase 4: Sequence Architecture & AI Export (Up Next 🚧)
 - **Multi-Progression Sequencing:** Chain together full song structures (Verse -> Pre -> Chorus).
 - **AI Text Prompt Generation:** Generate copy-pasteable text prompts detailing the key, mood, and harmonic rhythm to feed into AI models.
 - **Reference Audio Export:** Direct `.wav` export of the clean synth pad.

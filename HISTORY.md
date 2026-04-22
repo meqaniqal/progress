@@ -27,8 +27,10 @@
 - Integrated mobile-friendly touch drag-and-drop support and long-press deletion.
 - Implemented global state history with an Undo button for all progression modifications.
 
-## Phase 3: The "Mind-Bending" Harmonic Engine (In Progress)
+## Phase 3: The "Mind-Bending" Harmonic Engine (Complete)
 - Expanded chord dictionary with extended voicings (9ths, 11ths, 13ths, Sus4, and Altered Dominants like V7#9).
 - Upgraded Voice Leading engine with "Drop 2" and "Shell" voicing optimization to prevent frequency mud.
 - Built purely mathematical Pivot Chord detection and modulation suggestion mechanics.
 - Addressed timbral muddiness by separating chord and bass waveforms (Triangle/Sine split).
+- Implemented Low-Pass Filter (LPF) synth pads for warm, lush chord playback.
+- Added an inline "Modulate" context menu for instant key shifts from specific chord badges.
