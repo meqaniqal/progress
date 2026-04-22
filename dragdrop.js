@@ -28,6 +28,8 @@ export function initDragAndDrop({
     let draggedIndex = null;
     let draggedBracket = null;
     let currentAfterElement = undefined;
+    let draggedSourceChord = null;
+    let draggedSourceKey = null;
 
     // Safely initialize DOM elements (protects against Jest Node.js environment)
     const dragPlaceholder = typeof document !== 'undefined' ? document.createElement('div') : null;
@@ -137,6 +139,8 @@ export function initDragAndDrop({
         const resetIndex = draggedIndex;
         draggedIndex = null;
         draggedBracket = null;
+        draggedSourceChord = null;
+        draggedSourceKey = null;
         
         if (resetIndex !== null) {
             onReorder(resetIndex, resetIndex); // Dispatch a clean reset intent
@@ -211,21 +215,11 @@ export function initDragAndDrop({
 
         if (dragPlaceholder.parentNode) dragPlaceholder.parentNode.removeChild(dragPlaceholder);
 
-        let sourceChord = e.dataTransfer.getData('source-chord');
-        let sourceKeyStr = e.dataTransfer.getData('source-key');
-
-        // Fallback for mobile polyfill which strips non-standard MIME types
-        if (!sourceChord) {
-            try {
-                const payload = JSON.parse(e.dataTransfer.getData('text/plain'));
-                sourceChord = payload.sourceChord;
-                sourceKeyStr = payload.sourceKey;
-            } catch (err) {}
-        }
-
-        const sourceKey = sourceKeyStr ? parseInt(sourceKeyStr, 10) : 60;
-        if (sourceChord) {
-            onAddFromSource(sourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd);
+        if (draggedSourceChord) {
+            const sourceKey = draggedSourceKey !== null ? draggedSourceKey : 60;
+            onAddFromSource(draggedSourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd);
+            draggedSourceChord = null;
+            draggedSourceKey = null;
         } else if (draggedBracket) {
             onBracketDrop(draggedBracket, insertIndex, newLoopStart, newLoopEnd);
             draggedBracket = null;
@@ -239,15 +233,12 @@ export function initDragAndDrop({
         sourceButtons.forEach(btn => {
             btn.draggable = true;
             btn.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('source-chord', btn.dataset.chord);
-                e.dataTransfer.setData('source-key', getBaseKey().toString());
+                draggedSourceChord = btn.dataset.chord;
+                draggedSourceKey = getBaseKey();
                 e.dataTransfer.effectAllowed = 'copy';
                 
-                // Polyfill safety: encode custom data into text/plain
-                e.dataTransfer.setData('text/plain', JSON.stringify({
-                    sourceChord: btn.dataset.chord,
-                    sourceKey: getBaseKey().toString()
-                }));
+                // Polyfill safety: provide dummy text so it registers as a valid drag
+                e.dataTransfer.setData('text/plain', 'source');
                 
                 draggedIndex = null;
                 
@@ -271,6 +262,8 @@ export function initDragAndDrop({
             });
 
             btn.addEventListener('dragend', () => {
+                draggedSourceChord = null;
+                draggedSourceKey = null;
                 if (dragPlaceholder && dragPlaceholder.parentNode) {
                     dragPlaceholder.parentNode.removeChild(dragPlaceholder);
                 }
