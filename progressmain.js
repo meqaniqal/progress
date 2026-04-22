@@ -1,10 +1,10 @@
-import { saveState, loadState } from './storage.js';
-import { applyVoiceLeading, getAlternatives, getHarmonicProfile, getChordNotes } from './theory.js';
-import { CONFIG } from './config.js';
-import { auditionChord, playProgression, stopAllAudio } from './audio.js';
-import { initDragAndDrop } from './dragdrop.js';
-import { exportToMidi } from './midi.js';
-import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder, calculateLoopBounds } from './stateUtils.js';
+import { saveState, loadState } from './storage.js?v=3';
+import { applyVoiceLeading, getAlternatives, getHarmonicProfile, getChordNotes } from './theory.js?v=3';
+import { CONFIG } from './config.js?v=3';
+import { auditionChord, playProgression, stopAllAudio } from './audio.js?v=3';
+import { initDragAndDrop } from './dragdrop.js?v=3';
+import { exportToMidi } from './midi.js?v=3';
+import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder, calculateLoopBounds } from './stateUtils.js?v=3';
 
         // --- Single Source of Truth ---
         const state = {
