@@ -35,6 +35,7 @@ function midiToFreq(m) {
 function playTone(freq, startTime, duration, type = 'sine') {
     const osc = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
+    let filterNode = null;
 
     osc.type = type;
     osc.frequency.value = freq;
@@ -45,7 +46,20 @@ function playTone(freq, startTime, duration, type = 'sine') {
     gainNode.gain.setValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + duration - CONFIG.RELEASE_TIME); // Sustain
     gainNode.gain.linearRampToValueAtTime(0, startTime + duration); // Release
 
-    osc.connect(gainNode);
+    // Apply Low-Pass Filter specifically for sawtooth pad chords
+    if (type === 'sawtooth') {
+        filterNode = audioCtx.createBiquadFilter();
+        filterNode.type = 'lowpass';
+        // Smooth filter envelope: starts a bit brighter, decays to warm sustain
+        filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 1.5, startTime);
+        filterNode.frequency.exponentialRampToValueAtTime(CONFIG.SYNTH_LPF_CUTOFF, startTime + CONFIG.ATTACK_TIME);
+        filterNode.Q.value = CONFIG.SYNTH_LPF_RESONANCE;
+
+        osc.connect(filterNode);
+        filterNode.connect(gainNode);
+    } else {
+        osc.connect(gainNode);
+    }
     gainNode.connect(masterCompressor); // Route to master bus
 
     osc.start(startTime);
@@ -69,8 +83,8 @@ export function auditionChord(chordSymbol, baseKey) {
     const now = audioCtx.currentTime;
 
     // Play chord and bass note without interrupting main playback loop
-    chordNotes.forEach(note => playTone(midiToFreq(note - 12), now, CONFIG.AUDITION_DURATION_SEC, 'sine'));
-    playTone(midiToFreq(rootNoteMidi), now, CONFIG.AUDITION_DURATION_SEC, 'triangle');
+    chordNotes.forEach(note => playTone(midiToFreq(note - 12), now, CONFIG.AUDITION_DURATION_SEC, 'sawtooth'));
+    playTone(midiToFreq(rootNoteMidi), now, CONFIG.AUDITION_DURATION_SEC, 'sine');
 }
 
 function getBounds(state) {
@@ -139,14 +153,14 @@ export function playProgression(getState, onHighlight, onComplete) {
 
         const chordDuration = 60 / state.bpm;
 
-        notesToPlay.forEach(note => playTone(midiToFreq(note), time, chordDuration, 'sine'));
+        notesToPlay.forEach(note => playTone(midiToFreq(note), time, chordDuration, 'sawtooth'));
         
         const rootSymbol = sliceToPlay[chordIndexRel].symbol;
         const rootKey = sliceToPlay[chordIndexRel].key;
         const rootChordNotes = getChordNotes(rootSymbol, rootKey);
         if (rootChordNotes) {
             const rootNoteMidi = rootChordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
-            playTone(midiToFreq(rootNoteMidi), time, chordDuration, 'triangle');
+            playTone(midiToFreq(rootNoteMidi), time, chordDuration, 'sine');
         }
 
         const delayMs = (time - audioCtx.currentTime) * 1000;

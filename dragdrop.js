@@ -232,42 +232,51 @@ export function initDragAndDrop({
     if (sourceButtons) {
         sourceButtons.forEach(btn => {
             btn.draggable = true;
-            btn.addEventListener('dragstart', (e) => {
-                draggedSourceChord = btn.dataset.chord;
-                draggedSourceKey = getBaseKey();
-                e.dataTransfer.effectAllowed = 'copy';
-                
-                // Polyfill safety: provide dummy text so it registers as a valid drag
-                e.dataTransfer.setData('text/plain', 'source');
-                
-                draggedIndex = null;
-                
-                dragPlaceholder.className = 'progression-placeholder';
-                dragPlaceholder.textContent = '';
-                Object.assign(dragPlaceholder.style, {
-                    transition: 'width 0.2s ease-out, margin 0.2s ease-out, opacity 0.2s ease-out',
-                    display: 'inline-block',
-                    border: '2px dashed #888',
-                    borderRadius: '4px',
-                    boxSizing: 'border-box',
-                    height: '36px',
-                    verticalAlign: 'top',
-                    pointerEvents: 'none',
-                    color: 'transparent'
-                });
-
-                const dragImg = createCustomDragImage(btn.dataset.chord);
-                e.dataTransfer.setDragImage(dragImg, CONFIG.DRAG_OFFSET_X, CONFIG.DRAG_OFFSET_Y);
-                setTimeout(() => document.body.removeChild(dragImg), 0);
-            });
-
-            btn.addEventListener('dragend', () => {
-                draggedSourceChord = null;
-                draggedSourceKey = null;
-                if (dragPlaceholder && dragPlaceholder.parentNode) {
-                    dragPlaceholder.parentNode.removeChild(dragPlaceholder);
-                }
-            });
         });
     }
+
+    // Use event delegation to support dynamically added source buttons (like modulation suggestions)
+    document.body.addEventListener('dragstart', (e) => {
+        const btn = e.target.closest('.chord-btn');
+        if (btn && btn.dataset.chord && !btn.closest('.swap-menu')) {
+            draggedSourceChord = btn.dataset.chord;
+            // Capture the specific target key if it exists, otherwise fall back to global baseKey
+            draggedSourceKey = btn.hasAttribute('data-key') ? parseInt(btn.dataset.key, 10) : getBaseKey();
+            e.dataTransfer.effectAllowed = 'copy';
+            
+            // Polyfill safety: provide dummy text so it registers as a valid drag
+            e.dataTransfer.setData('text/plain', 'source');
+            
+            draggedIndex = null;
+            
+            dragPlaceholder.className = 'progression-placeholder';
+            dragPlaceholder.textContent = '';
+            Object.assign(dragPlaceholder.style, {
+                transition: 'width 0.2s ease-out, margin 0.2s ease-out, opacity 0.2s ease-out',
+                display: 'inline-block',
+                border: '2px dashed #888',
+                borderRadius: '4px',
+                boxSizing: 'border-box',
+                height: '36px',
+                verticalAlign: 'top',
+                pointerEvents: 'none',
+                color: 'transparent'
+            });
+
+            const dragImg = createCustomDragImage(btn.dataset.chord);
+            e.dataTransfer.setDragImage(dragImg, CONFIG.DRAG_OFFSET_X, CONFIG.DRAG_OFFSET_Y);
+            setTimeout(() => document.body.removeChild(dragImg), 0);
+        }
+    });
+
+    document.body.addEventListener('dragend', (e) => {
+        const btn = e.target.closest('.chord-btn');
+        if (btn && btn.dataset.chord && !btn.closest('.swap-menu')) {
+            draggedSourceChord = null;
+            draggedSourceKey = null;
+            if (dragPlaceholder && dragPlaceholder.parentNode) {
+                dragPlaceholder.parentNode.removeChild(dragPlaceholder);
+            }
+        }
+    });
 }

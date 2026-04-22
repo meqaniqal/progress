@@ -228,21 +228,70 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
                     if (!swapMenu) {
                         swapMenu = document.createElement('div');
                         swapMenu.className = 'swap-menu';
+                        
+                        // --- Alternatives Section ---
+                        const altsLabel = document.createElement('div');
+                        altsLabel.className = 'swap-menu-label';
+                        altsLabel.textContent = 'Swap Chord';
+                        swapMenu.appendChild(altsLabel);
+                        
+                        const altsRow = document.createElement('div');
+                        altsRow.className = 'swap-menu-row';
+
                         const alts = getAlternatives(displayChord.symbol);
                         if (isTemp) {
                             alts.unshift(chord.symbol); // Add original chord as first option
                         }
-                        alts.forEach((alt, i) => {
-                            const btn = document.createElement('button');
-                            btn.className = 'chord-btn swap-menu-btn';
-                            btn.textContent = alt;
-                            btn.dataset.alt = alt; // Handled by Event Delegation
-                            btn.dataset.altKey = chord.key; // Lock the alternative to the chord's original key!
-                            if (isTemp && i === 0) {
-                                btn.classList.add('original-swap-option');
+                        if (alts.length === 0) {
+                            const noAlts = document.createElement('span');
+                            noAlts.textContent = 'No close matches';
+                            noAlts.style.opacity = '0.5';
+                            noAlts.style.fontSize = '12px';
+                            altsRow.appendChild(noAlts);
+                        } else {
+                            alts.forEach((alt, i) => {
+                                const btn = document.createElement('button');
+                                btn.className = 'chord-btn swap-menu-btn';
+                                btn.textContent = alt;
+                                btn.dataset.alt = alt; // Handled by Event Delegation
+                                btn.dataset.altKey = chord.key; // Lock the alternative to the chord's original key!
+                                if (isTemp && i === 0) {
+                                    btn.classList.add('original-swap-option');
+                                }
+                                altsRow.appendChild(btn);
+                            });
+                        }
+                        swapMenu.appendChild(altsRow);
+
+                        // --- Modulate Section ---
+                        const modLabel = document.createElement('div');
+                        modLabel.className = 'swap-menu-label';
+                        modLabel.textContent = 'Modulate Key';
+                        swapMenu.appendChild(modLabel);
+
+                        const modSelect = document.createElement('select');
+                        modSelect.className = 'modulate-select';
+                        
+                        Object.entries(KEY_NAMES).forEach(([val, name]) => {
+                            const opt = document.createElement('option');
+                            opt.value = val;
+                            opt.textContent = name;
+                            if (parseInt(val, 10) === state.baseKey) {
+                                opt.selected = true;
                             }
-                            swapMenu.appendChild(btn);
+                            modSelect.appendChild(opt);
                         });
+
+                        modSelect.addEventListener('change', (e) => {
+                            const newKey = parseInt(e.target.value, 10);
+                            state.baseKey = newKey;
+                            document.getElementById('key-display').textContent = KEY_NAMES[newKey] || 'C Major';
+                            document.getElementById('key-selector').value = newKey;
+                            persistAppState();
+                            renderProgression();
+                        });
+
+                        swapMenu.appendChild(modSelect);
                         el.appendChild(swapMenu);
                     }
                 } else {
@@ -280,6 +329,11 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
                     btn.className = `chord-btn ${sug.type.includes('dominant') ? 'borrowed' : ''}`;
                     btn.textContent = sug.symbol;
                     btn.title = sug.description;
+                    
+                    // Add attributes for drag-and-drop support
+                    btn.dataset.chord = sug.symbol;
+                    btn.dataset.key = sug.key;
+                    btn.draggable = true;
                     
                     // Allow audition on click, add on double-click
                     btn.addEventListener('click', () => auditionChord(sug.symbol, sug.key));
@@ -450,6 +504,10 @@ function _setupProgressionDisplayEvents(display) {
             renderProgression();
             return;
         }
+            
+            if (e.target.closest('.swap-menu')) {
+                return; // Prevent closing the menu when interacting with internal elements like the select dropdown
+            }
 
         // Clicked the chord badge itself
         const displayChord = state.temporarySwaps[index] || originalChord;
