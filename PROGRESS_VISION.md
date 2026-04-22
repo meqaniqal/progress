@@ -25,8 +25,10 @@
 - **Global Rhythm Construction:** Construct master rhythms that act as the foundational basis for chord playback. This standalone rhythm track can also be exported as MIDI.
 - **Per-Chord Timing Editor:** Mutate the base rhythm for any specific chord. Create dynamic patterns that start with the global timing but can be shifted strictly on-grid or nudged off-grid.
 - **Micro-Arrangement:** Within the pattern editor, apply repeats, arpeggiated sections, octave shifts, specific inversions, and custom voicings to individual instances of the chord, including full manual editing of notes. All edits render into the final exported MIDI.
+- **Contrapuntal Voice Tweaking:** Manually nudge individual notes within a generated chord to fix unpleasant intervals or create intersecting melodies, even if it conceptually alters the chord's pure theoretical name. The app supports "listening" over strict "theory".
 - **Adjustable Duration:** Click and drag to change the length of each chord.
 - **Ripple Editing:** Optionally, have the timeline automatically push subsequent chords forward when a preceding chord's duration is extended, maintaining the overall sequence.
+- **Loop-Aware Resolution:** The voice-leading and suggestion engines analyze the progression as a continuous cycle, ensuring the transition from the *last* chord back to the *first* chord is as smooth and emotionally satisfying as any internal internal transition.
 
 ### 5. Intelligent Bassline Generation (Future Goal)
 - **Rhythm-Informed Generation:** Utilize the constructed rhythm track to generate intelligent, genre-appropriate basslines.
@@ -59,10 +61,11 @@ The single highest-leverage technique for chord transitions.
 - Keep notes close so they naturally "pull" into each other.
 - When inner voices move by half-step rather than leaping, transitions stop sounding "composed" and start sounding felt. It’s the difference between chord changes that thud and chord changes that breathe.
 
-#### 2. Inner Melodic Lines
+#### 2. Inner & Shifting Melodic Lines
 The professional's secret weapon.
-- Deliberately choose voicings so that one hidden voice descends (or ascends) stepwise across the whole progression.
-- Example: A hidden line moving `B -> A -> G -> F` through four chords is almost unfailingly moving.
+- Deliberately choose voicings so that hidden voices descend (or ascend) stepwise across the progression.
+- **Fluid Melody Handoff:** The primary melody does not always have to sit on the top note. The emotional core of a sequence often comes from handing the melodic focus between the top, middle, and bottom voices to avoid predictability.
+- **Contrapuntal Weaving:** Multiple voices within the chord sequence can carry their own simultaneous, intertwining melodies.
 
 #### 3. Borrowed Chords & Modal Mixture
 The "color spice rack" of the progression.

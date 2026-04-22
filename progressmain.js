@@ -1,5 +1,5 @@
 import { saveState, loadState } from './storage.js?v=3';
-import { applyVoiceLeading, getAlternatives, getHarmonicProfile, getChordNotes } from './theory.js?v=3';
+import { applyVoiceLeading, getAlternatives, getHarmonicProfile, getChordNotes, getTransitionSuggestions } from './theory.js?v=3';
 import { CONFIG } from './config.js?v=3';
 import { auditionChord, playProgression, stopAllAudio } from './audio.js?v=3';
 import { initDragAndDrop } from './dragdrop.js?v=3';
@@ -65,10 +65,10 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
             renderProgression();
         }
 
-        function addChord(numeral) {
+        function addChord(numeral, targetKey = state.baseKey) {
             saveHistoryState();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
-            state.currentProgression.push({ symbol: numeral, key: state.baseKey });
+            state.currentProgression.push({ symbol: numeral, key: targetKey });
             
             if (isAtEnd) state.loopEnd = state.currentProgression.length;
             
@@ -263,6 +263,34 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
                 }
             });
 
+            // --- Modulation Suggestions Logic ---
+            const lastChord = state.currentProgression[state.currentProgression.length - 1];
+            const modPanel = document.getElementById('modulation-panel');
+            if (lastChord && lastChord.key !== state.baseKey) {
+                modPanel.style.display = 'block';
+                document.getElementById('mod-from-key').textContent = KEY_NAMES[lastChord.key];
+                document.getElementById('mod-to-key').textContent = KEY_NAMES[state.baseKey];
+                
+                const btnContainer = document.getElementById('mod-buttons');
+                btnContainer.innerHTML = '';
+                
+                const suggestions = getTransitionSuggestions(lastChord.key, state.baseKey);
+                suggestions.forEach(sug => {
+                    const btn = document.createElement('button');
+                    btn.className = `chord-btn ${sug.type.includes('dominant') ? 'borrowed' : ''}`;
+                    btn.textContent = sug.symbol;
+                    btn.title = sug.description;
+                    
+                    // Allow audition on click, add on double-click
+                    btn.addEventListener('click', () => auditionChord(sug.symbol, sug.key));
+                    btn.addEventListener('dblclick', () => addChord(sug.symbol, sug.key));
+                    
+                    btnContainer.appendChild(btn);
+                });
+            } else {
+                if (modPanel) modPanel.style.display = 'none';
+            }
+
             // Remove excess DOM elements if the progression shrank
             for (let i = state.currentProgression.length; i < existingItems.length; i++) {
                 display.removeChild(existingItems[i]);
@@ -364,6 +392,7 @@ function _setupKeySelector() {
         state.baseKey = newKey;
         document.getElementById('key-display').textContent = KEY_NAMES[newKey] || 'C Major';
         persistAppState();
+        renderProgression();
     });
 }
 
@@ -413,10 +442,10 @@ function _setupProgressionDisplayEvents(display) {
                 state.temporarySwaps[index] = { symbol: selectedAltSymbol, key: parseInt(e.target.dataset.altKey, 10) };
             }
             activeMenuIndex = null;
-                const chordToAudition = state.temporarySwaps[index] || originalChord;
-                if (!isPlaying || item.classList.contains('playing')) {
-                    auditionChord(chordToAudition.symbol, chordToAudition.key);
-                }
+            const chordToAudition = state.temporarySwaps[index] || originalChord;
+            if (!isPlaying || item.classList.contains('playing')) {
+                auditionChord(chordToAudition.symbol, chordToAudition.key);
+            }
             persistAppState();
             renderProgression();
             return;
@@ -424,9 +453,9 @@ function _setupProgressionDisplayEvents(display) {
 
         // Clicked the chord badge itself
         const displayChord = state.temporarySwaps[index] || originalChord;
-            if (!isPlaying || item.classList.contains('playing')) {
-                auditionChord(displayChord.symbol, displayChord.key);
-            }
+        if (!isPlaying) {
+            auditionChord(displayChord.symbol, displayChord.key);
+        }
 
         // Toggle Context Menu
         activeMenuIndex = activeMenuIndex === index ? null : index;

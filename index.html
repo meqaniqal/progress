@@ -54,6 +54,24 @@
             <button class="chord-btn borrowed" data-chord="bVI">♭VI</button>
             <button class="chord-btn borrowed" data-chord="bVII">♭VII</button>
         </div>
+        <div style="margin-top: 10px;">
+            <strong>Extended & Altered:</strong>
+            <button class="chord-btn" data-chord="Imaj9">Imaj9</button>
+            <button class="chord-btn" data-chord="ii9">ii9</button>
+            <button class="chord-btn" data-chord="ii11">ii11</button>
+            <button class="chord-btn" data-chord="IVmaj9">IVmaj9</button>
+            <button class="chord-btn" data-chord="V9">V9</button>
+            <button class="chord-btn" data-chord="V11">V11</button>
+            <button class="chord-btn" data-chord="Vsus4">Vsus4</button>
+            <button class="chord-btn borrowed" data-chord="V7#9" title="Dominant 7 Sharp 9">V7♯9</button>
+            <button class="chord-btn borrowed" data-chord="V7b13" title="Dominant 7 Flat 13">V7♭13</button>
+        </div>
+
+        <div id="modulation-panel" style="display: none; margin-top: 15px; padding: 12px; border-radius: 6px; background: var(--placeholder-bg); border: 1px dashed var(--placeholder-border);">
+            <strong style="color: var(--placeholder-border);">🚀 Modulation Detected!</strong>
+            <p style="font-size: 14px; margin: 6px 0;">Smooth the transition from <strong id="mod-from-key"></strong> to <strong id="mod-to-key"></strong> using these suggested Pivot chords:</p>
+            <div id="mod-buttons" style="display: flex; flex-wrap: wrap;"></div>
+        </div>
 
         <div id="progression-display"></div>
     </div>

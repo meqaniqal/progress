@@ -1,4 +1,4 @@
-import { applyVoiceLeading, generateInversions, calculateDistance } from './theory.js';
+import { applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions } from './theory.js';
 
 describe('Theory & Voice Leading Module', () => {
     
@@ -25,6 +25,43 @@ describe('Theory & Voice Leading Module', () => {
             expect(inversions).toContainEqual([60, 64, 67]); // root
             expect(inversions).toContainEqual([64, 67, 72]); // 1st inversion (E, G, C)
             expect(inversions).toContainEqual([55, 60, 64]); // 2nd inversion lower (G, C, E)
+        });
+    });
+
+    describe('optimizeVoicing', () => {
+        it('should leave triads and 4-note 7th chords intact', () => {
+            const triad = [60, 64, 67];
+            const seventh = [60, 64, 67, 71];
+            expect(optimizeVoicing(triad)).toEqual([60, 64, 67]);
+            expect(optimizeVoicing(seventh)).toEqual([60, 64, 67, 71]);
+        });
+
+        it('should drop the perfect 5th from 5-note chords (9ths)', () => {
+            // Cmaj9: C(60), E(64), G(67), B(71), D(74)
+            const maj9 = [60, 64, 67, 71, 74];
+            expect(optimizeVoicing(maj9)).toEqual([60, 64, 71, 74]); // Missing the G(67)
+        });
+
+        it('should drop both the root and the perfect 5th from 6+ note chords (11ths)', () => {
+            // C11: C(60), E(64), G(67), Bb(70), D(74), F(77)
+            const dom11 = [60, 64, 67, 70, 74, 77];
+            // Should drop C(60) and G(67)
+            expect(optimizeVoicing(dom11)).toEqual([64, 70, 74, 77]);
+        });
+    });
+
+    describe('getTransitionSuggestions (Modulation)', () => {
+        it('should return pivot chords when moving from C Major to G Major', () => {
+            const fromKey = 60; // C Major
+            const toKey = 67; // G Major (1 sharp)
+            const suggestions = getTransitionSuggestions(fromKey, toKey);
+            
+            const symbols = suggestions.map(s => s.symbol);
+            
+            // C Maj (I in C -> IV in G), E min (iii in C -> vi in G), A min (vi in C -> ii in G), G Maj (V in C -> I in G)
+            expect(symbols).toContain('IV');
+            expect(symbols).toContain('vi');
+            expect(symbols).toContain('ii');
         });
     });
 

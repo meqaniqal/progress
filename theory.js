@@ -22,7 +22,15 @@ const CHORD_INTERVALS = {
     
     // --- Extended & Altered Borrowed ---
     'Imaj9':  [0, 4, 7, 11, 14],
+    'IVmaj9': [5, 9, 12, 16, 19],
+    'ii9':    [2, 5, 9, 12, 16],
+    'ii11':   [2, 5, 9, 12, 16, 19],
     'V9':     [7, 11, 14, 17, 21],
+    'V11':    [7, 11, 14, 17, 21, 24],
+    'Vsus4':  [7, 12, 14],
+    'V7sus4': [7, 12, 14, 17],
+    'V7#9':   [7, 11, 14, 17, 22], // Altered Dominant (Tension)
+    'V7b13':  [7, 11, 14, 17, 27], // Altered Dominant (Tension)
     'iv7':    [5, 8, 12, 15],
     'bVImaj7':[8, 12, 15, 19],
     'bVII7':  [10, 14, 17, 20]
@@ -69,7 +77,7 @@ export function getAlternatives(chordSymbol) {
 // --- Synesthetic Color Mapping ---
 export function getHarmonicProfile(symbol) {
     // Strip extensions for base functional analysis
-    const baseFunc = symbol.replace(/maj7|maj9|7|9/g, '');
+    const baseFunc = symbol.replace(/maj9|maj7|sus4|7#9|7b13|11|13|9|7/g, '');
     
     let fifthsFromTonic = 0;
     let isBorrowed = false;
@@ -93,6 +101,59 @@ export function getHarmonicProfile(symbol) {
     return { fifthsFromTonic, isBorrowed, tension };
 }
 
+// --- Modulation & Pivot Chords ---
+export function getTransitionSuggestions(fromKey, toKey) {
+    if (fromKey === toKey) return [];
+    const diatonic = ['I', 'ii', 'iii', 'IV', 'V', 'vi'];
+    const suggestions = [];
+
+    // 1. Find Pivot Chords (Exact mathematical match in both keys)
+    for (const symA of diatonic) {
+        const notesA = getChordNotes(symA, fromKey).map(n => n % 12).sort((a,b)=>a-b).join(',');
+        for (const symB of diatonic) {
+            const notesB = getChordNotes(symB, toKey).map(n => n % 12).sort((a,b)=>a-b).join(',');
+            if (notesA === notesB) {
+                suggestions.push({
+                    type: 'pivot',
+                    symbol: symB,
+                    key: toKey,
+                    description: `Pivot Chord: Acts as ${symA} in the old key, and ${symB} in the new key.`
+                });
+            }
+        }
+    }
+
+    // 2. Direct Dominant (V of the new key)
+    // Ensure we don't duplicate if V is already a pivot (rare but possible depending on scales)
+    if (!suggestions.find(s => s.symbol === 'V')) {
+        suggestions.push({
+            type: 'dominant',
+            symbol: 'V',
+            key: toKey,
+            description: `Direct Modulation: The V chord perfectly sets up the new key.`
+        });
+    }
+
+    return suggestions;
+}
+
+// --- Voicing Optimization ---
+// Cleans up muddy extended chords by dropping non-essential notes
+export function optimizeVoicing(notes) {
+    if (notes.length < 5) return notes; // Triads and standard 7ths remain intact
+    
+    const root = notes[0];
+    // Remove the Perfect 5th (+7 semitones) to clear up midrange mud
+    let voiced = notes.filter(n => n !== root + 7);
+    
+    // If it's still massive (like an 11th chord), drop the root too!
+    // The dedicated bass synth already plays the root 2 octaves down.
+    if (voiced.length >= 5) {
+        voiced = voiced.filter(n => n !== root);
+    }
+    return voiced;
+}
+
 // --- Core Algorithm: Voice Leading ---
 // Calculates the inversion of a target chord that has the shortest 
 // total melodic distance from the previous chord.
@@ -103,11 +164,12 @@ export function applyVoiceLeading(progression) {
     
     // Start the first chord in root position, dropped down an octave for warmth (C3 range)
     const firstNotes = getChordNotes(validProgression[0].symbol, validProgression[0].key);
-    let processed = [firstNotes.map(n => n - 12)]; 
+    let processed = [optimizeVoicing(firstNotes).map(n => n - 12)]; 
 
     for (let i = 1; i < validProgression.length; i++) {
         let prevChord = processed[i - 1];
         let targetNotes = getChordNotes(validProgression[i].symbol, validProgression[i].key);
+        targetNotes = optimizeVoicing(targetNotes);
         
         // Generate possible inversions (moving notes up/down octaves)
         let inversions = generateInversions(targetNotes);
@@ -138,13 +200,30 @@ export function generateInversions(chord) {
         const base = chord.map(n => n + oct);
         inversions.push([...base]); // Root Position
         
+        // Generate Drop 2 for root position (if it's a 7th chord or larger)
+        if (base.length >= 4) {
+            const drop2 = [...base];
+            const secondFromTop = drop2.splice(drop2.length - 2, 1)[0];
+            drop2.unshift(secondFromTop - 12);
+            inversions.push(drop2);
+        }
+        
         // Dynamically generate inversions for N-length chords (7ths, 9ths, etc.)
         for (let i = 1; i < chord.length; i++) {
             const inv = [...base];
             for (let j = 0; j < i; j++) {
                 inv[j] += 12; // Shift bottom notes up an octave
             }
-            inversions.push(inv.sort((a, b) => a - b));
+            const sortedInv = inv.sort((a, b) => a - b);
+            inversions.push([...sortedInv]);
+            
+            // Generate Drop 2 for this specific inversion
+            if (sortedInv.length >= 4) {
+                const drop2 = [...sortedInv];
+                const secondFromTop = drop2.splice(drop2.length - 2, 1)[0];
+                drop2.unshift(secondFromTop - 12); // Drop the 2nd highest note an octave
+                inversions.push(drop2);
+            }
         }
     }
     
