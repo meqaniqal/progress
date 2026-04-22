@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Progress</title>
     <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@2.1.4/browser/midiwriter.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
+    <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
+    <script>
+        // Initialize the mobile drag-and-drop polyfill
+        MobileDragDrop.polyfill({ dragImageTranslateOverride: MobileDragDrop.scrollBehaviourDragImageTranslateOverride });
+        window.addEventListener('touchmove', function() {}, {passive: false}); // Required to prevent scrolling while dragging
+    </script>
     <script type="module" src="progressmain.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -54,6 +61,7 @@
     <div class="panel controls">
         <button class="control-btn primary" id="btn-play-toggle" title="Play/Stop">▶</button>
         <button class="control-btn primary" id="btn-loop-toggle" title="Toggle Loop">🔁</button>
+        <button class="control-btn secondary" id="btn-undo" title="Undo" disabled>↩ Undo</button>
         <button class="control-btn primary" id="btn-clear" title="Clear Progression">🗑</button>
         <label>
             <strong>BPM:</strong>

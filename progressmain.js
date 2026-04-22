@@ -10,6 +10,7 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
         const state = {
             currentProgression: [],
             temporarySwaps: {}, // Map of index -> temporary chord string (e.g. { 1: 'vi' })
+            history: [], // Stores progression snapshots for Undo
             baseKey: 60, // C4
             bpm: 90,
             isLooping: true,
@@ -40,7 +41,32 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
             state.loopEnd = bounds.end;
         }
 
+        // --- History & Undo ---
+        function saveHistoryState() {
+            state.history.push({
+                currentProgression: JSON.parse(JSON.stringify(state.currentProgression)),
+                temporarySwaps: JSON.parse(JSON.stringify(state.temporarySwaps)),
+                loopStart: state.loopStart,
+                loopEnd: state.loopEnd
+            });
+            if (state.history.length > 50) state.history.shift(); // Max 50 undos
+        }
+
+        function undo() {
+            if (state.history.length === 0) return;
+            const previousState = state.history.pop();
+            state.currentProgression = previousState.currentProgression;
+            state.temporarySwaps = previousState.temporarySwaps;
+            state.loopStart = previousState.loopStart;
+            state.loopEnd = previousState.loopEnd;
+            activeMenuIndex = null;
+            applyLoopBounds();
+            persistAppState();
+            renderProgression();
+        }
+
         function addChord(numeral) {
+            saveHistoryState();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
             state.currentProgression.push({ symbol: numeral, key: state.baseKey });
             
@@ -52,6 +78,7 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
         }
 
         function removeChord(index) {
+            saveHistoryState();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
             state.temporarySwaps = calculateSwapsOnRemove(state.temporarySwaps, index);
             activeMenuIndex = null;
@@ -73,6 +100,8 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
         }
 
         function clearProgression() {
+            if (state.currentProgression.length === 0) return;
+            saveHistoryState();
             state.temporarySwaps = {};
             activeMenuIndex = null;
             if (currentPlaybackStopFunction) currentPlaybackStopFunction(); // Stop current playback
@@ -261,6 +290,10 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
                 if (startBr && startBr.parentNode) startBr.parentNode.removeChild(startBr);
                 if (endBr && endBr.parentNode) endBr.parentNode.removeChild(endBr);
             }
+
+            // Update Undo button disabled state
+            const undoBtn = document.getElementById('btn-undo');
+            if (undoBtn) undoBtn.disabled = state.history.length === 0;
         }
 
         function highlightChordInUI(index) {
@@ -344,6 +377,18 @@ function _setupProgressionDisplayEvents(display) {
         }
     });
 
+    // Handle long-press (mobile) or right-click (desktop) for deletion
+    display.addEventListener('contextmenu', (e) => {
+        const item = e.target.closest('.progression-item');
+        if (item) {
+            e.preventDefault(); // Prevent default browser context menu
+            const index = parseInt(item.dataset.index, 10);
+            if (confirm('Delete this chord?')) {
+                removeChord(index);
+            }
+        }
+    });
+
     display.addEventListener('click', (e) => {
         const item = e.target.closest('.progression-item');
         if (!item) return;
@@ -357,6 +402,7 @@ function _setupProgressionDisplayEvents(display) {
         }
 
         if (e.target.classList.contains('swap-menu-btn')) {
+            saveHistoryState();
             const selectedAltSymbol = e.target.dataset.alt;
 
             // If the selected alternative is the original chord, revert the swap.
@@ -431,6 +477,7 @@ function _setupControlButtons() {
         }
     });
 
+    document.getElementById('btn-undo').addEventListener('click', undo);
     document.getElementById('btn-clear').addEventListener('click', clearProgression);
     document.getElementById('btn-export').addEventListener('click', () => {
         const exportState = { ...state, currentProgression: getActiveProgression() };
@@ -465,6 +512,7 @@ function _setupDragAndDrop(display) {
             }
             
             if (oldIndex !== newIndex) {
+                saveHistoryState();
                 state.temporarySwaps = calculateSwapsOnReorder(state.temporarySwaps, state.currentProgression.length, oldIndex, newIndex);
                 activeMenuIndex = null;
                 const itemToMove = state.currentProgression.splice(oldIndex, 1)[0];
@@ -472,6 +520,7 @@ function _setupDragAndDrop(display) {
             } 
             
             if (newLoopStart !== null && newLoopEnd !== null) {
+                if (state.loopStart !== newLoopStart || state.loopEnd !== newLoopEnd) saveHistoryState();
                 state.loopStart = newLoopStart;
                 state.loopEnd = newLoopEnd;
             }
@@ -481,6 +530,7 @@ function _setupDragAndDrop(display) {
             renderProgression();
         },
         onAddFromSource: (sourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd) => {
+            saveHistoryState();
             if (insertIndex === null) insertIndex = state.currentProgression.length;
             
             const isAtEnd = state.loopEnd === state.currentProgression.length;
@@ -503,6 +553,7 @@ function _setupDragAndDrop(display) {
             renderProgression();
         },
         onBracketDrop: (bracketId, insertIndex, newLoopStart, newLoopEnd) => {
+            saveHistoryState();
             if (newLoopStart !== null && newLoopEnd !== null) {
                 state.loopStart = newLoopStart;
                 state.loopEnd = newLoopEnd;

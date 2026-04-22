@@ -24,3 +24,5 @@
 - Built a Synesthetic Harmonic UI: mapped absolute chord roots to color hues via the Circle of Fifths.
 - Added bi-directional tension ripple: chords dynamically adjust saturation and luminosity based on contextual harmonic tension.
 - Supported true multi-key progressions by decoupling the global key selector from existing chords in the sequence.
+- Integrated mobile-friendly touch drag-and-drop support and long-press deletion.
+- Implemented global state history with an Undo button for all progression modifications.

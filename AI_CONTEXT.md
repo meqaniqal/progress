@@ -27,6 +27,7 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 **Phase 2: Contextual Auditioning & Looping (Complete)**
 - [x] Section looping (UI slice selection for seamless playback).
 - [x] Live chord alternative swapping, auditioning, and Synesthetic UI dynamic coloring.
+- [x] Mobile UX polish (touch drag-and-drop, long-press context menu) and global Undo history.
 
 **Phase 3: The "Mind-Bending" Harmonic Engine (Current Focus)**
 - [ ] Voice leading and inner-melodic line math functions.

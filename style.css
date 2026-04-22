@@ -99,6 +99,11 @@ h1 { border-bottom: 2px solid var(--border-main); padding-bottom: 0.5rem; }
 .remove-btn:hover { opacity: 1; }
 .progression-item.dragging { display: none; }
 
+/* Hide the delete 'X' button on touch devices to prevent accidental deletion */
+@media (pointer: coarse) {
+    .remove-btn { display: none; }
+}
+
 /* Swap Menu Popover */
 .swap-menu { position: absolute; top: 100%; left: 0; margin-top: 8px; background: var(--bg-panel); border: 1px solid var(--border-main); border-radius: 6px; box-shadow: 0 4px 12px var(--shadow-panel); display: flex; gap: 4px; padding: 8px; z-index: 100; cursor: default; }
 /* A tiny upward pointing arrow for the tooltip */
@@ -125,6 +130,7 @@ button.control-btn.primary { background: var(--ctrl-primary-bg); color: #ffffff;
 button.control-btn.primary:hover { background: var(--ctrl-primary-hover); }
 button.control-btn.secondary { background: var(--ctrl-secondary-bg); color: var(--ctrl-secondary-text); border-color: var(--border-main); }
 button.control-btn.secondary:hover { background: var(--ctrl-secondary-hover); }
+button.control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 #btn-loop-toggle { font-size: 22px; padding: 6px 16px; }
 #theme-toggle { position: fixed; bottom: 20px; right: 20px; padding: 10px 16px; border-radius: 20px; border: 1px solid var(--border-main); background: var(--bg-panel); color: var(--text-main); cursor: pointer; box-shadow: 0 4px 12px var(--shadow-panel); font-family: inherit; font-weight: 600; z-index: 1000; transition: all 0.2s ease; }
 #theme-toggle:hover { opacity: 0.8; }
