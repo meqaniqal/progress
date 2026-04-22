@@ -61,6 +61,7 @@ export function initDragAndDrop({
         if (e.target.classList.contains('progression-item')) {
             draggedIndex = parseInt(e.target.dataset.index, 10);
             e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', 'reorder'); // polyfill safety
             
             dragPlaceholder.className = 'progression-placeholder';
             dragPlaceholder.textContent = '';
@@ -89,6 +90,7 @@ export function initDragAndDrop({
             // Handling Dragging for Loop Brackets
             draggedBracket = e.target.id;
             e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', 'bracket'); // polyfill safety
             
             // Make the placeholder look exactly like the bracket
             dragPlaceholder.className = 'bracket-placeholder';
@@ -141,6 +143,10 @@ export function initDragAndDrop({
         } else {
             onDragCancel(); // Clean reset for brackets if dropped outside
         }
+    });
+
+    display.addEventListener('dragenter', (e) => {
+        e.preventDefault(); // Crucial for mobile polyfills to register as a valid drop target
     });
 
     display.addEventListener('dragover', (e) => {
@@ -205,8 +211,18 @@ export function initDragAndDrop({
 
         if (dragPlaceholder.parentNode) dragPlaceholder.parentNode.removeChild(dragPlaceholder);
 
-        const sourceChord = e.dataTransfer.getData('source-chord');
-        const sourceKeyStr = e.dataTransfer.getData('source-key');
+        let sourceChord = e.dataTransfer.getData('source-chord');
+        let sourceKeyStr = e.dataTransfer.getData('source-key');
+
+        // Fallback for mobile polyfill which strips non-standard MIME types
+        if (!sourceChord) {
+            try {
+                const payload = JSON.parse(e.dataTransfer.getData('text/plain'));
+                sourceChord = payload.sourceChord;
+                sourceKeyStr = payload.sourceKey;
+            } catch (err) {}
+        }
+
         const sourceKey = sourceKeyStr ? parseInt(sourceKeyStr, 10) : 60;
         if (sourceChord) {
             onAddFromSource(sourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd);
@@ -226,6 +242,13 @@ export function initDragAndDrop({
                 e.dataTransfer.setData('source-chord', btn.dataset.chord);
                 e.dataTransfer.setData('source-key', getBaseKey().toString());
                 e.dataTransfer.effectAllowed = 'copy';
+                
+                // Polyfill safety: encode custom data into text/plain
+                e.dataTransfer.setData('text/plain', JSON.stringify({
+                    sourceChord: btn.dataset.chord,
+                    sourceKey: getBaseKey().toString()
+                }));
+                
                 draggedIndex = null;
                 
                 dragPlaceholder.className = 'progression-placeholder';
