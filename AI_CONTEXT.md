@@ -30,9 +30,11 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] Mobile UX polish (touch drag-and-drop, long-press context menu) and global Undo history.
 
 **Phase 3: The "Mind-Bending" Harmonic Engine (Current Focus)**
-- [ ] Voice leading and inner-melodic line math functions.
-- [ ] Advanced chord dictionary (borrowed chords, extended 9th/11th/13th voicings).
-- [ ] Pivot chord and direct modulation mechanics.
+- [x] Advanced chord dictionary (borrowed chords, extended 9th/11th/13th voicings).
+- [x] Voice leading upgrades (Drop 2 voicings, basic muddiness optimization).
+- [x] Pivot chord and direct modulation mechanics.
+- [ ] Sound Design: Implement Low-Pass Filter (LPF) synth pads.
+- [ ] Direct "Modulate" context menu on chord badges.
 
 **Phase 4: Sequence Architecture & AI Export**
 - [ ] Multi-progression sequencing (Verse -> Pre -> Chorus).

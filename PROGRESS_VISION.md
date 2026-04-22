@@ -80,7 +80,12 @@ The structural climax tool.
 - **Pivot Chord Modulation:** Uses a shared chord between two keys; feels earned and smooth.
 - **Direct Half-Step Modulation:** Shifts the key center abruptly; acts like a release valve. Both are enormously effective when timed right.
 
-#### 5. Intelligent Key & Emotional Architecture
+#### 5. Acoustic Clarity & Timbral Contrast
+The richest harmony sounds like mud if the sound design overlaps.
+- **Waveform Separation:** The bass requires clean, fundamental energy (e.g., a pure Sine wave) to prevent low-end rumble from bleeding into the chords.
+- **Harmonic Roll-off (LPF):** Complex extended chords (9ths, 11ths) require waveforms with upper harmonics (like Sawtooth) so the ear can distinguish the close intervals, but passed through a Low-Pass Filter (LPF) to remove piercing high frequencies, creating a warm, lush pad.
+
+#### 6. Intelligent Key & Emotional Architecture
 - **Base Key Selection:** Establish a global base key that the user can dynamically alter.
 - **Context-Aware Modulation Suggestions:** Intelligently suggest transition chords (pivot chords, secondary dominants) to bridge the old key and the newly selected key, preserving smooth musicality.
 - **Algorithmic Key Recommendations:** Suggest potential keys to modulate to based on the user's immediate context (e.g., the last clicked, inserted, or modified chords in the tray) to encourage seamless, professional transitions.
