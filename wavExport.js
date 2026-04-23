@@ -11,7 +11,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading) {
     if (useVoiceLeading) {
         notesArray = applyVoiceLeading(progression);
     } else {
-        notesArray = progression.map(chord => getChordNotes(chord.symbol, chord.key));
+        // Drop by 1 octave (-12) to match the pad register warmth used in live playback
+        notesArray = progression.map(chord => getChordNotes(chord.symbol, chord.key).map(n => n - 12));
     }
 
     progression.forEach((chord, index) => {

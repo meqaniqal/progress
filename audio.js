@@ -146,7 +146,8 @@ export function playProgression(getState, onHighlight, onComplete) {
             const vlSlice = applyVoiceLeading(sliceToPlay);
             notesToPlay = vlSlice[chordIndexRel];
         } else {
-            notesToPlay = getChordNotes(sliceToPlay[chordIndexRel].symbol, sliceToPlay[chordIndexRel].key);
+            // Drop by 1 octave (-12) to match standard audition and pad register warmth
+            notesToPlay = getChordNotes(sliceToPlay[chordIndexRel].symbol, sliceToPlay[chordIndexRel].key).map(n => n - 12);
         }
         
         if (!notesToPlay) return;

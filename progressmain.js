@@ -140,8 +140,11 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
                     el = document.createElement('div');
                     el.className = 'progression-item';
 
-                    const textNode = document.createTextNode('');
-                    el.appendChild(textNode);
+                    const labelSpan = document.createElement('span');
+                    labelSpan.className = 'chord-label';
+                    labelSpan.style.position = 'relative';
+                    labelSpan.style.zIndex = '1';
+                    el.appendChild(labelSpan);
 
                     const removeBtn = document.createElement('button');
                     removeBtn.className = 'remove-btn';
@@ -150,6 +153,18 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
                     el.appendChild(removeBtn);
                     
                     el.draggable = true;
+
+                    // --- Create Tension Graph elements ---
+                    const graphSegment = document.createElement('div');
+                    graphSegment.className = 'tension-graph-segment';
+                    
+                    const area = document.createElement('div');
+                    area.className = 'tension-area';
+                    
+                    graphSegment.appendChild(area);
+                    el.appendChild(graphSegment);
+                    // --- End Tension Graph elements ---
+
                     display.appendChild(el);
                 }
 
@@ -157,7 +172,8 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
                 const isTemp = state.temporarySwaps[index] !== undefined;
                 const displayChord = isTemp ? state.temporarySwaps[index] : chord;
 
-                el.childNodes[0].textContent = `${displayChord.symbol} `;
+                const labelSpan = el.querySelector('.chord-label');
+                if (labelSpan) labelSpan.textContent = `${displayChord.symbol} `;
 
                 // The action button is always a remove button.
                 el.querySelector('.remove-btn').title = 'Remove Chord';
@@ -208,6 +224,27 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
                 el.style.setProperty('--dyn-hue', absoluteHue);
                 el.style.setProperty('--dyn-sat', `${Math.min(100, satValue)}%`);
                 el.style.setProperty('--dyn-lum-offset', `${lumOffset}%`);
+
+                // --- Tension Graph Data ---
+                const graphSegment = el.querySelector('.tension-graph-segment');
+                if (graphSegment) {
+                    // Normalize tension to a Y percentage (0% at top, 100% at bottom)
+                    // Tension is -1.0 (rest) to 1.0 (high). We want high tension to be high on the graph (low Y value).
+                    const yStart = (1 - (profile.tension + 1) / 2) * 100;
+                    graphSegment.style.setProperty('--tension-y-start', `${yStart}%`);
+
+                    // Calculate end point if there's a next chord
+                    if (index < state.currentProgression.length - 1) {
+                        const nextChord = state.temporarySwaps[index + 1] || state.currentProgression[index + 1];
+                        const nextProfile = getHarmonicProfile(nextChord.symbol);
+                        const yEnd = (1 - (nextProfile.tension + 1) / 2) * 100;
+                        graphSegment.style.setProperty('--tension-y-end', `${yEnd}%`);
+                    } else {
+                        // For the last chord, make the connector a flat line to its own point
+                        // This prevents a visual artifact on the last item before it's hidden by CSS.
+                        graphSegment.style.setProperty('--tension-y-end', `${yStart}%`);
+                    }
+                }
 
                 // Handle swap menu rendering
                 if (activeMenuIndex === index) {
@@ -391,6 +428,21 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
                 const endBr = document.getElementById('bracket-end');
                 if (startBr && startBr.parentNode) startBr.parentNode.removeChild(startBr);
                 if (endBr && endBr.parentNode) endBr.parentNode.removeChild(endBr);
+            }
+
+            // --- Post-render check for Tension Graph line wraps ---
+            const allItems = display.querySelectorAll('.progression-item');
+            if (allItems.length > 1) {
+                for (let i = 0; i < allItems.length - 1; i++) {
+                    const currentItem = allItems[i];
+                    const nextItem = allItems[i+1];
+                    
+                    currentItem.classList.remove('is-line-end');
+                    
+                    if (nextItem.offsetTop > currentItem.offsetTop) {
+                        currentItem.classList.add('is-line-end');
+                    }
+                }
             }
 
             // Update Undo button disabled state

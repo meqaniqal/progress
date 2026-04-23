@@ -45,7 +45,7 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] Reference audio export (.wav of a clean synth pad via OfflineAudioContext).
 
 **Phase 5: Advanced Electronica & AI Synergy (Current Focus)**
-- [ ] Tension & Release Mapping UI.
+- [x] Tension & Release Mapping UI.
 - [ ] Polyrhythmic Arpeggiation (MIDI export).
 - [ ] Intelligent Bassline Generation.
 - [ ] Omni-Scale & Microtonal Framework integration.

@@ -13,7 +13,8 @@ export function exportToMidi(state) {
         midiNotesToWrite = applyVoiceLeading(state.currentProgression);
     } else {
         // Just use block root position chords
-        midiNotesToWrite = state.currentProgression.map(chord => getChordNotes(chord.symbol, chord.key));
+        // Drop by 1 octave (-12) to match the pad register warmth used in audio playback
+        midiNotesToWrite = state.currentProgression.map(chord => getChordNotes(chord.symbol, chord.key).map(n => n - 12));
     }
 
     // Initialize MidiWriterJS (assumes MidiWriter is available globally)
