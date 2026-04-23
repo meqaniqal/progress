@@ -34,3 +34,10 @@
 - Addressed timbral muddiness by separating chord and bass waveforms (Triangle/Sine split).
 - Implemented Low-Pass Filter (LPF) synth pads for warm, lush chord playback.
 - Added an inline "Modulate" context menu for instant key shifts from specific chord badges.
+
+## Phase 4: Sequence Architecture & AI Export (Complete)
+- Refactored UI rendering by extracting inline CSS into `style.css` for strict presentation/logic separation.
+- Added "Turnaround" chord suggestions to smoothly bridge the end of a sequence/loop back to its start.
+- Built an AI Text Prompt generator that analyzes harmonic tension, modal mixture, and extensions to guide external AI music models.
+- Implemented an offline WAV audio export feature using `OfflineAudioContext` for instant background rendering of the active progression.
+- Created a mathematical timeline calculation module (`wavExport.js`) and binary WAV encoder to ensure audio export logic remains highly modular and fully testable.

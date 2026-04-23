@@ -137,6 +137,24 @@ export function getTransitionSuggestions(fromKey, toKey) {
     return suggestions;
 }
 
+// --- Turnaround Chords ---
+// Suggests chords that strongly lead into the given target chord
+export function getTurnaroundSuggestions(targetSymbol) {
+    const baseFunc = targetSymbol.replace(/maj9|maj7|sus4|7#9|7b13|11|13|9|7/g, '');
+    switch(baseFunc) {
+        case 'I': return ['V', 'V7', 'Vsus4', 'bVII', 'iv'];
+        case 'ii': return ['vi', 'I', 'V'];
+        case 'iii': return ['V', 'ii'];
+        case 'IV': return ['I', 'V', 'Imaj7'];
+        case 'V': return ['ii', 'IV', 'Vsus4'];
+        case 'vi': return ['iii', 'V', 'I'];
+        case 'iv': return ['I', 'bVI'];
+        case 'bVI': return ['bVII', 'iv'];
+        case 'bVII': return ['iv', 'V'];
+        default: return ['V', 'IV'];
+    }
+}
+
 // --- Voicing Optimization ---
 // Cleans up muddy extended chords by dropping non-essential notes
 export function optimizeVoicing(notes) {
@@ -247,4 +265,41 @@ export function calculateDistance(chordA, chordB) {
     }
     
     return dist;
+}
+
+// --- AI Prompt Generation ---
+export function generateAIPrompt(progression, bpm, keyName) {
+    if (!progression || progression.length === 0) return "No progression defined.";
+
+    const symbols = progression.map(c => c.symbol);
+    const progressionString = symbols.join(' - ');
+    
+    let hasBorrowed = false;
+    let hasExtensions = false;
+    let hasAltered = false;
+    let totalTension = 0;
+
+    progression.forEach(chord => {
+        const profile = getHarmonicProfile(chord.symbol);
+        totalTension += profile.tension;
+        if (profile.isBorrowed) hasBorrowed = true;
+        if (/(9|11|13|maj7)/.test(chord.symbol)) hasExtensions = true;
+        if (/(#9|b13|aug|dim)/.test(chord.symbol)) hasAltered = true;
+    });
+
+    const avgTension = totalTension / progression.length;
+    let mood = "balanced with a standard emotional pull";
+    if (avgTension < -0.2) mood = "stable, grounded, and consonant";
+    else if (avgTension > 0.3) mood = "dramatic, tense, and emotionally complex";
+
+    let features = [];
+    if (hasBorrowed) features.push("modal mixture (borrowed chords)");
+    if (hasExtensions) features.push("lush extended voicings (7ths, 9ths, etc.)");
+    if (hasAltered) features.push("altered/jazzy tensions");
+
+    let featureString = features.length > 0 
+        ? ` The harmony features ${features.join(', ')}.` 
+        : ` The harmony relies on strong diatonic movement.`;
+
+    return `Tempo: ${bpm} BPM\nKey: ${keyName}\nChord Progression: ${progressionString}\n\nMusical Characteristics: This sequence is ${mood}.${featureString} Focus on smooth voice-leading and clear harmonic transitions.`;
 }

@@ -1,9 +1,10 @@
 import { saveState, loadState } from './storage.js?v=3';
-import { applyVoiceLeading, getAlternatives, getHarmonicProfile, getChordNotes, getTransitionSuggestions } from './theory.js?v=3';
+import { applyVoiceLeading, getAlternatives, getHarmonicProfile, getChordNotes, getTransitionSuggestions, getTurnaroundSuggestions, generateAIPrompt } from './theory.js?v=3';
 import { CONFIG } from './config.js?v=3';
 import { auditionChord, playProgression, stopAllAudio } from './audio.js?v=3';
 import { initDragAndDrop } from './dragdrop.js?v=3';
 import { exportToMidi } from './midi.js?v=3';
+import { exportToWav } from './wavExport.js?v=3';
 import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder, calculateLoopBounds } from './stateUtils.js?v=3';
 
         // --- Single Source of Truth ---
@@ -122,18 +123,7 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
             br.id = id;
             br.textContent = text;
             br.draggable = true;
-            Object.assign(br.style, {
-                display: 'inline-block',
-                fontSize: '36px',
-                fontWeight: '200',
-                color: 'var(--bracket-color)',
-                margin: '0 4px',
-                cursor: 'ew-resize',
-                userSelect: 'none',
-                verticalAlign: 'top',
-                lineHeight: '40px',
-                fontFamily: 'monospace'
-            });
+            br.className = 'bracket-element';
             return br;
         }
 
@@ -291,6 +281,36 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
                             renderProgression();
                         });
 
+                        // --- Turnaround Section (Only on Last Chord in Context) ---
+                        const firstChordIndex = state.isLooping ? state.loopStart : 0;
+                        const lastChordIndex = state.isLooping ? Math.max(0, state.loopEnd - 1) : Math.max(0, state.currentProgression.length - 1);
+                        
+                        if (index === lastChordIndex && state.currentProgression.length > 0) {
+                            const firstChord = state.temporarySwaps[firstChordIndex] || state.currentProgression[firstChordIndex];
+                            if (firstChord) {
+                                const turnLabel = document.createElement('div');
+                                turnLabel.className = 'swap-menu-label';
+                                turnLabel.textContent = `Turnaround to ${firstChord.symbol}`;
+                                turnLabel.style.marginTop = '8px';
+                                swapMenu.appendChild(turnLabel);
+
+                                const turnRow = document.createElement('div');
+                                turnRow.className = 'swap-menu-row';
+                                
+                                const turnarounds = getTurnaroundSuggestions(firstChord.symbol);
+                                turnarounds.forEach(alt => {
+                                    const btn = document.createElement('button');
+                                    btn.className = 'chord-btn swap-menu-btn insert-turnaround-btn';
+                                    btn.textContent = `+ ${alt}`;
+                                    btn.dataset.symbol = alt;
+                                    btn.dataset.key = firstChord.key;
+                                    btn.dataset.insertAfter = index;
+                                    turnRow.appendChild(btn);
+                                });
+                                swapMenu.appendChild(turnRow);
+                            }
+                        }
+
                         swapMenu.appendChild(modSelect);
                         el.appendChild(swapMenu);
                     }
@@ -437,6 +457,51 @@ function _setupThemeToggle() {
         themeToggleBtn.textContent = state.theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
         persistAppState();
     });
+    
+    document.getElementById('btn-export-wav').addEventListener('click', (e) => {
+        // Get active swaps applied for the exact audio the user hears
+        const exportState = { ...state, currentProgression: getActiveProgression() };
+        exportToWav(exportState, e.target);
+    });
+
+    document.getElementById('btn-ai-prompt').addEventListener('click', () => {
+        const activeProgression = getActiveProgression();
+        if (activeProgression.length === 0) {
+            alert("Please build a progression first.");
+            return;
+        }
+        const promptText = generateAIPrompt(activeProgression, state.bpm, KEY_NAMES[state.baseKey]);
+        const modal = document.getElementById('ai-prompt-modal');
+        const textArea = document.getElementById('ai-prompt-text');
+        textArea.value = promptText;
+        
+        modal.style.display = 'flex';
+        // Trigger reflow for transition
+        modal.offsetHeight;
+        modal.classList.add('visible');
+    });
+
+    document.getElementById('btn-close-prompt').addEventListener('click', () => {
+        const modal = document.getElementById('ai-prompt-modal');
+        modal.classList.remove('visible');
+        setTimeout(() => modal.style.display = 'none', 200);
+    });
+
+    document.getElementById('btn-copy-prompt').addEventListener('click', (e) => {
+        const textArea = document.getElementById('ai-prompt-text');
+        textArea.select();
+        const copyBtn = e.target;
+        const originalText = copyBtn.textContent;
+        
+        navigator.clipboard.writeText(textArea.value).then(() => {
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => copyBtn.textContent = originalText, 2000);
+        }).catch(() => {
+            document.execCommand('copy');
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => copyBtn.textContent = originalText, 2000);
+        });
+    });
     document.body.appendChild(themeToggleBtn);
 }
 
@@ -481,6 +546,29 @@ function _setupProgressionDisplayEvents(display) {
         
         if (e.target.classList.contains('remove-btn')) {
             removeChord(index);
+            return;
+        }
+
+        // Handle Turnaround Insert BEFORE regular swap menu buttons to avoid conflict
+        if (e.target.classList.contains('insert-turnaround-btn')) {
+            saveHistoryState();
+            const symbol = e.target.dataset.symbol;
+            const key = parseInt(e.target.dataset.key, 10);
+            const insertIndex = parseInt(e.target.dataset.insertAfter, 10) + 1;
+            
+            state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
+            state.currentProgression.splice(insertIndex, 0, { symbol, key });
+            
+            // Expand loop to seamlessly include the new turnaround chord
+            if (insertIndex <= state.loopEnd) {
+                state.loopEnd++;
+            }
+            
+            activeMenuIndex = null;
+            auditionChord(symbol, key);
+            applyLoopBounds();
+            persistAppState();
+            renderProgression();
             return;
         }
 

@@ -41,20 +41,7 @@ export function initDragAndDrop({
     function createCustomDragImage(text) {
         const el = document.createElement('div');
         el.textContent = text;
-        Object.assign(el.style, {
-            position: 'absolute',
-            top: '-1000px',
-            background: 'var(--bg-panel)',
-            color: 'var(--text-main)',
-            padding: '8px 16px',
-            borderRadius: '6px',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            fontFamily: 'sans-serif',
-            pointerEvents: 'none',
-            zIndex: '9999',
-            boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
-        });
+        el.className = 'custom-drag-image';
         document.body.appendChild(el);
         return el;
     }
@@ -67,17 +54,7 @@ export function initDragAndDrop({
             
             dragPlaceholder.className = 'progression-placeholder';
             dragPlaceholder.textContent = '';
-            Object.assign(dragPlaceholder.style, {
-                transition: 'width 0.2s ease-out, margin 0.2s ease-out, opacity 0.2s ease-out',
-                display: 'inline-block',
-                border: '2px dashed #888',
-                borderRadius: '4px',
-                boxSizing: 'border-box',
-                height: '36px',
-                verticalAlign: 'top',
-                pointerEvents: 'none',
-                color: 'transparent'
-            });
+            dragPlaceholder.style.cssText = '';
 
             const chordText = getProgressionItemText(draggedIndex);
             const dragImg = createCustomDragImage(chordText);
@@ -97,21 +74,7 @@ export function initDragAndDrop({
             // Make the placeholder look exactly like the bracket
             dragPlaceholder.className = 'bracket-placeholder';
             dragPlaceholder.textContent = e.target.textContent;
-            Object.assign(dragPlaceholder.style, {
-                transition: 'opacity 0.2s ease-out',
-                display: 'inline-block',
-                border: 'none',
-                height: '36px',
-                verticalAlign: 'top',
-                pointerEvents: 'none',
-                fontSize: '36px',
-                fontWeight: '200',
-                color: 'var(--bracket-color)',
-                margin: '0 4px',
-                lineHeight: '40px',
-                fontFamily: 'monospace',
-                width: 'auto'
-            });
+            dragPlaceholder.style.cssText = '';
             
             // Invisible drag image to prevent confusing ghost icon
             const dragImg = createCustomDragImage('');
@@ -251,17 +214,7 @@ export function initDragAndDrop({
             
             dragPlaceholder.className = 'progression-placeholder';
             dragPlaceholder.textContent = '';
-            Object.assign(dragPlaceholder.style, {
-                transition: 'width 0.2s ease-out, margin 0.2s ease-out, opacity 0.2s ease-out',
-                display: 'inline-block',
-                border: '2px dashed #888',
-                borderRadius: '4px',
-                boxSizing: 'border-box',
-                height: '36px',
-                verticalAlign: 'top',
-                pointerEvents: 'none',
-                color: 'transparent'
-            });
+            dragPlaceholder.style.cssText = '';
 
             const dragImg = createCustomDragImage(btn.dataset.chord);
             e.dataTransfer.setDragImage(dragImg, CONFIG.DRAG_OFFSET_X, CONFIG.DRAG_OFFSET_Y);
