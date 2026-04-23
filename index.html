@@ -12,8 +12,20 @@
         MobileDragDrop.polyfill({ dragImageTranslateOverride: MobileDragDrop.scrollBehaviourDragImageTranslateOverride });
         window.addEventListener('touchmove', function() {}, {passive: false}); // Required to prevent scrolling while dragging
     </script>
-    <script type="module" src="progressmain.js?v=3"></script>
-    <link rel="stylesheet" href="style.css?v=3">
+    <script>
+        // Auto-generate cache-busting version number for mobile devices
+        const version = new Date().getTime();
+        
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = `style.css?v=${version}`;
+        document.head.appendChild(link);
+        
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src = `progressmain.js?v=${version}`;
+        document.head.appendChild(script);
+    </script>
 </head>
 <body>
     <h1>Progress</h1>
@@ -74,6 +86,36 @@
         </div>
 
         <div id="progression-display"></div>
+    </div>
+
+    <!-- Per-Chord Rhythm Editor Panel (Anchored) -->
+    <div class="panel" id="rhythm-editor-panel" style="display: none; margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-main); padding-bottom: 0.5rem; margin-bottom: 1rem;">
+            <h3 id="rhythm-editor-title" style="margin: 0; border: none; padding: 0;">Rhythm Editor</h3>
+            <button class="remove-btn" id="btn-close-rhythm" title="Close Editor" style="font-size: 24px;">×</button>
+        </div>
+        
+        <div class="rhythm-toolbar" style="border-bottom: none; padding-bottom: 0;">
+            <div class="tool-group">
+                <button class="tool-btn active" data-tool="move" title="Drag to move instances">✥ Move</button>
+                <button class="tool-btn" data-tool="slice" title="Tap/Click to split an instance">✂ Slice</button>
+                <button class="tool-btn" data-tool="select" title="Tap/Click to select instances">⬚ Select</button>
+            </div>
+            <div class="tool-group">
+                <button class="control-btn primary" id="btn-apply-arp" style="padding: 6px 12px; font-size: 13px;">✨ Apply Arp</button>
+                <label style="font-size: 12px; font-weight: bold; opacity: 0.8; margin-left: 8px;">Grid:</label>
+                <select id="rhythm-grid-select" class="rhythm-select">
+                    <option value="0.25">1/4 Note</option>
+                    <option value="0.125">1/8 Note</option>
+                    <option value="0.0625">1/16 Note</option>
+                    <option value="0">Off (Free)</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="rhythm-timeline-container" id="rhythm-timeline">
+            <!-- Instances rendered here dynamically -->
+        </div>
     </div>
 
     <div class="panel controls">

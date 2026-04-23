@@ -39,9 +39,10 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **AI Text Prompt Generation:** Generate copy-pasteable text prompts detailing the key, mood, and harmonic rhythm to feed into AI models.
 - **Reference Audio Export:** Direct `.wav` export of the clean synth pad.
 
-### Phase 5: Advanced Electronica & AI Synergy (Up Next 🚧)
+### Phase 5: Advanced Electronica & AI Synergy (In Progress 🚧)
 - **Tension & Release Mapping UI:** Architect dramatic emotional arcs visually before rendering notes.
-- **Polyrhythmic Arpeggiation:** Export chords as sequenced MIDI patterns (e.g., 5/16 arp patterns over a 4/4 bassline).
+- **Per-Chord Rhythm Editor:** Timeline view for slicing, moving, and generating complex rhythms within individual chord slots.
+- **Polyrhythmic Arpeggiation:** Export chords as sequenced MIDI/WAV patterns (e.g., 5/16 arp patterns over a 4/4 bassline).
 - **Intelligent Bassline Generation:** Rhythm-informed, genre-appropriate basslines.
 - **Omni-Scale & Microtonal Framework:** Dynamic support for global scales and microtonal systems.
 

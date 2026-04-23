@@ -6,6 +6,8 @@ import { initDragAndDrop } from './dragdrop.js?v=3';
 import { exportToMidi } from './midi.js?v=3';
 import { exportToWav } from './wavExport.js?v=3';
 import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder, calculateLoopBounds } from './stateUtils.js?v=3';
+import { initChordPattern } from './patternUtils.js?v=3';
+import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmEditor.js?v=3';
 
         // --- Single Source of Truth ---
         const state = {
@@ -23,6 +25,7 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
         let isPlaying = false;
         let currentPlaybackStopFunction = null; // Stores the stop function returned by audio.playProgression
         let activeMenuIndex = null;
+        let selectedChordIndex = null; // Tracks which chord is actively open in the Rhythm Editor
 
         const KEY_NAMES = {
             60: 'C Major', 61: 'C♯/D♭ Major', 62: 'D Major', 63: 'D♯/E♭ Major', 64: 'E Major', 65: 'F Major',
@@ -31,9 +34,13 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
 
         // Resolves the progression with any active temporary swaps applied
         function getActiveProgression() {
-            return state.currentProgression.map((chord, index) => 
-                state.temporarySwaps[index] !== undefined ? state.temporarySwaps[index] : chord
-            );
+            return state.currentProgression.map((chord, index) => {
+                if (state.temporarySwaps[index] !== undefined) {
+                    // Safely merge the underlying rhythm pattern onto the temporary swapped chord
+                    return { ...state.temporarySwaps[index], pattern: chord.pattern };
+                }
+                return chord;
+            });
         }
 
         function applyLoopBounds() {
@@ -61,6 +68,7 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
             state.loopStart = previousState.loopStart;
             state.loopEnd = previousState.loopEnd;
             activeMenuIndex = null;
+            selectedChordIndex = null;
             applyLoopBounds();
             persistAppState();
             renderProgression();
@@ -69,7 +77,7 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
         function addChord(numeral, targetKey = state.baseKey) {
             saveHistoryState();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
-            state.currentProgression.push({ symbol: numeral, key: targetKey });
+            state.currentProgression.push({ symbol: numeral, key: targetKey, pattern: initChordPattern() });
             
             if (isAtEnd) state.loopEnd = state.currentProgression.length;
             
@@ -83,6 +91,7 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
             const isAtEnd = state.loopEnd === state.currentProgression.length;
             state.temporarySwaps = calculateSwapsOnRemove(state.temporarySwaps, index);
             activeMenuIndex = null;
+            selectedChordIndex = null;
             state.currentProgression.splice(index, 1);
             
             if (isAtEnd) {
@@ -105,6 +114,7 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
             saveHistoryState();
             state.temporarySwaps = {};
             activeMenuIndex = null;
+            selectedChordIndex = null;
             if (currentPlaybackStopFunction) currentPlaybackStopFunction(); // Stop current playback
             isPlaying = false;
             if (document.getElementById('btn-play-toggle')) document.getElementById('btn-play-toggle').textContent = '▶';
@@ -448,6 +458,16 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
             // Update Undo button disabled state
             const undoBtn = document.getElementById('btn-undo');
             if (undoBtn) undoBtn.disabled = state.history.length === 0;
+
+            // Keep Rhythm Editor synced with active selection
+            if (selectedChordIndex === null) {
+                closeRhythmEditor();
+            } else if (state.currentProgression[selectedChordIndex]) {
+                openRhythmEditor(selectedChordIndex);
+            } else {
+                selectedChordIndex = null;
+                closeRhythmEditor();
+            }
         }
 
         function highlightChordInUI(index) {
@@ -473,10 +493,14 @@ function _loadAndApplyInitialState() {
     if (savedState) {
         if (savedState.baseKey !== undefined) state.baseKey = savedState.baseKey;
         if (savedState.currentProgression) {
-            // Gracefully upgrade legacy string arrays to objects
-            state.currentProgression = savedState.currentProgression.map(item => 
-                typeof item === 'string' ? { symbol: item, key: state.baseKey } : item
-            );
+            // Gracefully upgrade legacy string arrays to objects and attach default patterns
+            state.currentProgression = savedState.currentProgression.map(item => {
+                const chordObj = typeof item === 'string' ? { symbol: item, key: state.baseKey } : item;
+                if (!chordObj.pattern) {
+                    chordObj.pattern = initChordPattern();
+                }
+                return chordObj;
+            });
         }
         if (savedState.bpm) state.bpm = savedState.bpm;
         // Handle transition from old schema names
@@ -569,13 +593,31 @@ function _setupKeySelector() {
 
 function _setupProgressionDisplayEvents(display) {
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.progression-item')) {
-            if (activeMenuIndex !== null) {
+        const clickedItem = e.target.closest('.progression-item');
+        const clickedEditor = e.target.closest('#rhythm-editor-panel');
+        
+        if (!clickedItem && !clickedEditor) {
+            if (activeMenuIndex !== null || selectedChordIndex !== null) {
                 activeMenuIndex = null;
+                selectedChordIndex = null;
                 renderProgression();
             }
         }
     });
+
+    // Dismiss the swap menu when hovering or interacting with the rhythm editor without losing selection
+    const rhythmPanel = document.getElementById('rhythm-editor-panel');
+    if (rhythmPanel) {
+        const dismissMenu = () => {
+            if (activeMenuIndex !== null) {
+                activeMenuIndex = null;
+                const openMenu = document.querySelector('.swap-menu');
+                if (openMenu) openMenu.remove();
+            }
+        };
+        rhythmPanel.addEventListener('pointerenter', dismissMenu);
+        rhythmPanel.addEventListener('pointerdown', dismissMenu);
+    }
 
     // Handle long-press (mobile) or right-click (desktop) for deletion
     display.addEventListener('contextmenu', (e) => {
@@ -609,7 +651,7 @@ function _setupProgressionDisplayEvents(display) {
             const insertIndex = parseInt(e.target.dataset.insertAfter, 10) + 1;
             
             state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
-            state.currentProgression.splice(insertIndex, 0, { symbol, key });
+            state.currentProgression.splice(insertIndex, 0, { symbol, key, pattern: initChordPattern() });
             
             // Expand loop to seamlessly include the new turnaround chord
             if (insertIndex <= state.loopEnd) {
@@ -617,6 +659,7 @@ function _setupProgressionDisplayEvents(display) {
             }
             
             activeMenuIndex = null;
+            selectedChordIndex = insertIndex; // Select the new turnaround chord
             auditionChord(symbol, key);
             applyLoopBounds();
             persistAppState();
@@ -636,6 +679,7 @@ function _setupProgressionDisplayEvents(display) {
                 state.temporarySwaps[index] = { symbol: selectedAltSymbol, key: parseInt(e.target.dataset.altKey, 10) };
             }
             activeMenuIndex = null;
+            // selectedChordIndex remains the same, editor will auto-update
             const chordToAudition = state.temporarySwaps[index] || originalChord;
             if (!isPlaying || item.classList.contains('playing')) {
                 auditionChord(chordToAudition.symbol, chordToAudition.key);
@@ -656,7 +700,13 @@ function _setupProgressionDisplayEvents(display) {
         }
 
         // Toggle Context Menu
-        activeMenuIndex = activeMenuIndex === index ? null : index;
+        if (activeMenuIndex === index) {
+            activeMenuIndex = null;
+            selectedChordIndex = null;
+        } else {
+            activeMenuIndex = index;
+            selectedChordIndex = index;
+        }
         renderProgression();
     });
 }
@@ -742,6 +792,7 @@ function _setupDragAndDrop(display) {
                 saveHistoryState();
                 state.temporarySwaps = calculateSwapsOnReorder(state.temporarySwaps, state.currentProgression.length, oldIndex, newIndex);
                 activeMenuIndex = null;
+                selectedChordIndex = null;
                 const itemToMove = state.currentProgression.splice(oldIndex, 1)[0];
                 state.currentProgression.splice(newIndex, 0, itemToMove);
             } 
@@ -763,7 +814,8 @@ function _setupDragAndDrop(display) {
             const isAtEnd = state.loopEnd === state.currentProgression.length;
             state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
             activeMenuIndex = null;
-            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey });
+            selectedChordIndex = insertIndex;
+            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, pattern: initChordPattern() });
             
             if (newLoopStart !== null && newLoopEnd !== null) {
                 state.loopStart = newLoopStart;
@@ -805,6 +857,17 @@ function initApp() {
     const display = document.getElementById('progression-display');
     _loadAndApplyInitialState();
     _setupThemeToggle();
+    initRhythmEditor({ 
+        state, 
+        saveHistoryState, 
+        persistAppState, 
+        renderProgression,
+        onClose: () => {
+            activeMenuIndex = null;
+            selectedChordIndex = null;
+            renderProgression(); // Refreshes UI and triggers closeRhythmEditor safely
+        }
+    });
     _setupKeySelector();
     _setupControlButtons();
     _setupChordButtons();

@@ -44,4 +44,6 @@
 
 ## Phase 5: Advanced Electronica & AI Synergy (In Progress)
 - Implemented Tension & Release Mapping UI using dynamic CSS gradient area graphs.
-- Planning and architecture for Polyrhythmic Arpeggiation and Intelligent Bassline Generation.
+- Built Per-Chord Rhythm/Timing Editor with timeline slicing, moving, and grid snapping.
+- Implemented Localized Arpeggiation for polyrhythmic MIDI and WAV export.
+- Synced offline WAV export and MidiWriterJS to mathematically match the dynamic browser audio playback.

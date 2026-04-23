@@ -46,8 +46,11 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 
 **Phase 5: Advanced Electronica & AI Synergy (Current Focus)**
 - [x] Tension & Release Mapping UI.
-- [ ] Polyrhythmic Arpeggiation (MIDI export).
-- [ ] Intelligent Bassline Generation.
+- [ ] Per-Chord Rhythm/Timing Editor (Timeline view, manual/auto instance slicing, grid/off-grid dragging).
+- [ ] Localized Arpeggiation (Replace selected notes with arp patterns, one-shot & continuous random modes).
+- [ ] Generative Multi-Pass Export (Export last X loopthroughs of active randomization to MIDI/WAV).
+- [ ] Drum Track Integration (Global rhythm, local per-chord overrides, intelligent chord-to-drum snapping).
+- [ ] Intelligent Bassline Generation (Shares rhythm editor tech, single note focus).
 - [ ] Omni-Scale & Microtonal Framework integration.
 
 ## SHORTHANDS

@@ -17,15 +17,36 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading) {
 
     progression.forEach((chord, index) => {
         const chordNotes = notesArray[index];
+        const pattern = chord.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
+
         if (chordNotes) {
-            chordNotes.forEach(midiNote => {
-                timeline.push({
-                    midiNote,
-                    freq: Math.pow(2, (midiNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
-                    startTime: currentTime,
-                    duration: duration,
-                    type: 'sawtooth' // Chords pad
-                });
+            pattern.instances.forEach(instance => {
+                const instanceStartTime = currentTime + (instance.startTime * duration);
+                const instanceDuration = instance.duration * duration;
+
+                if (instance.arpSettings) {
+                    const stepDuration = instanceDuration / chordNotes.length;
+                    chordNotes.forEach((midiNote, i) => {
+                        timeline.push({
+                            midiNote,
+                            freq: Math.pow(2, (midiNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
+                            startTime: instanceStartTime + (i * stepDuration),
+                            duration: stepDuration * 0.8, // Slight gate to make it punchy
+                            type: 'sawtooth'
+                        });
+                    });
+                } else {
+                    const gateDuration = instanceDuration * 0.95; // Slight gate
+                    chordNotes.forEach(midiNote => {
+                        timeline.push({
+                            midiNote,
+                            freq: Math.pow(2, (midiNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
+                            startTime: instanceStartTime,
+                            duration: gateDuration,
+                            type: 'sawtooth' // Chords pad
+                        });
+                    });
+                }
             });
         }
         
@@ -82,16 +103,19 @@ export async function exportToWav(state, buttonElement) {
             osc.type = ev.type;
             osc.frequency.value = ev.freq;
 
+            const safeAttack = Math.min(CONFIG.ATTACK_TIME, ev.duration * 0.3);
+            const safeRelease = Math.min(CONFIG.RELEASE_TIME, ev.duration * 0.5);
+
             gainNode.gain.setValueAtTime(0, ev.startTime);
-            gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, ev.startTime + CONFIG.ATTACK_TIME);
-            gainNode.gain.setValueAtTime(CONFIG.SUSTAIN_LEVEL, ev.startTime + ev.duration - CONFIG.RELEASE_TIME);
+            gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, ev.startTime + safeAttack);
+            gainNode.gain.setValueAtTime(CONFIG.SUSTAIN_LEVEL, ev.startTime + ev.duration - safeRelease);
             gainNode.gain.linearRampToValueAtTime(0, ev.startTime + ev.duration);
 
             if (ev.type === 'sawtooth') {
                 filterNode = offlineCtx.createBiquadFilter();
                 filterNode.type = 'lowpass';
                 filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 1.5, ev.startTime);
-                filterNode.frequency.exponentialRampToValueAtTime(CONFIG.SYNTH_LPF_CUTOFF, ev.startTime + CONFIG.ATTACK_TIME);
+                filterNode.frequency.exponentialRampToValueAtTime(CONFIG.SYNTH_LPF_CUTOFF, ev.startTime + safeAttack);
                 filterNode.Q.value = CONFIG.SYNTH_LPF_RESONANCE;
 
                 osc.connect(filterNode);

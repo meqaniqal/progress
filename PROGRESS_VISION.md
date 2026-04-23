@@ -22,16 +22,23 @@
 
 ### 4. Advanced Sequencer View & Pattern Editing
 - **Visual Timeline:** Instead of a simple tray, view chords on a timeline or piano-roll-style grid.
-- **Global Rhythm Construction:** Construct master rhythms that act as the foundational basis for chord playback. This standalone rhythm track can also be exported as MIDI.
-- **Per-Chord Timing Editor:** Mutate the base rhythm for any specific chord. Create dynamic patterns that start with the global timing but can be shifted strictly on-grid or nudged off-grid.
-- **Micro-Arrangement:** Within the pattern editor, apply repeats, arpeggiated sections, octave shifts, specific inversions, and custom voicings to individual instances of the chord, including full manual editing of notes. All edits render into the final exported MIDI.
+- **Global Drum & Rhythm Construction:** Construct master drum rhythms that act as the foundational basis for the track. Drums have a global rhythm but can be locally edited for each individual chord segment.
+- **Per-Chord Rhythm/Timing Editor:** When a chord is selected, a dedicated timeline opens where the chord initially extends through the entire edit window. Users can slice and break the chord up into multiple rhythmic instances of itself manually or via automatic modification options.
+- **Grid & Free-Time Manipulation:** Instances can be moved around at user-defined grid intervals, or nudged completely off-grid (by toggling the grid off, or holding `Shift` while dragging on a desktop).
+- **Intelligent Rhythm Snapping:** If a drum rhythm is programmed for that chord's timeline, a single-click option allows users to intelligently (or via musical randomization) snap and syncopate unedited chord instances directly to the underlying drum groove.
+- **Localized Arpeggiation:** Users can drag a selection box around specific notes or chord instances in the editor. Applying arpeggiation *replaces* these selected notes with an arpeggiated version, allowing for intricate, localized polyrhythms.
+- **Generative Arp Modes:** Arpeggiation includes several modes, such as static sequences, one-shot randomization, or continuous regeneration applied every time the playback loop restarts.
+- **Multi-Pass Generative Export:** If continuous per-loop randomization is active, users can choose to export multiple passes of the sequence to MIDI or WAV. This captures the exact randomized output that occurred in the last *x* set of loopthroughs (or *x* loops since active), ensuring fleeting generative magic is permanently captured for the DAW.
+- **Micro-Arrangement:** Within the pattern editor, apply octave shifts, specific inversions, and custom voicings to individual instances of the chord. All edits render into the final exported MIDI.
 - **Contrapuntal Voice Tweaking:** Manually nudge individual notes within a generated chord to fix unpleasant intervals or create intersecting melodies, even if it conceptually alters the chord's pure theoretical name. The app supports "listening" over strict "theory".
 - **Adjustable Duration:** Click and drag to change the length of each chord.
 - **Ripple Editing:** Optionally, have the timeline automatically push subsequent chords forward when a preceding chord's duration is extended, maintaining the overall sequence.
 - **Loop-Aware Resolution:** The voice-leading and suggestion engines analyze the progression as a continuous cycle, ensuring the transition from the *last* chord back to the *first* chord is as smooth and emotionally satisfying as any internal internal transition.
+*(Note: A Melody editor is planned for the future, but current scope strictly targets Chords, Drums, and Bass.)*
 
 ### 5. Intelligent Bassline Generation (Future Goal)
-- **Rhythm-Informed Generation:** Utilize the constructed rhythm track to generate intelligent, genre-appropriate basslines.
+- **Unified Editor Technology:** The Bassline editor will utilize the exact same underlying technology and timeline logic as the Per-Chord Rhythm Editor, but restricted to a single note focus.
+- **Rhythm-Informed Generation:** Utilize the constructed drum and chord rhythms to generate intelligent, genre-appropriate basslines.
 - **Contextual Suggestions:** The engine acts as a safety net, suggesting the best locations and pitches for bass notes based on the current harmonic progression.
 - **Symbiotic Editing:** If the user manually edits the chord pattern or the bassline, the system dynamically informs changes across the board. The bassline notes, chord pattern elements, and master rhythm continually cross-reference each other to ensure everything locks together musically from moment to moment.
 
@@ -99,7 +106,18 @@ The richest harmony sounds like mud if the sound design overlaps.
 To achieve a "mind-bending" electronica aesthetic, the app is currently expanding to support:
 - **Tension & Release Mapping (Completed):** A visual UI curve that maps the harmonic tension of the progression, allowing the user to architect dramatic emotional arcs before rendering notes.
 - **Extended & Altered Voicings (Completed):** 9ths, 11ths, 13ths, and altered dominants specifically voiced for lush, atmospheric synth pads.
-- **Polyrhythmic Arpeggiation:** Exporting the chords not just as blocks, but as sequenced MIDI patterns typical of advanced electronica (e.g., 5/16 arp patterns over a 4/4 bassline).
+- **Per-Chord Rhythm/Timing Editor:** A timeline for slicing chords, snapping to drum grooves, and moving instances on/off-grid.
+- **Localized Arpeggiation:** Applying arpeggiator effects to specific drag-box selected notes within the chord editor to create polyrhythmic movement.
 - **AI Text Prompt Generation (Completed):** The app generates a separate, copy-able text block describing the progression's key, mood, and harmonic rhythm to be pasted directly into the prompt field of AI music generators.
 - **Reference Audio Rendering (Completed):** Exporting the progression as a clean WAV file to serve as a clear harmonic audio prompt for full-fledged AI music generators like ACE Studio 2.0.
-- **Omni-Scale & Microtonal Framework:** Expand the harmonic foundation far beyond traditional Western major/minor keys. Introduce dynamic support for all global scales (e.g., Harmonic Minor, Phrygian Dominant, Whole-Tone) and eventually full microtonal/xenharmonic systems (e.g., 24-TET, Bohlen-Pierce). This enables maximum harmonic diversity and unprecedented emotional evocation, pushing the boundaries of standard pop/electronic structures.
+- **Per-Chord Rhythm/Timing Editor (Completed):** A timeline for slicing chords, snapping to drum grooves, and moving instances on/off-grid.
+- **Localized Arpeggiation (Completed):** Applying arpeggiator effects to specific selected instances within the chord editor to create polyrhythmic movement.
+- **Always-Visible Editor (Completed):** Removed the Rhythm Editor from the swap menu and anchored it to the main UI, automatically updating when a chord is selected.
+- **Intelligent Bassline & Drum Generation:** Drum tracks with global/local edits, and basslines built on the same rhythm editor tech.
+- **Omni-Scale & Microtonal Framework:** Expand the harmonic foundation far beyond traditional Western major/minor keys.
+
+### Upcoming Refinements (Rhythm Editor UX Redesign)
+- **Unified Touch/Mouse Interaction:** Press to select, hold to drag and move instances.
+- **Smart Boundary Collision:** Automatically shorten instance lengths when dragged over the edges of the timeline or colliding with other slices.
+- **Slice Slider Tool:** Double-clicking a slice activates "Slice Mode" showing a slider for the division point. Clicking the slider executes the slice.
+- **Editor-Specific Undo:** Add a dedicated undo button that steps back through recent rhythm and arpeggio modifications.

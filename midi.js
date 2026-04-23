@@ -21,14 +21,52 @@ export function exportToMidi(state) {
     const track = new MidiWriter.Track();
     track.addEvent(new MidiWriter.ProgramChangeEvent({instrument: 1})); // Acoustic Grand Piano
 
-    // Add chords to track (Whole notes, length '1')
-    midiNotesToWrite.forEach(notes => {
-        const chordEvent = new MidiWriter.NoteEvent({
-            pitch: notes,
-            duration: '1',
-            velocity: CONFIG.MIDI_CHORD_VELOCITY 
+    // 1 whole note = 512 ticks in MidiWriterJS (128 PPQ * 4 beats)
+    const TOTAL_TICKS_PER_SLOT = 512;
+    let currentTick = 0;
+
+    // Add polyrhythmic chords and arpeggios to track
+    state.currentProgression.forEach((chord, index) => {
+        const chordNotes = midiNotesToWrite[index];
+        const pattern = chord.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
+        const slotStartTick = index * TOTAL_TICKS_PER_SLOT;
+
+        // Sort instances by startTime to ensure sequential MIDI rendering
+        const instances = [...pattern.instances].sort((a, b) => a.startTime - b.startTime);
+
+        instances.forEach(instance => {
+            const instanceStartTick = slotStartTick + Math.round(instance.startTime * TOTAL_TICKS_PER_SLOT);
+            const instanceDurationTicks = Math.round(instance.duration * TOTAL_TICKS_PER_SLOT);
+
+            if (instance.arpSettings) {
+                const stepTicks = Math.round(instanceDurationTicks / chordNotes.length);
+                chordNotes.forEach((midiNote, i) => {
+                    const noteStartTick = instanceStartTick + (i * stepTicks);
+                    const noteDurationTicks = Math.round(stepTicks * 0.8);
+                    const waitTicks = Math.max(0, noteStartTick - currentTick);
+                    
+                    track.addEvent(new MidiWriter.NoteEvent({
+                        pitch: [midiNote],
+                        duration: `T${noteDurationTicks}`,
+                        wait: `T${waitTicks}`,
+                        velocity: CONFIG.MIDI_CHORD_VELOCITY
+                    }));
+                    currentTick += waitTicks + noteDurationTicks;
+                });
+            } else {
+                const noteStartTick = instanceStartTick;
+                const noteDurationTicks = Math.round(instanceDurationTicks * 0.95);
+                const waitTicks = Math.max(0, noteStartTick - currentTick);
+
+                track.addEvent(new MidiWriter.NoteEvent({
+                    pitch: chordNotes,
+                    duration: `T${noteDurationTicks}`,
+                    wait: `T${waitTicks}`,
+                    velocity: CONFIG.MIDI_CHORD_VELOCITY 
+                }));
+                currentTick += waitTicks + noteDurationTicks;
+            }
         });
-        track.addEvent(chordEvent);
     });
 
     // Add a bass line! (Root notes played down two octaves)

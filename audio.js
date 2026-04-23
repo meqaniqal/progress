@@ -40,10 +40,14 @@ function playTone(freq, startTime, duration, type = 'sine') {
     osc.type = type;
     osc.frequency.value = freq;
 
+    // Protect envelopes from breaking on very short chopped/arp notes
+    const safeAttack = Math.min(CONFIG.ATTACK_TIME, duration * 0.3);
+    const safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
+
     // Envelope to avoid clicks: Attack -> Sustain -> Release
     gainNode.gain.setValueAtTime(0, startTime);
-    gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + CONFIG.ATTACK_TIME); // Attack
-    gainNode.gain.setValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + duration - CONFIG.RELEASE_TIME); // Sustain
+    gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + safeAttack); // Attack
+    gainNode.gain.setValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + duration - safeRelease); // Sustain
     gainNode.gain.linearRampToValueAtTime(0, startTime + duration); // Release
 
     // Apply Low-Pass Filter specifically for sawtooth pad chords
@@ -52,7 +56,7 @@ function playTone(freq, startTime, duration, type = 'sine') {
         filterNode.type = 'lowpass';
         // Smooth filter envelope: starts a bit brighter, decays to warm sustain
         filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 1.5, startTime);
-        filterNode.frequency.exponentialRampToValueAtTime(CONFIG.SYNTH_LPF_CUTOFF, startTime + CONFIG.ATTACK_TIME);
+        filterNode.frequency.exponentialRampToValueAtTime(CONFIG.SYNTH_LPF_CUTOFF, startTime + safeAttack);
         filterNode.Q.value = CONFIG.SYNTH_LPF_RESONANCE;
 
         osc.connect(filterNode);
@@ -152,16 +156,33 @@ export function playProgression(getState, onHighlight, onComplete) {
         
         if (!notesToPlay) return;
 
-        const chordDuration = 60 / state.bpm;
+        const chordSlotDuration = 60.0 / state.bpm;
+        const chordObj = sliceToPlay[chordIndexRel];
+        const pattern = chordObj.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
 
-        notesToPlay.forEach(note => playTone(midiToFreq(note), time, chordDuration, 'sawtooth'));
+        // Render each rhythmic slice instance inside the chord slot
+        pattern.instances.forEach(instance => {
+            const instanceStartTime = time + (instance.startTime * chordSlotDuration);
+            const instanceDuration = instance.duration * chordSlotDuration;
+
+            if (instance.arpSettings) {
+                // Distribute the chord notes evenly across the duration of this specific slice
+                const stepDuration = instanceDuration / notesToPlay.length;
+                notesToPlay.forEach((note, i) => {
+                    playTone(midiToFreq(note), instanceStartTime + (i * stepDuration), stepDuration * 0.8, 'sawtooth');
+                });
+            } else {
+                const gateDuration = instanceDuration * 0.95; // Slight gate so contiguous chops are distinctly audible
+                notesToPlay.forEach(note => playTone(midiToFreq(note), instanceStartTime, gateDuration, 'sawtooth'));
+            }
+        });
         
-        const rootSymbol = sliceToPlay[chordIndexRel].symbol;
-        const rootKey = sliceToPlay[chordIndexRel].key;
+        const rootSymbol = chordObj.symbol;
+        const rootKey = chordObj.key;
         const rootChordNotes = getChordNotes(rootSymbol, rootKey);
         if (rootChordNotes) {
             const rootNoteMidi = rootChordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
-            playTone(midiToFreq(rootNoteMidi), time, chordDuration, 'sine');
+            playTone(midiToFreq(rootNoteMidi), time, chordSlotDuration, 'sine'); // Solid bass holding the root for the whole slot
         }
 
         const delayMs = (time - audioCtx.currentTime) * 1000;
