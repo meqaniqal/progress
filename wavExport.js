@@ -1,5 +1,6 @@
 import { getChordNotes, applyVoiceLeading } from './theory.js';
 import { CONFIG } from './config.js';
+import { audioBufferToWav } from './wavEncoder.js';
 
 // --- Layer 1: Pure Timeline Calculator (Testable) ---
 export function calculateAudioTimeline(progression, bpm, useVoiceLeading) {
@@ -131,8 +132,6 @@ export async function exportToWav(state, buttonElement) {
 
         const renderedBuffer = await offlineCtx.startRendering();
         
-        // Using a dynamic import for the WAV encoder to keep logic clean and maintainable
-        const { audioBufferToWav } = await import('./wavEncoder.js');
         const wavData = audioBufferToWav(renderedBuffer);
         
         const blob = new Blob([new DataView(wavData)], { type: 'audio/wav' });
