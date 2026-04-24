@@ -50,11 +50,58 @@ export function sliceInstance(pattern, instanceId, splitRatio = 0.5) {
 }
 
 /**
+ * Expands an instance to fill the available space up to its adjacent boundaries.
+ */
+export function expandInstance(pattern, instanceId) {
+    const target = pattern.instances.find(inst => inst.id === instanceId);
+    if (!target) return pattern;
+
+    const others = pattern.instances.filter(inst => inst.id !== instanceId);
+    let leftBound = 0.0;
+    let rightBound = 1.0;
+    const targetCenter = target.startTime + (target.duration / 2);
+
+    for (const other of others) {
+        const otherStart = other.startTime;
+        const otherEnd = other.startTime + other.duration;
+        const otherCenter = otherStart + (other.duration / 2);
+
+        if (otherCenter < targetCenter) {
+            if (otherEnd > leftBound) leftBound = otherEnd;
+        } else {
+            if (otherStart < rightBound) rightBound = otherStart;
+        }
+    }
+
+    const newInstances = pattern.instances.map(inst =>
+        inst.id === instanceId ? { ...inst, startTime: leftBound, duration: rightBound - leftBound } : inst
+    );
+    return { ...pattern, instances: newInstances };
+}
+
+/**
  * Toggles the selection state for drag-box operations.
  */
 export function toggleSelection(pattern, instanceIds, isSelected) {
     const newInstances = pattern.instances.map(inst => 
         instanceIds.includes(inst.id) ? { ...inst, isSelected } : inst
+    );
+    return { ...pattern, instances: newInstances };
+}
+
+/**
+ * Selects a single instance and deselects all others. 
+ * Toggles the selection off if it is already the only selected instance.
+ */
+export function exclusiveSelect(pattern, instanceId) {
+    const target = pattern.instances.find(inst => inst.id === instanceId);
+    if (!target) return pattern;
+
+    const selectedCount = pattern.instances.filter(i => i.isSelected).length;
+    const willBeSelected = !(target.isSelected && selectedCount === 1);
+
+    const newInstances = pattern.instances.map(inst => 
+        ({ ...inst, isSelected: inst.id === instanceId ? willBeSelected : false })
     );
     return { ...pattern, instances: newInstances };
 }
@@ -70,11 +117,59 @@ export function applyArpSettings(pattern, instanceIds, arpSettings) {
 }
 
 /**
- * Moves an instance to a new start time, keeping all other properties intact.
+ * Moves an instance to a new start time, applying smart boundary collision to prevent overlap.
+ * Shortens the instance if pushed into a smaller space.
  */
-export function moveInstance(pattern, instanceId, newStartTime) {
+export function moveInstance(pattern, instanceId, newStartTime, intendedDuration = null) {
+    const target = pattern.instances.find(inst => inst.id === instanceId);
+    if (!target) return pattern;
+
+    const baseDuration = intendedDuration !== null ? intendedDuration : target.duration;
+    const others = pattern.instances.filter(inst => inst.id !== instanceId);
+    
+    let leftBound = 0.0;
+    let rightBound = 1.0;
+    const targetCenter = target.startTime + (target.duration / 2);
+
+    for (const other of others) {
+        const otherStart = other.startTime;
+        const otherEnd = other.startTime + other.duration;
+        const otherCenter = otherStart + (other.duration / 2);
+
+        if (otherCenter < targetCenter) {
+            if (otherEnd > leftBound) leftBound = otherEnd;
+        } else {
+            if (otherStart < rightBound) rightBound = otherStart;
+        }
+    }
+
+    const MIN_DURATION = 0.02;
+    let clampedStart = Math.max(leftBound, newStartTime);
+    let newDuration = baseDuration;
+    
+    // Handle left boundary squish (shorten slice from the right if dragged left into a wall)
+    let overflowLeft = leftBound - newStartTime;
+    if (overflowLeft > 0) {
+        newDuration -= overflowLeft;
+    }
+    
+    // Prevent pushing start time past the right bound (preserve minimum visible duration)
+    if (clampedStart + MIN_DURATION > rightBound) {
+        clampedStart = rightBound - MIN_DURATION;
+    }
+
+    // Handle right boundary squish (shorten slice from the left if dragged right into a wall)
+    if (clampedStart + newDuration > rightBound) {
+        newDuration = rightBound - clampedStart;
+    }
+
+    // Always enforce minimum duration
+    if (newDuration < MIN_DURATION) {
+        newDuration = MIN_DURATION;
+    }
+
     const newInstances = pattern.instances.map(inst =>
-        inst.id === instanceId ? { ...inst, startTime: newStartTime } : inst
+        inst.id === instanceId ? { ...inst, startTime: clampedStart, duration: newDuration } : inst
     );
     return { ...pattern, instances: newInstances };
 }

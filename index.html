@@ -28,29 +28,26 @@
     </script>
 </head>
 <body>
-    <h1>Progress</h1>
-    <p>Build neuroharmonic chord progressions</p>
+    <h1>Progress: <span style="font-size: 1rem; font-weight: 400; opacity: 0.8;">Build neuroharmonic chord progressions</span></h1>
 
-    <div class="panel">
-        <h3>1. Select Key: <span id="key-display">C Major</span></h3>
-        <select id="key-selector">
-            <option value="60">C Major</option>
-            <option value="61">C♯/D♭ Major</option>
-            <option value="62">D Major</option>
-            <option value="63">D♯/E♭ Major</option>
-            <option value="64">E Major</option>
-            <option value="65">F Major</option>
-            <option value="66">F♯/G♭ Major</option>
-            <option value="67">G Major</option>
-            <option value="68">G♯/A♭ Major</option>
-            <option value="69">A Major</option>
-            <option value="70">A♯/B♭ Major</option>
-            <option value="71">B Major</option>
-        </select>
-    </div>
-
-    <div class="panel">
-        <h3>2. Build Progression</h3>
+    <div class="panel" id="builder-panel">
+        <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+            <strong style="font-size: 16px;">Key: <span id="key-display">C Major</span></strong>
+            <select id="key-selector" class="rhythm-select" style="padding: 4px 8px;">
+                <option value="60">C Major</option>
+                <option value="61">C♯/D♭ Major</option>
+                <option value="62">D Major</option>
+                <option value="63">D♯/E♭ Major</option>
+                <option value="64">E Major</option>
+                <option value="65">F Major</option>
+                <option value="66">F♯/G♭ Major</option>
+                <option value="67">G Major</option>
+                <option value="68">G♯/A♭ Major</option>
+                <option value="69">A Major</option>
+                <option value="70">A♯/B♭ Major</option>
+                <option value="71">B Major</option>
+            </select>
+        </div>
         <div>
             <strong>Diatonic:</strong>
             <button class="chord-btn" data-chord="I">I</button>
@@ -97,19 +94,13 @@
         
         <div class="rhythm-toolbar" style="border-bottom: none; padding-bottom: 0;">
             <div class="tool-group">
-                <button class="tool-btn active" data-tool="move" title="Drag to move instances">✥ Move</button>
-                <button class="tool-btn" data-tool="slice" title="Tap/Click to split an instance">✂ Slice</button>
-                <button class="tool-btn" data-tool="select" title="Tap/Click to select instances">⬚ Select</button>
-            </div>
-            <div class="tool-group">
+                <button class="control-btn secondary" id="btn-rhythm-reset" style="padding: 6px 12px; font-size: 13px;" title="Reset pattern to a single chord block">↺ Reset</button>
+                <button class="control-btn secondary" id="btn-rhythm-delete" style="padding: 6px 12px; font-size: 13px;" title="Delete selected slices">🗑 Delete</button>
                 <button class="control-btn primary" id="btn-apply-arp" style="padding: 6px 12px; font-size: 13px;">✨ Apply Arp</button>
-                <label style="font-size: 12px; font-weight: bold; opacity: 0.8; margin-left: 8px;">Grid:</label>
-                <select id="rhythm-grid-select" class="rhythm-select">
-                    <option value="0.25">1/4 Note</option>
-                    <option value="0.125">1/8 Note</option>
-                    <option value="0.0625">1/16 Note</option>
-                    <option value="0">Off (Free)</option>
-                </select>
+                <div style="display: flex; align-items: center; gap: 8px; margin-left: 8px; background: var(--bg-body); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main);">
+                    <label style="font-size: 12px; font-weight: bold; opacity: 0.8; margin: 0; min-width: 65px;">Grid: <span id="grid-display-value">1/16</span></label>
+                    <input type="range" id="rhythm-grid-slider" min="0" max="5" value="5" style="width: 75px; margin: 0; cursor: pointer;">
+                </div>
             </div>
         </div>
         

@@ -1,7 +1,9 @@
-import { sliceInstance, toggleSelection, applyArpSettings, moveInstance, fillGapInstance } from './patternUtils.js?v=3';
+import { initChordPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance } from './patternUtils.js?v=3';
 
 let activeRhythmIndex = null;
-let activeRhythmTool = 'move'; // 'move', 'slice', 'select'
+let activeOverlayId = null;
+let isDragging = false;
+let draggedInstanceId = null;
 
 // App state references
 let appState = null;
@@ -9,6 +11,15 @@ let dispatchSaveHistory = null;
 let dispatchPersist = null;
 let dispatchRender = null;
 let dispatchOnClose = null;
+
+const GRID_STEPS = [
+    { label: 'Off', value: 0 },
+    { label: '1/4', value: 0.25 },
+    { label: '1/4T', value: 0.25 * (2/3) },
+    { label: '1/8', value: 0.125 },
+    { label: '1/8T', value: 0.125 * (2/3) },
+    { label: '1/16', value: 0.0625 }
+];
 
 export function initRhythmEditor({ state, saveHistoryState, persistAppState, renderProgression, onClose }) {
     appState = state;
@@ -21,14 +32,11 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
         if (dispatchOnClose) dispatchOnClose();
     });
 
-    // --- Tool Selection ---
-    const toolBtns = document.querySelectorAll('.rhythm-toolbar .tool-btn');
-    toolBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            toolBtns.forEach(b => b.classList.remove('active'));
-            e.currentTarget.classList.add('active');
-            activeRhythmTool = e.currentTarget.dataset.tool;
-        });
+    // --- Grid Slider Setup ---
+    const gridSlider = document.getElementById('rhythm-grid-slider');
+    const gridDisplay = document.getElementById('grid-display-value');
+    gridSlider.addEventListener('input', (e) => {
+        gridDisplay.textContent = GRID_STEPS[parseInt(e.target.value, 10)].label;
     });
 
     // --- Apply Arp Button ---
@@ -53,58 +61,144 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
         renderRhythmTimeline();
     });
 
+    // --- Reset & Delete Buttons ---
+    document.getElementById('btn-rhythm-reset').addEventListener('click', () => {
+        if (activeRhythmIndex === null) return;
+        const chord = appState.currentProgression[activeRhythmIndex];
+        if (!chord) return;
+        dispatchSaveHistory();
+        chord.pattern = initChordPattern();
+        activeOverlayId = null;
+        dispatchPersist();
+        renderRhythmTimeline();
+    });
+
+    document.getElementById('btn-rhythm-delete').addEventListener('click', () => {
+        if (activeRhythmIndex === null) return;
+        const chord = appState.currentProgression[activeRhythmIndex];
+        if (!chord || !chord.pattern) return;
+        dispatchSaveHistory();
+        chord.pattern = { ...chord.pattern, instances: chord.pattern.instances.filter(i => !i.isSelected) };
+        activeOverlayId = null;
+        dispatchPersist();
+        renderRhythmTimeline();
+    });
+
     // --- Timeline Interactions (Pointer Events for Mobile + Desktop) ---
     const timeline = document.getElementById('rhythm-timeline');
-    let isDragging = false;
-    let draggedInstanceId = null;
     let dragStartX = 0;
+    let dragStartY = 0;
     let originalStartTime = 0;
+    let originalDuration = 0;
+    let longPressTimer = null;
+    let lastTapTime = 0;
+    let lastTapId = null;
 
     timeline.addEventListener('pointerdown', (e) => {
+        // Ignore interactions if we click inside the active overlay
+        if (e.target.closest('.slice-overlay')) {
+            e.stopPropagation();
+            return;
+        }
+        if (activeOverlayId) {
+            activeOverlayId = null;
+            renderRhythmTimeline(); // Close the overlay if clicking elsewhere
+        }
+
         const instanceEl = e.target.closest('.rhythm-instance');
-        if (!instanceEl || activeRhythmIndex === null) return;
+        const now = Date.now();
+
+        if (!instanceEl) {
+            if (activeRhythmIndex === null) return;
+            // Manual double-tap detection for empty timeline areas
+            if (now - lastTapTime < 300 && lastTapId === 'empty') {
+                const chord = appState.currentProgression[activeRhythmIndex];
+                if (!chord || !chord.pattern) return;
+
+                const rect = timeline.getBoundingClientRect();
+                const clickRatio = (e.clientX - rect.left) / rect.width;
+
+                dispatchSaveHistory();
+                chord.pattern = fillGapInstance(chord.pattern, clickRatio);
+                dispatchPersist();
+                renderRhythmTimeline();
+                lastTapTime = 0;
+                return;
+            }
+            lastTapTime = now;
+            lastTapId = 'empty';
+            return;
+        }
+
+        if (activeRhythmIndex === null) return;
         
         const instId = instanceEl.dataset.id;
+
+        // Manual double-tap detection for slice instances
+        if (now - lastTapTime < 300 && lastTapId === instId) {
+            e.stopPropagation();
+            activeOverlayId = instId;
+            renderRhythmTimeline();
+            lastTapTime = 0;
+            return;
+        }
+        
+        lastTapTime = now;
+        lastTapId = instId;
+
         const chord = appState.currentProgression[activeRhythmIndex];
         if (!chord || !chord.pattern) return;
 
-        if (activeRhythmTool === 'slice') {
-            const rect = instanceEl.getBoundingClientRect();
-            const clickX = e.clientX - rect.left;
-            const splitRatio = clickX / rect.width;
-            
-            // Prevent slicing too close to the extreme edges (e.g., < 5% or > 95%)
-            if (splitRatio > 0.05 && splitRatio < 0.95) {
-                dispatchSaveHistory();
-                chord.pattern = sliceInstance(chord.pattern, instId, splitRatio);
-                dispatchPersist();
-                renderRhythmTimeline();
-            }
-        } 
-        else if (activeRhythmTool === 'select') {
-            dispatchSaveHistory();
-            const inst = chord.pattern.instances.find(i => i.id === instId);
-            if (inst) {
-                chord.pattern = toggleSelection(chord.pattern, [instId], !inst.isSelected);
-                dispatchPersist();
-                renderRhythmTimeline();
-            }
-        }
-        else if (activeRhythmTool === 'move') {
-            dispatchSaveHistory(); // Save state before the drag begins for Undo support
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        draggedInstanceId = instId;
+        isDragging = false;
+        
+        timeline.setPointerCapture(e.pointerId);
+        
+        const inst = chord.pattern.instances.find(i => i.id === instId);
+        originalStartTime = inst ? inst.startTime : 0;
+        originalDuration = inst ? inst.duration : 0;
+        
+        longPressTimer = setTimeout(() => {
             isDragging = true;
-            draggedInstanceId = instId;
-            dragStartX = e.clientX;
-            const inst = chord.pattern.instances.find(i => i.id === instId);
-            originalStartTime = inst ? inst.startTime : 0;
+            dispatchSaveHistory();
             
-            // Capture the pointer so if they drag outside the timeline box, we don't lose tracking
-            timeline.setPointerCapture(e.pointerId);
-        }
+            // Auto-select on long press
+            const currentChord = appState.currentProgression[activeRhythmIndex];
+            const currentInst = currentChord.pattern.instances.find(i => i.id === draggedInstanceId);
+            if (currentInst && !currentInst.isSelected) {
+                currentChord.pattern = exclusiveSelect(currentChord.pattern, draggedInstanceId);
+            }
+
+            renderRhythmTimeline(); // Apply grabbing visuals via state
+        }, 250);
     });
 
     timeline.addEventListener('pointermove', (e) => {
-        if (!isDragging || !draggedInstanceId || activeRhythmTool !== 'move') return;
+        if (draggedInstanceId && !isDragging) {
+            if (Math.abs(e.clientX - dragStartX) > 5 || Math.abs(e.clientY - dragStartY) > 5) {
+                // User moved past the threshold, initiate drag immediately!
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                isDragging = true;
+                dispatchSaveHistory();
+
+                // Auto-select on drag start
+                const chord = appState.currentProgression[activeRhythmIndex];
+                if (chord && chord.pattern) {
+                    const inst = chord.pattern.instances.find(i => i.id === draggedInstanceId);
+                    if (inst && !inst.isSelected) {
+                        chord.pattern = exclusiveSelect(chord.pattern, draggedInstanceId);
+                    }
+                }
+                renderRhythmTimeline();
+            }
+        }
+
+        if (!isDragging || !draggedInstanceId) return;
         
         const deltaX = e.clientX - dragStartX;
         const rect = timeline.getBoundingClientRect();
@@ -113,7 +207,7 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
         let newStartTime = originalStartTime + deltaRatio;
 
         // Grid Snapping Math
-        const gridValue = parseFloat(document.getElementById('rhythm-grid-select').value);
+        const gridValue = GRID_STEPS[parseInt(document.getElementById('rhythm-grid-slider').value, 10)].value;
         if (gridValue > 0 && !e.shiftKey) {
             newStartTime = Math.round(newStartTime / gridValue) * gridValue;
         }
@@ -121,45 +215,120 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
         const chord = appState.currentProgression[activeRhythmIndex];
         const inst = chord.pattern.instances.find(i => i.id === draggedInstanceId);
         
-        // Clamp within the bounds of the chord slot (0.0 to 1.0)
-        newStartTime = Math.max(0, Math.min(newStartTime, 1.0 - inst.duration));
-
-        if (inst.startTime !== newStartTime) {
-            chord.pattern = moveInstance(chord.pattern, draggedInstanceId, newStartTime);
-            renderRhythmTimeline(); // Visually update immediately
+        const newPattern = moveInstance(chord.pattern, draggedInstanceId, newStartTime, originalDuration);
+        const updatedInst = newPattern.instances.find(i => i.id === draggedInstanceId);
+        
+        // Pure state diff check: Only re-render if the math ACTUALLY changed the instance bounds
+        if (inst && updatedInst && (updatedInst.startTime !== inst.startTime || updatedInst.duration !== inst.duration)) {
+            chord.pattern = newPattern;
+            renderRhythmTimeline();
         }
     });
 
     timeline.addEventListener('pointerup', (e) => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+
         if (isDragging) {
             isDragging = false;
-            draggedInstanceId = null;
             timeline.releasePointerCapture(e.pointerId);
-            dispatchPersist(); // Save the final dragged position to local storage
+            dispatchPersist();
+            renderRhythmTimeline();
+            draggedInstanceId = null;
+        } else if (draggedInstanceId) {
+            timeline.releasePointerCapture(e.pointerId);
+            const chord = appState.currentProgression[activeRhythmIndex];
+            const inst = chord.pattern.instances.find(i => i.id === draggedInstanceId);
+            if (inst) {
+                dispatchSaveHistory();
+                chord.pattern = exclusiveSelect(chord.pattern, draggedInstanceId);
+                dispatchPersist();
+                renderRhythmTimeline();
+            }
+            draggedInstanceId = null;
         }
     });
 
     timeline.addEventListener('pointercancel', (e) => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+        if (draggedInstanceId) {
+            timeline.releasePointerCapture(e.pointerId);
+        }
         isDragging = false;
         draggedInstanceId = null;
+        renderRhythmTimeline();
     });
 
-    // --- Add Slice on Empty Area Double-Click ---
-    timeline.addEventListener('dblclick', (e) => {
-        // Ignore double clicks that hit an existing instance directly
-        if (e.target.closest('.rhythm-instance')) return;
-        if (activeRhythmIndex === null) return;
+    // --- Slider & Overlay Delegation ---
+    timeline.addEventListener('input', (e) => {
+        if (e.target.classList.contains('slice-range')) {
+            const instId = e.target.dataset.id;
+            const chord = appState.currentProgression[activeRhythmIndex];
+            const inst = chord.pattern.instances.find(i => i.id === instId);
+            const gridValue = GRID_STEPS[parseInt(document.getElementById('rhythm-grid-slider').value, 10)].value;
 
-        const chord = appState.currentProgression[activeRhythmIndex];
-        if (!chord || !chord.pattern) return;
+            let rawVal = parseFloat(e.target.value); // Range 5-95
+            let splitGlobal = inst.startTime + (rawVal / 100) * inst.duration;
 
-        const rect = timeline.getBoundingClientRect();
-        const clickRatio = (e.clientX - rect.left) / rect.width;
+            // Auto-snap to grid while sliding
+            if (gridValue > 0) {
+                splitGlobal = Math.round(splitGlobal / gridValue) * gridValue;
+            }
 
-        dispatchSaveHistory();
-        chord.pattern = fillGapInstance(chord.pattern, clickRatio);
-        dispatchPersist();
-        renderRhythmTimeline();
+            // Keep it bounded so we don't slice micro-fractions
+            const MIN = 0.02;
+            splitGlobal = Math.max(inst.startTime + MIN, Math.min(splitGlobal, inst.startTime + inst.duration - MIN));
+
+            const snappedPercent = ((splitGlobal - inst.startTime) / inst.duration) * 100;
+            e.target.value = snappedPercent;
+            e.target.dataset.splitGlobal = splitGlobal; 
+        }
+    });
+
+    timeline.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-do-slice')) {
+            e.stopPropagation();
+            const instId = e.target.dataset.id;
+            const slider = document.querySelector(`.slice-range[data-id="${instId}"]`);
+            let splitGlobal = slider.dataset.splitGlobal;
+            
+            const chord = appState.currentProgression[activeRhythmIndex];
+            const inst = chord.pattern.instances.find(i => i.id === instId);
+            
+            if (splitGlobal === undefined) {
+                splitGlobal = inst.startTime + (inst.duration / 2);
+                const gridValue = GRID_STEPS[parseInt(document.getElementById('rhythm-grid-slider').value, 10)].value;
+                if (gridValue > 0) {
+                    splitGlobal = Math.round(splitGlobal / gridValue) * gridValue;
+                }
+            } else {
+                splitGlobal = parseFloat(splitGlobal);
+            }
+
+            const splitRatio = (splitGlobal - inst.startTime) / inst.duration;
+            if (splitRatio >= 0.05 && splitRatio <= 0.95) {
+                dispatchSaveHistory();
+                chord.pattern = sliceInstance(chord.pattern, instId, splitRatio);
+                chord.pattern.instances = chord.pattern.instances.map(i => ({ ...i, isSelected: false }));
+                activeOverlayId = null;
+                dispatchPersist();
+                renderRhythmTimeline();
+            }
+        } else if (e.target.classList.contains('btn-do-fill')) {
+            e.stopPropagation();
+            const instId = e.target.dataset.id;
+            const chord = appState.currentProgression[activeRhythmIndex];
+            dispatchSaveHistory();
+            chord.pattern = expandInstance(chord.pattern, instId);
+            activeOverlayId = null;
+            dispatchPersist();
+            renderRhythmTimeline();
+        }
     });
 }
 
@@ -179,8 +348,14 @@ export function openRhythmEditor(index) {
 
 export function closeRhythmEditor() {
     activeRhythmIndex = null;
+    activeOverlayId = null;
     const panel = document.getElementById('rhythm-editor-panel');
     if (panel) panel.style.display = 'none';
+
+        const builderPanel = document.getElementById('builder-panel');
+        if (builderPanel) builderPanel.style.display = 'block';
+        const undoBtn = document.getElementById('btn-undo');
+        if (undoBtn) undoBtn.style.display = '';
 }
 
 function renderRhythmTimeline() {
@@ -197,11 +372,56 @@ function renderRhythmTimeline() {
         el.dataset.id = inst.id;
         if (inst.isSelected) el.classList.add('selected');
         if (inst.arpSettings) el.classList.add('arp-active');
+        if (isDragging && inst.id === draggedInstanceId) el.classList.add('grabbing');
         
         // The timeline is normalized 0.0 to 1.0, so we convert directly to percentages
         el.style.left = `${inst.startTime * 100}%`;
         el.style.width = `${inst.duration * 100}%`;
         
+        if (activeOverlayId === inst.id) {
+            const others = pattern.instances.filter(i => i.id !== inst.id);
+            let leftBound = 0.0;
+            let rightBound = 1.0;
+            const targetCenter = inst.startTime + (inst.duration / 2);
+            
+            for (const other of others) {
+                const otherStart = other.startTime;
+                const otherEnd = other.startTime + other.duration;
+                const otherCenter = otherStart + (other.duration / 2);
+                if (otherCenter < targetCenter) {
+                    if (otherEnd > leftBound) leftBound = otherEnd;
+                } else {
+                    if (otherStart < rightBound) rightBound = otherStart;
+                }
+            }
+            
+            const canFill = (inst.startTime > leftBound + 0.01) || ((inst.startTime + inst.duration) < rightBound - 0.01);
+
+            const overlay = document.createElement('div');
+            overlay.className = 'slice-overlay';
+            
+            if (inst.duration > 0.05) {
+                overlay.innerHTML = `
+                    <input type="range" class="slice-range" min="5" max="95" value="50" data-id="${inst.id}">
+                `;
+            }
+
+            const actions = document.createElement('div');
+            actions.className = 'slice-actions';
+            
+            if (inst.duration > 0.05) {
+                actions.innerHTML += `<button class="slice-overlay-btn btn-do-slice" data-id="${inst.id}">✂ Split</button>`;
+            }
+            if (canFill) {
+                actions.innerHTML += `<button class="slice-overlay-btn btn-do-fill" data-id="${inst.id}">↔ Fill</button>`;
+            }
+            
+            if (actions.innerHTML !== '') {
+                overlay.appendChild(actions);
+            }
+            el.appendChild(overlay);
+        }
+
         container.appendChild(el);
     });
 }

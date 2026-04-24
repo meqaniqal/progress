@@ -113,11 +113,10 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Per-Chord Rhythm/Timing Editor (Completed):** A timeline for slicing chords, snapping to drum grooves, and moving instances on/off-grid.
 - **Localized Arpeggiation (Completed):** Applying arpeggiator effects to specific selected instances within the chord editor to create polyrhythmic movement.
 - **Always-Visible Editor (Completed):** Removed the Rhythm Editor from the swap menu and anchored it to the main UI, automatically updating when a chord is selected.
+- **Rhythm Editor UX Redesign (Completed):** Unified press/drag interactions, smart boundary collisions, vertical slider for slicing/filling gaps, and a comprehensive grid slider with triplet support.
 - **Intelligent Bassline & Drum Generation:** Drum tracks with global/local edits, and basslines built on the same rhythm editor tech.
 - **Omni-Scale & Microtonal Framework:** Expand the harmonic foundation far beyond traditional Western major/minor keys.
 
 ### Upcoming Refinements (Rhythm Editor UX Redesign)
-- **Unified Touch/Mouse Interaction:** Press to select, hold to drag and move instances.
-- **Smart Boundary Collision:** Automatically shorten instance lengths when dragged over the edges of the timeline or colliding with other slices.
-- **Slice Slider Tool:** Double-clicking a slice activates "Slice Mode" showing a slider for the division point. Clicking the slider executes the slice.
-- **Editor-Specific Undo:** Add a dedicated undo button that steps back through recent rhythm and arpeggio modifications.
+- **Edge-Dragging to Resize:** Add the ability to click and drag the left or right edges of a slice in the Rhythm Editor to dynamically resize it without moving its opposite boundary.
+- **Variable Chord Durations:** Allow changing the total time dedicated to a chord in the sequence (e.g., 2 beats vs 4 beats) via the chord swap popover. The Rhythm Editor timeline must visually and mathematically adapt its normalized `0.0 - 1.0` space to reflect this variable length during audio playback and MIDI/WAV export.

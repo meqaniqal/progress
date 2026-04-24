@@ -1,4 +1,4 @@
-import { initChordPattern, sliceInstance, toggleSelection, applyArpSettings, moveInstance, fillGapInstance } from './patternUtils.js';
+import { initChordPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance } from './patternUtils.js';
 
 describe('Pattern Utils - Rhythm Pattern Editor', () => {
     it('should initialize a default chord pattern', () => {
@@ -35,6 +35,19 @@ describe('Pattern Utils - Rhythm Pattern Editor', () => {
         expect(pattern.instances[0].isSelected).toBe(false);
     });
 
+    it('should exclusively select an instance and deselect others', () => {
+        let pattern = initChordPattern();
+        pattern.instances.push({ id: '2', startTime: 0.5, duration: 0.5, isSelected: true });
+        const id1 = pattern.instances[0].id;
+        
+        pattern = exclusiveSelect(pattern, id1);
+        expect(pattern.instances[0].isSelected).toBe(true);
+        expect(pattern.instances[1].isSelected).toBe(false); // Was true, now false
+        
+        pattern = exclusiveSelect(pattern, id1); // Toggle off if only one selected
+        expect(pattern.instances[0].isSelected).toBe(false);
+    });
+
     it('should apply arp settings to selected instances', () => {
         let pattern = initChordPattern();
         const id = pattern.instances[0].id;
@@ -45,13 +58,52 @@ describe('Pattern Utils - Rhythm Pattern Editor', () => {
         expect(pattern.instances[0].arpSettings).toEqual(settings);
     });
 
-    it('should move an instance to a new start time', () => {
-        let pattern = initChordPattern();
-        const id = pattern.instances[0].id;
-        
-        pattern = moveInstance(pattern, id, 0.25);
-        
-        expect(pattern.instances[0].startTime).toBe(0.25);
+    it('should move an instance and preserve duration if space allows', () => {
+        let pattern = { instances: [{ id: '1', startTime: 0.0, duration: 0.2 }] };
+        pattern = moveInstance(pattern, '1', 0.5);
+        expect(pattern.instances[0].startTime).toBe(0.5);
+        expect(pattern.instances[0].duration).toBe(0.2);
+    });
+
+    it('should shrink duration if moved into a tighter left boundary', () => {
+        let pattern = { instances: [
+            { id: '1', startTime: 0.0, duration: 0.2 },
+            { id: '2', startTime: 0.5, duration: 0.2 }
+        ]};
+        pattern = moveInstance(pattern, '2', 0.1);
+        expect(pattern.instances[1].startTime).toBe(0.2);
+        expect(pattern.instances[1].duration).toBeCloseTo(0.1);
+    });
+
+    it('should shrink duration if moved into a tighter right boundary', () => {
+        let pattern = { instances: [
+            { id: '1', startTime: 0.2, duration: 0.4 },
+            { id: '2', startTime: 0.8, duration: 0.2 }
+        ]};
+        pattern = moveInstance(pattern, '1', 0.6, 0.4);
+        expect(pattern.instances[0].startTime).toBe(0.6);
+        expect(pattern.instances[0].duration).toBeCloseTo(0.2);
+    });
+
+    it('should enforce a minimum duration when pushed against a right boundary', () => {
+        let pattern = { instances: [
+            { id: '1', startTime: 0.2, duration: 0.2 },
+            { id: '2', startTime: 0.5, duration: 0.2 }
+        ]};
+        pattern = moveInstance(pattern, '1', 0.6);
+        expect(pattern.instances[0].startTime).toBeCloseTo(0.48);
+        expect(pattern.instances[0].duration).toBeCloseTo(0.02);
+    });
+
+    it('should allow shortening an already adjacent instance without moving away first', () => {
+        let pattern = { instances: [
+            { id: '1', startTime: 0.2, duration: 0.3 },
+            { id: '2', startTime: 0.5, duration: 0.3 }
+        ]};
+        // Instances touch exactly at 0.5. Move '1' into '2'.
+        pattern = moveInstance(pattern, '1', 0.4, 0.3);
+        expect(pattern.instances[0].startTime).toBe(0.4);
+        expect(pattern.instances[0].duration).toBeCloseTo(0.1);
     });
 
     it('should fill the entire space if timeline is completely empty', () => {
@@ -75,5 +127,16 @@ describe('Pattern Utils - Rhythm Pattern Editor', () => {
         let pattern = { instances: [{ startTime: 0.0, duration: 0.5 }] };
         pattern = fillGapInstance(pattern, 0.25);
         expect(pattern.instances.length).toBe(1);
+    });
+
+    it('should expand an instance to its maximum adjacent boundaries', () => {
+        let pattern = { instances: [
+            { id: '1', startTime: 0.1, duration: 0.2 },
+            { id: '2', startTime: 0.4, duration: 0.2 }, // We will expand this
+            { id: '3', startTime: 0.8, duration: 0.1 }
+        ]};
+        pattern = expandInstance(pattern, '2');
+        expect(pattern.instances[1].startTime).toBe(0.3); // Reaches end of instance 1
+        expect(pattern.instances[1].duration).toBeCloseTo(0.5); // Stretches from 0.3 to 0.8 (start of instance 3)
     });
 });

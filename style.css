@@ -276,6 +276,11 @@ button.control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .rhythm-instance:hover { filter: brightness(1.2); }
 .rhythm-instance.selected { border: 2px solid #fff; box-shadow: 0 0 0 2px var(--original-chord-highlight); background: var(--original-chord-highlight); }
+.rhythm-instance.grabbing {
+    transform: scaleY(0.95);
+    filter: brightness(1.3);
+    z-index: 10;
+}
 
 .rhythm-instance.arp-active {
     background-image: repeating-linear-gradient(
@@ -286,3 +291,60 @@ button.control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         transparent 20px
     );
 }
+
+/* --- Slice & Fill Overlay --- */
+.slice-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+}
+.slice-range {
+    -webkit-appearance: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    margin: 0;
+    outline: none;
+    z-index: 1;
+}
+.slice-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 6px;
+    height: 96px;
+    background: #fff;
+    border-radius: 2px;
+    cursor: ew-resize;
+    box-shadow: 0 0 5px rgba(0,0,0,0.8);
+}
+.slice-range::-moz-range-thumb {
+    appearance: none;
+    width: 6px;
+    height: 96px;
+    background: #fff;
+    border: none;
+    border-radius: 2px;
+    cursor: ew-resize;
+    box-shadow: 0 0 5px rgba(0,0,0,0.8);
+}
+.slice-actions { display: flex; gap: 8px; position: relative; z-index: 2; }
+.slice-overlay-btn {
+    background: var(--ctrl-primary-bg);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 4px 8px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.slice-overlay-btn:hover { background: var(--ctrl-primary-hover); }

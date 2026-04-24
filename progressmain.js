@@ -593,6 +593,9 @@ function _setupKeySelector() {
 
 function _setupProgressionDisplayEvents(display) {
     document.addEventListener('click', (e) => {
+        // Ignore clicks on elements that have been detached from the DOM during the event phase
+        if (!document.body.contains(e.target)) return;
+
         const clickedItem = e.target.closest('.progression-item');
         const clickedEditor = e.target.closest('#rhythm-editor-panel');
         
