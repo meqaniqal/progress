@@ -157,7 +157,7 @@ export function playProgression(getState, onHighlight, onComplete) {
         if (!notesToPlay) return;
 
         const chordObj = sliceToPlay[chordIndexRel];
-        const beats = Number(chordObj.duration) || 4;
+        const beats = Number(chordObj.duration) || 2;
         const chordSlotDuration = (60.0 / Number(state.bpm)) * beats;
         const pattern = chordObj.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
 
@@ -201,7 +201,7 @@ export function playProgression(getState, onHighlight, onComplete) {
         const sliceLength = bounds.end - bounds.start;
 
         const chordObj = state.currentProgression[bounds.start + currentChordIndexRel];
-        const beats = chordObj ? (Number(chordObj.duration) || 4) : 4;
+        const beats = chordObj ? (Number(chordObj.duration) || 2) : 2;
         const chordDuration = (60.0 / Number(state.bpm)) * beats;
         nextNoteTime += chordDuration;
 

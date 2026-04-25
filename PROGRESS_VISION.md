@@ -118,3 +118,6 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Variable Chord Durations (Completed):** Allow changing the total time dedicated to a chord in the sequence (1, 2, 4, or 8 beats) via the chord swap popover. The Rhythm Editor timeline visually and mathematically adapts its normalized `0.0 - 1.0` space to reflect this variable length during audio playback and MIDI/WAV export.
 - **Intelligent Bassline & Drum Generation:** Drum tracks with global/local edits, and basslines built on the same rhythm editor tech.
 - **Omni-Scale & Microtonal Framework:** Expand the harmonic foundation far beyond traditional Western major/minor keys.
+- **Workflow & Defaults Adjustments (Completed):** Update default tempo to 120bpm and default chord duration to 2 beats. Ensure duration button highlighting updates immediately upon selection.
+- **Rhythm Pattern Copy/Paste:** Ability to copy a sliced/arpeggiated rhythm pattern from one chord and paste it to another.
+- **Functional Transposition:** Ability to transpose any chord from its original key to the currently selected global key (e.g., a IV chord originally in G becomes a IV chord in the new key).

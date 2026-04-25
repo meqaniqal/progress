@@ -46,6 +46,9 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Variable Chord Durations:** Adjust individual chord lengths (1, 2, 4, or 8 beats) directly from the UI, dynamically scaling playback, exports, and timeline grids.
 - **Intelligent Bassline Generation:** Rhythm-informed, genre-appropriate basslines.
 - **Omni-Scale & Microtonal Framework:** Dynamic support for global scales and microtonal systems.
+- **UX & Defaults Polish:** Set default tempo to 120bpm, default chord length to 2 beats, and fix duration button UI state updates.
+- **Pattern Copy/Paste:** Copy/paste rhythm patterns from one chord to another.
+- **Functional Transposition:** Transpose any existing chord to the current global key (e.g., IV in old key becomes IV in new key).
 
 ## 🛠️ Local Development
 

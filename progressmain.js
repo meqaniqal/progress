@@ -15,7 +15,7 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
             temporarySwaps: {}, // Map of index -> temporary chord string (e.g. { 1: 'vi' })
             history: [], // Stores progression snapshots for Undo
             baseKey: 60, // C4
-            bpm: 90,
+        bpm: 120,
             isLooping: true,
             useVoiceLeading: true,
             loopStart: 0,
@@ -37,7 +37,7 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
             return state.currentProgression.map((chord, index) => {
                 if (state.temporarySwaps[index] !== undefined) {
                     // Safely merge the underlying rhythm pattern onto the temporary swapped chord
-                    return { ...state.temporarySwaps[index], pattern: chord.pattern, duration: state.temporarySwaps[index].duration || chord.duration || 4 };
+                    return { ...state.temporarySwaps[index], pattern: chord.pattern, duration: state.temporarySwaps[index].duration || chord.duration || 2 };
                 }
                 return chord;
             });
@@ -77,7 +77,7 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
         function addChord(numeral, targetKey = state.baseKey) {
             saveHistoryState();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
-            state.currentProgression.push({ symbol: numeral, key: targetKey, pattern: initChordPattern(), duration: 4 });
+            state.currentProgression.push({ symbol: numeral, key: targetKey, pattern: initChordPattern(), duration: 2 });
             
             if (isAtEnd) state.loopEnd = state.currentProgression.length;
             
@@ -339,7 +339,7 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
                         durRow.className = 'swap-menu-row';
                         
                         const durations = [1, 2, 4, 8];
-                        const currentDuration = Number(displayChord.duration) || 4;
+                        const currentDuration = Number(displayChord.duration) || 2;
 
                         durations.forEach(dur => {
                             const btn = document.createElement('button');
@@ -402,6 +402,27 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
                         swapMenu.appendChild(modSelect);
                         el.appendChild(swapMenu);
                     }
+                    
+                    // Ensure duration buttons reflect active state immediately on cached menus
+                    const currentDuration = Number(displayChord.duration) || 2;
+                    const durBtns = swapMenu.querySelectorAll('.duration-menu-btn');
+                    durBtns.forEach(btn => {
+                        if (Number(btn.textContent) === currentDuration) {
+                            btn.classList.add('original-swap-option');
+                            btn.style.backgroundColor = 'var(--primary-color, #007bff)';
+                            btn.style.color = '#ffffff';
+                            btn.style.borderColor = 'var(--primary-color, #007bff)';
+                            btn.style.fontWeight = 'bold';
+                            btn.style.opacity = '1';
+                        } else {
+                            btn.classList.remove('original-swap-option');
+                            btn.style.backgroundColor = '';
+                            btn.style.color = '';
+                            btn.style.borderColor = '';
+                            btn.style.fontWeight = '';
+                            btn.style.opacity = '0.6';
+                        }
+                    });
                 } else {
                     el.style.zIndex = ''; // Reset z-index
                     const swapMenu = el.querySelector('.swap-menu');
@@ -541,7 +562,7 @@ function _loadAndApplyInitialState() {
                     chordObj.pattern = initChordPattern();
                 }
                 if (chordObj.duration === undefined) {
-                    chordObj.duration = 4;
+                    chordObj.duration = 2;
                 } else {
                     chordObj.duration = Number(chordObj.duration); // Force number to prevent string-math bugs
                 }
@@ -705,7 +726,7 @@ function _setupProgressionDisplayEvents(display) {
             const insertIndex = parseInt(e.target.dataset.insertAfter, 10) + 1;
             
             state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
-            state.currentProgression.splice(insertIndex, 0, { symbol, key, pattern: initChordPattern(), duration: 4 });
+            state.currentProgression.splice(insertIndex, 0, { symbol, key, pattern: initChordPattern(), duration: 2 });
             
             // Expand loop to seamlessly include the new turnaround chord
             if (insertIndex <= state.loopEnd) {
@@ -730,7 +751,7 @@ function _setupProgressionDisplayEvents(display) {
                 delete state.temporarySwaps[index];
             } else {
                 // Otherwise, set the new temporary swap.
-                state.temporarySwaps[index] = { symbol: selectedAltSymbol, key: parseInt(e.target.dataset.altKey, 10), duration: originalChord.duration || 4 };
+                state.temporarySwaps[index] = { symbol: selectedAltSymbol, key: parseInt(e.target.dataset.altKey, 10), duration: originalChord.duration || 2 };
             }
             activeMenuIndex = null;
             // selectedChordIndex remains the same, editor will auto-update
@@ -869,7 +890,7 @@ function _setupDragAndDrop(display) {
             state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
             activeMenuIndex = null;
             selectedChordIndex = insertIndex;
-            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, pattern: initChordPattern(), duration: 4 });
+            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, pattern: initChordPattern(), duration: 2 });
             
             if (newLoopStart !== null && newLoopEnd !== null) {
                 state.loopStart = newLoopStart;

@@ -18,7 +18,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading) {
     progression.forEach((chord, index) => {
         const chordNotes = notesArray[index];
         const pattern = chord.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-        const beats = Number(chord.duration) || 4;
+        const beats = Number(chord.duration) || 2;
         const duration = (60.0 / Number(bpm)) * beats;
 
         if (chordNotes) {

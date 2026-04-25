@@ -28,7 +28,7 @@ export function exportToMidi(state) {
     state.currentProgression.forEach((chord, index) => {
         const chordNotes = midiNotesToWrite[index];
         const pattern = chord.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-        const beats = Number(chord.duration) || 4;
+        const beats = Number(chord.duration) || 2;
         const slotTicks = beats * 128;
 
         // Sort instances by startTime to ensure sequential MIDI rendering
@@ -75,7 +75,7 @@ export function exportToMidi(state) {
     const bassTrack = new MidiWriter.Track();
     state.currentProgression.forEach(chord => {
         const rootNote = getChordNotes(chord.symbol, chord.key)[0] + CONFIG.BASS_OCTAVE_DROP; 
-        const beats = Number(chord.duration) || 4;
+        const beats = Number(chord.duration) || 2;
         const durationTicks = beats * 128;
         bassTrack.addEvent(new MidiWriter.NoteEvent({
             pitch: [rootNote],
