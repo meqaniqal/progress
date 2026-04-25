@@ -21,22 +21,22 @@ export function exportToMidi(state) {
     const track = new MidiWriter.Track();
     track.addEvent(new MidiWriter.ProgramChangeEvent({instrument: 1})); // Acoustic Grand Piano
 
-    // 1 whole note = 512 ticks in MidiWriterJS (128 PPQ * 4 beats)
-    const TOTAL_TICKS_PER_SLOT = 512;
     let currentTick = 0;
+    let slotStartTick = 0;
 
     // Add polyrhythmic chords and arpeggios to track
     state.currentProgression.forEach((chord, index) => {
         const chordNotes = midiNotesToWrite[index];
         const pattern = chord.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-        const slotStartTick = index * TOTAL_TICKS_PER_SLOT;
+        const beats = Number(chord.duration) || 4;
+        const slotTicks = beats * 128;
 
         // Sort instances by startTime to ensure sequential MIDI rendering
         const instances = [...pattern.instances].sort((a, b) => a.startTime - b.startTime);
 
         instances.forEach(instance => {
-            const instanceStartTick = slotStartTick + Math.round(instance.startTime * TOTAL_TICKS_PER_SLOT);
-            const instanceDurationTicks = Math.round(instance.duration * TOTAL_TICKS_PER_SLOT);
+            const instanceStartTick = slotStartTick + Math.round(instance.startTime * slotTicks);
+            const instanceDurationTicks = Math.round(instance.duration * slotTicks);
 
             if (instance.arpSettings) {
                 const stepTicks = Math.round(instanceDurationTicks / chordNotes.length);
@@ -67,15 +67,19 @@ export function exportToMidi(state) {
                 currentTick += waitTicks + noteDurationTicks;
             }
         });
+        
+        slotStartTick += slotTicks;
     });
 
     // Add a bass line! (Root notes played down two octaves)
     const bassTrack = new MidiWriter.Track();
     state.currentProgression.forEach(chord => {
         const rootNote = getChordNotes(chord.symbol, chord.key)[0] + CONFIG.BASS_OCTAVE_DROP; 
+        const beats = Number(chord.duration) || 4;
+        const durationTicks = beats * 128;
         bassTrack.addEvent(new MidiWriter.NoteEvent({
             pitch: [rootNote],
-            duration: '1',
+            duration: `T${durationTicks}`,
             velocity: CONFIG.MIDI_BASS_VELOCITY
         }));
     });

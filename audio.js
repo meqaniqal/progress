@@ -156,8 +156,9 @@ export function playProgression(getState, onHighlight, onComplete) {
         
         if (!notesToPlay) return;
 
-        const chordSlotDuration = 60.0 / state.bpm;
         const chordObj = sliceToPlay[chordIndexRel];
+        const beats = Number(chordObj.duration) || 4;
+        const chordSlotDuration = (60.0 / Number(state.bpm)) * beats;
         const pattern = chordObj.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
 
         // Render each rhythmic slice instance inside the chord slot
@@ -196,11 +197,13 @@ export function playProgression(getState, onHighlight, onComplete) {
 
     function advanceNote() {
         const state = getState();
-        const chordDuration = 60.0 / state.bpm;
-        nextNoteTime += chordDuration;
-
         const bounds = getBounds(state);
         const sliceLength = bounds.end - bounds.start;
+
+        const chordObj = state.currentProgression[bounds.start + currentChordIndexRel];
+        const beats = chordObj ? (Number(chordObj.duration) || 4) : 4;
+        const chordDuration = (60.0 / Number(state.bpm)) * beats;
+        nextNoteTime += chordDuration;
 
         currentChordIndexRel++;
         if (currentChordIndexRel >= sliceLength) {

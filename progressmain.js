@@ -37,7 +37,7 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
             return state.currentProgression.map((chord, index) => {
                 if (state.temporarySwaps[index] !== undefined) {
                     // Safely merge the underlying rhythm pattern onto the temporary swapped chord
-                    return { ...state.temporarySwaps[index], pattern: chord.pattern };
+                    return { ...state.temporarySwaps[index], pattern: chord.pattern, duration: state.temporarySwaps[index].duration || chord.duration || 4 };
                 }
                 return chord;
             });
@@ -77,7 +77,7 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
         function addChord(numeral, targetKey = state.baseKey) {
             saveHistoryState();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
-            state.currentProgression.push({ symbol: numeral, key: targetKey, pattern: initChordPattern() });
+            state.currentProgression.push({ symbol: numeral, key: targetKey, pattern: initChordPattern(), duration: 4 });
             
             if (isAtEnd) state.loopEnd = state.currentProgression.length;
             
@@ -328,6 +328,47 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
                             renderProgression();
                         });
 
+                        // --- Duration Section ---
+                        const durLabel = document.createElement('div');
+                        durLabel.className = 'swap-menu-label';
+                        durLabel.textContent = 'Duration (Beats)';
+                        durLabel.style.marginTop = '8px';
+                        swapMenu.appendChild(durLabel);
+
+                        const durRow = document.createElement('div');
+                        durRow.className = 'swap-menu-row';
+                        
+                        const durations = [1, 2, 4, 8];
+                        const currentDuration = Number(displayChord.duration) || 4;
+
+                        durations.forEach(dur => {
+                            const btn = document.createElement('button');
+                            btn.className = 'chord-btn duration-menu-btn';
+                            btn.textContent = dur;
+                            if (dur === currentDuration) {
+                                btn.classList.add('original-swap-option');
+                                // Add explicit styles so the active state is highly visible
+                                btn.style.backgroundColor = 'var(--primary-color, #007bff)';
+                                btn.style.color = '#ffffff';
+                                btn.style.borderColor = 'var(--primary-color, #007bff)';
+                                btn.style.fontWeight = 'bold';
+                            } else {
+                                btn.style.opacity = '0.6'; // Dim non-active options slightly
+                            }
+                            btn.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                saveHistoryState();
+                                state.currentProgression[index].duration = dur;
+                                if (state.temporarySwaps[index]) {
+                                    state.temporarySwaps[index].duration = dur;
+                                }
+                                persistAppState();
+                                renderProgression();
+                            });
+                            durRow.appendChild(btn);
+                        });
+                        swapMenu.appendChild(durRow);
+
                         // --- Turnaround Section (Only on Last Chord in Context) ---
                         const firstChordIndex = state.isLooping ? state.loopStart : 0;
                         const lastChordIndex = state.isLooping ? Math.max(0, state.loopEnd - 1) : Math.max(0, state.currentProgression.length - 1);
@@ -499,16 +540,26 @@ function _loadAndApplyInitialState() {
                 if (!chordObj.pattern) {
                     chordObj.pattern = initChordPattern();
                 }
+                if (chordObj.duration === undefined) {
+                    chordObj.duration = 4;
+                } else {
+                    chordObj.duration = Number(chordObj.duration); // Force number to prevent string-math bugs
+                }
                 return chordObj;
             });
         }
-        if (savedState.bpm) state.bpm = savedState.bpm;
+        if (savedState.bpm) state.bpm = Number(savedState.bpm);
         // Handle transition from old schema names
         if (savedState.isLooping !== undefined || savedState.loop !== undefined) state.isLooping = savedState.isLooping ?? savedState.loop;
         if (savedState.useVoiceLeading !== undefined || savedState.voiceLeading !== undefined) state.useVoiceLeading = savedState.useVoiceLeading ?? savedState.voiceLeading;
         if (savedState.loopStart !== undefined) state.loopStart = savedState.loopStart;
         if (savedState.loopEnd !== undefined) state.loopEnd = savedState.loopEnd;
-        if (savedState.temporarySwaps) state.temporarySwaps = savedState.temporarySwaps;
+        if (savedState.temporarySwaps) {
+            Object.values(savedState.temporarySwaps).forEach(swap => {
+                if (swap.duration !== undefined) swap.duration = Number(swap.duration);
+            });
+            state.temporarySwaps = savedState.temporarySwaps;
+        }
         if (savedState.theme !== undefined) state.theme = savedState.theme;
     }
     applyLoopBounds();
@@ -654,7 +705,7 @@ function _setupProgressionDisplayEvents(display) {
             const insertIndex = parseInt(e.target.dataset.insertAfter, 10) + 1;
             
             state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
-            state.currentProgression.splice(insertIndex, 0, { symbol, key, pattern: initChordPattern() });
+            state.currentProgression.splice(insertIndex, 0, { symbol, key, pattern: initChordPattern(), duration: 4 });
             
             // Expand loop to seamlessly include the new turnaround chord
             if (insertIndex <= state.loopEnd) {
@@ -679,7 +730,7 @@ function _setupProgressionDisplayEvents(display) {
                 delete state.temporarySwaps[index];
             } else {
                 // Otherwise, set the new temporary swap.
-                state.temporarySwaps[index] = { symbol: selectedAltSymbol, key: parseInt(e.target.dataset.altKey, 10) };
+                state.temporarySwaps[index] = { symbol: selectedAltSymbol, key: parseInt(e.target.dataset.altKey, 10), duration: originalChord.duration || 4 };
             }
             activeMenuIndex = null;
             // selectedChordIndex remains the same, editor will auto-update
@@ -818,7 +869,7 @@ function _setupDragAndDrop(display) {
             state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
             activeMenuIndex = null;
             selectedChordIndex = insertIndex;
-            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, pattern: initChordPattern() });
+            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, pattern: initChordPattern(), duration: 4 });
             
             if (newLoopStart !== null && newLoopEnd !== null) {
                 state.loopStart = newLoopStart;

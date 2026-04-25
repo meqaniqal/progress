@@ -47,3 +47,7 @@
 - Built Per-Chord Rhythm/Timing Editor with timeline slicing, moving, and grid snapping.
 - Implemented Localized Arpeggiation for polyrhythmic MIDI and WAV export.
 - Synced offline WAV export and MidiWriterJS to mathematically match the dynamic browser audio playback.
+- Implemented Variable Chord Durations, allowing users to define the length of each chord (1, 2, 4, or 8 beats) directly from the UI popover.
+- Updated Web Audio playback, offline WAV export, and MidiWriterJS logic to dynamically calculate slot durations based on individual chord beat lengths.
+- Dynamically scaled Rhythm Editor grid snapping to perfectly align with variable chord durations.
+- Resolved string-to-number coercion bugs in local state loading to ensure robust, glitch-free audio scheduling.

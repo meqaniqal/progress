@@ -205,13 +205,15 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
             const rect = timeline.getBoundingClientRect();
             let newTime = (e.clientX - rect.left) / rect.width;
 
+            const chord = appState.currentProgression[activeRhythmIndex];
+
             // Grid Snapping Math
             const gridValue = GRID_STEPS[parseInt(document.getElementById('rhythm-grid-slider').value, 10)].value;
-            if (gridValue > 0 && !e.shiftKey) {
-                newTime = Math.round(newTime / gridValue) * gridValue;
+            const actualGridValue = gridValue * (4 / (Number(chord.duration) || 4));
+            if (actualGridValue > 0 && !e.shiftKey) {
+                newTime = Math.round(newTime / actualGridValue) * actualGridValue;
             }
 
-            const chord = appState.currentProgression[activeRhythmIndex];
             const inst = chord.pattern.instances.find(i => i.id === draggedInstanceId);
             
             const newPattern = resizeInstance(chord.pattern, draggedInstanceId, isResizing, newTime);
@@ -255,13 +257,15 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
         
         let newStartTime = originalStartTime + deltaRatio;
 
+        const chord = appState.currentProgression[activeRhythmIndex];
+
         // Grid Snapping Math
         const gridValue = GRID_STEPS[parseInt(document.getElementById('rhythm-grid-slider').value, 10)].value;
-        if (gridValue > 0 && !e.shiftKey) {
-            newStartTime = Math.round(newStartTime / gridValue) * gridValue;
+        const actualGridValue = gridValue * (4 / (Number(chord.duration) || 4));
+        if (actualGridValue > 0 && !e.shiftKey) {
+            newStartTime = Math.round(newStartTime / actualGridValue) * actualGridValue;
         }
 
-        const chord = appState.currentProgression[activeRhythmIndex];
         const inst = chord.pattern.instances.find(i => i.id === draggedInstanceId);
         
         const newPattern = moveInstance(chord.pattern, draggedInstanceId, newStartTime, originalDuration);
@@ -338,13 +342,14 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
             const chord = appState.currentProgression[activeRhythmIndex];
             const inst = chord.pattern.instances.find(i => i.id === instId);
             const gridValue = GRID_STEPS[parseInt(document.getElementById('rhythm-grid-slider').value, 10)].value;
+            const actualGridValue = gridValue * (4 / (Number(chord.duration) || 4));
 
             let rawVal = parseFloat(e.target.value); // Range 5-95
             let splitGlobal = inst.startTime + (rawVal / 100) * inst.duration;
 
             // Auto-snap to grid while sliding
-            if (gridValue > 0) {
-                splitGlobal = Math.round(splitGlobal / gridValue) * gridValue;
+            if (actualGridValue > 0) {
+                splitGlobal = Math.round(splitGlobal / actualGridValue) * actualGridValue;
             }
 
             // Keep it bounded so we don't slice micro-fractions
@@ -370,8 +375,9 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
             if (splitGlobal === undefined) {
                 splitGlobal = inst.startTime + (inst.duration / 2);
                 const gridValue = GRID_STEPS[parseInt(document.getElementById('rhythm-grid-slider').value, 10)].value;
-                if (gridValue > 0) {
-                    splitGlobal = Math.round(splitGlobal / gridValue) * gridValue;
+                const actualGridValue = gridValue * (4 / (Number(chord.duration) || 4));
+                if (actualGridValue > 0) {
+                    splitGlobal = Math.round(splitGlobal / actualGridValue) * actualGridValue;
                 }
             } else {
                 splitGlobal = parseFloat(splitGlobal);

@@ -114,9 +114,7 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Localized Arpeggiation (Completed):** Applying arpeggiator effects to specific selected instances within the chord editor to create polyrhythmic movement.
 - **Always-Visible Editor (Completed):** Removed the Rhythm Editor from the swap menu and anchored it to the main UI, automatically updating when a chord is selected.
 - **Rhythm Editor UX Redesign (Completed):** Unified press/drag interactions, smart boundary collisions, vertical slider for slicing/filling gaps, and a comprehensive grid slider with triplet support.
+- **Edge-Dragging to Resize (Completed):** Ability to click and drag the left or right edges of a slice in the Rhythm Editor to dynamically resize it without moving its opposite boundary.
+- **Variable Chord Durations (Completed):** Allow changing the total time dedicated to a chord in the sequence (1, 2, 4, or 8 beats) via the chord swap popover. The Rhythm Editor timeline visually and mathematically adapts its normalized `0.0 - 1.0` space to reflect this variable length during audio playback and MIDI/WAV export.
 - **Intelligent Bassline & Drum Generation:** Drum tracks with global/local edits, and basslines built on the same rhythm editor tech.
 - **Omni-Scale & Microtonal Framework:** Expand the harmonic foundation far beyond traditional Western major/minor keys.
-
-### Upcoming Refinements (Rhythm Editor UX Redesign)
-- **Edge-Dragging to Resize:** Add the ability to click and drag the left or right edges of a slice in the Rhythm Editor to dynamically resize it without moving its opposite boundary.
-- **Variable Chord Durations:** Allow changing the total time dedicated to a chord in the sequence (e.g., 2 beats vs 4 beats) via the chord swap popover. The Rhythm Editor timeline must visually and mathematically adapt its normalized `0.0 - 1.0` space to reflect this variable length during audio playback and MIDI/WAV export.

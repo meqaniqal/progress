@@ -43,6 +43,7 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Tension & Release Mapping UI:** Architect dramatic emotional arcs visually before rendering notes.
 - **Per-Chord Rhythm Editor:** Timeline view for slicing, moving, and generating complex rhythms within individual chord slots.
 - **Polyrhythmic Arpeggiation:** Export chords as sequenced MIDI/WAV patterns (e.g., 5/16 arp patterns over a 4/4 bassline).
+- **Variable Chord Durations:** Adjust individual chord lengths (1, 2, 4, or 8 beats) directly from the UI, dynamically scaling playback, exports, and timeline grids.
 - **Intelligent Bassline Generation:** Rhythm-informed, genre-appropriate basslines.
 - **Omni-Scale & Microtonal Framework:** Dynamic support for global scales and microtonal systems.
 
