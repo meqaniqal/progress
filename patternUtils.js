@@ -209,3 +209,47 @@ export function fillGapInstance(pattern, clickRatio) {
     }
     return pattern;
 }
+
+/**
+ * Resizes an instance from either its left or right edge, applying boundary collisions.
+ */
+export function resizeInstance(pattern, instanceId, edge, newTime) {
+    const target = pattern.instances.find(inst => inst.id === instanceId);
+    if (!target) return pattern;
+
+    const others = pattern.instances.filter(inst => inst.id !== instanceId);
+    let leftBound = 0.0;
+    let rightBound = 1.0;
+    const targetCenter = target.startTime + (target.duration / 2);
+
+    for (const other of others) {
+        const otherStart = other.startTime;
+        const otherEnd = other.startTime + other.duration;
+        const otherCenter = otherStart + (other.duration / 2);
+
+        if (otherCenter < targetCenter) {
+            if (otherEnd > leftBound) leftBound = otherEnd;
+        } else {
+            if (otherStart < rightBound) rightBound = otherStart;
+        }
+    }
+
+    const MIN_DURATION = 0.02;
+    let newStart = target.startTime;
+    let newDuration = target.duration;
+
+    if (edge === 'left') {
+        const maxStart = (target.startTime + target.duration) - MIN_DURATION;
+        newStart = Math.max(leftBound, Math.min(newTime, maxStart));
+        newDuration = (target.startTime + target.duration) - newStart;
+    } else if (edge === 'right') {
+        const minEnd = target.startTime + MIN_DURATION;
+        const newEnd = Math.max(minEnd, Math.min(newTime, rightBound));
+        newDuration = newEnd - target.startTime;
+    }
+
+    const newInstances = pattern.instances.map(inst =>
+        inst.id === instanceId ? { ...inst, startTime: newStart, duration: newDuration } : inst
+    );
+    return { ...pattern, instances: newInstances };
+}

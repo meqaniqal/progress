@@ -1,8 +1,9 @@
-import { initChordPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance } from './patternUtils.js?v=3';
+import { initChordPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance, resizeInstance } from './patternUtils.js?v=3';
 
 let activeRhythmIndex = null;
 let activeOverlayId = null;
 let isDragging = false;
+let isResizing = null;
 let draggedInstanceId = null;
 
 // App state references
@@ -105,6 +106,30 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
             renderRhythmTimeline(); // Close the overlay if clicking elsewhere
         }
 
+        const resizeHandle = e.target.closest('.resize-handle');
+        if (resizeHandle) {
+            e.stopPropagation();
+            if (activeRhythmIndex === null) return;
+            
+            const instanceEl = resizeHandle.closest('.rhythm-instance');
+            const instId = instanceEl.dataset.id;
+            
+            isResizing = resizeHandle.classList.contains('left') ? 'left' : 'right';
+            draggedInstanceId = instId;
+            
+            timeline.setPointerCapture(e.pointerId);
+            dispatchSaveHistory();
+            
+            const chord = appState.currentProgression[activeRhythmIndex];
+            if (chord && chord.pattern) {
+                const currentInst = chord.pattern.instances.find(i => i.id === draggedInstanceId);
+                if (currentInst && !currentInst.isSelected) {
+                    chord.pattern = exclusiveSelect(chord.pattern, draggedInstanceId);
+                }
+            }
+            return;
+        }
+
         const instanceEl = e.target.closest('.rhythm-instance');
         const now = Date.now();
 
@@ -176,6 +201,30 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
     });
 
     timeline.addEventListener('pointermove', (e) => {
+        if (isResizing && draggedInstanceId) {
+            const rect = timeline.getBoundingClientRect();
+            let newTime = (e.clientX - rect.left) / rect.width;
+
+            // Grid Snapping Math
+            const gridValue = GRID_STEPS[parseInt(document.getElementById('rhythm-grid-slider').value, 10)].value;
+            if (gridValue > 0 && !e.shiftKey) {
+                newTime = Math.round(newTime / gridValue) * gridValue;
+            }
+
+            const chord = appState.currentProgression[activeRhythmIndex];
+            const inst = chord.pattern.instances.find(i => i.id === draggedInstanceId);
+            
+            const newPattern = resizeInstance(chord.pattern, draggedInstanceId, isResizing, newTime);
+            const updatedInst = newPattern.instances.find(i => i.id === draggedInstanceId);
+            
+            // Pure state diff check: Only re-render if the math ACTUALLY changed the instance bounds
+            if (inst && updatedInst && (updatedInst.startTime !== inst.startTime || updatedInst.duration !== inst.duration)) {
+                chord.pattern = newPattern;
+                renderRhythmTimeline();
+            }
+            return;
+        }
+
         if (draggedInstanceId && !isDragging) {
             if (Math.abs(e.clientX - dragStartX) > 5 || Math.abs(e.clientY - dragStartY) > 5) {
                 // User moved past the threshold, initiate drag immediately!
@@ -231,6 +280,15 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
             longPressTimer = null;
         }
 
+        if (isResizing) {
+            isResizing = null;
+            timeline.releasePointerCapture(e.pointerId);
+            dispatchPersist();
+            renderRhythmTimeline();
+            draggedInstanceId = null;
+            return;
+        }
+
         if (isDragging) {
             isDragging = false;
             timeline.releasePointerCapture(e.pointerId);
@@ -256,6 +314,15 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
             clearTimeout(longPressTimer);
             longPressTimer = null;
         }
+        
+        if (isResizing) {
+            isResizing = null;
+            timeline.releasePointerCapture(e.pointerId);
+            draggedInstanceId = null;
+            renderRhythmTimeline();
+            return;
+        }
+        
         if (draggedInstanceId) {
             timeline.releasePointerCapture(e.pointerId);
         }
@@ -377,6 +444,14 @@ function renderRhythmTimeline() {
         // The timeline is normalized 0.0 to 1.0, so we convert directly to percentages
         el.style.left = `${inst.startTime * 100}%`;
         el.style.width = `${inst.duration * 100}%`;
+        
+        const leftHandle = document.createElement('div');
+        leftHandle.className = 'resize-handle left';
+        el.appendChild(leftHandle);
+        
+        const rightHandle = document.createElement('div');
+        rightHandle.className = 'resize-handle right';
+        el.appendChild(rightHandle);
         
         if (activeOverlayId === inst.id) {
             const others = pattern.instances.filter(i => i.id !== inst.id);

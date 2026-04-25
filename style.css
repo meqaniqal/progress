@@ -292,6 +292,20 @@ button.control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     );
 }
 
+/* Resize handles for rhythm blocks */
+.resize-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 10px;
+    cursor: ew-resize;
+    z-index: 5;
+    transition: background 0.15s ease;
+}
+.resize-handle.left { left: 0; }
+.resize-handle.right { right: 0; }
+.resize-handle:hover { background: rgba(255, 255, 255, 0.4); }
+
 /* --- Slice & Fill Overlay --- */
 .slice-overlay {
     position: absolute;

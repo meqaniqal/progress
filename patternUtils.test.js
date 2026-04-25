@@ -1,4 +1,4 @@
-import { initChordPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance } from './patternUtils.js';
+import { initChordPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance, resizeInstance } from './patternUtils.js';
 
 describe('Pattern Utils - Rhythm Pattern Editor', () => {
     it('should initialize a default chord pattern', () => {
@@ -136,7 +136,55 @@ describe('Pattern Utils - Rhythm Pattern Editor', () => {
             { id: '3', startTime: 0.8, duration: 0.1 }
         ]};
         pattern = expandInstance(pattern, '2');
-        expect(pattern.instances[1].startTime).toBe(0.3); // Reaches end of instance 1
+        expect(pattern.instances[1].startTime).toBeCloseTo(0.3); // Reaches end of instance 1
         expect(pattern.instances[1].duration).toBeCloseTo(0.5); // Stretches from 0.3 to 0.8 (start of instance 3)
+    });
+
+    describe('resizeInstance', () => {
+        it('should resize from the right edge', () => {
+            let pattern = { instances: [{ id: '1', startTime: 0.2, duration: 0.3 }] };
+            pattern = resizeInstance(pattern, '1', 'right', 0.6);
+            expect(pattern.instances[0].startTime).toBe(0.2);
+            expect(pattern.instances[0].duration).toBeCloseTo(0.4);
+        });
+
+        it('should resize from the left edge', () => {
+            let pattern = { instances: [{ id: '1', startTime: 0.2, duration: 0.3 }] };
+            pattern = resizeInstance(pattern, '1', 'left', 0.1);
+            expect(pattern.instances[0].startTime).toBe(0.1);
+            expect(pattern.instances[0].duration).toBeCloseTo(0.4);
+        });
+
+        it('should clamp right edge to the next instance', () => {
+            let pattern = { instances: [
+                { id: '1', startTime: 0.2, duration: 0.2 },
+                { id: '2', startTime: 0.6, duration: 0.2 }
+            ]};
+            pattern = resizeInstance(pattern, '1', 'right', 0.8);
+            expect(pattern.instances[0].duration).toBeCloseTo(0.4); // Clamped to 0.6 - 0.2
+        });
+
+        it('should clamp left edge to the previous instance', () => {
+            let pattern = { instances: [
+                { id: '1', startTime: 0.1, duration: 0.2 },
+                { id: '2', startTime: 0.5, duration: 0.2 }
+            ]};
+            pattern = resizeInstance(pattern, '2', 'left', 0.0);
+            expect(pattern.instances[1].startTime).toBeCloseTo(0.3); // Clamped to 0.1 + 0.2
+            expect(pattern.instances[1].duration).toBeCloseTo(0.4); // Original end was 0.7, 0.7 - 0.3 = 0.4
+        });
+
+        it('should enforce MIN_DURATION on right edge', () => {
+            let pattern = { instances: [{ id: '1', startTime: 0.2, duration: 0.2 }] };
+            pattern = resizeInstance(pattern, '1', 'right', 0.1); // Trying to go backwards past start
+            expect(pattern.instances[0].duration).toBeCloseTo(0.02);
+        });
+
+        it('should enforce MIN_DURATION on left edge', () => {
+            let pattern = { instances: [{ id: '1', startTime: 0.2, duration: 0.2 }] };
+            pattern = resizeInstance(pattern, '1', 'left', 0.5); // Trying to push start past end
+            expect(pattern.instances[0].startTime).toBeCloseTo(0.38); // 0.4 - 0.02
+            expect(pattern.instances[0].duration).toBeCloseTo(0.02);
+        });
     });
 });
