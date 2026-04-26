@@ -53,7 +53,10 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [ ] Probabilistic Pattern Sequencing (Assign loop-through probabilities to specific rhythm/arp patterns).
 - [ ] Drum Track Integration (Global rhythm, local per-chord overrides, intelligent chord-to-drum snapping).
 - [ ] Intelligent Bassline Generation (Shares rhythm editor tech, single note focus).
-- [ ] Omni-Scale & Microtonal Framework integration.
+- [ ] **True Minor Key & Omni-Scale Framework:**
+  - Decouple global key state to support modes (Major/Minor).
+  - Dynamic UI palettes that render correct diatonic chords for the active scale.
+  - Context-aware tension analysis based on the active scale's tonic.
 
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.

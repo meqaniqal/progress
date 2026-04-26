@@ -50,7 +50,10 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Variable Chord Durations:** Adjust individual chord lengths (1, 2, 4, or 8 beats) directly from the UI, dynamically scaling playback, exports, and timeline grids. (Complete ✅)
 - **Generative Multi-Pass Export:** State data structure stubbed; pending export logic and UI.
 - **Intelligent Bassline Generation:** Rhythm-informed, genre-appropriate basslines.
-- **Omni-Scale & Microtonal Framework:** Dynamic support for global scales and microtonal systems.
+- **True Minor Key & Omni-Scale Framework:**
+  - Decouple global key state to support modes (Major/Minor).
+  - Dynamic UI palettes that render correct diatonic chords for the active scale.
+  - Context-aware tension analysis based on the active scale's tonic.
 
 ## 🛠️ Local Development
 

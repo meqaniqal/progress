@@ -970,7 +970,7 @@ function initApp() {
             renderProgression(); // Refreshes UI and triggers closeRhythmEditor safely
         }
     });
-    _setupKeySelector();
+    _setupKeyAndModeSelectors();
     _setupControlButtons();
     _setupChordButtons();
     _setupProgressionDisplayEvents(display);
