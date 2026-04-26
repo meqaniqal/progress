@@ -680,14 +680,41 @@ function _setupThemeToggle() {
     document.body.appendChild(themeToggleBtn);
 }
 
-function _setupKeySelector() {
+function updateKeyAndModeDisplay() {
+    const modeStr = state.mode === 'major' ? 'Major' : 'Minor';
+    const keyName = KEY_NAMES[state.baseKey] || 'C';
+    document.getElementById('key-display').textContent = `${keyName} ${modeStr}`;
+    document.getElementById('key-selector').value = state.baseKey;
+    
+    const modeSelector = document.getElementById('mode-selector');
+    if (modeSelector) modeSelector.value = state.mode;
+    
+    const palMajor = document.getElementById('palette-major');
+    const palMinor = document.getElementById('palette-minor');
+    if (palMajor) palMajor.style.display = state.mode === 'major' ? 'block' : 'none';
+    if (palMinor) palMinor.style.display = state.mode === 'minor' ? 'block' : 'none';
+}
+
+function _setupKeyAndModeSelectors() {
     document.getElementById('key-selector').addEventListener('change', (e) => {
         const newKey = parseInt(e.target.value, 10);
         state.baseKey = newKey;
-        document.getElementById('key-display').textContent = KEY_NAMES[newKey] || 'C Major';
+        updateKeyAndModeDisplay();
         persistAppState();
         renderProgression();
     });
+
+    const modeSelector = document.getElementById('mode-selector');
+    if (modeSelector) {
+        modeSelector.addEventListener('change', (e) => {
+            state.mode = e.target.value;
+            updateKeyAndModeDisplay();
+            persistAppState();
+            // Intentionally NOT modifying state.currentProgression 
+            // so existing tray chords remain untouched.
+            renderProgression(); 
+        });
+    }
 }
 
 function _setupProgressionDisplayEvents(display) {
