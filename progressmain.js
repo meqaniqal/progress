@@ -398,6 +398,26 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
                         });
                         swapMenu.appendChild(durRow);
 
+                        // --- Action Section ---
+                        const actionRow = document.createElement('div');
+                        actionRow.className = 'swap-menu-row';
+                        actionRow.style.marginTop = '8px';
+                        
+                        const delBtn = document.createElement('button');
+                        delBtn.className = 'chord-btn';
+                        delBtn.style.width = '100%';
+                        delBtn.style.color = '#ef4444'; // Distinct destructive red
+                        delBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                        delBtn.innerHTML = '🗑 Delete Chord';
+                        
+                        delBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            removeChord(index);
+                        });
+                        
+                        actionRow.appendChild(delBtn);
+                        swapMenu.appendChild(actionRow);
+
                         // --- Turnaround Section (Only on Last Chord in Context) ---
                         const firstChordIndex = state.isLooping ? state.loopStart : 0;
                         const lastChordIndex = state.isLooping ? Math.max(0, state.loopEnd - 1) : Math.max(0, state.currentProgression.length - 1);
