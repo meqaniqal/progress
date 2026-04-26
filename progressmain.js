@@ -328,6 +328,35 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
                             renderProgression();
                         });
 
+                        swapMenu.appendChild(modSelect);
+
+                        // --- Functional Transposition Section ---
+                        if (displayChord.key !== state.baseKey) {
+                            const transLabel = document.createElement('div');
+                            transLabel.className = 'swap-menu-label';
+                            transLabel.textContent = 'Out of Key';
+                            transLabel.style.marginTop = '8px';
+                            swapMenu.appendChild(transLabel);
+
+                            const transBtn = document.createElement('button');
+                            transBtn.className = 'chord-btn';
+                            transBtn.style.width = '100%';
+                            transBtn.textContent = `Transpose to ${KEY_NAMES[state.baseKey]}`;
+                            
+                            transBtn.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                saveHistoryState();
+                                state.currentProgression[index].key = state.baseKey;
+                                if (state.temporarySwaps[index]) {
+                                    state.temporarySwaps[index].key = state.baseKey;
+                                }
+                                activeMenuIndex = null; // Close menu on transpose
+                                persistAppState();
+                                renderProgression();
+                            });
+                            swapMenu.appendChild(transBtn);
+                        }
+
                         // --- Duration Section ---
                         const durLabel = document.createElement('div');
                         durLabel.className = 'swap-menu-label';
@@ -398,8 +427,6 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
                                 swapMenu.appendChild(turnRow);
                             }
                         }
-
-                        swapMenu.appendChild(modSelect);
                         el.appendChild(swapMenu);
                     }
                     

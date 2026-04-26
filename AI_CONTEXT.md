@@ -50,6 +50,7 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] Localized Arpeggiation (Replace selected notes with arp patterns).
 - [x] Variable Chord Durations (Adjust individual chord lengths via UI, dynamically scaling playback/export).
 - [ ] Generative Multi-Pass Export (State data structure stubbed; pending UI and export logic).
+- [ ] Probabilistic Pattern Sequencing (Assign loop-through probabilities to specific rhythm/arp patterns).
 - [ ] Drum Track Integration (Global rhythm, local per-chord overrides, intelligent chord-to-drum snapping).
 - [ ] Intelligent Bassline Generation (Shares rhythm editor tech, single note focus).
 - [ ] Omni-Scale & Microtonal Framework integration.

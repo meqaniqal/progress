@@ -29,6 +29,7 @@
 - **Localized Arpeggiation:** Users can drag a selection box around specific notes or chord instances in the editor. Applying arpeggiation *replaces* these selected notes with an arpeggiated version, allowing for intricate, localized polyrhythms.
 - **Generative Arp Modes:** Arpeggiation includes several modes, such as static sequences, one-shot randomization, or continuous regeneration applied every time the playback loop restarts.
 - **Multi-Pass Generative Export:** If continuous per-loop randomization is active, users can choose to export multiple passes of the sequence to MIDI or WAV. This captures the exact randomized output that occurred in the last *x* set of loopthroughs (or *x* loops since active), ensuring fleeting generative magic is permanently captured for the DAW.
+- **Probabilistic Pattern Sequencing:** Assign probabilities to different rhythm or arpeggiator patterns occurring on a given loopthrough. This allows the progression's rhythm to organically shift and evolve over time, hooking perfectly into the Multi-Pass Generative Export.
 - **Micro-Arrangement:** Within the pattern editor, apply octave shifts, specific inversions, and custom voicings to individual instances of the chord. All edits render into the final exported MIDI.
 - **Contrapuntal Voice Tweaking:** Manually nudge individual notes within a generated chord to fix unpleasant intervals or create intersecting melodies, even if it conceptually alters the chord's pure theoretical name. The app supports "listening" over strict "theory".
 - **Adjustable Duration:** Click and drag to change the length of each chord.
@@ -115,8 +116,9 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Edge-Dragging to Resize (Completed):** Ability to click and drag the left or right edges of a slice in the Rhythm Editor to dynamically resize it without moving its opposite boundary.
 - **Variable Chord Durations (Completed):** Allow changing the total time dedicated to a chord in the sequence (1, 2, 4, or 8 beats) via the chord swap popover. The Rhythm Editor timeline visually and mathematically adapts its normalized `0.0 - 1.0` space to reflect this variable length during audio playback and MIDI/WAV export.
 - **Generative Multi-Pass Export:** Data structure stubbed; pending UI/audio engine integration.
+- **Probabilistic Pattern Sequencing:** Allow assigning percent-based probabilities to specific rhythm/arp patterns per loop cycle.
 - **Intelligent Bassline & Drum Generation:** Drum tracks with global/local edits, and basslines built on the same rhythm editor tech.
 - **Omni-Scale & Microtonal Framework:** Expand the harmonic foundation far beyond traditional Western major/minor keys.
 - **Workflow & Defaults Adjustments (Completed):** Update default tempo to 120bpm and default chord duration to 2 beats. Ensure duration button highlighting updates immediately upon selection.
 - **Rhythm Pattern Copy/Paste:** Ability to copy a sliced/arpeggiated rhythm pattern from one chord and paste it to another.
-- **Functional Transposition:** Ability to transpose any chord from its original key to the currently selected global key (e.g., a IV chord originally in G becomes a IV chord in the new key).
+- **Functional Transposition (Completed):** Added a context-aware button in the Swap Menu to instantly transpose any out-of-key chord to the currently selected global key.
