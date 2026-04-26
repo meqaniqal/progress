@@ -15,7 +15,7 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
             temporarySwaps: {}, // Map of index -> temporary chord string (e.g. { 1: 'vi' })
             history: [], // Stores progression snapshots for Undo
             baseKey: 60, // C4
-        bpm: 120,
+            bpm: 120,
             isLooping: true,
             useVoiceLeading: true,
             loopStart: 0,
@@ -403,17 +403,17 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
                         el.appendChild(swapMenu);
                     }
                     
-                    // Ensure duration buttons reflect active state immediately on cached menus
+                    // Reconcile dynamic UI states inside the existing menu
                     const currentDuration = Number(displayChord.duration) || 2;
-                    const durBtns = swapMenu.querySelectorAll('.duration-menu-btn');
-                    durBtns.forEach(btn => {
+                    const durButtons = swapMenu.querySelectorAll('.duration-menu-btn');
+                    durButtons.forEach(btn => {
                         if (Number(btn.textContent) === currentDuration) {
                             btn.classList.add('original-swap-option');
                             btn.style.backgroundColor = 'var(--primary-color, #007bff)';
                             btn.style.color = '#ffffff';
                             btn.style.borderColor = 'var(--primary-color, #007bff)';
                             btn.style.fontWeight = 'bold';
-                            btn.style.opacity = '1';
+                            btn.style.opacity = ''; // Reset to default opacity
                         } else {
                             btn.classList.remove('original-swap-option');
                             btn.style.backgroundColor = '';
@@ -562,7 +562,7 @@ function _loadAndApplyInitialState() {
                     chordObj.pattern = initChordPattern();
                 }
                 if (chordObj.duration === undefined) {
-                    chordObj.duration = 2;
+                            chordObj.duration = 2;
                 } else {
                     chordObj.duration = Number(chordObj.duration); // Force number to prevent string-math bugs
                 }

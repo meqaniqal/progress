@@ -15,6 +15,10 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Voice Leading Engine:** Automatically calculates the shortest melodic distance between chords to ensure incredibly smooth, professional transitions.
 - **MIDI Export:** Download your progression instantly as a `.mid` file, completely formatted with a chord track and a dedicated bass track, ready for your DAW.
 - **Persistent State:** Close the browser or refresh the page—your progression, BPM, and settings are automatically saved locally.
+- **Tension & Release Mapping UI:** Architect dramatic emotional arcs visually using dynamic area graphs before rendering notes.
+- **Per-Chord Rhythm Editor:** Timeline view for slicing, moving, and generating complex rhythms within individual chord slots.
+- **Polyrhythmic Arpeggiation:** Apply localized arpeggiator settings to slices of your chord to create intricate polyrhythms.
+- **Variable Chord Durations:** Adjust individual chord lengths (1, 2, 4, or 8 beats) directly from the UI, scaling playback, exports, and timeline grids dynamically.
 
 ## 🗺️ Development Roadmap
 
@@ -40,15 +44,13 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Reference Audio Export:** Direct `.wav` export of the clean synth pad.
 
 ### Phase 5: Advanced Electronica & AI Synergy (In Progress 🚧)
-- **Tension & Release Mapping UI:** Architect dramatic emotional arcs visually before rendering notes.
-- **Per-Chord Rhythm Editor:** Timeline view for slicing, moving, and generating complex rhythms within individual chord slots.
-- **Polyrhythmic Arpeggiation:** Export chords as sequenced MIDI/WAV patterns (e.g., 5/16 arp patterns over a 4/4 bassline).
-- **Variable Chord Durations:** Adjust individual chord lengths (1, 2, 4, or 8 beats) directly from the UI, dynamically scaling playback, exports, and timeline grids.
+- **Tension & Release Mapping UI:** Architect dramatic emotional arcs visually before rendering notes. (Complete ✅)
+- **Per-Chord Rhythm Editor:** Timeline view for slicing, moving, and generating complex rhythms within individual chord slots. (Complete ✅)
+- **Polyrhythmic Arpeggiation:** Export chords as sequenced MIDI/WAV patterns (e.g., 5/16 arp patterns over a 4/4 bassline). (Complete ✅)
+- **Variable Chord Durations:** Adjust individual chord lengths (1, 2, 4, or 8 beats) directly from the UI, dynamically scaling playback, exports, and timeline grids. (Complete ✅)
+- **Generative Multi-Pass Export:** State data structure stubbed; pending export logic and UI.
 - **Intelligent Bassline Generation:** Rhythm-informed, genre-appropriate basslines.
 - **Omni-Scale & Microtonal Framework:** Dynamic support for global scales and microtonal systems.
-- **UX & Defaults Polish:** Set default tempo to 120bpm, default chord length to 2 beats, and fix duration button UI state updates.
-- **Pattern Copy/Paste:** Copy/paste rhythm patterns from one chord to another.
-- **Functional Transposition:** Transpose any existing chord to the current global key (e.g., IV in old key becomes IV in new key).
 
 ## 🛠️ Local Development
 

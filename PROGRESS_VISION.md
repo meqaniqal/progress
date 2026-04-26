@@ -106,8 +106,6 @@ The richest harmony sounds like mud if the sound design overlaps.
 To achieve a "mind-bending" electronica aesthetic, the app is currently expanding to support:
 - **Tension & Release Mapping (Completed):** A visual UI curve that maps the harmonic tension of the progression, allowing the user to architect dramatic emotional arcs before rendering notes.
 - **Extended & Altered Voicings (Completed):** 9ths, 11ths, 13ths, and altered dominants specifically voiced for lush, atmospheric synth pads.
-- **Per-Chord Rhythm/Timing Editor:** A timeline for slicing chords, snapping to drum grooves, and moving instances on/off-grid.
-- **Localized Arpeggiation:** Applying arpeggiator effects to specific drag-box selected notes within the chord editor to create polyrhythmic movement.
 - **AI Text Prompt Generation (Completed):** The app generates a separate, copy-able text block describing the progression's key, mood, and harmonic rhythm to be pasted directly into the prompt field of AI music generators.
 - **Reference Audio Rendering (Completed):** Exporting the progression as a clean WAV file to serve as a clear harmonic audio prompt for full-fledged AI music generators like ACE Studio 2.0.
 - **Per-Chord Rhythm/Timing Editor (Completed):** A timeline for slicing chords, snapping to drum grooves, and moving instances on/off-grid.
@@ -116,6 +114,7 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Rhythm Editor UX Redesign (Completed):** Unified press/drag interactions, smart boundary collisions, vertical slider for slicing/filling gaps, and a comprehensive grid slider with triplet support.
 - **Edge-Dragging to Resize (Completed):** Ability to click and drag the left or right edges of a slice in the Rhythm Editor to dynamically resize it without moving its opposite boundary.
 - **Variable Chord Durations (Completed):** Allow changing the total time dedicated to a chord in the sequence (1, 2, 4, or 8 beats) via the chord swap popover. The Rhythm Editor timeline visually and mathematically adapts its normalized `0.0 - 1.0` space to reflect this variable length during audio playback and MIDI/WAV export.
+- **Generative Multi-Pass Export:** Data structure stubbed; pending UI/audio engine integration.
 - **Intelligent Bassline & Drum Generation:** Drum tracks with global/local edits, and basslines built on the same rhythm editor tech.
 - **Omni-Scale & Microtonal Framework:** Expand the harmonic foundation far beyond traditional Western major/minor keys.
 - **Workflow & Defaults Adjustments (Completed):** Update default tempo to 120bpm and default chord duration to 2 beats. Ensure duration button highlighting updates immediately upon selection.

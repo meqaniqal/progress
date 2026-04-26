@@ -49,15 +49,10 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] Per-Chord Rhythm/Timing Editor (Timeline view, manual/auto slicing, grid snapping, and edge-dragging resizing).
 - [x] Localized Arpeggiation (Replace selected notes with arp patterns).
 - [x] Variable Chord Durations (Adjust individual chord lengths via UI, dynamically scaling playback/export).
-- [ ] Generative Multi-Pass Export (Export last X loopthroughs of active randomization to MIDI/WAV).
+- [ ] Generative Multi-Pass Export (State data structure stubbed; pending UI and export logic).
 - [ ] Drum Track Integration (Global rhythm, local per-chord overrides, intelligent chord-to-drum snapping).
 - [ ] Intelligent Bassline Generation (Shares rhythm editor tech, single note focus).
 - [ ] Omni-Scale & Microtonal Framework integration.
-- [x] Change default tempo to 120bpm.
-- [x] Change default chord duration to 2 beats.
-- [x] Update active state highlighting for chord duration buttons immediately upon click in the swap menu.
-- [ ] Copy/paste rhythm patterns between chords.
-- [ ] Transpose any chord from its original key to the current global key (e.g., maintaining its functional numeral like IV).
 
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.
