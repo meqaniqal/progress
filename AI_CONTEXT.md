@@ -49,6 +49,9 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] Per-Chord Rhythm/Timing Editor (Timeline view, manual/auto slicing, grid snapping, and edge-dragging resizing).
 - [x] Localized Arpeggiation (Replace selected notes with arp patterns).
 - [x] Variable Chord Durations (Adjust individual chord lengths via UI, dynamically scaling playback/export).
+- [x] **UI Architecture Shift:** Establish a "Foldaway Panel" paradigm. Convert the Inspector, Rhythm Editor, Bassline, and future Melody editors into collapsible sections to support both sequential and concurrent workflows.
+- [x] **Inspector Auto-Transpose:** Modulating the key from the Chord Inspector should automatically transpose the selected chord to that new key.
+- [ ] **Always-Visible Transport:** Move transport controls (Play, Loop, BPM, Export) above the foldaway panels so they are never pushed off-screen.
 - [ ] Generative Multi-Pass Export (State data structure stubbed; pending UI and export logic).
 - [ ] Probabilistic Pattern Sequencing (Assign loop-through probabilities to specific rhythm/arp patterns).
 - [ ] Drum Track Integration (Global rhythm, local per-chord overrides, intelligent chord-to-drum snapping).

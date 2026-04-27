@@ -17,10 +17,11 @@
 ### 3. Synesthetic Harmonic UI & Seamless Chord Swapping
 - **Fluid Auditioning:** Where there are several functional alternatives for a specific chord in a sequence, the user can seamlessly swap them in. The audio engine adapts instantly.
 - **Live Auditioning:** Hear the results of a selected alternative *live* while the progression (or looped section) is playing, without losing the original chord.
-- **Reverting & History:** The app remembers the original chord of any swapped position, allowing the user to seamlessly revert via the contextual menu.
+- **Reverting & History:** The app remembers the original chord of any swapped position, allowing the user to seamlessly revert via the selected chord's Inspector Panel.
 - **Dynamic Color Mapping:** Chords are not static badges. Their background colors dynamically shift based on their harmonic relationship to the base key and surrounding context. By mapping the Circle of Fifths to the Color Wheel (Hue), Harmonic Function to Luminosity, and Modal Mixture to Saturation, users intuitively *see* tension, release, and dissonance.
 
 ### 4. Advanced Sequencer View & Pattern Editing
+- **Foldaway Workspace Paradigm:** To support both focused, multi-stage sequential workflows and complex concurrent editing, all per-chord tools (Chord Inspector, Rhythm Editor, Bassline Editor, and future Melody Editor) exist as collapsible "foldaway" panels. Users can expand only what they need to reduce clutter, or open multiple panels simultaneously to cross-reference edits.
 - **Visual Timeline:** Instead of a simple tray, view chords on a timeline or piano-roll-style grid.
 - **Global Drum & Rhythm Construction:** Construct master drum rhythms that act as the foundational basis for the track. Drums have a global rhythm but can be locally edited for each individual chord segment.
 - **Per-Chord Rhythm/Timing Editor:** When a chord is selected, a dedicated timeline opens where the chord initially extends through the entire edit window. Users can slice and break the chord up into multiple rhythmic instances of itself manually or via automatic modification options.
@@ -115,6 +116,9 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Rhythm Editor UX Redesign (Completed):** Unified press/drag interactions, smart boundary collisions, vertical slider for slicing/filling gaps, and a comprehensive grid slider with triplet support.
 - **Edge-Dragging to Resize (Completed):** Ability to click and drag the left or right edges of a slice in the Rhythm Editor to dynamically resize it without moving its opposite boundary.
 - **Variable Chord Durations (Completed):** Allow changing the total time dedicated to a chord in the sequence (1, 2, 4, or 8 beats) via the chord swap popover. The Rhythm Editor timeline visually and mathematically adapts its normalized `0.0 - 1.0` space to reflect this variable length during audio playback and MIDI/WAV export.
+- **UI Architecture Shift (Completed):** Replacing the vertical context menu with a permanent, horizontal "Inspector Panel". Establishing a "Foldaway" (collapsible) panel paradigm for the Inspector, Rhythm, Bassline, and Melody editors to allow flexible sequential or concurrent editing.
+- **Inspector Auto-Transpose (Completed):** Modulating the key directly from a chord's Inspector panel automatically transposes that specific chord into the new key, streamlining workflow.
+- **Always-Visible Transport:** Transport and global controls are positioned above the foldaway panels, ensuring playback and export features are never pushed off-screen when deep-editing a chord.
 - **Generative Multi-Pass Export:** Data structure stubbed; pending UI/audio engine integration.
 - **Probabilistic Pattern Sequencing:** Allow assigning percent-based probabilities to specific rhythm/arp patterns per loop cycle.
 - **Intelligent Bassline & Drum Generation:** Drum tracks with global/local edits, and basslines built on the same rhythm editor tech.
@@ -124,5 +128,5 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
   - Update tension analysis (`getHarmonicProfile`) to contextualize tension relative to the active mode (e.g., `i` is home in minor).
   - Eventually expand to other modes (Dorian, Lydian) and microtonal systems.
 - **Workflow & Defaults Adjustments (Completed):** Update default tempo to 120bpm and default chord duration to 2 beats. Ensure duration button highlighting updates immediately upon selection.
-- **Rhythm Pattern Copy/Paste:** Ability to copy a sliced/arpeggiated rhythm pattern from one chord and paste it to another.
+- **Rhythm Pattern Copy/Paste (Completed):** Ability to copy a sliced/arpeggiated rhythm pattern from one chord and paste it to another.
 - **Functional Transposition (Completed):** Added a context-aware button in the Swap Menu to instantly transpose any out-of-key chord to the currently selected global key.

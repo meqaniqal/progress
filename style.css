@@ -132,27 +132,60 @@ h1 { border-bottom: 2px solid var(--border-main); padding-bottom: 0.5rem; }
     .remove-btn { display: none; }
 }
 
-/* Swap Menu Popover */
-.swap-menu { position: absolute; top: 100%; left: 0; margin-top: 8px; background: var(--bg-panel); border: 1px solid var(--border-main); border-radius: 6px; box-shadow: 0 4px 12px var(--shadow-panel); display: flex; flex-direction: column; gap: 8px; padding: 12px; z-index: 100; cursor: default; min-width: 150px; }
-.swap-menu-row { display: flex; gap: 4px; flex-wrap: wrap; }
-.swap-menu-label { font-size: 10px; font-weight: bold; text-transform: uppercase; color: var(--text-main); opacity: 0.6; letter-spacing: 0.5px; }
-.modulate-select { width: 100%; padding: 6px; font-size: 13px; background: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-main); border-radius: 4px; cursor: pointer; outline: none; }
-.modulate-select:focus { border-color: var(--ctrl-primary-bg); }
+/* Inspector Panel Controls */
+.inspector-row { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+.inspector-label { font-size: 13px; min-width: 130px; font-weight: bold; opacity: 0.8; }
+.inspector-btn-group { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
 
-/* A tiny upward pointing arrow for the tooltip */
-.swap-menu::before { content: ''; position: absolute; top: -6px; left: 16px; width: 10px; height: 10px; background: var(--bg-panel); border-left: 1px solid var(--border-main); border-top: 1px solid var(--border-main); transform: rotate(45deg); }
-.swap-menu-btn { margin: 0; padding: 6px 10px; font-size: 14px; z-index: 101; position: relative; }
-.swap-menu-btn:hover { transform: translateY(-2px); }
-
-/* Special style for the button in the swap menu that reverts to the original chord */
-.swap-menu-btn.original-swap-option {
+/* Special style for the button that reverts to the original chord */
+.chord-btn.original-swap-option {
     border-color: var(--original-chord-highlight);
     color: var(--original-chord-highlight);
     font-weight: 600;
 }
-.swap-menu-btn.original-swap-option:hover {
+.chord-btn.original-swap-option:hover {
     background-color: var(--original-chord-highlight);
     color: var(--item-text);
+}
+
+/* Selected Chord Highlight (when Inspector is open) */
+.progression-item.selected-chord {
+    box-shadow: 0 0 0 3px var(--original-chord-highlight);
+    transform: scale(1.03);
+    z-index: 10;
+}
+
+/* --- Foldaway Panels --- */
+.foldaway-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid var(--border-main);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.2s ease, margin 0.2s ease, padding 0.2s ease;
+}
+.foldaway-header:hover {
+    opacity: 0.8;
+}
+.foldaway-icon {
+    display: inline-block;
+    font-size: 0.75em;
+    margin-right: 8px;
+    transition: transform 0.2s ease;
+}
+.foldaway-panel.collapsed .foldaway-icon {
+    transform: rotate(-90deg);
+}
+.foldaway-panel.collapsed .foldaway-content {
+    display: none !important;
+}
+.foldaway-panel.collapsed .foldaway-header {
+    margin-bottom: 0;
+    border-bottom-color: transparent;
+    padding-bottom: 0;
 }
 
 .bracket-element {

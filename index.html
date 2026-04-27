@@ -34,83 +34,46 @@
         <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
             <strong style="font-size: 16px;">Key: <span id="key-display">C Major</span></strong>
             <select id="key-selector" class="rhythm-select" style="padding: 4px 8px;">
-                <option value="60">C</option>
-                <option value="61">C♯/D♭</option>
-                <option value="62">D</option>
-                <option value="63">D♯/E♭</option>
-                <option value="64">E</option>
-                <option value="65">F</option>
-                <option value="66">F♯/G♭</option>
-                <option value="67">G</option>
-                <option value="68">G♯/A♭</option>
-                <option value="69">A</option>
-                <option value="70">A♯/B♭</option>
-                <option value="71">B</option>
-            </select>
-            <select id="mode-selector" class="rhythm-select" style="padding: 4px 8px;">
-                <option value="major">Major</option>
-                <option value="minor">Minor</option>
+                <option value="60">C Major</option>
+                <option value="61">C♯/D♭ Major</option>
+                <option value="62">D Major</option>
+                <option value="63">D♯/E♭ Major</option>
+                <option value="64">E Major</option>
+                <option value="65">F Major</option>
+                <option value="66">F♯/G♭ Major</option>
+                <option value="67">G Major</option>
+                <option value="68">G♯/A♭ Major</option>
+                <option value="69">A Major</option>
+                <option value="70">A♯/B♭ Major</option>
+                <option value="71">B Major</option>
             </select>
         </div>
-        
-        <div id="palette-major">
-            <div>
-                <strong>Diatonic:</strong>
-                <button class="chord-btn" data-chord="I">I</button>
-                <button class="chord-btn" data-chord="ii">ii</button>
-                <button class="chord-btn" data-chord="iii">iii</button>
-                <button class="chord-btn" data-chord="IV">IV</button>
-                <button class="chord-btn" data-chord="V">V</button>
-                <button class="chord-btn" data-chord="vi">vi</button>
-            </div>
-            <div style="margin-top: 10px;">
-                <strong>Borrowed (Modal Mixture):</strong>
-                <button class="chord-btn borrowed" data-chord="iv">iv</button>
-                <button class="chord-btn borrowed" data-chord="bVI">♭VI</button>
-                <button class="chord-btn borrowed" data-chord="bVII">♭VII</button>
-            </div>
-            <div style="margin-top: 10px;">
-                <strong>Extended & Altered:</strong>
-                <button class="chord-btn" data-chord="Imaj9">Imaj9</button>
-                <button class="chord-btn" data-chord="ii9">ii9</button>
-                <button class="chord-btn" data-chord="ii11">ii11</button>
-                <button class="chord-btn" data-chord="IVmaj9">IVmaj9</button>
-                <button class="chord-btn" data-chord="V9">V9</button>
-                <button class="chord-btn" data-chord="V11">V11</button>
-                <button class="chord-btn" data-chord="Vsus4">Vsus4</button>
-                <button class="chord-btn borrowed" data-chord="V7#9" title="Dominant 7 Sharp 9">V7♯9</button>
-                <button class="chord-btn borrowed" data-chord="V7b13" title="Dominant 7 Flat 13">V7♭13</button>
-            </div>
+        <div>
+            <strong>Diatonic:</strong>
+            <button class="chord-btn" data-chord="I">I</button>
+            <button class="chord-btn" data-chord="ii">ii</button>
+            <button class="chord-btn" data-chord="iii">iii</button>
+            <button class="chord-btn" data-chord="IV">IV</button>
+            <button class="chord-btn" data-chord="V">V</button>
+            <button class="chord-btn" data-chord="vi">vi</button>
         </div>
-
-        <div id="palette-minor" style="display: none;">
-            <div>
-                <strong>Diatonic:</strong>
-                <button class="chord-btn" data-chord="i">i</button>
-                <button class="chord-btn" data-chord="ii°">ii°</button>
-                <button class="chord-btn" data-chord="III">III</button>
-                <button class="chord-btn" data-chord="iv">iv</button>
-                <button class="chord-btn" data-chord="v">v</button>
-                <button class="chord-btn" data-chord="VI">VI</button>
-                <button class="chord-btn" data-chord="VII">VII</button>
-            </div>
-            <div style="margin-top: 10px;">
-                <strong>Borrowed (Modal Mixture):</strong>
-                <button class="chord-btn borrowed" data-chord="I">I</button>
-                <button class="chord-btn borrowed" data-chord="IV">IV</button>
-                <button class="chord-btn borrowed" data-chord="V">V</button>
-            </div>
-            <div style="margin-top: 10px;">
-                <strong>Extended & Altered:</strong>
-                <button class="chord-btn" data-chord="i7">i7</button>
-                <button class="chord-btn" data-chord="ii°7">ii°7</button>
-                <button class="chord-btn" data-chord="IIImaj7">IIImaj7</button>
-                <button class="chord-btn" data-chord="v7">v7</button>
-                <button class="chord-btn" data-chord="VImaj7">VImaj7</button>
-                <button class="chord-btn" data-chord="VII7">VII7</button>
-                <button class="chord-btn borrowed" data-chord="V7">V7</button>
-                <button class="chord-btn borrowed" data-chord="V7#9" title="Dominant 7 Sharp 9">V7♯9</button>
-            </div>
+        <div style="margin-top: 10px;">
+            <strong>Borrowed (Modal Mixture):</strong>
+            <button class="chord-btn borrowed" data-chord="iv">iv</button>
+            <button class="chord-btn borrowed" data-chord="bVI">♭VI</button>
+            <button class="chord-btn borrowed" data-chord="bVII">♭VII</button>
+        </div>
+        <div style="margin-top: 10px;">
+            <strong>Extended & Altered:</strong>
+            <button class="chord-btn" data-chord="Imaj9">Imaj9</button>
+            <button class="chord-btn" data-chord="ii9">ii9</button>
+            <button class="chord-btn" data-chord="ii11">ii11</button>
+            <button class="chord-btn" data-chord="IVmaj9">IVmaj9</button>
+            <button class="chord-btn" data-chord="V9">V9</button>
+            <button class="chord-btn" data-chord="V11">V11</button>
+            <button class="chord-btn" data-chord="Vsus4">Vsus4</button>
+            <button class="chord-btn borrowed" data-chord="V7#9" title="Dominant 7 Sharp 9">V7♯9</button>
+            <button class="chord-btn borrowed" data-chord="V7b13" title="Dominant 7 Flat 13">V7♭13</button>
         </div>
 
         <div id="modulation-panel" style="display: none; margin-top: 15px; padding: 12px; border-radius: 6px; background: var(--placeholder-bg); border: 1px dashed var(--placeholder-border);">
@@ -122,16 +85,37 @@
         <div id="progression-display"></div>
     </div>
 
+    <!-- Inline Chord Inspector Panel -->
+    <div class="panel foldaway-panel" id="chord-inspector-panel" style="display: none; margin-bottom: 1.5rem; border-left: 4px solid var(--original-chord-highlight);">
+        <div class="foldaway-header" id="inspector-header">
+            <h3 style="margin: 0; border: none; padding: 0; color: var(--original-chord-highlight); display: flex; align-items: center;">
+                <span class="foldaway-icon">▼</span>
+                <span id="inspector-title">Chord Inspector</span>
+            </h3>
+            <button class="remove-btn" id="btn-close-inspector" title="Close Inspector" style="font-size: 24px;">×</button>
+        </div>
+        
+        <div class="foldaway-content" id="inspector-content" style="display: flex; flex-direction: column; gap: 12px;">
+            <!-- Controls rendered here dynamically via JS -->
+        </div>
+    </div>
+
     <!-- Per-Chord Rhythm Editor Panel (Anchored) -->
-    <div class="panel" id="rhythm-editor-panel" style="display: none; margin-bottom: 1.5rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-main); padding-bottom: 0.5rem; margin-bottom: 1rem;">
-            <h3 id="rhythm-editor-title" style="margin: 0; border: none; padding: 0;">Rhythm Editor</h3>
+    <div class="panel foldaway-panel" id="rhythm-editor-panel" style="display: none; margin-bottom: 1.5rem;">
+        <div class="foldaway-header" id="rhythm-header">
+            <h3 style="margin: 0; border: none; padding: 0; display: flex; align-items: center;">
+                <span class="foldaway-icon">▼</span>
+                <span id="rhythm-editor-title">Rhythm Editor</span>
+            </h3>
             <button class="remove-btn" id="btn-close-rhythm" title="Close Editor" style="font-size: 24px;">×</button>
         </div>
         
+        <div class="foldaway-content" id="rhythm-editor-content">
         <div class="rhythm-toolbar" style="border-bottom: none; padding-bottom: 0;">
             <div class="tool-group">
                 <button class="control-btn secondary" id="btn-rhythm-reset" style="padding: 6px 12px; font-size: 13px;" title="Reset pattern to a single chord block">↺ Reset</button>
+                <button class="control-btn secondary" id="btn-rhythm-copy" style="padding: 6px 12px; font-size: 13px;" title="Copy rhythm pattern">📋 Copy</button>
+                <button class="control-btn secondary" id="btn-rhythm-paste" style="padding: 6px 12px; font-size: 13px;" title="Paste rhythm pattern" disabled>📋 Paste</button>
                 <button class="control-btn secondary" id="btn-rhythm-delete" style="padding: 6px 12px; font-size: 13px;" title="Delete selected slices">🗑 Delete</button>
                 <button class="control-btn primary" id="btn-apply-arp" style="padding: 6px 12px; font-size: 13px;">✨ Apply Arp</button>
                 <div style="display: flex; align-items: center; gap: 8px; margin-left: 8px; background: var(--bg-body); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main);">
@@ -144,6 +128,7 @@
         <div class="rhythm-timeline-container" id="rhythm-timeline">
             <!-- Instances rendered here dynamically -->
         </div>
+        </div>
     </div>
 
     <div class="panel controls">
@@ -153,7 +138,7 @@
         <button class="control-btn primary" id="btn-clear" title="Clear Progression">🗑</button>
         <label>
             <strong>BPM:</strong>
-            <input type="number" id="bpm-slider" value="120" min="40" max="240" style="width: 60px;">
+            <input type="number" id="bpm-slider" value="90" min="40" max="240" style="width: 60px;">
         </label>
         <label>
             <input type="checkbox" id="voice-leading" checked> 

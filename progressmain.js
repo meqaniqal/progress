@@ -24,7 +24,6 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
         };
         let isPlaying = false;
         let currentPlaybackStopFunction = null; // Stores the stop function returned by audio.playProgression
-        let activeMenuIndex = null;
         let selectedChordIndex = null; // Tracks which chord is actively open in the Rhythm Editor
 
         const KEY_NAMES = {
@@ -67,7 +66,6 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
             state.temporarySwaps = previousState.temporarySwaps;
             state.loopStart = previousState.loopStart;
             state.loopEnd = previousState.loopEnd;
-            activeMenuIndex = null;
             selectedChordIndex = null;
             applyLoopBounds();
             persistAppState();
@@ -90,7 +88,6 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
             saveHistoryState();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
             state.temporarySwaps = calculateSwapsOnRemove(state.temporarySwaps, index);
-            activeMenuIndex = null;
             selectedChordIndex = null;
             state.currentProgression.splice(index, 1);
             
@@ -113,7 +110,6 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
             if (state.currentProgression.length === 0) return;
             saveHistoryState();
             state.temporarySwaps = {};
-            activeMenuIndex = null;
             selectedChordIndex = null;
             if (currentPlaybackStopFunction) currentPlaybackStopFunction(); // Stop current playback
             isPlaying = false;
@@ -256,224 +252,11 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
                     }
                 }
 
-                // Handle swap menu rendering
-                if (activeMenuIndex === index) {
-                    el.style.position = 'relative';
-                    el.style.zIndex = '100'; // Elevate to render over chords on the next row
-
-                    let swapMenu = el.querySelector('.swap-menu');
-                    if (!swapMenu) {
-                        swapMenu = document.createElement('div');
-                        swapMenu.className = 'swap-menu';
-                        
-                        // --- Alternatives Section ---
-                        const altsLabel = document.createElement('div');
-                        altsLabel.className = 'swap-menu-label';
-                        altsLabel.textContent = 'Swap Chord';
-                        swapMenu.appendChild(altsLabel);
-                        
-                        const altsRow = document.createElement('div');
-                        altsRow.className = 'swap-menu-row';
-
-                        const alts = getAlternatives(displayChord.symbol);
-                        if (isTemp) {
-                            alts.unshift(chord.symbol); // Add original chord as first option
-                        }
-                        if (alts.length === 0) {
-                            const noAlts = document.createElement('span');
-                            noAlts.textContent = 'No close matches';
-                            noAlts.style.opacity = '0.5';
-                            noAlts.style.fontSize = '12px';
-                            altsRow.appendChild(noAlts);
-                        } else {
-                            alts.forEach((alt, i) => {
-                                const btn = document.createElement('button');
-                                btn.className = 'chord-btn swap-menu-btn';
-                                btn.textContent = alt;
-                                btn.dataset.alt = alt; // Handled by Event Delegation
-                                btn.dataset.altKey = chord.key; // Lock the alternative to the chord's original key!
-                                if (isTemp && i === 0) {
-                                    btn.classList.add('original-swap-option');
-                                }
-                                altsRow.appendChild(btn);
-                            });
-                        }
-                        swapMenu.appendChild(altsRow);
-
-                        // --- Modulate Section ---
-                        const modLabel = document.createElement('div');
-                        modLabel.className = 'swap-menu-label';
-                        modLabel.textContent = 'Modulate Key';
-                        swapMenu.appendChild(modLabel);
-
-                        const modSelect = document.createElement('select');
-                        modSelect.className = 'modulate-select';
-                        
-                        Object.entries(KEY_NAMES).forEach(([val, name]) => {
-                            const opt = document.createElement('option');
-                            opt.value = val;
-                            opt.textContent = name;
-                            if (parseInt(val, 10) === state.baseKey) {
-                                opt.selected = true;
-                            }
-                            modSelect.appendChild(opt);
-                        });
-
-                        modSelect.addEventListener('change', (e) => {
-                            const newKey = parseInt(e.target.value, 10);
-                            state.baseKey = newKey;
-                            document.getElementById('key-display').textContent = KEY_NAMES[newKey] || 'C Major';
-                            document.getElementById('key-selector').value = newKey;
-                            persistAppState();
-                            renderProgression();
-                        });
-
-                        swapMenu.appendChild(modSelect);
-
-                        // --- Functional Transposition Section ---
-                        if (displayChord.key !== state.baseKey) {
-                            const transLabel = document.createElement('div');
-                            transLabel.className = 'swap-menu-label';
-                            transLabel.textContent = 'Out of Key';
-                            transLabel.style.marginTop = '8px';
-                            swapMenu.appendChild(transLabel);
-
-                            const transBtn = document.createElement('button');
-                            transBtn.className = 'chord-btn';
-                            transBtn.style.width = '100%';
-                            transBtn.textContent = `Transpose to ${KEY_NAMES[state.baseKey]}`;
-                            
-                            transBtn.addEventListener('click', (e) => {
-                                e.stopPropagation();
-                                saveHistoryState();
-                                state.currentProgression[index].key = state.baseKey;
-                                if (state.temporarySwaps[index]) {
-                                    state.temporarySwaps[index].key = state.baseKey;
-                                }
-                                activeMenuIndex = null; // Close menu on transpose
-                                persistAppState();
-                                renderProgression();
-                            });
-                            swapMenu.appendChild(transBtn);
-                        }
-
-                        // --- Duration Section ---
-                        const durLabel = document.createElement('div');
-                        durLabel.className = 'swap-menu-label';
-                        durLabel.textContent = 'Duration (Beats)';
-                        durLabel.style.marginTop = '8px';
-                        swapMenu.appendChild(durLabel);
-
-                        const durRow = document.createElement('div');
-                        durRow.className = 'swap-menu-row';
-                        
-                        const durations = [1, 2, 4, 8];
-                        const currentDuration = Number(displayChord.duration) || 2;
-
-                        durations.forEach(dur => {
-                            const btn = document.createElement('button');
-                            btn.className = 'chord-btn duration-menu-btn';
-                            btn.textContent = dur;
-                            if (dur === currentDuration) {
-                                btn.classList.add('original-swap-option');
-                                // Add explicit styles so the active state is highly visible
-                                btn.style.backgroundColor = 'var(--primary-color, #007bff)';
-                                btn.style.color = '#ffffff';
-                                btn.style.borderColor = 'var(--primary-color, #007bff)';
-                                btn.style.fontWeight = 'bold';
-                            } else {
-                                btn.style.opacity = '0.6'; // Dim non-active options slightly
-                            }
-                            btn.addEventListener('click', (e) => {
-                                e.stopPropagation();
-                                saveHistoryState();
-                                state.currentProgression[index].duration = dur;
-                                if (state.temporarySwaps[index]) {
-                                    state.temporarySwaps[index].duration = dur;
-                                }
-                                persistAppState();
-                                renderProgression();
-                            });
-                            durRow.appendChild(btn);
-                        });
-                        swapMenu.appendChild(durRow);
-
-                        // --- Action Section ---
-                        const actionRow = document.createElement('div');
-                        actionRow.className = 'swap-menu-row';
-                        actionRow.style.marginTop = '8px';
-                        
-                        const delBtn = document.createElement('button');
-                        delBtn.className = 'chord-btn';
-                        delBtn.style.width = '100%';
-                        delBtn.style.color = '#ef4444'; // Distinct destructive red
-                        delBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-                        delBtn.innerHTML = '🗑 Delete Chord';
-                        
-                        delBtn.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            removeChord(index);
-                        });
-                        
-                        actionRow.appendChild(delBtn);
-                        swapMenu.appendChild(actionRow);
-
-                        // --- Turnaround Section (Only on Last Chord in Context) ---
-                        const firstChordIndex = state.isLooping ? state.loopStart : 0;
-                        const lastChordIndex = state.isLooping ? Math.max(0, state.loopEnd - 1) : Math.max(0, state.currentProgression.length - 1);
-                        
-                        if (index === lastChordIndex && state.currentProgression.length > 0) {
-                            const firstChord = state.temporarySwaps[firstChordIndex] || state.currentProgression[firstChordIndex];
-                            if (firstChord) {
-                                const turnLabel = document.createElement('div');
-                                turnLabel.className = 'swap-menu-label';
-                                turnLabel.textContent = `Turnaround to ${firstChord.symbol}`;
-                                turnLabel.style.marginTop = '8px';
-                                swapMenu.appendChild(turnLabel);
-
-                                const turnRow = document.createElement('div');
-                                turnRow.className = 'swap-menu-row';
-                                
-                                const turnarounds = getTurnaroundSuggestions(firstChord.symbol);
-                                turnarounds.forEach(alt => {
-                                    const btn = document.createElement('button');
-                                    btn.className = 'chord-btn swap-menu-btn insert-turnaround-btn';
-                                    btn.textContent = `+ ${alt}`;
-                                    btn.dataset.symbol = alt;
-                                    btn.dataset.key = firstChord.key;
-                                    btn.dataset.insertAfter = index;
-                                    turnRow.appendChild(btn);
-                                });
-                                swapMenu.appendChild(turnRow);
-                            }
-                        }
-                        el.appendChild(swapMenu);
-                    }
-                    
-                    // Reconcile dynamic UI states inside the existing menu
-                    const currentDuration = Number(displayChord.duration) || 2;
-                    const durButtons = swapMenu.querySelectorAll('.duration-menu-btn');
-                    durButtons.forEach(btn => {
-                        if (Number(btn.textContent) === currentDuration) {
-                            btn.classList.add('original-swap-option');
-                            btn.style.backgroundColor = 'var(--primary-color, #007bff)';
-                            btn.style.color = '#ffffff';
-                            btn.style.borderColor = 'var(--primary-color, #007bff)';
-                            btn.style.fontWeight = 'bold';
-                            btn.style.opacity = ''; // Reset to default opacity
-                        } else {
-                            btn.classList.remove('original-swap-option');
-                            btn.style.backgroundColor = '';
-                            btn.style.color = '';
-                            btn.style.borderColor = '';
-                            btn.style.fontWeight = '';
-                            btn.style.opacity = '0.6';
-                        }
-                    });
+                // Highlight selected chord
+                if (selectedChordIndex === index) {
+                    el.classList.add('selected-chord');
                 } else {
-                    el.style.zIndex = ''; // Reset z-index
-                    const swapMenu = el.querySelector('.swap-menu');
-                    if (swapMenu) swapMenu.remove();
+                    el.classList.remove('selected-chord');
                 }
 
                 // Dataset index updated so Event Delegation can route the click correctly
@@ -577,6 +360,198 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
                 selectedChordIndex = null;
                 closeRhythmEditor();
             }
+            
+            renderChordInspector();
+        }
+
+        function renderChordInspector() {
+            const panel = document.getElementById('chord-inspector-panel');
+            if (!panel) return;
+            
+            if (selectedChordIndex === null || !state.currentProgression[selectedChordIndex]) {
+                panel.style.display = 'none';
+                return;
+            }
+    
+            panel.style.display = 'block';
+            const content = document.getElementById('inspector-content');
+            content.innerHTML = '';
+    
+            const index = selectedChordIndex;
+            const originalChord = state.currentProgression[index];
+            const isTemp = state.temporarySwaps[index] !== undefined;
+            const displayChord = isTemp ? state.temporarySwaps[index] : originalChord;
+    
+            document.getElementById('inspector-title').textContent = `Inspector: ${displayChord.symbol}`;
+    
+            // 1. Alternatives
+            const altsRow = document.createElement('div');
+            altsRow.className = 'inspector-row';
+            altsRow.innerHTML = `<strong class="inspector-label">Swap Chord:</strong>`;
+            const altsBtnContainer = document.createElement('div');
+            altsBtnContainer.className = 'inspector-btn-group';
+            
+            const alts = getAlternatives(displayChord.symbol);
+            if (isTemp) alts.unshift(originalChord.symbol);
+            
+            if (alts.length === 0) {
+                altsBtnContainer.innerHTML = `<span style="opacity: 0.5; font-size: 13px;">No close matches</span>`;
+            } else {
+                alts.forEach((alt, i) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'chord-btn';
+                    btn.textContent = alt;
+                    if (isTemp && i === 0) btn.classList.add('original-swap-option');
+                    
+                    btn.addEventListener('click', () => {
+                        saveHistoryState();
+                        if (alt === originalChord.symbol) {
+                            delete state.temporarySwaps[index];
+                        } else {
+                            state.temporarySwaps[index] = { symbol: alt, key: originalChord.key, duration: originalChord.duration || 2 };
+                        }
+                        const chordToAudition = state.temporarySwaps[index] || originalChord;
+                        if (!isPlaying) auditionChord(chordToAudition.symbol, chordToAudition.key);
+                        persistAppState();
+                        renderProgression();
+                    });
+                    altsBtnContainer.appendChild(btn);
+                });
+            }
+            altsRow.appendChild(altsBtnContainer);
+            content.appendChild(altsRow);
+    
+            // 2. Modulate Key
+            const modRow = document.createElement('div');
+            modRow.className = 'inspector-row';
+            modRow.innerHTML = `<strong class="inspector-label">Modulate Key:</strong>`;
+            const modSelect = document.createElement('select');
+            modSelect.className = 'rhythm-select';
+            Object.entries(KEY_NAMES).forEach(([val, name]) => {
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = name;
+                if (parseInt(val, 10) === state.baseKey) opt.selected = true;
+                modSelect.appendChild(opt);
+            });
+            modSelect.addEventListener('change', (e) => {
+                saveHistoryState(); // Save history because we are modifying chord state
+                const newKey = parseInt(e.target.value, 10);
+                state.baseKey = newKey;
+                document.getElementById('key-display').textContent = KEY_NAMES[newKey] || 'C Major';
+                document.getElementById('key-selector').value = newKey;
+                
+                // Auto-transpose the selected chord to the new key
+                state.currentProgression[index].key = newKey;
+                if (state.temporarySwaps[index]) {
+                    state.temporarySwaps[index].key = newKey;
+                }
+                
+                persistAppState();
+                renderProgression();
+            });
+            modRow.appendChild(modSelect);
+            content.appendChild(modRow);
+    
+            // 3. Functional Transposition
+            if (displayChord.key !== state.baseKey) {
+                const transRow = document.createElement('div');
+                transRow.className = 'inspector-row';
+                transRow.innerHTML = `<strong class="inspector-label">Out of Key:</strong>`;
+                const transBtn = document.createElement('button');
+                transBtn.className = 'chord-btn';
+                transBtn.textContent = `Transpose to ${KEY_NAMES[state.baseKey]}`;
+                transBtn.addEventListener('click', () => {
+                    saveHistoryState();
+                    state.currentProgression[index].key = state.baseKey;
+                    if (state.temporarySwaps[index]) state.temporarySwaps[index].key = state.baseKey;
+                    persistAppState();
+                    renderProgression();
+                });
+                transRow.appendChild(transBtn);
+                content.appendChild(transRow);
+            }
+    
+            // 4. Duration
+            const durRow = document.createElement('div');
+            durRow.className = 'inspector-row';
+            durRow.innerHTML = `<strong class="inspector-label">Duration (Beats):</strong>`;
+            const durBtnContainer = document.createElement('div');
+            durBtnContainer.className = 'inspector-btn-group';
+            const durations = [1, 2, 4, 8];
+            const currentDuration = Number(displayChord.duration) || 2;
+            durations.forEach(dur => {
+                const btn = document.createElement('button');
+                btn.className = 'chord-btn';
+                btn.textContent = dur;
+                if (dur === currentDuration) {
+                    btn.style.backgroundColor = 'var(--ctrl-primary-bg)';
+                    btn.style.color = '#ffffff';
+                    btn.style.borderColor = 'var(--ctrl-primary-bg)';
+                } else {
+                    btn.style.opacity = '0.6';
+                }
+                btn.addEventListener('click', () => {
+                    saveHistoryState();
+                    state.currentProgression[index].duration = dur;
+                    if (state.temporarySwaps[index]) state.temporarySwaps[index].duration = dur;
+                    persistAppState();
+                    renderProgression();
+                });
+                durBtnContainer.appendChild(btn);
+            });
+            durRow.appendChild(durBtnContainer);
+            content.appendChild(durRow);
+    
+            // 5. Turnarounds & Actions
+            const actionRow = document.createElement('div');
+            actionRow.className = 'inspector-row';
+            actionRow.style.marginTop = '8px';
+            
+            const delBtn = document.createElement('button');
+            delBtn.className = 'chord-btn';
+            delBtn.style.color = '#ef4444';
+            delBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+            delBtn.innerHTML = '🗑 Delete Chord';
+            delBtn.addEventListener('click', () => removeChord(index));
+            actionRow.appendChild(delBtn);
+    
+            const firstChordIndex = state.isLooping ? state.loopStart : 0;
+            const lastChordIndex = state.isLooping ? Math.max(0, state.loopEnd - 1) : Math.max(0, state.currentProgression.length - 1);
+            
+            if (index === lastChordIndex && state.currentProgression.length > 0) {
+                const firstChord = state.temporarySwaps[firstChordIndex] || state.currentProgression[firstChordIndex];
+                if (firstChord) {
+                    const turnLabel = document.createElement('span');
+                    turnLabel.className = 'inspector-label';
+                    turnLabel.style.marginLeft = 'auto'; // push right
+                    turnLabel.style.minWidth = 'auto';
+                    turnLabel.style.color = 'var(--ctrl-primary-bg)';
+                    turnLabel.textContent = `Turnaround to ${firstChord.symbol}:`;
+                    actionRow.appendChild(turnLabel);
+    
+                    const turnarounds = getTurnaroundSuggestions(firstChord.symbol);
+                    turnarounds.forEach(alt => {
+                        const btn = document.createElement('button');
+                        btn.className = 'chord-btn';
+                        btn.textContent = `+ ${alt}`;
+                        btn.addEventListener('click', () => {
+                            saveHistoryState();
+                            const insertIndex = index + 1;
+                            state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
+                            state.currentProgression.splice(insertIndex, 0, { symbol: alt, key: firstChord.key, pattern: initChordPattern(), duration: 2 });
+                            if (insertIndex <= state.loopEnd) state.loopEnd++;
+                            selectedChordIndex = insertIndex;
+                            auditionChord(alt, firstChord.key);
+                            applyLoopBounds();
+                            persistAppState();
+                            renderProgression();
+                        });
+                        actionRow.appendChild(btn);
+                    });
+                }
+            }
+            content.appendChild(actionRow);
         }
 
         function highlightChordInUI(index) {
@@ -744,28 +719,22 @@ function _setupProgressionDisplayEvents(display) {
 
         const clickedItem = e.target.closest('.progression-item');
         const clickedEditor = e.target.closest('#rhythm-editor-panel');
+        const clickedInspector = e.target.closest('#chord-inspector-panel');
         
-        if (!clickedItem && !clickedEditor) {
-            if (activeMenuIndex !== null || selectedChordIndex !== null) {
-                activeMenuIndex = null;
+        if (!clickedItem && !clickedEditor && !clickedInspector) {
+            if (selectedChordIndex !== null) {
                 selectedChordIndex = null;
                 renderProgression();
             }
         }
     });
 
-    // Dismiss the swap menu when hovering or interacting with the rhythm editor without losing selection
-    const rhythmPanel = document.getElementById('rhythm-editor-panel');
-    if (rhythmPanel) {
-        const dismissMenu = () => {
-            if (activeMenuIndex !== null) {
-                activeMenuIndex = null;
-                const openMenu = document.querySelector('.swap-menu');
-                if (openMenu) openMenu.remove();
-            }
-        };
-        rhythmPanel.addEventListener('pointerenter', dismissMenu);
-        rhythmPanel.addEventListener('pointerdown', dismissMenu);
+    const closeInspectorBtn = document.getElementById('btn-close-inspector');
+    if (closeInspectorBtn) {
+        closeInspectorBtn.addEventListener('click', () => {
+            selectedChordIndex = null;
+            renderProgression();
+        });
     }
 
     // Handle long-press (mobile) or right-click (desktop) for deletion
@@ -792,70 +761,14 @@ function _setupProgressionDisplayEvents(display) {
             return;
         }
 
-        // Handle Turnaround Insert BEFORE regular swap menu buttons to avoid conflict
-        if (e.target.classList.contains('insert-turnaround-btn')) {
-            saveHistoryState();
-            const symbol = e.target.dataset.symbol;
-            const key = parseInt(e.target.dataset.key, 10);
-            const insertIndex = parseInt(e.target.dataset.insertAfter, 10) + 1;
-            
-            state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
-            state.currentProgression.splice(insertIndex, 0, { symbol, key, pattern: initChordPattern(), duration: 2 });
-            
-            // Expand loop to seamlessly include the new turnaround chord
-            if (insertIndex <= state.loopEnd) {
-                state.loopEnd++;
-            }
-            
-            activeMenuIndex = null;
-            selectedChordIndex = insertIndex; // Select the new turnaround chord
-            auditionChord(symbol, key);
-            applyLoopBounds();
-            persistAppState();
-            renderProgression();
-            return;
-        }
-
-        if (e.target.classList.contains('swap-menu-btn')) {
-            saveHistoryState();
-            const selectedAltSymbol = e.target.dataset.alt;
-
-            // If the selected alternative is the original chord, revert the swap.
-            if (selectedAltSymbol === originalChord.symbol) {
-                delete state.temporarySwaps[index];
-            } else {
-                // Otherwise, set the new temporary swap.
-                state.temporarySwaps[index] = { symbol: selectedAltSymbol, key: parseInt(e.target.dataset.altKey, 10), duration: originalChord.duration || 2 };
-            }
-            activeMenuIndex = null;
-            // selectedChordIndex remains the same, editor will auto-update
-            const chordToAudition = state.temporarySwaps[index] || originalChord;
-            if (!isPlaying || item.classList.contains('playing')) {
-                auditionChord(chordToAudition.symbol, chordToAudition.key);
-            }
-            persistAppState();
-            renderProgression();
-            return;
-        }
-            
-            if (e.target.closest('.swap-menu')) {
-                return; // Prevent closing the menu when interacting with internal elements like the select dropdown
-            }
-
         // Clicked the chord badge itself
         const displayChord = state.temporarySwaps[index] || originalChord;
         if (!isPlaying) {
             auditionChord(displayChord.symbol, displayChord.key);
         }
 
-        // Toggle Context Menu
-        if (activeMenuIndex === index) {
-            activeMenuIndex = null;
-            selectedChordIndex = null;
-        } else {
-            activeMenuIndex = index;
-            selectedChordIndex = index;
-        }
+        // Always select the clicked chord (no toggling off)
+        selectedChordIndex = index;
         renderProgression();
     });
 }
@@ -940,7 +853,6 @@ function _setupDragAndDrop(display) {
             if (oldIndex !== newIndex) {
                 saveHistoryState();
                 state.temporarySwaps = calculateSwapsOnReorder(state.temporarySwaps, state.currentProgression.length, oldIndex, newIndex);
-                activeMenuIndex = null;
                 selectedChordIndex = null;
                 const itemToMove = state.currentProgression.splice(oldIndex, 1)[0];
                 state.currentProgression.splice(newIndex, 0, itemToMove);
@@ -962,7 +874,6 @@ function _setupDragAndDrop(display) {
             
             const isAtEnd = state.loopEnd === state.currentProgression.length;
             state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
-            activeMenuIndex = null;
             selectedChordIndex = insertIndex;
             state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, pattern: initChordPattern(), duration: 2 });
             
@@ -1001,6 +912,18 @@ function _setupDragAndDrop(display) {
     });
 }
 
+function _setupFoldawayPanels() {
+    document.querySelectorAll('.foldaway-header').forEach(header => {
+        header.addEventListener('click', (e) => {
+            // Prevent toggling if clicking the close button inside the header
+            if (e.target.closest('.remove-btn')) return;
+            
+            const panel = header.closest('.foldaway-panel');
+            panel.classList.toggle('collapsed');
+        });
+    });
+}
+
 // --- Main Entry Point ---
 function initApp() {
     const display = document.getElementById('progression-display');
@@ -1012,7 +935,6 @@ function initApp() {
         persistAppState, 
         renderProgression,
         onClose: () => {
-            activeMenuIndex = null;
             selectedChordIndex = null;
             renderProgression(); // Refreshes UI and triggers closeRhythmEditor safely
         }
@@ -1022,6 +944,7 @@ function initApp() {
     _setupChordButtons();
     _setupProgressionDisplayEvents(display);
     _setupDragAndDrop(display);
+    _setupFoldawayPanels();
     renderProgression();
 }
 

@@ -48,6 +48,9 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Per-Chord Rhythm Editor:** Timeline view for slicing, moving, and generating complex rhythms within individual chord slots. (Complete ✅)
 - **Polyrhythmic Arpeggiation:** Export chords as sequenced MIDI/WAV patterns (e.g., 5/16 arp patterns over a 4/4 bassline). (Complete ✅)
 - **Variable Chord Durations:** Adjust individual chord lengths (1, 2, 4, or 8 beats) directly from the UI, dynamically scaling playback, exports, and timeline grids. (Complete ✅)
+- **Foldaway Workspace UI:** Establish a collapsible panel paradigm for the Inspector, Rhythm Editor, Bassline, and future Melody editors, enabling users to choose between focused sequential stages or concurrent multi-panel workflows. (Complete ✅)
+- **Inspector Auto-Transpose:** Modulating the key from the Inspector automatically transposes the currently selected chord to the new key. (Complete ✅)
+- **Always-Visible Transport:** Relocate transport controls above foldaway panels for consistent, easy access.
 - **Generative Multi-Pass Export:** State data structure stubbed; pending export logic and UI.
 - **Intelligent Bassline Generation:** Rhythm-informed, genre-appropriate basslines.
 - **True Minor Key & Omni-Scale Framework:**

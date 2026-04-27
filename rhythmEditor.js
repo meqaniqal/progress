@@ -1,10 +1,11 @@
-import { initChordPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance, resizeInstance } from './patternUtils.js?v=3';
+import { initChordPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance, resizeInstance, generateId } from './patternUtils.js?v=3';
 
 let activeRhythmIndex = null;
 let activeOverlayId = null;
 let isDragging = false;
 let isResizing = null;
 let draggedInstanceId = null;
+let clipboardPattern = null;
 
 // App state references
 let appState = null;
@@ -58,6 +59,41 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
 
         dispatchSaveHistory();
         chord.pattern = applyArpSettings(chord.pattern, selectedInsts.map(i => i.id), newSettings);
+        dispatchPersist();
+        renderRhythmTimeline();
+    });
+
+    // --- Copy & Paste Buttons ---
+    const btnCopy = document.getElementById('btn-rhythm-copy');
+    const btnPaste = document.getElementById('btn-rhythm-paste');
+
+    btnCopy.addEventListener('click', () => {
+        if (activeRhythmIndex === null) return;
+        const chord = appState.currentProgression[activeRhythmIndex];
+        if (!chord || !chord.pattern) return;
+        
+        // Deep copy the pattern to the clipboard
+        clipboardPattern = JSON.parse(JSON.stringify(chord.pattern));
+        btnPaste.disabled = false;
+        
+        // UX Feedback
+        const originalText = btnCopy.innerHTML;
+        btnCopy.innerHTML = '✓ Copied!';
+        setTimeout(() => btnCopy.innerHTML = originalText, 1500);
+    });
+
+    btnPaste.addEventListener('click', () => {
+        if (activeRhythmIndex === null || !clipboardPattern) return;
+        const chord = appState.currentProgression[activeRhythmIndex];
+        if (!chord) return;
+        
+        dispatchSaveHistory();
+        
+        // Deep copy from clipboard and regenerate IDs to prevent cross-chord collisions
+        const pastedPattern = JSON.parse(JSON.stringify(clipboardPattern));
+        pastedPattern.instances.forEach(inst => inst.id = generateId());
+        
+        chord.pattern = pastedPattern;
         dispatchPersist();
         renderRhythmTimeline();
     });
