@@ -51,15 +51,17 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] Variable Chord Durations (Adjust individual chord lengths via UI, dynamically scaling playback/export).
 - [x] **UI Architecture Shift:** Establish a "Foldaway Panel" paradigm. Convert the Inspector, Rhythm Editor, Bassline, and future Melody editors into collapsible sections to support both sequential and concurrent workflows.
 - [x] **Inspector Auto-Transpose:** Modulating the key from the Chord Inspector should automatically transpose the selected chord to that new key.
-- [ ] **Always-Visible Transport:** Move transport controls (Play, Loop, BPM, Export) above the foldaway panels so they are never pushed off-screen.
+- [x] **Always-Visible Transport:** Move transport controls (Play, Loop, BPM, Export) above the foldaway panels so they are never pushed off-screen.
 - [ ] Generative Multi-Pass Export (State data structure stubbed; pending UI and export logic).
 - [ ] Probabilistic Pattern Sequencing (Assign loop-through probabilities to specific rhythm/arp patterns).
 - [ ] Drum Track Integration (Global rhythm, local per-chord overrides, intelligent chord-to-drum snapping).
 - [ ] Intelligent Bassline Generation (Shares rhythm editor tech, single note focus).
-- [ ] **True Minor Key & Omni-Scale Framework:**
-  - Decouple global key state to support modes (Major/Minor).
-  - Dynamic UI palettes that render correct diatonic chords for the active scale.
-  - Context-aware tension analysis based on the active scale's tonic.
+- [ ] **True Minor Key & Omni-Scale Theory Framework:**
+  - [x] Decouple global key state to support modes (Major/Minor).
+  - [x] Dynamic UI palettes that render correct diatonic chords for the active scale.
+  - [ ] Context-aware tension analysis based on the active scale's tonic (currently defaults to Major).
+  - [ ] Mode-aware modulation and turnaround suggestions.
+  - [ ] Omni-scale support (Dorian, Lydian, etc.).
 
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.

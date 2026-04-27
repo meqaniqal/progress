@@ -85,6 +85,25 @@
         <div id="progression-display"></div>
     </div>
 
+    <!-- Global Transport Controls -->
+    <div class="panel controls">
+        <button class="control-btn primary" id="btn-play-toggle" title="Play/Stop">▶</button>
+        <button class="control-btn primary" id="btn-loop-toggle" title="Toggle Loop">🔁</button>
+        <button class="control-btn secondary" id="btn-undo" title="Undo" disabled>↩ Undo</button>
+        <button class="control-btn primary" id="btn-clear" title="Clear Progression">🗑</button>
+        <label>
+            <strong>BPM:</strong>
+            <input type="number" id="bpm-slider" value="90" min="40" max="240" style="width: 60px;">
+        </label>
+        <label>
+            <input type="checkbox" id="voice-leading" checked> 
+            <strong>Minimize note movement between chords</strong>
+        </label>
+        <button class="control-btn primary" id="btn-export">⤓ Download MIDI</button>
+        <button class="control-btn primary" id="btn-export-wav">⤓ Download WAV</button>
+        <button class="control-btn secondary" id="btn-ai-prompt">🤖 AI Prompt</button>
+    </div>
+
     <!-- Inline Chord Inspector Panel -->
     <div class="panel foldaway-panel" id="chord-inspector-panel" style="display: none; margin-bottom: 1.5rem; border-left: 4px solid var(--original-chord-highlight);">
         <div class="foldaway-header" id="inspector-header">
@@ -129,24 +148,6 @@
             <!-- Instances rendered here dynamically -->
         </div>
         </div>
-    </div>
-
-    <div class="panel controls">
-        <button class="control-btn primary" id="btn-play-toggle" title="Play/Stop">▶</button>
-        <button class="control-btn primary" id="btn-loop-toggle" title="Toggle Loop">🔁</button>
-        <button class="control-btn secondary" id="btn-undo" title="Undo" disabled>↩ Undo</button>
-        <button class="control-btn primary" id="btn-clear" title="Clear Progression">🗑</button>
-        <label>
-            <strong>BPM:</strong>
-            <input type="number" id="bpm-slider" value="90" min="40" max="240" style="width: 60px;">
-        </label>
-        <label>
-            <input type="checkbox" id="voice-leading" checked> 
-            <strong>Minimize note movement between chords</strong>
-        </label>
-        <button class="control-btn primary" id="btn-export">⤓ Download MIDI</button>
-        <button class="control-btn primary" id="btn-export-wav">⤓ Download WAV</button>
-        <button class="control-btn secondary" id="btn-ai-prompt">🤖 AI Prompt</button>
     </div>
 
     <!-- AI Prompt Modal -->
