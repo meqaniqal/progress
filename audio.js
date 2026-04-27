@@ -1,5 +1,6 @@
 import { getChordNotes, applyVoiceLeading } from './theory.js';
 import { CONFIG } from './config.js';
+import { generateArpNotes } from './arp.js';
 
 let audioCtx;
 let activeOscillators = [];
@@ -167,10 +168,15 @@ export function playProgression(getState, onHighlight, onComplete) {
             const instanceDuration = instance.duration * chordSlotDuration;
 
             if (instance.arpSettings) {
-                // Distribute the chord notes evenly across the duration of this specific slice
-                const stepDuration = instanceDuration / notesToPlay.length;
-                notesToPlay.forEach((note, i) => {
-                    playTone(midiToFreq(note), instanceStartTime + (i * stepDuration), stepDuration * 0.8, 'sawtooth');
+                const arpEvents = generateArpNotes({
+                    notesToPlay,
+                    arpSettings: instance.arpSettings,
+                    instanceDuration,
+                    bpm: Number(state.bpm)
+                });
+
+                arpEvents.forEach(event => {
+                    playTone(midiToFreq(event.note), instanceStartTime + event.startTime, event.duration, 'sawtooth');
                 });
             } else {
                 const gateDuration = instanceDuration * 0.95; // Slight gate so contiguous chops are distinctly audible

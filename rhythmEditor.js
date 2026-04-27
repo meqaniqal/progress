@@ -41,8 +41,68 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
         gridDisplay.textContent = GRID_STEPS[parseInt(e.target.value, 10)].label;
     });
 
-    // --- Apply Arp Button ---
-    document.getElementById('btn-apply-arp').addEventListener('click', () => {
+    // --- Arp Controls Setup ---
+    const applyArpBtn = document.getElementById('btn-apply-arp');
+    
+    let styleSelect = document.getElementById('arp-style-select');
+    if (!styleSelect) {
+        styleSelect = document.createElement('select');
+        styleSelect.id = 'arp-style-select';
+        styleSelect.className = 'rhythm-select';
+        styleSelect.title = 'Arpeggiator Style';
+        styleSelect.innerHTML = `
+            <option value="up">Up</option>
+            <option value="down">Down</option>
+            <option value="upDown">Up/Down</option>
+            <option value="downUp">Down/Up</option>
+            <option value="random">Random</option>
+        `;
+        applyArpBtn.parentNode.insertBefore(styleSelect, applyArpBtn.nextSibling);
+    }
+
+    let rateSelect = document.getElementById('arp-rate-select');
+    if (!rateSelect) {
+        rateSelect = document.createElement('select');
+        rateSelect.id = 'arp-rate-select';
+        rateSelect.className = 'rhythm-select';
+        rateSelect.title = 'Arpeggiator Rate';
+        rateSelect.innerHTML = `
+            <option value="segment">Segment</option>
+            <option value="1/4">1/4</option>
+            <option value="1/8">1/8</option>
+            <option value="1/8t">1/8t (Triplet)</option>
+            <option value="1/16">1/16</option>
+            <option value="1/16t">1/16t (Triplet)</option>
+            <option value="1/32">1/32</option>
+        `;
+        styleSelect.parentNode.insertBefore(rateSelect, styleSelect.nextSibling);
+    }
+
+    function handleArpDropdownChange() {
+        if (activeRhythmIndex === null) return;
+        const chord = appState.currentProgression[activeRhythmIndex];
+        if (!chord || !chord.pattern) return;
+
+        const selectedInsts = chord.pattern.instances.filter(i => i.isSelected);
+        // Update settings in real-time if an arp is already active on the selection
+        if (selectedInsts.length > 0 && selectedInsts[0].arpSettings !== null) {
+            const newSettings = {
+                style: styleSelect.value,
+                rate: rateSelect.value,
+                gate: 0.9 
+            };
+            dispatchSaveHistory();
+            chord.pattern = applyArpSettings(chord.pattern, selectedInsts.map(i => i.id), newSettings);
+            dispatchPersist();
+            renderRhythmTimeline();
+        }
+    }
+
+    styleSelect.addEventListener('change', handleArpDropdownChange);
+    rateSelect.addEventListener('change', handleArpDropdownChange);
+
+    // --- Apply / Toggle Arp Button ---
+    applyArpBtn.addEventListener('click', () => {
         if (activeRhythmIndex === null) return;
         const chord = appState.currentProgression[activeRhythmIndex];
         if (!chord || !chord.pattern) return;
@@ -55,7 +115,7 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
 
         // Toggle logic: If the first selected block has an arp, remove it. Otherwise, add a default arp.
         const hasArp = selectedInsts[0].arpSettings !== null;
-        const newSettings = hasArp ? null : { style: 'up', rate: 0.25, gate: 0.8 };
+        const newSettings = hasArp ? null : { style: styleSelect.value, rate: rateSelect.value, gate: 0.9 };
 
         dispatchSaveHistory();
         chord.pattern = applyArpSettings(chord.pattern, selectedInsts.map(i => i.id), newSettings);
@@ -475,6 +535,17 @@ function renderRhythmTimeline() {
     const chord = appState.currentProgression[activeRhythmIndex];
     const pattern = chord.pattern || { instances: [] };
     
+    // Sync Arp Dropdowns with current selection
+    const styleSelect = document.getElementById('arp-style-select');
+    const rateSelect = document.getElementById('arp-rate-select');
+    if (styleSelect && rateSelect) {
+        const selectedInsts = pattern.instances.filter(i => i.isSelected);
+        if (selectedInsts.length > 0 && selectedInsts[0].arpSettings) {
+            styleSelect.value = selectedInsts[0].arpSettings.style || 'up';
+            rateSelect.value = selectedInsts[0].arpSettings.rate || 'segment';
+        }
+    }
+
     pattern.instances.forEach(inst => {
         const el = document.createElement('div');
         el.className = 'rhythm-instance';
