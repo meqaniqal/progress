@@ -39,36 +39,57 @@ export function getAlternatives(chordSymbol) {
 }
 
 // --- Synesthetic Color Mapping ---
-export function getHarmonicProfile(symbol) {
+export function getHarmonicProfile(symbol, mode = 'major') {
     // Strip extensions for base functional analysis
-    const baseFunc = symbol.replace(/maj9|maj7|sus4|7#9|7b13|11|13|9|7/g, '');
+    const baseFunc = symbol.replace(/maj9|maj7|sus4|7#9|7b13|11|13|9|7|°/g, '');
     
     let fifthsFromTonic = 0;
     let isBorrowed = false;
     let tension = 0; // -1.0 (Home/Rest) to 1.0 (High Tension)
 
-    switch(baseFunc) {
-        // Diatonic
-        case 'I':  fifthsFromTonic = 0;  tension = -1.0; break;
-        case 'IV': fifthsFromTonic = -1; tension = 0.2;  break;
-        case 'V':  fifthsFromTonic = 1;  tension = 1.0;  break;
-        case 'ii': fifthsFromTonic = 2;  tension = 0.5;  break;
-        case 'vi': fifthsFromTonic = 3;  tension = -0.5; break;
-        case 'iii': fifthsFromTonic = 4; tension = 0.1;  break;
-        
-        // Borrowed
-        case 'iv':   fifthsFromTonic = -1; isBorrowed = true; tension = 0.6; break;
-        case 'bVI':  fifthsFromTonic = -4; isBorrowed = true; tension = 0.4; break;
-        case 'bVII': fifthsFromTonic = -2; isBorrowed = true; tension = 0.8; break;
+    if (mode === 'minor') {
+        switch(baseFunc) {
+            // Diatonic
+            case 'i':   fifthsFromTonic = 0;  tension = -1.0; break;
+            case 'iv':  fifthsFromTonic = -1; tension = 0.2;  break;
+            case 'v':   fifthsFromTonic = 1;  tension = 0.5;  break;
+            case 'V':   fifthsFromTonic = 1;  tension = 1.0;  break; // Harmonic Minor Dominant
+            case 'VI':  fifthsFromTonic = -4; tension = 0.3;  break;
+            case 'III': fifthsFromTonic = 3;  tension = -0.5; break;
+            case 'VII': fifthsFromTonic = 2;  tension = 0.1;  break;
+            case 'ii':  fifthsFromTonic = 2;  tension = 0.8;  break;
+            
+            // Borrowed (From parallel major)
+            case 'I':   fifthsFromTonic = 0;  isBorrowed = true; tension = -0.8; break; // Picardy Third
+            case 'IV':  fifthsFromTonic = -1; isBorrowed = true; tension = 0.4; break;
+        }
+    } else {
+        switch(baseFunc) {
+            // Diatonic
+            case 'I':  fifthsFromTonic = 0;  tension = -1.0; break;
+            case 'IV': fifthsFromTonic = -1; tension = 0.2;  break;
+            case 'V':  fifthsFromTonic = 1;  tension = 1.0;  break;
+            case 'ii': fifthsFromTonic = 2;  tension = 0.5;  break;
+            case 'vi': fifthsFromTonic = 3;  tension = -0.5; break;
+            case 'iii': fifthsFromTonic = 4; tension = 0.1;  break;
+            
+            // Borrowed (From parallel minor)
+            case 'iv':   fifthsFromTonic = -1; isBorrowed = true; tension = 0.6; break;
+            case 'bVI':  fifthsFromTonic = -4; isBorrowed = true; tension = 0.4; break;
+            case 'bVII': fifthsFromTonic = -2; isBorrowed = true; tension = 0.8; break;
+        }
     }
 
     return { fifthsFromTonic, isBorrowed, tension };
 }
 
 // --- Modulation & Pivot Chords ---
-export function getTransitionSuggestions(fromKey, toKey) {
+export function getTransitionSuggestions(fromKey, toKey, mode = 'major') {
     if (fromKey === toKey) return [];
-    const diatonic = ['I', 'ii', 'iii', 'IV', 'V', 'vi'];
+    const diatonicMajor = ['I', 'ii', 'iii', 'IV', 'V', 'vi'];
+    const diatonicMinor = ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'];
+    const diatonic = mode === 'minor' ? diatonicMinor : diatonicMajor;
+    
     const suggestions = [];
 
     // 1. Find Pivot Chords (Exact mathematical match in both keys)
@@ -103,19 +124,33 @@ export function getTransitionSuggestions(fromKey, toKey) {
 
 // --- Turnaround Chords ---
 // Suggests chords that strongly lead into the given target chord
-export function getTurnaroundSuggestions(targetSymbol) {
-    const baseFunc = targetSymbol.replace(/maj9|maj7|sus4|7#9|7b13|11|13|9|7/g, '');
-    switch(baseFunc) {
-        case 'I': return ['V', 'V7', 'Vsus4', 'bVII', 'iv'];
-        case 'ii': return ['vi', 'I', 'V'];
-        case 'iii': return ['V', 'ii'];
-        case 'IV': return ['I', 'V', 'Imaj7'];
-        case 'V': return ['ii', 'IV', 'Vsus4'];
-        case 'vi': return ['iii', 'V', 'I'];
-        case 'iv': return ['I', 'bVI'];
-        case 'bVI': return ['bVII', 'iv'];
-        case 'bVII': return ['iv', 'V'];
-        default: return ['V', 'IV'];
+export function getTurnaroundSuggestions(targetSymbol, mode = 'major') {
+    const baseFunc = targetSymbol.replace(/maj9|maj7|sus4|7#9|7b13|11|13|9|7|°/g, '');
+    
+    if (mode === 'minor') {
+        switch(baseFunc) {
+            case 'i': return ['V', 'V7', 'v', 'VII', 'iv'];
+            case 'iv': return ['i', 'I', 'VII'];
+            case 'v': return ['iv', 'VI', 'i'];
+            case 'V': return ['iv', 'ii°', 'VI'];
+            case 'VI': return ['III', 'VII', 'i'];
+            case 'III': return ['VII', 'VI'];
+            case 'VII': return ['iv', 'VI'];
+            default: return ['V', 'iv'];
+        }
+    } else {
+        switch(baseFunc) {
+            case 'I': return ['V', 'V7', 'Vsus4', 'bVII', 'iv'];
+            case 'ii': return ['vi', 'I', 'V'];
+            case 'iii': return ['V', 'ii'];
+            case 'IV': return ['I', 'V', 'Imaj7'];
+            case 'V': return ['ii', 'IV', 'Vsus4'];
+            case 'vi': return ['iii', 'V', 'I'];
+            case 'iv': return ['I', 'bVI'];
+            case 'bVI': return ['bVII', 'iv'];
+            case 'bVII': return ['iv', 'V'];
+            default: return ['V', 'IV'];
+        }
     }
 }
 

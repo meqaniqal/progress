@@ -1,4 +1,4 @@
-import { applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions } from './theory.js';
+import { applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile } from './theory.js';
 
 describe('Theory & Voice Leading Module', () => {
     
@@ -63,6 +63,19 @@ describe('Theory & Voice Leading Module', () => {
             expect(symbols).toContain('vi');
             expect(symbols).toContain('ii');
         });
+        
+        it('should return pivot chords when moving from A Minor to E Minor in minor mode', () => {
+            const fromKey = 69; // A Minor
+            const toKey = 64; // E Minor
+            const suggestions = getTransitionSuggestions(fromKey, toKey, 'minor');
+            
+            const symbols = suggestions.map(s => s.symbol);
+            
+            // A min (i in A -> iv in E), C Maj (III in A -> VI in E), G Maj (VII in A -> III in E)
+            expect(symbols).toContain('iv');
+            expect(symbols).toContain('VI');
+            expect(symbols).toContain('III');
+        });
     });
 
     describe('applyVoiceLeading', () => {
@@ -84,6 +97,16 @@ describe('Theory & Voice Leading Module', () => {
             expect(result.length).toBe(2);
             const dist = calculateDistance(result[0], result[1]);
             expect(dist).toBeLessThan(15); // Assert that the jump is small and musical
+        });
+    });
+    
+    describe('getHarmonicProfile', () => {
+        it('should return lowest tension for tonic chords depending on mode', () => {
+            const majorTonic = getHarmonicProfile('I', 'major');
+            const minorTonic = getHarmonicProfile('i', 'minor');
+            
+            expect(majorTonic.tension).toBe(-1.0);
+            expect(minorTonic.tension).toBe(-1.0); // `i` should be home rest in minor
         });
     });
 });

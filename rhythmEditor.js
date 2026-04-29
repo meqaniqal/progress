@@ -23,9 +23,12 @@ const GRID_STEPS = [
 export function initRhythmEditor(config) {
     app = config;
 
-    document.getElementById('btn-close-rhythm').addEventListener('click', () => {
-        if (app.onClose) app.onClose();
-    });
+    const closeBtn = document.getElementById('btn-close-rhythm');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            if (app.onClose) app.onClose();
+        });
+    }
 
     // --- Grid Slider Setup ---
     const gridSlider = document.getElementById('rhythm-grid-slider');

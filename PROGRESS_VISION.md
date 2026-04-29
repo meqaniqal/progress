@@ -119,14 +119,13 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **UI Architecture Shift (Completed):** Replacing the vertical context menu with a permanent, horizontal "Inspector Panel". Establishing a "Foldaway" (collapsible) panel paradigm for the Inspector, Rhythm, Bassline, and Melody editors to allow flexible sequential or concurrent editing.
 - **Inspector Auto-Transpose (Completed):** Modulating the key directly from a chord's Inspector panel automatically transposes that specific chord into the new key, streamlining workflow.
 - **Always-Visible Transport (Completed):** Transport and global controls are positioned above the foldaway panels, ensuring playback and export features are never pushed off-screen when deep-editing a chord.
-- **Architectural Scaling:** Extracting the global state machine from the main controller to a dedicated store, implementing targeted DOM node reconciliation in the Rhythm Editor for 60fps dragging, and applying strict event delegation in the UI to prevent memory leaks.
-- **Generative Multi-Pass Export:** Data structure stubbed; pending UI/audio engine integration.
+- **Architectural Scaling (Completed):** Extracting the global state machine from the main controller to a dedicated store, implementing targeted DOM node reconciliation in the Rhythm Editor for 60fps dragging, and applying strict event delegation in the UI to prevent memory leaks.
+- **Generative Multi-Pass Export (Completed):** Export Passes UI added and multi-pass looping integrated into MIDI/WAV offline rendering engines.
 - **Probabilistic Pattern Sequencing:** Allow assigning percent-based probabilities to specific rhythm/arp patterns per loop cycle.
 - **Intelligent Bassline & Drum Generation:** Drum tracks with global/local edits, and basslines built on the same rhythm editor tech.
 - **True Minor Key & Omni-Scale Theory Framework:** 
   - **State & UI (Completed):** `state.mode` supports modes (`major`, `minor`) with dynamic UI palettes swapping diatonic/borrowed chords.
-  - Update tension analysis (`getHarmonicProfile`) to contextualize tension relative to the active mode (e.g., `i` is home in minor, rather than defaulting to major).
-  - Update modulation and turnaround suggestions to be mode-aware.
+  - **Context-Aware Math (Completed):** Tension analysis (`getHarmonicProfile`), modulation, and turnaround suggestions accurately contextualize relative to the active mode.
   - Eventually expand to other modes (Dorian, Lydian) and microtonal systems.
 - **Workflow & Defaults Adjustments (Completed):** Update default tempo to 120bpm and default chord duration to 2 beats. Ensure duration button highlighting updates immediately upon selection.
 - **Rhythm Pattern Copy/Paste (Completed):** Ability to copy a sliced/arpeggiated rhythm pattern from one chord and paste it to another.

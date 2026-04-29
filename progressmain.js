@@ -12,11 +12,9 @@ import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoSta
 
         let isPlaying = false;
         let currentPlaybackStopFunction = null; // Stores the stop function returned by audio.playProgression
-        let selectedChordIndex = null; // Tracks which chord is actively open in the Rhythm Editor
 
         function undo() {
             if (undoState()) {
-                selectedChordIndex = null;
                 renderProgression();
             }
         }
@@ -37,7 +35,11 @@ import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoSta
             saveHistoryState();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
             state.temporarySwaps = calculateSwapsOnRemove(state.temporarySwaps, index);
-            selectedChordIndex = null;
+            
+            if (state.selectedChordIndex > index) {
+                state.selectedChordIndex--;
+            }
+            
             state.currentProgression.splice(index, 1);
             
             if (isAtEnd) {
@@ -59,7 +61,7 @@ import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoSta
             if (state.currentProgression.length === 0) return;
             saveHistoryState();
             state.temporarySwaps = {};
-            selectedChordIndex = null;
+            state.selectedChordIndex = null;
             if (currentPlaybackStopFunction) currentPlaybackStopFunction(); // Stop current playback
             isPlaying = false;
             if (document.getElementById('btn-play-toggle')) document.getElementById('btn-play-toggle').textContent = '▶';
@@ -118,7 +120,7 @@ import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoSta
                 state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
                 state.currentProgression.splice(insertIndex, 0, { symbol: altSymbol, key: key, pattern: initChordPattern(), duration: 2 });
                 if (insertIndex <= state.loopEnd) state.loopEnd++;
-                selectedChordIndex = insertIndex;
+                state.selectedChordIndex = insertIndex;
                 auditionChord(altSymbol, key);
                 applyLoopBounds();
                 persistAppState();
@@ -127,17 +129,25 @@ import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoSta
         };
 
         function renderProgression() {
-            renderProgressionUI(state, selectedChordIndex, uiCallbacks);
+            // Enforce invariant: Always have a chord selected if the array is not empty
+            if (state.currentProgression.length === 0) {
+                state.selectedChordIndex = null;
+            } else {
+                if (state.selectedChordIndex === null) state.selectedChordIndex = 0;
+                else if (state.selectedChordIndex >= state.currentProgression.length) state.selectedChordIndex = state.currentProgression.length - 1;
+            }
+
+            renderProgressionUI(state, state.selectedChordIndex, uiCallbacks);
             
             // Keep Rhythm Editor synced with active selection
-            if (selectedChordIndex === null) {
+            if (state.selectedChordIndex === null) {
                 closeRhythmEditor();
-            } else if (state.currentProgression[selectedChordIndex]) {
-                openRhythmEditor(selectedChordIndex);
+            } else if (state.currentProgression[state.selectedChordIndex]) {
+                openRhythmEditor(state.selectedChordIndex);
             } else {
-                selectedChordIndex = null;
+                state.selectedChordIndex = null;
                 closeRhythmEditor();
-                renderProgressionUI(state, selectedChordIndex, uiCallbacks);
+                renderProgressionUI(state, state.selectedChordIndex, uiCallbacks);
             }
         }
 
@@ -150,6 +160,8 @@ function _loadAndApplyInitialState() {
     updateKeyAndModeDisplay(state);
     document.getElementById('bpm-slider').value = state.bpm;
     updateLoopButtonUI(state);
+    const multipassInput = document.getElementById('multipass-input');
+    if (multipassInput) multipassInput.value = state.exportPasses || 1;
     document.getElementById('voice-leading').checked = state.useVoiceLeading;
 }
 
@@ -178,7 +190,7 @@ function _setupThemeToggle() {
             alert("Please build a progression first.");
             return;
         }
-        const promptText = generateAIPrompt(activeProgression, state.bpm, KEY_NAMES[state.baseKey]);
+        const promptText = generateAIPrompt(activeProgression, state.bpm, KEY_NAMES[state.baseKey], state.mode);
         const modal = document.getElementById('ai-prompt-modal');
         const textArea = document.getElementById('ai-prompt-text');
         textArea.value = promptText;
@@ -236,30 +248,6 @@ function _setupKeyAndModeSelectors() {
 }
 
 function _setupProgressionDisplayEvents(display) {
-    document.addEventListener('click', (e) => {
-        // Ignore clicks on elements that have been detached from the DOM during the event phase
-        if (!document.body.contains(e.target)) return;
-
-        const clickedItem = e.target.closest('.progression-item');
-        const clickedEditor = e.target.closest('#rhythm-editor-panel');
-        const clickedInspector = e.target.closest('#chord-inspector-panel');
-        
-        if (!clickedItem && !clickedEditor && !clickedInspector) {
-            if (selectedChordIndex !== null) {
-                selectedChordIndex = null;
-                renderProgression();
-            }
-        }
-    });
-
-    const closeInspectorBtn = document.getElementById('btn-close-inspector');
-    if (closeInspectorBtn) {
-        closeInspectorBtn.addEventListener('click', () => {
-            selectedChordIndex = null;
-            renderProgression();
-        });
-    }
-
     // Handle long-press (mobile) or right-click (desktop) for deletion
     display.addEventListener('contextmenu', (e) => {
         const item = e.target.closest('.progression-item');
@@ -291,7 +279,8 @@ function _setupProgressionDisplayEvents(display) {
         }
 
         // Always select the clicked chord (no toggling off)
-        selectedChordIndex = index;
+        state.selectedChordIndex = index;
+        persistAppState();
         renderProgression();
     });
 }
@@ -361,6 +350,17 @@ function _setupControlButtons() {
         state.useVoiceLeading = e.target.checked;
         persistAppState();
     });
+
+    const multipassInput = document.getElementById('multipass-input');
+    if (multipassInput) {
+        multipassInput.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value, 10);
+            if (!isNaN(val)) {
+                state.exportPasses = Math.max(1, Math.min(32, val));
+                persistAppState();
+            }
+        });
+    }
 }
 
 function _setupDragAndDrop(display) {
@@ -376,7 +376,15 @@ function _setupDragAndDrop(display) {
             if (oldIndex !== newIndex) {
                 saveHistoryState();
                 state.temporarySwaps = calculateSwapsOnReorder(state.temporarySwaps, state.currentProgression.length, oldIndex, newIndex);
-                selectedChordIndex = null;
+                
+                if (state.selectedChordIndex === oldIndex) {
+                    state.selectedChordIndex = newIndex;
+                } else if (state.selectedChordIndex > oldIndex && state.selectedChordIndex <= newIndex) {
+                    state.selectedChordIndex--;
+                } else if (state.selectedChordIndex < oldIndex && state.selectedChordIndex >= newIndex) {
+                    state.selectedChordIndex++;
+                }
+                
                 const itemToMove = state.currentProgression.splice(oldIndex, 1)[0];
                 state.currentProgression.splice(newIndex, 0, itemToMove);
             } 
@@ -397,7 +405,7 @@ function _setupDragAndDrop(display) {
             
             const isAtEnd = state.loopEnd === state.currentProgression.length;
             state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
-            selectedChordIndex = insertIndex;
+            state.selectedChordIndex = insertIndex;
             state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, pattern: initChordPattern(), duration: 2 });
             
             if (newLoopStart !== null && newLoopEnd !== null) {
@@ -456,11 +464,7 @@ function initApp() {
         state, 
         saveHistoryState, 
         persistAppState, 
-        renderProgression,
-        onClose: () => {
-            selectedChordIndex = null;
-            renderProgression(); // Refreshes UI and triggers closeRhythmEditor safely
-        }
+        renderProgression
     });
     _setupKeyAndModeSelectors();
     _setupControlButtons();

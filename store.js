@@ -13,7 +13,9 @@ export const state = {
     loopStart: 0,
     loopEnd: 0,
     theme: 'light',
-    mode: 'major'
+    mode: 'major',
+    exportPasses: 1,
+    selectedChordIndex: null
 };
 
 // Resolves the progression with any active temporary swaps applied
@@ -78,6 +80,16 @@ export function loadAndApplyInitialState() {
         
         if (typeof savedState.loopStart === 'number') state.loopStart = Math.max(0, savedState.loopStart);
         if (typeof savedState.loopEnd === 'number') state.loopEnd = Math.max(0, savedState.loopEnd);
+
+        if (savedState.exportPasses !== undefined) {
+            const parsedPasses = parseInt(savedState.exportPasses, 10);
+            if (!isNaN(parsedPasses)) state.exportPasses = Math.max(1, Math.min(32, parsedPasses));
+        }
+        
+        if (savedState.selectedChordIndex !== undefined && savedState.selectedChordIndex !== null) {
+            const parsedIndex = parseInt(savedState.selectedChordIndex, 10);
+            if (!isNaN(parsedIndex)) state.selectedChordIndex = Math.max(0, parsedIndex);
+        }
 
         // 2. Sanitize Progression Array (Prevent XSS and malformed structures)
         if (Array.isArray(savedState.currentProgression)) {

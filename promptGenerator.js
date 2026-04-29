@@ -1,7 +1,7 @@
 import { getHarmonicProfile } from './theory.js';
 
 // --- AI Prompt Generation ---
-export function generateAIPrompt(progression, bpm, keyName) {
+export function generateAIPrompt(progression, bpm, keyName, mode = 'major') {
     if (!progression || progression.length === 0) return "No progression defined.";
 
     const symbols = progression.map(c => c.symbol);
@@ -13,7 +13,7 @@ export function generateAIPrompt(progression, bpm, keyName) {
     let totalTension = 0;
 
     progression.forEach(chord => {
-        const profile = getHarmonicProfile(chord.symbol);
+        const profile = getHarmonicProfile(chord.symbol, mode);
         totalTension += profile.tension;
         if (profile.isBorrowed) hasBorrowed = true;
         if (/(9|11|13|maj7)/.test(chord.symbol)) hasExtensions = true;

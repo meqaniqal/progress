@@ -1,9 +1,10 @@
 import { getChordNotes, applyVoiceLeading } from './theory.js';
 import { CONFIG } from './config.js';
 import { audioBufferToWav } from './wavEncoder.js';
+import { generateArpNotes } from './arp.js';
 
 // --- Layer 1: Pure Timeline Calculator (Testable) ---
-export function calculateAudioTimeline(progression, bpm, useVoiceLeading) {
+export function calculateAudioTimeline(progression, bpm, useVoiceLeading, exportPasses = 1) {
     const timeline = [];
     let currentTime = 0;
 
@@ -15,57 +16,65 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading) {
         notesArray = progression.map(chord => getChordNotes(chord.symbol, chord.key).map(n => n - 12));
     }
 
-    progression.forEach((chord, index) => {
-        const chordNotes = notesArray[index];
-        const pattern = chord.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-        const beats = Number(chord.duration) || 2;
-        const duration = (60.0 / Number(bpm)) * beats;
+    for (let pass = 0; pass < exportPasses; pass++) {
+        progression.forEach((chord, index) => {
+            const chordNotes = notesArray[index];
+            const pattern = chord.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
+            const beats = Number(chord.duration) || 2;
+            const duration = (60.0 / Number(bpm)) * beats;
 
-        if (chordNotes) {
-            pattern.instances.forEach(instance => {
-                const instanceStartTime = currentTime + (instance.startTime * duration);
-                const instanceDuration = instance.duration * duration;
+            if (chordNotes) {
+                pattern.instances.forEach(instance => {
+                    const instanceStartTime = currentTime + (instance.startTime * duration);
+                    const instanceDuration = instance.duration * duration;
 
-                if (instance.arpSettings) {
-                    const stepDuration = instanceDuration / chordNotes.length;
-                    chordNotes.forEach((midiNote, i) => {
-                        timeline.push({
-                            midiNote,
-                            freq: Math.pow(2, (midiNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
-                            startTime: instanceStartTime + (i * stepDuration),
-                            duration: stepDuration * 0.8, // Slight gate to make it punchy
-                            type: 'sawtooth'
+                    if (instance.arpSettings) {
+                        const arpEvents = generateArpNotes({
+                            notesToPlay: chordNotes,
+                            arpSettings: instance.arpSettings,
+                            instanceDuration: instanceDuration,
+                            bpm: Number(bpm)
                         });
-                    });
-                } else {
-                    const gateDuration = instanceDuration * 0.95; // Slight gate
-                    chordNotes.forEach(midiNote => {
-                        timeline.push({
-                            midiNote,
-                            freq: Math.pow(2, (midiNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
-                            startTime: instanceStartTime,
-                            duration: gateDuration,
-                            type: 'sawtooth' // Chords pad
+                        
+                        arpEvents.forEach(event => {
+                            timeline.push({
+                                midiNote: event.note,
+                                freq: Math.pow(2, (event.note - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
+                                startTime: instanceStartTime + event.startTime,
+                                duration: event.duration, // generateArpNotes handles the exact gate logic
+                                type: 'sawtooth'
+                            });
                         });
-                    });
-                }
-            });
-        }
-        
-        // Add Bass Note
-        const rootChordNotes = getChordNotes(chord.symbol, chord.key);
-        if (rootChordNotes) {
-            const bassNote = rootChordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
-            timeline.push({
-                midiNote: bassNote,
-                freq: Math.pow(2, (bassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
-                startTime: currentTime,
-                duration: duration,
-                type: 'sine' // Sub bass
-            });
-        }
-        currentTime += duration;
-    });
+                    } else {
+                        const gateDuration = instanceDuration * 0.95; // Slight gate
+                        chordNotes.forEach(midiNote => {
+                            timeline.push({
+                                midiNote,
+                                freq: Math.pow(2, (midiNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
+                                startTime: instanceStartTime,
+                                duration: gateDuration,
+                                type: 'sawtooth' // Chords pad
+                            });
+                        });
+                    }
+                });
+            }
+            
+            // Add Bass Note
+            const rootChordNotes = getChordNotes(chord.symbol, chord.key);
+            if (rootChordNotes) {
+                const bassNote = rootChordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
+                timeline.push({
+                    midiNote: bassNote,
+                    freq: Math.pow(2, (bassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
+                    startTime: currentTime,
+                    duration: duration,
+                    type: 'sine' // Sub bass
+                });
+            }
+            currentTime += duration;
+        });
+    }
     return timeline;
 }
 
@@ -80,7 +89,7 @@ export async function exportToWav(state, buttonElement) {
     if (buttonElement) buttonElement.textContent = 'Rendering...';
 
     try {
-        const timeline = calculateAudioTimeline(state.currentProgression, state.bpm, state.useVoiceLeading);
+        const timeline = calculateAudioTimeline(state.currentProgression, state.bpm, state.useVoiceLeading, state.exportPasses);
         if (timeline.length === 0) return;
 
         const totalDuration = timeline.reduce((max, ev) => Math.max(max, ev.startTime + ev.duration), 0);

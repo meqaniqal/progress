@@ -51,3 +51,7 @@
 - Updated Web Audio playback, offline WAV export, and MidiWriterJS logic to dynamically calculate slot durations based on individual chord beat lengths.
 - Dynamically scaled Rhythm Editor grid snapping to perfectly align with variable chord durations.
 - Resolved string-to-number coercion bugs in local state loading to ensure robust, glitch-free audio scheduling.
+- Implemented Omni-Scale Theory updates, making harmonic tension analysis, modulations, and turnarounds fully mode-aware.
+- Added Generative Multi-Pass Export UI controls and integrated looping logic into both MIDI and offline WAV export engines.
+- Established a continuous chord selection model with `localStorage` persistence to ensure seamless foldaway panel UX.
+- Integrated `arp.js` into export pipelines to ensure 1:1 playback parity for polyrhythmic arpeggiation in WAV and MIDI files.

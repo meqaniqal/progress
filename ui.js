@@ -93,7 +93,7 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         if (isTemp) el.classList.add('temporary');
         else el.classList.remove('temporary');
 
-        const profile = getHarmonicProfile(displayChord.symbol);
+        const profile = getHarmonicProfile(displayChord.symbol, state.mode);
         const chordNotes = getChordNotes(displayChord.symbol, displayChord.key);
         let absoluteHue = 240; 
         if (chordNotes) {
@@ -108,13 +108,13 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         
         if (index > 0) {
             const prevChord = state.temporarySwaps[index - 1] || state.currentProgression[index - 1];
-            const prevProfile = getHarmonicProfile(prevChord.symbol);
+            const prevProfile = getHarmonicProfile(prevChord.symbol, state.mode);
             backwardTensionDelta = profile.tension - prevProfile.tension;
         }
         
         if (index < state.currentProgression.length - 1) {
             const nextChord = state.temporarySwaps[index + 1] || state.currentProgression[index + 1];
-            const nextProfile = getHarmonicProfile(nextChord.symbol);
+            const nextProfile = getHarmonicProfile(nextChord.symbol, state.mode);
             forwardTensionDelta = nextProfile.tension - profile.tension;
         }
 
@@ -132,7 +132,7 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
 
             if (index < state.currentProgression.length - 1) {
                 const nextChord = state.temporarySwaps[index + 1] || state.currentProgression[index + 1];
-                const nextProfile = getHarmonicProfile(nextChord.symbol);
+                const nextProfile = getHarmonicProfile(nextChord.symbol, state.mode);
                 const yEnd = (1 - (nextProfile.tension + 1) / 2) * 100;
                 graphSegment.style.setProperty('--tension-y-end', `${yEnd}%`);
             } else {
@@ -140,8 +140,19 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
             }
         }
 
-        if (selectedChordIndex === index) el.classList.add('selected-chord');
-        else el.classList.remove('selected-chord');
+        const isSelected = selectedChordIndex !== null && Number(selectedChordIndex) === index;
+        if (isSelected) {
+            el.classList.add('selected-chord', 'selected', 'active');
+            // Ensure robust visual highlight via inline styles to bypass any missing CSS
+            el.style.boxShadow = '0 0 0 3px var(--original-chord-highlight, #4ade80)';
+            el.style.transform = 'translateY(-2px)';
+            el.style.zIndex = '2';
+        } else {
+            el.classList.remove('selected-chord', 'selected', 'active');
+            el.style.boxShadow = 'none';
+            el.style.transform = 'none';
+            el.style.zIndex = '1';
+        }
 
         el.dataset.index = index;
 
@@ -160,7 +171,7 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         const btnContainer = document.getElementById('mod-buttons');
         btnContainer.innerHTML = '';
         
-        const suggestions = getTransitionSuggestions(lastChord.key, state.baseKey);
+        const suggestions = getTransitionSuggestions(lastChord.key, state.baseKey, state.mode);
         suggestions.forEach(sug => {
             const btn = document.createElement('button');
             btn.className = `chord-btn ${sug.type.includes('dominant') ? 'borrowed' : ''}`;
@@ -400,7 +411,7 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
             turnLabel.textContent = `Turnaround to ${firstChord.symbol}:`;
             actionRow.appendChild(turnLabel);
 
-            const turnarounds = getTurnaroundSuggestions(firstChord.symbol);
+            const turnarounds = getTurnaroundSuggestions(firstChord.symbol, state.mode);
             turnarounds.forEach(alt => {
                 const btn = document.createElement('button');
                 btn.className = 'chord-btn';

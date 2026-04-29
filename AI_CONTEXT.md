@@ -56,15 +56,15 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] **Architectural Refactoring - DOM:** Optimize `rhythmEditor.js` timeline rendering to update existing DOM nodes instead of using `innerHTML = ''` to prevent dropped frames.
 - [x] **Architectural Refactoring - State:** Clean up module-scoped mutable state variables in `rhythmEditor.js`.
 - [x] **Architectural Refactoring - Events:** Implement Event Delegation for the Chord Inspector in `ui.js` to prevent memory leaks from orphaned listeners.
-- [ ] Generative Multi-Pass Export (State data structure stubbed; pending UI and export logic).
+- [x] Generative Multi-Pass Export (UI and multi-pass looping engine integrated; pending probabilistic logic).
 - [ ] Probabilistic Pattern Sequencing (Assign loop-through probabilities to specific rhythm/arp patterns).
 - [ ] Drum Track Integration (Global rhythm, local per-chord overrides, intelligent chord-to-drum snapping).
 - [ ] Intelligent Bassline Generation (Shares rhythm editor tech, single note focus).
 - [ ] **True Minor Key & Omni-Scale Theory Framework:**
   - [x] Decouple global key state to support modes (Major/Minor).
   - [x] Dynamic UI palettes that render correct diatonic chords for the active scale.
-  - [ ] Context-aware tension analysis based on the active scale's tonic (currently defaults to Major).
-  - [ ] Mode-aware modulation and turnaround suggestions.
+  - [x] Context-aware tension analysis based on the active scale's tonic.
+  - [x] Mode-aware modulation and turnaround suggestions.
   - [ ] Omni-scale support (Dorian, Lydian, etc.).
 
 ## SHORTHANDS
