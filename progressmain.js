@@ -1,75 +1,24 @@
-import { saveState, loadState } from './storage.js?v=3';
-import { applyVoiceLeading, getAlternatives, getHarmonicProfile, getChordNotes, getTransitionSuggestions, getTurnaroundSuggestions, generateAIPrompt } from './theory.js?v=3';
+import { generateAIPrompt } from './promptGenerator.js?v=3';
 import { CONFIG } from './config.js?v=3';
-import { auditionChord, playProgression, stopAllAudio } from './audio.js?v=3';
+import { auditionChord, playProgression, stopAllAudio } from './sequencer.js?v=3';
 import { initDragAndDrop } from './dragdrop.js?v=3';
 import { exportToMidi } from './midi.js?v=3';
 import { exportToWav } from './wavExport.js?v=3';
-import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder, calculateLoopBounds } from './stateUtils.js?v=3';
+import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder } from './stateUtils.js?v=3';
 import { initChordPattern } from './patternUtils.js?v=3';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmEditor.js?v=3';
+import { KEY_NAMES, highlightChordInUI, updateLoopButtonUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js?v=3';
+import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState } from './store.js?v=3';
 
-        // --- Single Source of Truth ---
-        const state = {
-            currentProgression: [],
-            temporarySwaps: {}, // Map of index -> temporary chord string (e.g. { 1: 'vi' })
-            history: [], // Stores progression snapshots for Undo
-            baseKey: 60, // C4
-            bpm: 120,
-            isLooping: true,
-            useVoiceLeading: true,
-            loopStart: 0,
-            loopEnd: 0,
-            theme: 'light'
-        };
         let isPlaying = false;
         let currentPlaybackStopFunction = null; // Stores the stop function returned by audio.playProgression
         let selectedChordIndex = null; // Tracks which chord is actively open in the Rhythm Editor
 
-        const KEY_NAMES = {
-            60: 'C Major', 61: 'C♯/D♭ Major', 62: 'D Major', 63: 'D♯/E♭ Major', 64: 'E Major', 65: 'F Major',
-            66: 'F♯/G♭ Major', 67: 'G Major', 68: 'G♯/A♭ Major', 69: 'A Major', 70: 'A♯/B♭ Major', 71: 'B Major'
-        };
-
-        // Resolves the progression with any active temporary swaps applied
-        function getActiveProgression() {
-            return state.currentProgression.map((chord, index) => {
-                if (state.temporarySwaps[index] !== undefined) {
-                    // Safely merge the underlying rhythm pattern onto the temporary swapped chord
-                    return { ...state.temporarySwaps[index], pattern: chord.pattern, duration: state.temporarySwaps[index].duration || chord.duration || 2 };
-                }
-                return chord;
-            });
-        }
-
-        function applyLoopBounds() {
-            const bounds = calculateLoopBounds(state.currentProgression.length, state.loopStart, state.loopEnd);
-            state.loopStart = bounds.start;
-            state.loopEnd = bounds.end;
-        }
-
-        // --- History & Undo ---
-        function saveHistoryState() {
-            state.history.push({
-                currentProgression: JSON.parse(JSON.stringify(state.currentProgression)),
-                temporarySwaps: JSON.parse(JSON.stringify(state.temporarySwaps)),
-                loopStart: state.loopStart,
-                loopEnd: state.loopEnd
-            });
-            if (state.history.length > 50) state.history.shift(); // Max 50 undos
-        }
-
         function undo() {
-            if (state.history.length === 0) return;
-            const previousState = state.history.pop();
-            state.currentProgression = previousState.currentProgression;
-            state.temporarySwaps = previousState.temporarySwaps;
-            state.loopStart = previousState.loopStart;
-            state.loopEnd = previousState.loopEnd;
-            selectedChordIndex = null;
-            applyLoopBounds();
-            persistAppState();
-            renderProgression();
+            if (undoState()) {
+                selectedChordIndex = null;
+                renderProgression();
+            }
         }
 
         function addChord(numeral, targetKey = state.baseKey) {
@@ -120,237 +69,66 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
             renderProgression();
         }
 
-        function persistAppState() {
-            saveState(state);
-        }
+        const uiCallbacks = {
+            onAuditionChord: (symbol, key) => {
+                if (!isPlaying) auditionChord(symbol, key);
+            },
+            onAddChord: (symbol, key) => addChord(symbol, key),
+            onRemoveChord: (index) => removeChord(index),
+            onSwapChord: (index, altSymbol, originalChord) => {
+                saveHistoryState();
+                if (altSymbol === originalChord.symbol) {
+                    delete state.temporarySwaps[index];
+                } else {
+                    state.temporarySwaps[index] = { symbol: altSymbol, key: originalChord.key, duration: originalChord.duration || 2 };
+                }
+                const chordToAudition = state.temporarySwaps[index] || originalChord;
+                if (!isPlaying) auditionChord(chordToAudition.symbol, chordToAudition.key);
+                persistAppState();
+                renderProgression();
+            },
+            onModulateKey: (index, newKey) => {
+                saveHistoryState();
+                state.baseKey = newKey;
+                state.currentProgression[index].key = newKey;
+                if (state.temporarySwaps[index]) {
+                    state.temporarySwaps[index].key = newKey;
+                }
+                persistAppState();
+                renderProgression();
+                updateKeyAndModeDisplay(state);
+            },
+            onTransposeChord: (index) => {
+                saveHistoryState();
+                state.currentProgression[index].key = state.baseKey;
+                if (state.temporarySwaps[index]) state.temporarySwaps[index].key = state.baseKey;
+                persistAppState();
+                renderProgression();
+            },
+            onChangeDuration: (index, dur) => {
+                saveHistoryState();
+                state.currentProgression[index].duration = dur;
+                if (state.temporarySwaps[index]) state.temporarySwaps[index].duration = dur;
+                persistAppState();
+                renderProgression();
+            },
+            onAddTurnaround: (index, altSymbol, key) => {
+                saveHistoryState();
+                const insertIndex = index + 1;
+                state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
+                state.currentProgression.splice(insertIndex, 0, { symbol: altSymbol, key: key, pattern: initChordPattern(), duration: 2 });
+                if (insertIndex <= state.loopEnd) state.loopEnd++;
+                selectedChordIndex = insertIndex;
+                auditionChord(altSymbol, key);
+                applyLoopBounds();
+                persistAppState();
+                renderProgression();
+            }
+        };
 
-        function createBracketElement(id, text) {
-            const br = document.createElement('div');
-            br.id = id;
-            br.textContent = text;
-            br.draggable = true;
-            br.className = 'bracket-element';
-            return br;
-        }
-
-        // --- UI Rendering ---
         function renderProgression() {
-            const display = document.getElementById('progression-display');
-            const existingItems = display.querySelectorAll('.progression-item');
-
-            state.currentProgression.forEach((chord, index) => {
-                let el = existingItems[index];
-                
-                if (!el) {
-                    // Create new element if we have more state items than DOM nodes
-                    el = document.createElement('div');
-                    el.className = 'progression-item';
-
-                    const labelSpan = document.createElement('span');
-                    labelSpan.className = 'chord-label';
-                    labelSpan.style.position = 'relative';
-                    labelSpan.style.zIndex = '1';
-                    el.appendChild(labelSpan);
-
-                    const removeBtn = document.createElement('button');
-                    removeBtn.className = 'remove-btn';
-                    removeBtn.title = 'Remove Chord';
-                    removeBtn.textContent = '×';
-                    el.appendChild(removeBtn);
-                    
-                    el.draggable = true;
-
-                    // --- Create Tension Graph elements ---
-                    const graphSegment = document.createElement('div');
-                    graphSegment.className = 'tension-graph-segment';
-                    
-                    const area = document.createElement('div');
-                    area.className = 'tension-area';
-                    
-                    graphSegment.appendChild(area);
-                    el.appendChild(graphSegment);
-                    // --- End Tension Graph elements ---
-
-                    display.appendChild(el);
-                }
-
-                // Reconcile specific UI features
-                const isTemp = state.temporarySwaps[index] !== undefined;
-                const displayChord = isTemp ? state.temporarySwaps[index] : chord;
-
-                const labelSpan = el.querySelector('.chord-label');
-                if (labelSpan) labelSpan.textContent = `${displayChord.symbol} `;
-
-                // The action button is always a remove button.
-                el.querySelector('.remove-btn').title = 'Remove Chord';
-                el.querySelector('.remove-btn').textContent = '×';
-
-                // Handle temporary swap styling
-                if (isTemp) {
-                    el.classList.add('temporary');
-                } else {
-                    el.classList.remove('temporary');
-                }
-
-                // Apply Synesthetic Color Mapping
-                const profile = getHarmonicProfile(displayChord.symbol);
-                
-                // 1. Absolute Key Coloring (Circle of Fifths mapped to Hue)
-                const chordNotes = getChordNotes(displayChord.symbol, displayChord.key);
-                let absoluteHue = 240; 
-                if (chordNotes) {
-                    const rootMidi = chordNotes[0];
-                    const pitchClass = rootMidi % 12;
-                    const circlePos = (pitchClass * 7) % 12; // Maps pitch class to [0..11] Circle of Fifths index
-                    absoluteHue = (240 + (circlePos * 30)) % 360;
-                }
-
-                // 2. Contextual Dynamic Coloring (Bi-directional Tension Ripple)
-                let backwardTensionDelta = 0;
-                let forwardTensionDelta = 0;
-                
-                if (index > 0) {
-                    const prevChord = state.temporarySwaps[index - 1] || state.currentProgression[index - 1];
-                    const prevProfile = getHarmonicProfile(prevChord.symbol);
-                    backwardTensionDelta = profile.tension - prevProfile.tension;
-                }
-                
-                if (index < state.currentProgression.length - 1) {
-                    const nextChord = state.temporarySwaps[index + 1] || state.currentProgression[index + 1];
-                    const nextProfile = getHarmonicProfile(nextChord.symbol);
-                    forwardTensionDelta = nextProfile.tension - profile.tension;
-                }
-
-                // Saturation: Base + Heat from previous jump + Anticipation heat for next jump
-                let satValue = profile.isBorrowed ? 85 : 50 + Math.max(0, backwardTensionDelta * 15) + Math.max(0, forwardTensionDelta * 10);
-                
-                // Luminosity: Base function + impact of arriving + anticipation of leaving
-                const lumOffset = (profile.tension * 8) + (backwardTensionDelta * 4) + (forwardTensionDelta * 2);
-
-                el.style.setProperty('--dyn-hue', absoluteHue);
-                el.style.setProperty('--dyn-sat', `${Math.min(100, satValue)}%`);
-                el.style.setProperty('--dyn-lum-offset', `${lumOffset}%`);
-
-                // --- Tension Graph Data ---
-                const graphSegment = el.querySelector('.tension-graph-segment');
-                if (graphSegment) {
-                    // Normalize tension to a Y percentage (0% at top, 100% at bottom)
-                    // Tension is -1.0 (rest) to 1.0 (high). We want high tension to be high on the graph (low Y value).
-                    const yStart = (1 - (profile.tension + 1) / 2) * 100;
-                    graphSegment.style.setProperty('--tension-y-start', `${yStart}%`);
-
-                    // Calculate end point if there's a next chord
-                    if (index < state.currentProgression.length - 1) {
-                        const nextChord = state.temporarySwaps[index + 1] || state.currentProgression[index + 1];
-                        const nextProfile = getHarmonicProfile(nextChord.symbol);
-                        const yEnd = (1 - (nextProfile.tension + 1) / 2) * 100;
-                        graphSegment.style.setProperty('--tension-y-end', `${yEnd}%`);
-                    } else {
-                        // For the last chord, make the connector a flat line to its own point
-                        // This prevents a visual artifact on the last item before it's hidden by CSS.
-                        graphSegment.style.setProperty('--tension-y-end', `${yStart}%`);
-                    }
-                }
-
-                // Highlight selected chord
-                if (selectedChordIndex === index) {
-                    el.classList.add('selected-chord');
-                } else {
-                    el.classList.remove('selected-chord');
-                }
-
-                // Dataset index updated so Event Delegation can route the click correctly
-                el.dataset.index = index;
-
-                // Highlight items within the loop visually
-                const isInsideLoop = state.isLooping && index >= state.loopStart && index < state.loopEnd;
-                if (isInsideLoop) {
-                    el.classList.add('in-loop');
-                } else {
-                    el.classList.remove('in-loop');
-                }
-            });
-
-            // --- Modulation Suggestions Logic ---
-            const lastChord = state.currentProgression[state.currentProgression.length - 1];
-            const modPanel = document.getElementById('modulation-panel');
-            if (lastChord && lastChord.key !== state.baseKey) {
-                modPanel.style.display = 'block';
-                document.getElementById('mod-from-key').textContent = KEY_NAMES[lastChord.key];
-                document.getElementById('mod-to-key').textContent = KEY_NAMES[state.baseKey];
-                
-                const btnContainer = document.getElementById('mod-buttons');
-                btnContainer.innerHTML = '';
-                
-                const suggestions = getTransitionSuggestions(lastChord.key, state.baseKey);
-                suggestions.forEach(sug => {
-                    const btn = document.createElement('button');
-                    btn.className = `chord-btn ${sug.type.includes('dominant') ? 'borrowed' : ''}`;
-                    btn.textContent = sug.symbol;
-                    btn.title = sug.description;
-                    
-                    // Add attributes for drag-and-drop support
-                    btn.dataset.chord = sug.symbol;
-                    btn.dataset.key = sug.key;
-                    btn.draggable = true;
-                    
-                    // Allow audition on click, add on double-click
-                    btn.addEventListener('click', () => auditionChord(sug.symbol, sug.key));
-                    btn.addEventListener('dblclick', () => addChord(sug.symbol, sug.key));
-                    
-                    btnContainer.appendChild(btn);
-                });
-            } else {
-                if (modPanel) modPanel.style.display = 'none';
-            }
-
-            // Remove excess DOM elements if the progression shrank
-            for (let i = state.currentProgression.length; i < existingItems.length; i++) {
-                display.removeChild(existingItems[i]);
-            }
-
-            // Ensure brackets are rendered natively into the flex flow if looping is enabled
-            if (state.currentProgression.length > 0 && state.isLooping) {
-                let startBr = document.getElementById('bracket-start') || createBracketElement('bracket-start', '[');
-                let endBr = document.getElementById('bracket-end') || createBracketElement('bracket-end', ']');
-                
-                startBr.style.display = 'inline-block';
-                endBr.style.display = 'inline-block';
-
-                const updatedItems = display.querySelectorAll('.progression-item');
-                
-                if (updatedItems[state.loopStart]) display.insertBefore(startBr, updatedItems[state.loopStart]);
-                else display.appendChild(startBr);
-
-                if (updatedItems[state.loopEnd]) display.insertBefore(endBr, updatedItems[state.loopEnd]);
-                else display.appendChild(endBr);
-            } else {
-                // Hide brackets if looping is disabled or progression is empty
-                const startBr = document.getElementById('bracket-start');
-                const endBr = document.getElementById('bracket-end');
-                if (startBr && startBr.parentNode) startBr.parentNode.removeChild(startBr);
-                if (endBr && endBr.parentNode) endBr.parentNode.removeChild(endBr);
-            }
-
-            // --- Post-render check for Tension Graph line wraps ---
-            const allItems = display.querySelectorAll('.progression-item');
-            if (allItems.length > 1) {
-                for (let i = 0; i < allItems.length - 1; i++) {
-                    const currentItem = allItems[i];
-                    const nextItem = allItems[i+1];
-                    
-                    currentItem.classList.remove('is-line-end');
-                    
-                    if (nextItem.offsetTop > currentItem.offsetTop) {
-                        currentItem.classList.add('is-line-end');
-                    }
-                }
-            }
-
-            // Update Undo button disabled state
-            const undoBtn = document.getElementById('btn-undo');
-            if (undoBtn) undoBtn.disabled = state.history.length === 0;
-
+            renderProgressionUI(state, selectedChordIndex, uiCallbacks);
+            
             // Keep Rhythm Editor synced with active selection
             if (selectedChordIndex === null) {
                 closeRhythmEditor();
@@ -359,259 +137,19 @@ import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmE
             } else {
                 selectedChordIndex = null;
                 closeRhythmEditor();
-            }
-            
-            renderChordInspector();
-        }
-
-        function renderChordInspector() {
-            const panel = document.getElementById('chord-inspector-panel');
-            if (!panel) return;
-            
-            if (selectedChordIndex === null || !state.currentProgression[selectedChordIndex]) {
-                panel.style.display = 'none';
-                return;
-            }
-    
-            panel.style.display = 'block';
-            const content = document.getElementById('inspector-content');
-            content.innerHTML = '';
-    
-            const index = selectedChordIndex;
-            const originalChord = state.currentProgression[index];
-            const isTemp = state.temporarySwaps[index] !== undefined;
-            const displayChord = isTemp ? state.temporarySwaps[index] : originalChord;
-    
-            document.getElementById('inspector-title').textContent = `Inspector: ${displayChord.symbol}`;
-    
-            // 1. Alternatives
-            const altsRow = document.createElement('div');
-            altsRow.className = 'inspector-row';
-            altsRow.innerHTML = `<strong class="inspector-label">Swap Chord:</strong>`;
-            const altsBtnContainer = document.createElement('div');
-            altsBtnContainer.className = 'inspector-btn-group';
-            
-            const alts = getAlternatives(displayChord.symbol);
-            if (isTemp) alts.unshift(originalChord.symbol);
-            
-            if (alts.length === 0) {
-                altsBtnContainer.innerHTML = `<span style="opacity: 0.5; font-size: 13px;">No close matches</span>`;
-            } else {
-                alts.forEach((alt, i) => {
-                    const btn = document.createElement('button');
-                    btn.className = 'chord-btn';
-                    btn.textContent = alt;
-                    if (isTemp && i === 0) btn.classList.add('original-swap-option');
-                    
-                    btn.addEventListener('click', () => {
-                        saveHistoryState();
-                        if (alt === originalChord.symbol) {
-                            delete state.temporarySwaps[index];
-                        } else {
-                            state.temporarySwaps[index] = { symbol: alt, key: originalChord.key, duration: originalChord.duration || 2 };
-                        }
-                        const chordToAudition = state.temporarySwaps[index] || originalChord;
-                        if (!isPlaying) auditionChord(chordToAudition.symbol, chordToAudition.key);
-                        persistAppState();
-                        renderProgression();
-                    });
-                    altsBtnContainer.appendChild(btn);
-                });
-            }
-            altsRow.appendChild(altsBtnContainer);
-            content.appendChild(altsRow);
-    
-            // 2. Modulate Key
-            const modRow = document.createElement('div');
-            modRow.className = 'inspector-row';
-            modRow.innerHTML = `<strong class="inspector-label">Modulate Key:</strong>`;
-            const modSelect = document.createElement('select');
-            modSelect.className = 'rhythm-select';
-            Object.entries(KEY_NAMES).forEach(([val, name]) => {
-                const opt = document.createElement('option');
-                opt.value = val;
-                opt.textContent = name;
-                if (parseInt(val, 10) === state.baseKey) opt.selected = true;
-                modSelect.appendChild(opt);
-            });
-            modSelect.addEventListener('change', (e) => {
-                saveHistoryState(); // Save history because we are modifying chord state
-                const newKey = parseInt(e.target.value, 10);
-                state.baseKey = newKey;
-                document.getElementById('key-display').textContent = KEY_NAMES[newKey] || 'C Major';
-                document.getElementById('key-selector').value = newKey;
-                
-                // Auto-transpose the selected chord to the new key
-                state.currentProgression[index].key = newKey;
-                if (state.temporarySwaps[index]) {
-                    state.temporarySwaps[index].key = newKey;
-                }
-                
-                persistAppState();
-                renderProgression();
-            });
-            modRow.appendChild(modSelect);
-            content.appendChild(modRow);
-    
-            // 3. Functional Transposition
-            if (displayChord.key !== state.baseKey) {
-                const transRow = document.createElement('div');
-                transRow.className = 'inspector-row';
-                transRow.innerHTML = `<strong class="inspector-label">Out of Key:</strong>`;
-                const transBtn = document.createElement('button');
-                transBtn.className = 'chord-btn';
-                transBtn.textContent = `Transpose to ${KEY_NAMES[state.baseKey]}`;
-                transBtn.addEventListener('click', () => {
-                    saveHistoryState();
-                    state.currentProgression[index].key = state.baseKey;
-                    if (state.temporarySwaps[index]) state.temporarySwaps[index].key = state.baseKey;
-                    persistAppState();
-                    renderProgression();
-                });
-                transRow.appendChild(transBtn);
-                content.appendChild(transRow);
-            }
-    
-            // 4. Duration
-            const durRow = document.createElement('div');
-            durRow.className = 'inspector-row';
-            durRow.innerHTML = `<strong class="inspector-label">Duration (Beats):</strong>`;
-            const durBtnContainer = document.createElement('div');
-            durBtnContainer.className = 'inspector-btn-group';
-            const durations = [1, 2, 4, 8];
-            const currentDuration = Number(displayChord.duration) || 2;
-            durations.forEach(dur => {
-                const btn = document.createElement('button');
-                btn.className = 'chord-btn';
-                btn.textContent = dur;
-                if (dur === currentDuration) {
-                    btn.style.backgroundColor = 'var(--ctrl-primary-bg)';
-                    btn.style.color = '#ffffff';
-                    btn.style.borderColor = 'var(--ctrl-primary-bg)';
-                } else {
-                    btn.style.opacity = '0.6';
-                }
-                btn.addEventListener('click', () => {
-                    saveHistoryState();
-                    state.currentProgression[index].duration = dur;
-                    if (state.temporarySwaps[index]) state.temporarySwaps[index].duration = dur;
-                    persistAppState();
-                    renderProgression();
-                });
-                durBtnContainer.appendChild(btn);
-            });
-            durRow.appendChild(durBtnContainer);
-            content.appendChild(durRow);
-    
-            // 5. Turnarounds & Actions
-            const actionRow = document.createElement('div');
-            actionRow.className = 'inspector-row';
-            actionRow.style.marginTop = '8px';
-            
-            const delBtn = document.createElement('button');
-            delBtn.className = 'chord-btn';
-            delBtn.style.color = '#ef4444';
-            delBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-            delBtn.innerHTML = '🗑 Delete Chord';
-            delBtn.addEventListener('click', () => removeChord(index));
-            actionRow.appendChild(delBtn);
-    
-            const firstChordIndex = state.isLooping ? state.loopStart : 0;
-            const lastChordIndex = state.isLooping ? Math.max(0, state.loopEnd - 1) : Math.max(0, state.currentProgression.length - 1);
-            
-            if (index === lastChordIndex && state.currentProgression.length > 0) {
-                const firstChord = state.temporarySwaps[firstChordIndex] || state.currentProgression[firstChordIndex];
-                if (firstChord) {
-                    const turnLabel = document.createElement('span');
-                    turnLabel.className = 'inspector-label';
-                    turnLabel.style.marginLeft = 'auto'; // push right
-                    turnLabel.style.minWidth = 'auto';
-                    turnLabel.style.color = 'var(--ctrl-primary-bg)';
-                    turnLabel.textContent = `Turnaround to ${firstChord.symbol}:`;
-                    actionRow.appendChild(turnLabel);
-    
-                    const turnarounds = getTurnaroundSuggestions(firstChord.symbol);
-                    turnarounds.forEach(alt => {
-                        const btn = document.createElement('button');
-                        btn.className = 'chord-btn';
-                        btn.textContent = `+ ${alt}`;
-                        btn.addEventListener('click', () => {
-                            saveHistoryState();
-                            const insertIndex = index + 1;
-                            state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
-                            state.currentProgression.splice(insertIndex, 0, { symbol: alt, key: firstChord.key, pattern: initChordPattern(), duration: 2 });
-                            if (insertIndex <= state.loopEnd) state.loopEnd++;
-                            selectedChordIndex = insertIndex;
-                            auditionChord(alt, firstChord.key);
-                            applyLoopBounds();
-                            persistAppState();
-                            renderProgression();
-                        });
-                        actionRow.appendChild(btn);
-                    });
-                }
-            }
-            content.appendChild(actionRow);
-        }
-
-        function highlightChordInUI(index) {
-            const items = document.querySelectorAll('.progression-item');
-            items.forEach(el => el.classList.remove('playing'));
-            if (items[index]) {
-                items[index].classList.add('playing');
-            }
-        }
-
-        function updateLoopButtonUI() {
-            const loopToggleBtn = document.getElementById('btn-loop-toggle');
-            if (state.isLooping) {
-                loopToggleBtn.className = 'control-btn primary';
-            } else {
-                loopToggleBtn.className = 'control-btn secondary';
+                renderProgressionUI(state, selectedChordIndex, uiCallbacks);
             }
         }
 
 // --- Initialization Helpers ---
 function _loadAndApplyInitialState() {
-    const savedState = loadState();
-    if (savedState) {
-        if (savedState.baseKey !== undefined) state.baseKey = savedState.baseKey;
-        if (savedState.currentProgression) {
-            // Gracefully upgrade legacy string arrays to objects and attach default patterns
-            state.currentProgression = savedState.currentProgression.map(item => {
-                const chordObj = typeof item === 'string' ? { symbol: item, key: state.baseKey } : item;
-                if (!chordObj.pattern) {
-                    chordObj.pattern = initChordPattern();
-                }
-                if (chordObj.duration === undefined) {
-                            chordObj.duration = 2;
-                } else {
-                    chordObj.duration = Number(chordObj.duration); // Force number to prevent string-math bugs
-                }
-                return chordObj;
-            });
-        }
-        if (savedState.bpm) state.bpm = Number(savedState.bpm);
-        // Handle transition from old schema names
-        if (savedState.isLooping !== undefined || savedState.loop !== undefined) state.isLooping = savedState.isLooping ?? savedState.loop;
-        if (savedState.useVoiceLeading !== undefined || savedState.voiceLeading !== undefined) state.useVoiceLeading = savedState.useVoiceLeading ?? savedState.voiceLeading;
-        if (savedState.loopStart !== undefined) state.loopStart = savedState.loopStart;
-        if (savedState.loopEnd !== undefined) state.loopEnd = savedState.loopEnd;
-        if (savedState.temporarySwaps) {
-            Object.values(savedState.temporarySwaps).forEach(swap => {
-                if (swap.duration !== undefined) swap.duration = Number(swap.duration);
-            });
-            state.temporarySwaps = savedState.temporarySwaps;
-        }
-        if (savedState.theme !== undefined) state.theme = savedState.theme;
-    }
-    applyLoopBounds();
+    loadAndApplyInitialState();
     
     // Sync UI to State
     document.getElementById('key-selector').value = state.baseKey;
-    document.getElementById('key-display').textContent = KEY_NAMES[state.baseKey] || 'C Major';
+    updateKeyAndModeDisplay(state);
     document.getElementById('bpm-slider').value = state.bpm;
-    updateLoopButtonUI();
+    updateLoopButtonUI(state);
     document.getElementById('voice-leading').checked = state.useVoiceLeading;
 }
 
@@ -675,26 +213,11 @@ function _setupThemeToggle() {
     document.body.appendChild(themeToggleBtn);
 }
 
-function updateKeyAndModeDisplay() {
-    const modeStr = state.mode === 'major' ? 'Major' : 'Minor';
-    const keyName = KEY_NAMES[state.baseKey] || 'C';
-    document.getElementById('key-display').textContent = `${keyName} ${modeStr}`;
-    document.getElementById('key-selector').value = state.baseKey;
-    
-    const modeSelector = document.getElementById('mode-selector');
-    if (modeSelector) modeSelector.value = state.mode;
-    
-    const palMajor = document.getElementById('palette-major');
-    const palMinor = document.getElementById('palette-minor');
-    if (palMajor) palMajor.style.display = state.mode === 'major' ? 'block' : 'none';
-    if (palMinor) palMinor.style.display = state.mode === 'minor' ? 'block' : 'none';
-}
-
 function _setupKeyAndModeSelectors() {
     document.getElementById('key-selector').addEventListener('change', (e) => {
         const newKey = parseInt(e.target.value, 10);
         state.baseKey = newKey;
-        updateKeyAndModeDisplay();
+        updateKeyAndModeDisplay(state);
         persistAppState();
         renderProgression();
     });
@@ -703,7 +226,7 @@ function _setupKeyAndModeSelectors() {
     if (modeSelector) {
         modeSelector.addEventListener('change', (e) => {
             state.mode = e.target.value;
-            updateKeyAndModeDisplay();
+            updateKeyAndModeDisplay(state);
             persistAppState();
             // Intentionally NOT modifying state.currentProgression 
             // so existing tray chords remain untouched.
@@ -829,7 +352,7 @@ function _setupControlButtons() {
     });
     document.getElementById('btn-loop-toggle').addEventListener('click', () => {
         state.isLooping = !state.isLooping;
-        updateLoopButtonUI();
+        updateLoopButtonUI(state);
         applyLoopBounds();
         persistAppState();
         renderProgression();

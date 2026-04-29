@@ -119,6 +119,7 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **UI Architecture Shift (Completed):** Replacing the vertical context menu with a permanent, horizontal "Inspector Panel". Establishing a "Foldaway" (collapsible) panel paradigm for the Inspector, Rhythm, Bassline, and Melody editors to allow flexible sequential or concurrent editing.
 - **Inspector Auto-Transpose (Completed):** Modulating the key directly from a chord's Inspector panel automatically transposes that specific chord into the new key, streamlining workflow.
 - **Always-Visible Transport (Completed):** Transport and global controls are positioned above the foldaway panels, ensuring playback and export features are never pushed off-screen when deep-editing a chord.
+- **Architectural Scaling:** Extracting the global state machine from the main controller to a dedicated store, implementing targeted DOM node reconciliation in the Rhythm Editor for 60fps dragging, and applying strict event delegation in the UI to prevent memory leaks.
 - **Generative Multi-Pass Export:** Data structure stubbed; pending UI/audio engine integration.
 - **Probabilistic Pattern Sequencing:** Allow assigning percent-based probabilities to specific rhythm/arp patterns per loop cycle.
 - **Intelligent Bassline & Drum Generation:** Drum tracks with global/local edits, and basslines built on the same rhythm editor tech.
@@ -130,3 +131,9 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Workflow & Defaults Adjustments (Completed):** Update default tempo to 120bpm and default chord duration to 2 beats. Ensure duration button highlighting updates immediately upon selection.
 - **Rhythm Pattern Copy/Paste (Completed):** Ability to copy a sliced/arpeggiated rhythm pattern from one chord and paste it to another.
 - **Functional Transposition (Completed):** Added a context-aware button in the Swap Menu to instantly transpose any out-of-key chord to the currently selected global key.
+
+### 6. Advanced Modular Synthesis & Sound Design (Future Goal)
+- **Editable AI-Targeted Synths:** The default sine/sawtooth engines will become options among multiple modular synths. Planned are highly customizable synths specifically geared toward producing maximum clarity for AI audio recognition or direct integration into professional DAW projects via WAV export.
+- **Bass-Geared Synthesizers:** A dedicated, modular synth for the bassline layer, featuring editable parameters for sub-harmonics and drive to anchor AI generations.
+- **Professional Generative Drums:** A drum editor that uses professional-grade sampling or synthesis to produce high-quality drum exports.
+- **Modular UI Architecture:** Each of these engines (Synth, Bass, Drums) will exist as entirely decoupled modules with their own localized UI logic to ensure the app remains performant, testable, and clean.

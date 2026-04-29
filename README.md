@@ -46,16 +46,24 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 ### Phase 5: Advanced Electronica & AI Synergy (In Progress 🚧)
 - **Tension & Release Mapping UI:** Architect dramatic emotional arcs visually before rendering notes. (Complete ✅)
 - **Per-Chord Rhythm Editor:** Timeline view for slicing, moving, and generating complex rhythms within individual chord slots. (Complete ✅)
+- **Rhythm Editor UX Redesign:** Unified press/drag interactions, smart boundary collisions, and a comprehensive grid slider with triplet support. (Complete ✅)
+- **Edge-Dragging to Resize:** Click and drag the left or right edges of a slice in the Rhythm Editor to dynamically resize it. (Complete ✅)
+- **Rhythm Pattern Copy/Paste:** Copy sliced/arpeggiated rhythm patterns from one chord and paste them to another. (Complete ✅)
 - **Polyrhythmic Arpeggiation:** Export chords as sequenced MIDI/WAV patterns (e.g., 5/16 arp patterns over a 4/4 bassline). (Complete ✅)
 - **Variable Chord Durations:** Adjust individual chord lengths (1, 2, 4, or 8 beats) directly from the UI, dynamically scaling playback, exports, and timeline grids. (Complete ✅)
 - **Foldaway Workspace UI:** Establish a collapsible panel paradigm for the Inspector, Rhythm Editor, Bassline, and future Melody editors, enabling users to choose between focused sequential stages or concurrent multi-panel workflows. (Complete ✅)
 - **Inspector Auto-Transpose:** Modulating the key from the Inspector automatically transposes the currently selected chord to the new key. (Complete ✅)
-- **Always-Visible Transport:** Relocate transport controls above foldaway panels for consistent, easy access.
+- **Always-Visible Transport:** Relocate transport controls above foldaway panels for consistent, easy access. (Complete ✅)
+- **Functional Transposition:** Context-aware button in the Inspector to instantly transpose any out-of-key chord to the currently selected global key. (Complete ✅)
+- **Workflow & Defaults Adjustments:** Optimized defaults (120bpm, 2 beats) and immediate UI feedback for rapid sequencing. (Complete ✅)
+- **Architectural Refactoring:** Extract global state to a dedicated store, optimize DOM reconciliation in the Rhythm Editor, and implement strict event delegation in the Inspector.
 - **Generative Multi-Pass Export:** State data structure stubbed; pending export logic and UI.
 - **Intelligent Bassline Generation:** Rhythm-informed, genre-appropriate basslines.
+- **Advanced Modular Synthesis:** Pluggable, editable synths for Chords and Basslines, optimized for AI audio recognition and professional WAV export.
+- **Professional Generative Drums:** High-quality generative drum editor with decoupled modular UI logic.
 - **True Minor Key & Omni-Scale Framework:**
-  - Decouple global key state to support modes (Major/Minor).
-  - Dynamic UI palettes that render correct diatonic chords for the active scale.
+  - Decouple global key state to support modes (Major/Minor). (Complete ✅)
+  - Dynamic UI palettes that render correct diatonic chords for the active scale. (Complete ✅)
   - Context-aware tension analysis based on the active scale's tonic.
 
 ## 🛠️ Local Development

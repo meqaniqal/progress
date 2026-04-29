@@ -1,52 +1,4 @@
-// --- Dynamic Chord Generation ---
-// Define chords purely by their intervals (semitones from the root)
-const CHORD_INTERVALS = {
-    // --- Triads ---
-    'I':      [0, 4, 7],   // Major
-    'i':      [0, 3, 7],   // Minor
-    'ii':     [2, 5, 9],   // Minor
-    'ii°':    [2, 5, 8],   // Diminished
-    'iii':    [4, 7, 11],  // Minor
-    'III':    [3, 7, 10],  // Major
-    'IV':     [5, 9, 12],  // Major
-    'V':      [7, 11, 14], // Major
-    'v':      [7, 10, 14], // Minor
-    'vi':     [9, 12, 16], // Minor
-    'VI':     [8, 12, 15], // Major
-    'VII':    [10, 14, 17], // Major
-    'iv':     [5, 8, 12],  // Minor (Borrowed)
-    'bVI':    [8, 12, 15], // Major (Borrowed)
-    'bVII':   [10, 14, 17], // Major (Borrowed)
-    
-    // --- 7ths ---
-    'Imaj7':  [0, 4, 7, 11],
-    'i7':     [0, 3, 7, 10],
-    'ii7':    [2, 5, 9, 12], // 12 represents root up an octave
-    'ii°7':   [2, 5, 8, 12], // Half-diminished 7th
-    'iii7':   [4, 7, 11, 14],
-    'IIImaj7':[3, 7, 10, 14],
-    'IVmaj7': [5, 9, 12, 16],
-    'v7':     [7, 10, 14, 17],
-    'VImaj7': [8, 12, 15, 19],
-    'VII7':   [10, 14, 17, 20],
-    'V7':     [7, 11, 14, 17],
-    'vi7':    [9, 12, 16, 19],
-    
-    // --- Extended & Altered Borrowed ---
-    'Imaj9':  [0, 4, 7, 11, 14],
-    'IVmaj9': [5, 9, 12, 16, 19],
-    'ii9':    [2, 5, 9, 12, 16],
-    'ii11':   [2, 5, 9, 12, 16, 19],
-    'V9':     [7, 11, 14, 17, 21],
-    'V11':    [7, 11, 14, 17, 21, 24],
-    'Vsus4':  [7, 12, 14],
-    'V7sus4': [7, 12, 14, 17],
-    'V7#9':   [7, 11, 14, 17, 22], // Altered Dominant (Tension)
-    'V7b13':  [7, 11, 14, 17, 27], // Altered Dominant (Tension)
-    'iv7':    [5, 8, 12, 15],
-    'bVImaj7':[8, 12, 15, 19],
-    'bVII7':  [10, 14, 17, 20]
-};
+import { CHORD_INTERVALS } from './chordDictionary.js';
 
 export function getChordNotes(symbol, baseKey) {
     const intervals = CHORD_INTERVALS[symbol];
@@ -277,41 +229,4 @@ export function calculateDistance(chordA, chordB) {
     }
     
     return dist;
-}
-
-// --- AI Prompt Generation ---
-export function generateAIPrompt(progression, bpm, keyName) {
-    if (!progression || progression.length === 0) return "No progression defined.";
-
-    const symbols = progression.map(c => c.symbol);
-    const progressionString = symbols.join(' - ');
-    
-    let hasBorrowed = false;
-    let hasExtensions = false;
-    let hasAltered = false;
-    let totalTension = 0;
-
-    progression.forEach(chord => {
-        const profile = getHarmonicProfile(chord.symbol);
-        totalTension += profile.tension;
-        if (profile.isBorrowed) hasBorrowed = true;
-        if (/(9|11|13|maj7)/.test(chord.symbol)) hasExtensions = true;
-        if (/(#9|b13|aug|dim)/.test(chord.symbol)) hasAltered = true;
-    });
-
-    const avgTension = totalTension / progression.length;
-    let mood = "balanced with a standard emotional pull";
-    if (avgTension < -0.2) mood = "stable, grounded, and consonant";
-    else if (avgTension > 0.3) mood = "dramatic, tense, and emotionally complex";
-
-    let features = [];
-    if (hasBorrowed) features.push("modal mixture (borrowed chords)");
-    if (hasExtensions) features.push("lush extended voicings (7ths, 9ths, etc.)");
-    if (hasAltered) features.push("altered/jazzy tensions");
-
-    let featureString = features.length > 0 
-        ? ` The harmony features ${features.join(', ')}.` 
-        : ` The harmony relies on strong diatonic movement.`;
-
-    return `Tempo: ${bpm} BPM\nKey: ${keyName}\nChord Progression: ${progressionString}\n\nMusical Characteristics: This sequence is ${mood}.${featureString} Focus on smooth voice-leading and clear harmonic transitions.`;
 }

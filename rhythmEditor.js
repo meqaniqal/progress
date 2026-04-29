@@ -1,18 +1,15 @@
 import { initChordPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance, resizeInstance, generateId } from './patternUtils.js?v=3';
 
-let activeRhythmIndex = null;
-let activeOverlayId = null;
-let isDragging = false;
-let isResizing = null;
-let draggedInstanceId = null;
-let clipboardPattern = null;
+const editorState = {
+    activeIndex: null,
+    activeOverlayId: null,
+    isDragging: false,
+    isResizing: null,
+    draggedInstanceId: null,
+    clipboardPattern: null
+};
 
-// App state references
-let appState = null;
-let dispatchSaveHistory = null;
-let dispatchPersist = null;
-let dispatchRender = null;
-let dispatchOnClose = null;
+let app = {}; // Stores references to global state and injected callbacks
 
 const GRID_STEPS = [
     { label: 'Off', value: 0 },
@@ -23,15 +20,11 @@ const GRID_STEPS = [
     { label: '1/16', value: 0.0625 }
 ];
 
-export function initRhythmEditor({ state, saveHistoryState, persistAppState, renderProgression, onClose }) {
-    appState = state;
-    dispatchSaveHistory = saveHistoryState;
-    dispatchPersist = persistAppState;
-    dispatchRender = renderProgression;
-    dispatchOnClose = onClose;
+export function initRhythmEditor(config) {
+    app = config;
 
     document.getElementById('btn-close-rhythm').addEventListener('click', () => {
-        if (dispatchOnClose) dispatchOnClose();
+        if (app.onClose) app.onClose();
     });
 
     // --- Grid Slider Setup ---
@@ -79,8 +72,8 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
     }
 
     function handleArpDropdownChange() {
-        if (activeRhythmIndex === null) return;
-        const chord = appState.currentProgression[activeRhythmIndex];
+        if (editorState.activeIndex === null) return;
+        const chord = app.state.currentProgression[editorState.activeIndex];
         if (!chord || !chord.pattern) return;
 
         const selectedInsts = chord.pattern.instances.filter(i => i.isSelected);
@@ -91,9 +84,9 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
                 rate: rateSelect.value,
                 gate: 0.9 
             };
-            dispatchSaveHistory();
+            app.saveHistoryState();
             chord.pattern = applyArpSettings(chord.pattern, selectedInsts.map(i => i.id), newSettings);
-            dispatchPersist();
+            app.persistAppState();
             renderRhythmTimeline();
         }
     }
@@ -103,8 +96,8 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
 
     // --- Apply / Toggle Arp Button ---
     applyArpBtn.addEventListener('click', () => {
-        if (activeRhythmIndex === null) return;
-        const chord = appState.currentProgression[activeRhythmIndex];
+        if (editorState.activeIndex === null) return;
+        const chord = app.state.currentProgression[editorState.activeIndex];
         if (!chord || !chord.pattern) return;
 
         const selectedInsts = chord.pattern.instances.filter(i => i.isSelected);
@@ -117,9 +110,9 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
         const hasArp = selectedInsts[0].arpSettings !== null;
         const newSettings = hasArp ? null : { style: styleSelect.value, rate: rateSelect.value, gate: 0.9 };
 
-        dispatchSaveHistory();
+        app.saveHistoryState();
         chord.pattern = applyArpSettings(chord.pattern, selectedInsts.map(i => i.id), newSettings);
-        dispatchPersist();
+        app.persistAppState();
         renderRhythmTimeline();
     });
 
@@ -128,12 +121,12 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
     const btnPaste = document.getElementById('btn-rhythm-paste');
 
     btnCopy.addEventListener('click', () => {
-        if (activeRhythmIndex === null) return;
-        const chord = appState.currentProgression[activeRhythmIndex];
+        if (editorState.activeIndex === null) return;
+        const chord = app.state.currentProgression[editorState.activeIndex];
         if (!chord || !chord.pattern) return;
         
         // Deep copy the pattern to the clipboard
-        clipboardPattern = JSON.parse(JSON.stringify(chord.pattern));
+        editorState.clipboardPattern = JSON.parse(JSON.stringify(chord.pattern));
         btnPaste.disabled = false;
         
         // UX Feedback
@@ -143,41 +136,41 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
     });
 
     btnPaste.addEventListener('click', () => {
-        if (activeRhythmIndex === null || !clipboardPattern) return;
-        const chord = appState.currentProgression[activeRhythmIndex];
+        if (editorState.activeIndex === null || !editorState.clipboardPattern) return;
+        const chord = app.state.currentProgression[editorState.activeIndex];
         if (!chord) return;
         
-        dispatchSaveHistory();
+        app.saveHistoryState();
         
         // Deep copy from clipboard and regenerate IDs to prevent cross-chord collisions
-        const pastedPattern = JSON.parse(JSON.stringify(clipboardPattern));
+        const pastedPattern = JSON.parse(JSON.stringify(editorState.clipboardPattern));
         pastedPattern.instances.forEach(inst => inst.id = generateId());
         
         chord.pattern = pastedPattern;
-        dispatchPersist();
+        app.persistAppState();
         renderRhythmTimeline();
     });
 
     // --- Reset & Delete Buttons ---
     document.getElementById('btn-rhythm-reset').addEventListener('click', () => {
-        if (activeRhythmIndex === null) return;
-        const chord = appState.currentProgression[activeRhythmIndex];
+        if (editorState.activeIndex === null) return;
+        const chord = app.state.currentProgression[editorState.activeIndex];
         if (!chord) return;
-        dispatchSaveHistory();
+        app.saveHistoryState();
         chord.pattern = initChordPattern();
-        activeOverlayId = null;
-        dispatchPersist();
+        editorState.activeOverlayId = null;
+        app.persistAppState();
         renderRhythmTimeline();
     });
 
     document.getElementById('btn-rhythm-delete').addEventListener('click', () => {
-        if (activeRhythmIndex === null) return;
-        const chord = appState.currentProgression[activeRhythmIndex];
+        if (editorState.activeIndex === null) return;
+        const chord = app.state.currentProgression[editorState.activeIndex];
         if (!chord || !chord.pattern) return;
-        dispatchSaveHistory();
+        app.saveHistoryState();
         chord.pattern = { ...chord.pattern, instances: chord.pattern.instances.filter(i => !i.isSelected) };
-        activeOverlayId = null;
-        dispatchPersist();
+        editorState.activeOverlayId = null;
+        app.persistAppState();
         renderRhythmTimeline();
     });
 
@@ -197,30 +190,30 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
             e.stopPropagation();
             return;
         }
-        if (activeOverlayId) {
-            activeOverlayId = null;
+        if (editorState.activeOverlayId) {
+            editorState.activeOverlayId = null;
             renderRhythmTimeline(); // Close the overlay if clicking elsewhere
         }
 
         const resizeHandle = e.target.closest('.resize-handle');
         if (resizeHandle) {
             e.stopPropagation();
-            if (activeRhythmIndex === null) return;
+            if (editorState.activeIndex === null) return;
             
             const instanceEl = resizeHandle.closest('.rhythm-instance');
             const instId = instanceEl.dataset.id;
             
-            isResizing = resizeHandle.classList.contains('left') ? 'left' : 'right';
-            draggedInstanceId = instId;
+            editorState.isResizing = resizeHandle.classList.contains('left') ? 'left' : 'right';
+            editorState.draggedInstanceId = instId;
             
             timeline.setPointerCapture(e.pointerId);
-            dispatchSaveHistory();
+            app.saveHistoryState();
             
-            const chord = appState.currentProgression[activeRhythmIndex];
+            const chord = app.state.currentProgression[editorState.activeIndex];
             if (chord && chord.pattern) {
-                const currentInst = chord.pattern.instances.find(i => i.id === draggedInstanceId);
+                const currentInst = chord.pattern.instances.find(i => i.id === editorState.draggedInstanceId);
                 if (currentInst && !currentInst.isSelected) {
-                    chord.pattern = exclusiveSelect(chord.pattern, draggedInstanceId);
+                    chord.pattern = exclusiveSelect(chord.pattern, editorState.draggedInstanceId);
                 }
             }
             return;
@@ -230,18 +223,18 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
         const now = Date.now();
 
         if (!instanceEl) {
-            if (activeRhythmIndex === null) return;
+            if (editorState.activeIndex === null) return;
             // Manual double-tap detection for empty timeline areas
             if (now - lastTapTime < 300 && lastTapId === 'empty') {
-                const chord = appState.currentProgression[activeRhythmIndex];
+                const chord = app.state.currentProgression[editorState.activeIndex];
                 if (!chord || !chord.pattern) return;
 
                 const rect = timeline.getBoundingClientRect();
                 const clickRatio = (e.clientX - rect.left) / rect.width;
 
-                dispatchSaveHistory();
+                app.saveHistoryState();
                 chord.pattern = fillGapInstance(chord.pattern, clickRatio);
-                dispatchPersist();
+                app.persistAppState();
                 renderRhythmTimeline();
                 lastTapTime = 0;
                 return;
@@ -251,14 +244,14 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
             return;
         }
 
-        if (activeRhythmIndex === null) return;
+        if (editorState.activeIndex === null) return;
         
         const instId = instanceEl.dataset.id;
 
         // Manual double-tap detection for slice instances
         if (now - lastTapTime < 300 && lastTapId === instId) {
             e.stopPropagation();
-            activeOverlayId = instId;
+            editorState.activeOverlayId = instId;
             renderRhythmTimeline();
             lastTapTime = 0;
             return;
@@ -267,13 +260,13 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
         lastTapTime = now;
         lastTapId = instId;
 
-        const chord = appState.currentProgression[activeRhythmIndex];
+        const chord = app.state.currentProgression[editorState.activeIndex];
         if (!chord || !chord.pattern) return;
 
         dragStartX = e.clientX;
         dragStartY = e.clientY;
-        draggedInstanceId = instId;
-        isDragging = false;
+        editorState.draggedInstanceId = instId;
+        editorState.isDragging = false;
         
         timeline.setPointerCapture(e.pointerId);
         
@@ -282,14 +275,14 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
         originalDuration = inst ? inst.duration : 0;
         
         longPressTimer = setTimeout(() => {
-            isDragging = true;
-            dispatchSaveHistory();
+            editorState.isDragging = true;
+            app.saveHistoryState();
             
             // Auto-select on long press
-            const currentChord = appState.currentProgression[activeRhythmIndex];
-            const currentInst = currentChord.pattern.instances.find(i => i.id === draggedInstanceId);
+            const currentChord = app.state.currentProgression[editorState.activeIndex];
+            const currentInst = currentChord.pattern.instances.find(i => i.id === editorState.draggedInstanceId);
             if (currentInst && !currentInst.isSelected) {
-                currentChord.pattern = exclusiveSelect(currentChord.pattern, draggedInstanceId);
+                currentChord.pattern = exclusiveSelect(currentChord.pattern, editorState.draggedInstanceId);
             }
 
             renderRhythmTimeline(); // Apply grabbing visuals via state
@@ -297,11 +290,11 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
     });
 
     timeline.addEventListener('pointermove', (e) => {
-        if (isResizing && draggedInstanceId) {
+        if (editorState.isResizing && editorState.draggedInstanceId) {
             const rect = timeline.getBoundingClientRect();
             let newTime = (e.clientX - rect.left) / rect.width;
 
-            const chord = appState.currentProgression[activeRhythmIndex];
+            const chord = app.state.currentProgression[editorState.activeIndex];
 
             // Grid Snapping Math
             const gridValue = GRID_STEPS[parseInt(document.getElementById('rhythm-grid-slider').value, 10)].value;
@@ -310,10 +303,10 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
                 newTime = Math.round(newTime / actualGridValue) * actualGridValue;
             }
 
-            const inst = chord.pattern.instances.find(i => i.id === draggedInstanceId);
+            const inst = chord.pattern.instances.find(i => i.id === editorState.draggedInstanceId);
             
-            const newPattern = resizeInstance(chord.pattern, draggedInstanceId, isResizing, newTime);
-            const updatedInst = newPattern.instances.find(i => i.id === draggedInstanceId);
+            const newPattern = resizeInstance(chord.pattern, editorState.draggedInstanceId, editorState.isResizing, newTime);
+            const updatedInst = newPattern.instances.find(i => i.id === editorState.draggedInstanceId);
             
             // Pure state diff check: Only re-render if the math ACTUALLY changed the instance bounds
             if (inst && updatedInst && (updatedInst.startTime !== inst.startTime || updatedInst.duration !== inst.duration)) {
@@ -323,29 +316,29 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
             return;
         }
 
-        if (draggedInstanceId && !isDragging) {
+        if (editorState.draggedInstanceId && !editorState.isDragging) {
             if (Math.abs(e.clientX - dragStartX) > 5 || Math.abs(e.clientY - dragStartY) > 5) {
                 // User moved past the threshold, initiate drag immediately!
                 if (longPressTimer) {
                     clearTimeout(longPressTimer);
                     longPressTimer = null;
                 }
-                isDragging = true;
-                dispatchSaveHistory();
+                editorState.isDragging = true;
+                app.saveHistoryState();
 
                 // Auto-select on drag start
-                const chord = appState.currentProgression[activeRhythmIndex];
+                const chord = app.state.currentProgression[editorState.activeIndex];
                 if (chord && chord.pattern) {
-                    const inst = chord.pattern.instances.find(i => i.id === draggedInstanceId);
+                    const inst = chord.pattern.instances.find(i => i.id === editorState.draggedInstanceId);
                     if (inst && !inst.isSelected) {
-                        chord.pattern = exclusiveSelect(chord.pattern, draggedInstanceId);
+                        chord.pattern = exclusiveSelect(chord.pattern, editorState.draggedInstanceId);
                     }
                 }
                 renderRhythmTimeline();
             }
         }
 
-        if (!isDragging || !draggedInstanceId) return;
+        if (!editorState.isDragging || !editorState.draggedInstanceId) return;
         
         const deltaX = e.clientX - dragStartX;
         const rect = timeline.getBoundingClientRect();
@@ -353,7 +346,7 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
         
         let newStartTime = originalStartTime + deltaRatio;
 
-        const chord = appState.currentProgression[activeRhythmIndex];
+        const chord = app.state.currentProgression[editorState.activeIndex];
 
         // Grid Snapping Math
         const gridValue = GRID_STEPS[parseInt(document.getElementById('rhythm-grid-slider').value, 10)].value;
@@ -362,10 +355,10 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
             newStartTime = Math.round(newStartTime / actualGridValue) * actualGridValue;
         }
 
-        const inst = chord.pattern.instances.find(i => i.id === draggedInstanceId);
+        const inst = chord.pattern.instances.find(i => i.id === editorState.draggedInstanceId);
         
-        const newPattern = moveInstance(chord.pattern, draggedInstanceId, newStartTime, originalDuration);
-        const updatedInst = newPattern.instances.find(i => i.id === draggedInstanceId);
+        const newPattern = moveInstance(chord.pattern, editorState.draggedInstanceId, newStartTime, originalDuration);
+        const updatedInst = newPattern.instances.find(i => i.id === editorState.draggedInstanceId);
         
         // Pure state diff check: Only re-render if the math ACTUALLY changed the instance bounds
         if (inst && updatedInst && (updatedInst.startTime !== inst.startTime || updatedInst.duration !== inst.duration)) {
@@ -380,32 +373,32 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
             longPressTimer = null;
         }
 
-        if (isResizing) {
-            isResizing = null;
+        if (editorState.isResizing) {
+            editorState.isResizing = null;
             timeline.releasePointerCapture(e.pointerId);
-            dispatchPersist();
+            app.persistAppState();
             renderRhythmTimeline();
-            draggedInstanceId = null;
+            editorState.draggedInstanceId = null;
             return;
         }
 
-        if (isDragging) {
-            isDragging = false;
+        if (editorState.isDragging) {
+            editorState.isDragging = false;
             timeline.releasePointerCapture(e.pointerId);
-            dispatchPersist();
+            app.persistAppState();
             renderRhythmTimeline();
-            draggedInstanceId = null;
-        } else if (draggedInstanceId) {
+            editorState.draggedInstanceId = null;
+        } else if (editorState.draggedInstanceId) {
             timeline.releasePointerCapture(e.pointerId);
-            const chord = appState.currentProgression[activeRhythmIndex];
-            const inst = chord.pattern.instances.find(i => i.id === draggedInstanceId);
+            const chord = app.state.currentProgression[editorState.activeIndex];
+            const inst = chord.pattern.instances.find(i => i.id === editorState.draggedInstanceId);
             if (inst) {
-                dispatchSaveHistory();
-                chord.pattern = exclusiveSelect(chord.pattern, draggedInstanceId);
-                dispatchPersist();
+                app.saveHistoryState();
+                chord.pattern = exclusiveSelect(chord.pattern, editorState.draggedInstanceId);
+                app.persistAppState();
                 renderRhythmTimeline();
             }
-            draggedInstanceId = null;
+            editorState.draggedInstanceId = null;
         }
     });
 
@@ -415,19 +408,19 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
             longPressTimer = null;
         }
         
-        if (isResizing) {
-            isResizing = null;
+        if (editorState.isResizing) {
+            editorState.isResizing = null;
             timeline.releasePointerCapture(e.pointerId);
-            draggedInstanceId = null;
+            editorState.draggedInstanceId = null;
             renderRhythmTimeline();
             return;
         }
         
-        if (draggedInstanceId) {
+        if (editorState.draggedInstanceId) {
             timeline.releasePointerCapture(e.pointerId);
         }
-        isDragging = false;
-        draggedInstanceId = null;
+        editorState.isDragging = false;
+        editorState.draggedInstanceId = null;
         renderRhythmTimeline();
     });
 
@@ -435,7 +428,7 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
     timeline.addEventListener('input', (e) => {
         if (e.target.classList.contains('slice-range')) {
             const instId = e.target.dataset.id;
-            const chord = appState.currentProgression[activeRhythmIndex];
+            const chord = app.state.currentProgression[editorState.activeIndex];
             const inst = chord.pattern.instances.find(i => i.id === instId);
             const gridValue = GRID_STEPS[parseInt(document.getElementById('rhythm-grid-slider').value, 10)].value;
             const actualGridValue = gridValue * (4 / (Number(chord.duration) || 4));
@@ -465,7 +458,7 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
             const slider = document.querySelector(`.slice-range[data-id="${instId}"]`);
             let splitGlobal = slider.dataset.splitGlobal;
             
-            const chord = appState.currentProgression[activeRhythmIndex];
+            const chord = app.state.currentProgression[editorState.activeIndex];
             const inst = chord.pattern.instances.find(i => i.id === instId);
             
             if (splitGlobal === undefined) {
@@ -481,30 +474,30 @@ export function initRhythmEditor({ state, saveHistoryState, persistAppState, ren
 
             const splitRatio = (splitGlobal - inst.startTime) / inst.duration;
             if (splitRatio >= 0.05 && splitRatio <= 0.95) {
-                dispatchSaveHistory();
+                app.saveHistoryState();
                 chord.pattern = sliceInstance(chord.pattern, instId, splitRatio);
                 chord.pattern.instances = chord.pattern.instances.map(i => ({ ...i, isSelected: false }));
-                activeOverlayId = null;
-                dispatchPersist();
+                editorState.activeOverlayId = null;
+                app.persistAppState();
                 renderRhythmTimeline();
             }
         } else if (e.target.classList.contains('btn-do-fill')) {
             e.stopPropagation();
             const instId = e.target.dataset.id;
-            const chord = appState.currentProgression[activeRhythmIndex];
-            dispatchSaveHistory();
+            const chord = app.state.currentProgression[editorState.activeIndex];
+            app.saveHistoryState();
             chord.pattern = expandInstance(chord.pattern, instId);
-            activeOverlayId = null;
-            dispatchPersist();
+            editorState.activeOverlayId = null;
+            app.persistAppState();
             renderRhythmTimeline();
         }
     });
 }
 
 export function openRhythmEditor(index) {
-    activeRhythmIndex = index;
+    editorState.activeIndex = index;
     
-    const chord = appState.currentProgression[index];
+    const chord = app.state.currentProgression[index];
     if (!chord) { closeRhythmEditor(); return; }
 
     document.getElementById('rhythm-editor-title').textContent = `Rhythm Editor: ${chord.symbol}`;
@@ -516,8 +509,8 @@ export function openRhythmEditor(index) {
 }
 
 export function closeRhythmEditor() {
-    activeRhythmIndex = null;
-    activeOverlayId = null;
+    editorState.activeIndex = null;
+    editorState.activeOverlayId = null;
     const panel = document.getElementById('rhythm-editor-panel');
     if (panel) panel.style.display = 'none';
 
@@ -529,10 +522,12 @@ export function closeRhythmEditor() {
 
 function renderRhythmTimeline() {
     const container = document.getElementById('rhythm-timeline');
-    container.innerHTML = '';
-    if (activeRhythmIndex === null) return;
+    if (editorState.activeIndex === null) {
+        container.innerHTML = '';
+        return;
+    }
     
-    const chord = appState.currentProgression[activeRhythmIndex];
+    const chord = app.state.currentProgression[editorState.activeIndex];
     const pattern = chord.pattern || { instances: [] };
     
     // Sync Arp Dropdowns with current selection
@@ -546,27 +541,43 @@ function renderRhythmTimeline() {
         }
     }
 
+    // 1. Remove obsolete nodes to prevent memory leaks and ghost elements
+    const existingNodes = Array.from(container.querySelectorAll('.rhythm-instance'));
+    const newIds = new Set(pattern.instances.map(i => i.id));
+    existingNodes.forEach(node => {
+        if (!newIds.has(node.dataset.id)) node.remove();
+    });
+
+    // 2. Update existing nodes or create new ones
     pattern.instances.forEach(inst => {
-        const el = document.createElement('div');
+        let el = container.querySelector(`.rhythm-instance[data-id="${inst.id}"]`);
+        
+        if (!el) {
+            el = document.createElement('div');
+            el.dataset.id = inst.id;
+            
+            const leftHandle = document.createElement('div');
+            leftHandle.className = 'resize-handle left';
+            el.appendChild(leftHandle);
+            
+            const rightHandle = document.createElement('div');
+            rightHandle.className = 'resize-handle right';
+            el.appendChild(rightHandle);
+            
+            container.appendChild(el);
+        }
+
         el.className = 'rhythm-instance';
-        el.dataset.id = inst.id;
         if (inst.isSelected) el.classList.add('selected');
         if (inst.arpSettings) el.classList.add('arp-active');
-        if (isDragging && inst.id === draggedInstanceId) el.classList.add('grabbing');
+        if (editorState.isDragging && inst.id === editorState.draggedInstanceId) el.classList.add('grabbing');
         
-        // The timeline is normalized 0.0 to 1.0, so we convert directly to percentages
         el.style.left = `${inst.startTime * 100}%`;
         el.style.width = `${inst.duration * 100}%`;
         
-        const leftHandle = document.createElement('div');
-        leftHandle.className = 'resize-handle left';
-        el.appendChild(leftHandle);
-        
-        const rightHandle = document.createElement('div');
-        rightHandle.className = 'resize-handle right';
-        el.appendChild(rightHandle);
-        
-        if (activeOverlayId === inst.id) {
+        let overlay = el.querySelector('.slice-overlay');
+
+        if (editorState.activeOverlayId === inst.id) {
             const others = pattern.instances.filter(i => i.id !== inst.id);
             let leftBound = 0.0;
             let rightBound = 1.0;
@@ -584,32 +595,30 @@ function renderRhythmTimeline() {
             }
             
             const canFill = (inst.startTime > leftBound + 0.01) || ((inst.startTime + inst.duration) < rightBound - 0.01);
+            const hasSlider = inst.duration > 0.05;
 
-            const overlay = document.createElement('div');
-            overlay.className = 'slice-overlay';
-            
-            if (inst.duration > 0.05) {
-                overlay.innerHTML = `
-                    <input type="range" class="slice-range" min="5" max="95" value="50" data-id="${inst.id}">
-                `;
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'slice-overlay';
+                el.appendChild(overlay);
             }
 
-            const actions = document.createElement('div');
-            actions.className = 'slice-actions';
-            
-            if (inst.duration > 0.05) {
-                actions.innerHTML += `<button class="slice-overlay-btn btn-do-slice" data-id="${inst.id}">✂ Split</button>`;
+            // Only update innerHTML if structural conditions changed to preserve native slider drag state
+            if (overlay.dataset.canFill !== String(canFill) || overlay.dataset.hasSlider !== String(hasSlider)) {
+                let html = '';
+                if (hasSlider) html += `<input type="range" class="slice-range" min="5" max="95" value="50" data-id="${inst.id}">`;
+                
+                let actionsHtml = '';
+                if (hasSlider) actionsHtml += `<button class="slice-overlay-btn btn-do-slice" data-id="${inst.id}">✂ Split</button>`;
+                if (canFill) actionsHtml += `<button class="slice-overlay-btn btn-do-fill" data-id="${inst.id}">↔ Fill</button>`;
+                if (actionsHtml !== '') html += `<div class="slice-actions">${actionsHtml}</div>`;
+                
+                overlay.innerHTML = html;
+                overlay.dataset.canFill = String(canFill);
+                overlay.dataset.hasSlider = String(hasSlider);
             }
-            if (canFill) {
-                actions.innerHTML += `<button class="slice-overlay-btn btn-do-fill" data-id="${inst.id}">↔ Fill</button>`;
-            }
-            
-            if (actions.innerHTML !== '') {
-                overlay.appendChild(actions);
-            }
-            el.appendChild(overlay);
+        } else if (overlay) {
+            overlay.remove();
         }
-
-        container.appendChild(el);
     });
 }
