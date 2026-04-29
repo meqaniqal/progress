@@ -13,7 +13,7 @@ export function generateAIPrompt(progression, bpm, keyName, mode = 'major') {
     let totalTension = 0;
 
     progression.forEach(chord => {
-        const profile = getHarmonicProfile(chord.symbol, mode);
+        const profile = getHarmonicProfile(chord.symbol, mode, chord.key);
         totalTension += profile.tension;
         if (profile.isBorrowed) hasBorrowed = true;
         if (/(9|11|13|maj7)/.test(chord.symbol)) hasExtensions = true;

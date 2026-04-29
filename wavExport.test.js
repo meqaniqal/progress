@@ -9,8 +9,8 @@ describe('WAV Export - Layer 1 Timeline Calculator', () => {
     it('should correctly stagger startTimes based on BPM', () => {
         const bpm = 60; // 1 beat per second
         const progression = [
-            { symbol: 'I', key: 60 },
-            { symbol: 'V', key: 60 }
+            { symbol: 'I', key: 60, duration: 1 },
+            { symbol: 'V', key: 60, duration: 1 }
         ];
         
         const timeline = calculateAudioTimeline(progression, bpm, false);

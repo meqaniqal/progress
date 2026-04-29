@@ -34,21 +34,31 @@
         <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
             <strong style="font-size: 16px;">Key: <span id="key-display">C Major</span></strong>
             <select id="key-selector" class="rhythm-select" style="padding: 4px 8px;">
-                <option value="60">C Major</option>
-                <option value="61">C♯/D♭ Major</option>
-                <option value="62">D Major</option>
-                <option value="63">D♯/E♭ Major</option>
-                <option value="64">E Major</option>
-                <option value="65">F Major</option>
-                <option value="66">F♯/G♭ Major</option>
-                <option value="67">G Major</option>
-                <option value="68">G♯/A♭ Major</option>
-                <option value="69">A Major</option>
-                <option value="70">A♯/B♭ Major</option>
-                <option value="71">B Major</option>
+                <option value="60">C</option>
+                <option value="61">C♯/D♭</option>
+                <option value="62">D</option>
+                <option value="63">D♯/E♭</option>
+                <option value="64">E</option>
+                <option value="65">F</option>
+                <option value="66">F♯/G♭</option>
+                <option value="67">G</option>
+                <option value="68">G♯/A♭</option>
+                <option value="69">A</option>
+                <option value="70">A♯/B♭</option>
+                <option value="71">B</option>
+            </select>
+            <select id="mode-selector" class="rhythm-select" style="padding: 4px 8px;">
+                <option value="major">Major</option>
+                <option value="minor">Natural Minor</option>
+                <option value="harmonicMinor">Harmonic Minor</option>
+                <option value="melodicMinor">Melodic Minor</option>
+                <option value="dorian">Dorian</option>
+                <option value="phrygian">Phrygian</option>
+                <option value="lydian">Lydian</option>
+                <option value="mixolydian">Mixolydian</option>
             </select>
         </div>
-        <div>
+        <div id="palette-diatonic">
             <strong>Diatonic:</strong>
             <button class="chord-btn" data-chord="I">I</button>
             <button class="chord-btn" data-chord="ii">ii</button>
@@ -56,6 +66,7 @@
             <button class="chord-btn" data-chord="IV">IV</button>
             <button class="chord-btn" data-chord="V">V</button>
             <button class="chord-btn" data-chord="vi">vi</button>
+            <button class="chord-btn" data-chord="vii°">vii°</button>
         </div>
         <div style="margin-top: 10px;">
             <strong>Borrowed (Modal Mixture):</strong>

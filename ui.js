@@ -1,8 +1,8 @@
-import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getAlternatives, getTurnaroundSuggestions } from './theory.js?v=3';
+import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getAlternatives, getTurnaroundSuggestions, getDiatonicChords } from './theory.js?v=3';
 
 export const KEY_NAMES = {
-    60: 'C Major', 61: 'C♯/D♭ Major', 62: 'D Major', 63: 'D♯/E♭ Major', 64: 'E Major', 65: 'F Major',
-    66: 'F♯/G♭ Major', 67: 'G Major', 68: 'G♯/A♭ Major', 69: 'A Major', 70: 'A♯/B♭ Major', 71: 'B Major'
+    60: 'C', 61: 'C♯/D♭', 62: 'D', 63: 'D♯/E♭', 64: 'E', 65: 'F',
+    66: 'F♯/G♭', 67: 'G', 68: 'G♯/A♭', 69: 'A', 70: 'A♯/B♭', 71: 'B'
 };
 
 export function highlightChordInUI(index) {
@@ -23,18 +23,25 @@ export function updateLoopButtonUI(state) {
 }
 
 export function updateKeyAndModeDisplay(state) {
-    const modeStr = state.mode === 'major' ? 'Major' : 'Minor';
-    const keyName = KEY_NAMES[state.baseKey] || 'C';
+    const modeStr = state.mode.charAt(0).toUpperCase() + state.mode.slice(1).replace(/([A-Z])/g, ' $1').trim();
+    const keyName = KEY_NAMES[state.baseKey] || 'C'; // This is now just the root note name
     document.getElementById('key-display').textContent = `${keyName} ${modeStr}`;
     document.getElementById('key-selector').value = state.baseKey;
     
     const modeSelector = document.getElementById('mode-selector');
     if (modeSelector) modeSelector.value = state.mode;
     
-    const palMajor = document.getElementById('palette-major');
-    const palMinor = document.getElementById('palette-minor');
-    if (palMajor) palMajor.style.display = state.mode === 'major' ? 'block' : 'none';
-    if (palMinor) palMinor.style.display = state.mode === 'minor' ? 'block' : 'none';
+    const diatonicContainer = document.getElementById('palette-diatonic');
+    if (diatonicContainer) {
+        const btns = diatonicContainer.querySelectorAll('.chord-btn');
+        const diatonicSymbols = getDiatonicChords(state.mode);
+        btns.forEach((btn, index) => {
+            if (diatonicSymbols[index]) {
+                btn.dataset.chord = diatonicSymbols[index];
+                btn.textContent = diatonicSymbols[index].replace(/b/g, '♭').replace(/#/g, '♯');
+            }
+        });
+    }
 }
 
 function createBracketElement(id, text) {
@@ -93,7 +100,7 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         if (isTemp) el.classList.add('temporary');
         else el.classList.remove('temporary');
 
-        const profile = getHarmonicProfile(displayChord.symbol, state.mode);
+        const profile = getHarmonicProfile(displayChord.symbol, state.mode, displayChord.key);
         const chordNotes = getChordNotes(displayChord.symbol, displayChord.key);
         let absoluteHue = 240; 
         if (chordNotes) {
@@ -108,13 +115,13 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         
         if (index > 0) {
             const prevChord = state.temporarySwaps[index - 1] || state.currentProgression[index - 1];
-            const prevProfile = getHarmonicProfile(prevChord.symbol, state.mode);
+            const prevProfile = getHarmonicProfile(prevChord.symbol, state.mode, prevChord.key);
             backwardTensionDelta = profile.tension - prevProfile.tension;
         }
         
         if (index < state.currentProgression.length - 1) {
             const nextChord = state.temporarySwaps[index + 1] || state.currentProgression[index + 1];
-            const nextProfile = getHarmonicProfile(nextChord.symbol, state.mode);
+            const nextProfile = getHarmonicProfile(nextChord.symbol, state.mode, nextChord.key);
             forwardTensionDelta = nextProfile.tension - profile.tension;
         }
 
@@ -132,7 +139,7 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
 
             if (index < state.currentProgression.length - 1) {
                 const nextChord = state.temporarySwaps[index + 1] || state.currentProgression[index + 1];
-                const nextProfile = getHarmonicProfile(nextChord.symbol, state.mode);
+                const nextProfile = getHarmonicProfile(nextChord.symbol, state.mode, nextChord.key);
                 const yEnd = (1 - (nextProfile.tension + 1) / 2) * 100;
                 graphSegment.style.setProperty('--tension-y-end', `${yEnd}%`);
             } else {
@@ -165,8 +172,9 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
     const modPanel = document.getElementById('modulation-panel');
     if (lastChord && lastChord.key !== state.baseKey) {
         modPanel.style.display = 'block';
-        document.getElementById('mod-from-key').textContent = KEY_NAMES[lastChord.key];
-        document.getElementById('mod-to-key').textContent = KEY_NAMES[state.baseKey];
+        const modeStr = state.mode.charAt(0).toUpperCase() + state.mode.slice(1).replace(/([A-Z])/g, ' $1').trim();
+        document.getElementById('mod-from-key').textContent = `${KEY_NAMES[lastChord.key]} ${modeStr}`;
+        document.getElementById('mod-to-key').textContent = `${KEY_NAMES[state.baseKey]} ${modeStr}`;
         
         const btnContainer = document.getElementById('mod-buttons');
         btnContainer.innerHTML = '';
@@ -353,7 +361,8 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
         transRow.innerHTML = `<strong class="inspector-label">Out of Key:</strong>`;
         const transBtn = document.createElement('button');
         transBtn.className = 'chord-btn';
-        transBtn.textContent = `Transpose to ${KEY_NAMES[state.baseKey]}`;
+        const modeStr = state.mode.charAt(0).toUpperCase() + state.mode.slice(1).replace(/([A-Z])/g, ' $1').trim();
+        transBtn.textContent = `Transpose to ${KEY_NAMES[state.baseKey]} ${modeStr}`;
         transBtn.dataset.action = 'transpose';
         transBtn.dataset.index = index;
         transRow.appendChild(transBtn);

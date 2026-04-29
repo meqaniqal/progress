@@ -55,3 +55,4 @@
 - Added Generative Multi-Pass Export UI controls and integrated looping logic into both MIDI and offline WAV export engines.
 - Established a continuous chord selection model with `localStorage` persistence to ensure seamless foldaway panel UX.
 - Integrated `arp.js` into export pipelines to ensure 1:1 playback parity for polyrhythmic arpeggiation in WAV and MIDI files.
+- Replaced hardcoded chord dictionaries with a generative mathematical Roman Numeral parser, unlocking full Omni-Scale support for exotic modes (Dorian, Lydian, Harmonic Minor, etc.).

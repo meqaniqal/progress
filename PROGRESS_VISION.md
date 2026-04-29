@@ -123,10 +123,10 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Generative Multi-Pass Export (Completed):** Export Passes UI added and multi-pass looping integrated into MIDI/WAV offline rendering engines.
 - **Probabilistic Pattern Sequencing:** Allow assigning percent-based probabilities to specific rhythm/arp patterns per loop cycle.
 - **Intelligent Bassline & Drum Generation:** Drum tracks with global/local edits, and basslines built on the same rhythm editor tech.
-- **True Minor Key & Omni-Scale Theory Framework:** 
+- **True Minor Key & Omni-Scale Theory Framework (Completed):** 
   - **State & UI (Completed):** `state.mode` supports modes (`major`, `minor`) with dynamic UI palettes swapping diatonic/borrowed chords.
   - **Context-Aware Math (Completed):** Tension analysis (`getHarmonicProfile`), modulation, and turnaround suggestions accurately contextualize relative to the active mode.
-  - Eventually expand to other modes (Dorian, Lydian) and microtonal systems.
+  - **Omni-Scale Math (Completed):** Generative interval math supports Dorian, Lydian, Harmonic Minor, and custom scales, replacing hardcoded dictionaries with a dynamic Roman Numeral parser. Microtonal systems planned for future.
 - **Workflow & Defaults Adjustments (Completed):** Update default tempo to 120bpm and default chord duration to 2 beats. Ensure duration button highlighting updates immediately upon selection.
 - **Rhythm Pattern Copy/Paste (Completed):** Ability to copy a sliced/arpeggiated rhythm pattern from one chord and paste it to another.
 - **Functional Transposition (Completed):** Added a context-aware button in the Swap Menu to instantly transpose any out-of-key chord to the currently selected global key.

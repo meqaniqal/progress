@@ -1,4 +1,4 @@
-import { applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile } from './theory.js';
+import { applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension } from './theory.js';
 
 describe('Theory & Voice Leading Module', () => {
     
@@ -71,10 +71,10 @@ describe('Theory & Voice Leading Module', () => {
             
             const symbols = suggestions.map(s => s.symbol);
             
-            // A min (i in A -> iv in E), C Maj (III in A -> VI in E), G Maj (VII in A -> III in E)
+            // A min (i in A -> iv in E), C Maj (bIII in A -> bVI in E), G Maj (bVII in A -> bIII in E)
             expect(symbols).toContain('iv');
-            expect(symbols).toContain('VI');
-            expect(symbols).toContain('III');
+            expect(symbols).toContain('bVI');
+            expect(symbols).toContain('bIII');
         });
     });
 
@@ -100,13 +100,21 @@ describe('Theory & Voice Leading Module', () => {
         });
     });
     
-    describe('getHarmonicProfile', () => {
-        it('should return lowest tension for tonic chords depending on mode', () => {
-            const majorTonic = getHarmonicProfile('I', 'major');
-            const minorTonic = getHarmonicProfile('i', 'minor');
+    describe('Mathematical Tension & Omni-Scale Profile', () => {
+        it('should algorithmically determine tension values based on interval vectors', () => {
+            const majorTriad = calculateChordTension([60, 64, 67]);
+            const dimTriad = calculateChordTension([60, 63, 66]); // Has tritone
             
-            expect(majorTonic.tension).toBe(-1.0);
-            expect(minorTonic.tension).toBe(-1.0); // `i` should be home rest in minor
+            expect(dimTriad).toBeGreaterThan(majorTriad);
+        });
+        
+        it('should correctly identify borrowed chords mathematically via scale pitch class comparison', () => {
+            // bVI in C Major (Ab Maj) contains Ab/G# which is not in C Major scale
+            const borrowedProfile = getHarmonicProfile('bVI', 'major', 60);
+            const diatonicProfile = getHarmonicProfile('vi', 'major', 60);
+            
+            expect(borrowedProfile.isBorrowed).toBe(true);
+            expect(diatonicProfile.isBorrowed).toBe(false);
         });
     });
 });
