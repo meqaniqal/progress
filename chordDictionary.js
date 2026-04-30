@@ -38,11 +38,11 @@ export const CHORD_INTERVALS = {
     'ii9':    [2, 5, 9, 12, 16],
     'ii11':   [2, 5, 9, 12, 16, 19],
     'V9':     [7, 11, 14, 17, 21],
-    'V11':    [7, 11, 14, 17, 21, 24],
+    'V11':    [7, 12, 14, 17, 21], // Voiced as V9sus4 to avoid the harsh M3/P11 clash and control the top register
     'Vsus4':  [7, 12, 14],
     'V7sus4': [7, 12, 14, 17],
     'V7#9':   [7, 11, 14, 17, 22], // Altered Dominant (Tension)
-    'V7b13':  [7, 11, 14, 17, 27], // Altered Dominant (Tension)
+    'V7b13':  [7, 11, 14, 15, 17], // Tighter voicing placing the b13 below the 7th
     'iv7':    [5, 8, 12, 15],
     'bVImaj7':[8, 12, 15, 19],
     'bVII7':  [10, 14, 17, 20]
