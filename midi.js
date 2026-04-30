@@ -1,6 +1,7 @@
 import { getChordNotes, getPlayableNotes } from './theory.js';
 import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
+import { resolvePattern } from './patternUtils.js';
 
 export function exportToMidi(state) {
     if (state.currentProgression.length === 0) {
@@ -29,7 +30,16 @@ export function exportToMidi(state) {
         // Add polyrhythmic chords and arpeggios to track
         state.currentProgression.forEach((chord, index) => {
             const chordNotes = midiNotesToWrite[index];
-            const pattern = chord.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
+            
+            let pattern = chord.chordPattern;
+            let isGlobalChord = false;
+            if (pattern && !pattern.isLocalOverride && state.globalPatterns && state.globalPatterns.chordPattern) {
+                pattern = state.globalPatterns.chordPattern;
+                isGlobalChord = true;
+            }
+            pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
+            pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 2);
+            
             const beats = Number(chord.duration) || 2;
             const slotTicks = beats * 128;
             const chordDurationSec = (60.0 / Number(state.bpm)) * beats;
@@ -84,12 +94,41 @@ export function exportToMidi(state) {
 
     // Add a bass line! (Root notes played down two octaves)
     const bassTrack = new MidiWriter.Track();
+    let currentBassGlobalTick = 0;
+    let bassSlotStartTick = 0;
+
     for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
         state.currentProgression.forEach(chord => {
             const rootNote = getChordNotes(chord.symbol, chord.key)[0] + CONFIG.BASS_OCTAVE_DROP; 
             const beats = Number(chord.duration) || 2;
-            const durationTicks = beats * 128;
-            bassTrack.addEvent(new MidiWriter.NoteEvent({ pitch: [rootNote], duration: `T${durationTicks}`, velocity: CONFIG.MIDI_BASS_VELOCITY }));
+            const slotTicks = beats * 128;
+            
+            let bPattern = chord.bassPattern;
+            let isGlobalBass = false;
+            if (bPattern && !bPattern.isLocalOverride && state.globalPatterns && state.globalPatterns.bassPattern) {
+                bPattern = state.globalPatterns.bassPattern;
+                isGlobalBass = true;
+            }
+            bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
+            bPattern = resolvePattern(bPattern, isGlobalBass, beats);
+
+            const instances = [...bPattern.instances].sort((a, b) => a.startTime - b.startTime);
+            
+            instances.forEach(instance => {
+                const instanceStartTick = bassSlotStartTick + Math.round(instance.startTime * slotTicks);
+                const instanceDurationTicks = Math.round(instance.duration * slotTicks * 0.95);
+                const waitTicks = Math.max(0, instanceStartTick - currentBassGlobalTick);
+
+                bassTrack.addEvent(new MidiWriter.NoteEvent({ 
+                    pitch: [rootNote], 
+                    duration: `T${instanceDurationTicks}`, 
+                    wait: `T${waitTicks}`,
+                    velocity: CONFIG.MIDI_BASS_VELOCITY 
+                }));
+                currentBassGlobalTick += waitTicks + instanceDurationTicks;
+            });
+
+            bassSlotStartTick += slotTicks;
         });
     }
 

@@ -252,6 +252,15 @@ button.control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .tool-btn.active { background: var(--ctrl-primary-bg); color: #fff; border-color: var(--ctrl-primary-bg); }
 .rhythm-select { padding: 6px; font-size: 13px; background: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-main); border-radius: 4px; outline: none; cursor: pointer; }
 
+/* --- Pattern Editor Tabs & Toggles --- */
+.pattern-tabs { display: flex; border-bottom: 1px solid var(--border-main); margin-bottom: 0; padding: 0 10px; }
+.pattern-tab { padding: 8px 16px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-main); cursor: pointer; font-weight: 600; opacity: 0.6; transition: all 0.2s ease; margin-bottom: -1px; }
+.pattern-tab:hover { opacity: 1; background: var(--ctrl-secondary-hover); }
+.pattern-tab.active { opacity: 1; border-bottom-color: var(--ctrl-primary-bg); color: var(--ctrl-primary-bg); }
+.global-local-toggle { display: flex; background: var(--bg-body); border-radius: 6px; padding: 2px; border: 1px solid var(--border-main); }
+.global-local-toggle .toggle-btn { padding: 4px 10px; font-size: 11px; background: transparent; border: none; border-radius: 4px; cursor: pointer; color: var(--text-main); opacity: 0.6; font-weight: bold; transition: all 0.2s ease; }
+.global-local-toggle .toggle-btn.active { background: var(--ctrl-primary-bg); color: #fff; opacity: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
 .rhythm-timeline-container { 
     position: relative; 
     width: 100%; 

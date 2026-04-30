@@ -153,16 +153,28 @@
     <!-- Per-Chord Rhythm Editor Panel (Anchored) -->
     <div class="panel foldaway-panel" id="rhythm-editor-panel" style="display: none; margin-bottom: 1.5rem;">
         <div class="foldaway-header" id="rhythm-header">
-            <h3 style="margin: 0; border: none; padding: 0; display: flex; align-items: center;">
-                <span class="foldaway-icon">▼</span>
-                <span id="rhythm-editor-title">Rhythm Editor</span>
+            <h3 style="margin: 0; border: none; padding: 0; display: flex; align-items: center; width: 100%; justify-content: space-between;">
+                <div style="display: flex; align-items: center;">
+                    <span class="foldaway-icon">▼</span>
+                    <span id="rhythm-editor-title">Pattern Editor</span>
+                </div>
+                <div class="global-local-toggle" style="margin-right: 10px;">
+                    <button class="toggle-btn" data-mode="global">Global Pattern</button>
+                    <button class="toggle-btn active" data-mode="local">Local Override</button>
+                </div>
             </h3>
         </div>
         
         <div class="foldaway-content" id="rhythm-editor-content">
-        <div class="rhythm-toolbar" style="border-bottom: none; padding-bottom: 0;">
+        <div class="pattern-tabs">
+            <button class="pattern-tab active" data-tab="chordPattern">Chords</button>
+            <button class="pattern-tab" data-tab="bassPattern">Bass</button>
+            <button class="pattern-tab" data-tab="drumPattern">Drums</button>
+        </div>
+        <div class="rhythm-toolbar" style="border-bottom: none; padding-bottom: 0; padding-top: 10px;">
             <div class="tool-group">
-                <button class="control-btn secondary" id="btn-rhythm-reset" style="padding: 6px 12px; font-size: 13px;" title="Reset pattern to a single chord block">↺ Reset</button>
+                <button class="control-btn secondary" id="btn-rhythm-reset" style="padding: 6px 12px; font-size: 13px;" title="Revert to inheriting the Global Pattern">↺ Reset to Global</button>
+                <button class="control-btn secondary" id="btn-rhythm-clear" style="padding: 6px 12px; font-size: 13px;" title="Override with a single, un-sliced basic block">⊘ Clear</button>
                 <button class="control-btn secondary" id="btn-rhythm-copy" style="padding: 6px 12px; font-size: 13px;" title="Copy rhythm pattern">📋 Copy</button>
                 <button class="control-btn secondary" id="btn-rhythm-paste" style="padding: 6px 12px; font-size: 13px;" title="Paste rhythm pattern" disabled>📋 Paste</button>
                 <button class="control-btn secondary" id="btn-rhythm-delete" style="padding: 6px 12px; font-size: 13px;" title="Delete selected slices">🗑 Delete</button>

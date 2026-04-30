@@ -58,10 +58,10 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Workflow & Defaults Adjustments:** Optimized defaults (120bpm, 2 beats) and immediate UI feedback for rapid sequencing. (Complete ✅)
 - **Architectural Refactoring:** Extract global state to a dedicated store, optimize DOM reconciliation in the Rhythm Editor, and implement strict event delegation in the Inspector.
 - **Generative Multi-Pass Export:** State data structure stubbed; pending export logic and UI.
-- **Unified Tabbed Pattern Editor:** Consolidating Chords, Bass, and Drums into a single tabbed UI with `Global / Local` toggles to maintain a hyper-compact workspace.
+- **Unified Tabbed Pattern Editor:** Consolidating Chords, Bass, and Drums into a single tabbed UI. Features a Global/Local cascade system where local changes detach from the global pattern, "Reset to Global" re-inherits the global pattern, and "Clear" explicitly overrides to a single un-sliced block. (Complete ✅)
 - **Intelligent Bassline Editor:** Timeline-based slash chords, walking basslines, and rhythm-informed generation.
 - **Advanced Modular Synthesis:** Pluggable, editable synths for Chords and Basslines, optimized for AI audio recognition and professional WAV export.
-- **Professional Generative Drums:** High-quality generative drum editor with decoupled modular UI logic.
+- **Integrated Drum Machine:** Built-in synthesized 4-piece kit (Kick, Snare, CHH, OHH) with a dedicated multi-row grid editor. Supports double-click add/remove, drag auditioning, and full MIDI/WAV export.
 - **True Minor Key & Omni-Scale Framework:**
   - Decouple global key state to support modes (Major/Minor). (Complete ✅)
   - Dynamic UI palettes that render correct diatonic chords for the active scale. (Complete ✅)

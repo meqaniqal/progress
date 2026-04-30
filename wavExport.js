@@ -2,6 +2,7 @@ import { getChordNotes, getPlayableNotes } from './theory.js';
 import { CONFIG } from './config.js';
 import { audioBufferToWav } from './wavEncoder.js';
 import { generateArpNotes } from './arp.js';
+import { resolvePattern } from './patternUtils.js';
 
 // --- Layer 1: Pure Timeline Calculator (Testable) ---
 export function calculateAudioTimeline(progression, bpm, useVoiceLeading, exportPasses = 1, globalOptions = {}) {
@@ -19,7 +20,16 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
     for (let pass = 0; pass < exportPasses; pass++) {
         progression.forEach((chord, index) => {
             const chordNotes = notesArray[index];
-            const pattern = chord.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
+            
+            let pattern = chord.chordPattern;
+            let isGlobalChord = false;
+            if (pattern && !pattern.isLocalOverride && globalOptions.globalPatterns && globalOptions.globalPatterns.chordPattern) {
+                pattern = globalOptions.globalPatterns.chordPattern;
+                isGlobalChord = true;
+            }
+            pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
+            pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 2);
+            
             const beats = Number(chord.duration) || 2;
             const duration = (60.0 / Number(bpm)) * beats;
 
@@ -64,12 +74,28 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
             const rootChordNotes = getChordNotes(chord.symbol, chord.key);
             if (rootChordNotes) {
                 const bassNote = rootChordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
-                timeline.push({
-                    midiNote: bassNote,
-                    freq: Math.pow(2, (bassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
-                    startTime: currentTime,
-                    duration: duration,
-                    type: 'sine' // Sub bass
+                
+                let bPattern = chord.bassPattern;
+                let isGlobalBass = false;
+                if (bPattern && !bPattern.isLocalOverride && globalOptions.globalPatterns && globalOptions.globalPatterns.bassPattern) {
+                    bPattern = globalOptions.globalPatterns.bassPattern;
+                    isGlobalBass = true;
+                }
+                bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
+                bPattern = resolvePattern(bPattern, isGlobalBass, Number(chord.duration) || 2);
+
+                bPattern.instances.forEach(instance => {
+                    const instanceStartTime = currentTime + (instance.startTime * duration);
+                    const instanceDuration = instance.duration * duration;
+                    const gateDuration = instanceDuration * 0.95;
+
+                    timeline.push({
+                        midiNote: bassNote,
+                        freq: Math.pow(2, (bassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
+                        startTime: instanceStartTime,
+                        duration: gateDuration,
+                        type: 'sine' // Sub bass
+                    });
                 });
             }
             currentTime += duration;

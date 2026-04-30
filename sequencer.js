@@ -2,6 +2,7 @@ import { getChordNotes, getPlayableNotes } from './theory.js';
 import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators } from './synth.js';
+import { resolvePattern } from './patternUtils.js';
 
 let uiTimeouts = [];
 
@@ -91,7 +92,15 @@ export function playProgression(getState, onHighlight, onComplete) {
         const chordObj = state.currentProgression[absIndex];
         const beats = Number(chordObj.duration) || 2;
         const chordSlotDuration = (60.0 / Number(state.bpm)) * beats;
-        const pattern = chordObj.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
+        
+        let pattern = chordObj.chordPattern;
+        let isGlobalChord = false;
+        if (pattern && !pattern.isLocalOverride && state.globalPatterns && state.globalPatterns.chordPattern) {
+            pattern = state.globalPatterns.chordPattern;
+            isGlobalChord = true;
+        }
+        pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
+        pattern = resolvePattern(pattern, isGlobalChord, beats);
 
         // Render each rhythmic slice instance inside the chord slot
         pattern.instances.forEach(instance => {
@@ -120,7 +129,22 @@ export function playProgression(getState, onHighlight, onComplete) {
         const rootChordNotes = getChordNotes(rootSymbol, rootKey);
         if (rootChordNotes) {
             const rootNoteMidi = rootChordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
-            playTone(midiToFreq(rootNoteMidi), time, chordSlotDuration, 'sine'); // Solid bass holding the root for the whole slot
+            
+            let bPattern = chordObj.bassPattern;
+            let isGlobalBass = false;
+            if (bPattern && !bPattern.isLocalOverride && state.globalPatterns && state.globalPatterns.bassPattern) {
+                bPattern = state.globalPatterns.bassPattern;
+                isGlobalBass = true;
+            }
+            bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
+            bPattern = resolvePattern(bPattern, isGlobalBass, beats);
+            
+            bPattern.instances.forEach(instance => {
+                const instanceStartTime = time + (instance.startTime * chordSlotDuration);
+                const instanceDuration = instance.duration * chordSlotDuration;
+                const gateDuration = instanceDuration * 0.95;
+                playTone(midiToFreq(rootNoteMidi), instanceStartTime, gateDuration, 'sine');
+            });
         }
 
         const delayMs = (time - getAudioCurrentTime()) * 1000;

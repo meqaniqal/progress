@@ -1,6 +1,6 @@
 import { saveState, loadState } from './storage.js';
 import { calculateLoopBounds } from './stateUtils.js';
-import { initChordPattern } from './patternUtils.js';
+import { initChordPattern, initPatternSet } from './patternUtils.js';
 
 export const state = {
     currentProgression: [],
@@ -16,7 +16,8 @@ export const state = {
     theme: 'light',
     mode: 'major',
     exportPasses: 1,
-    selectedChordIndex: null
+    selectedChordIndex: null,
+    globalPatterns: initPatternSet()
 };
 
 // Resolves the progression with any active temporary swaps applied
@@ -46,6 +47,7 @@ export function saveHistoryState() {
     state.history.push({
         currentProgression: JSON.parse(JSON.stringify(state.currentProgression)),
         temporarySwaps: JSON.parse(JSON.stringify(state.temporarySwaps)),
+        globalPatterns: JSON.parse(JSON.stringify(state.globalPatterns)),
         loopStart: state.loopStart,
         loopEnd: state.loopEnd
     });
@@ -57,6 +59,7 @@ export function undoState() {
     const previousState = state.history.pop();
     state.currentProgression = previousState.currentProgression;
     state.temporarySwaps = previousState.temporarySwaps;
+    if (previousState.globalPatterns) state.globalPatterns = previousState.globalPatterns;
     state.loopStart = previousState.loopStart;
     state.loopEnd = previousState.loopEnd;
     applyLoopBounds();
@@ -98,6 +101,23 @@ export function loadAndApplyInitialState() {
             if (!isNaN(parsedIndex)) state.selectedChordIndex = Math.max(0, parsedIndex);
         }
 
+        // Helper for sanitizing any rhythm pattern
+        const sanitizePat = (pat) => {
+            if (!pat || !Array.isArray(pat.instances)) return null;
+            return {
+                ...pat,
+                // If a legacy pattern is migrating, preserve it by defaulting to a local override
+                isLocalOverride: pat.isLocalOverride !== undefined ? Boolean(pat.isLocalOverride) : true,
+                instances: pat.instances.map(inst => ({
+                    ...inst,
+                    id: typeof inst.id === 'string' ? inst.id.replace(/[^a-zA-Z0-9\-_]/g, '').substring(0, 16) : Math.random().toString(36).substring(2, 10),
+                    startTime: typeof inst.startTime !== 'undefined' ? Number(inst.startTime) : 0,
+                    duration: typeof inst.duration !== 'undefined' ? Number(inst.duration) : 1,
+                    isSelected: Boolean(inst.isSelected)
+                }))
+            };
+        };
+
         // 2. Sanitize Progression Array (Prevent XSS and malformed structures)
         if (Array.isArray(savedState.currentProgression)) {
             state.currentProgression = savedState.currentProgression.map(item => {
@@ -114,19 +134,23 @@ export function loadAndApplyInitialState() {
                 chordObj.voicingType = typeof item.voicingType === 'string' ? item.voicingType : 'global';
                 chordObj.voicing = item.voicing ? { ...item.voicing } : null;
 
-                if (!chordObj.pattern || !Array.isArray(chordObj.pattern.instances)) {
-                    chordObj.pattern = initChordPattern();
-                } else {
-                    // Sanitize rhythm pattern instances
-                    chordObj.pattern.instances = chordObj.pattern.instances.map(inst => ({
-                        ...inst,
-                        // Strip quotes/brackets from IDs to prevent DOM attribute breakout
-                        id: typeof inst.id === 'string' ? inst.id.replace(/[^a-zA-Z0-9\-_]/g, '').substring(0, 16) : Math.random().toString(36).substring(2, 10),
-                        startTime: typeof inst.startTime !== 'undefined' ? Number(inst.startTime) : 0,
-                        duration: typeof inst.duration !== 'undefined' ? Number(inst.duration) : 1,
-                        isSelected: Boolean(inst.isSelected)
-                    }));
+                // Migrate legacy pattern if it exists
+                if (chordObj.pattern) {
+                    chordObj.chordPattern = chordObj.pattern;
+                    delete chordObj.pattern;
                 }
+
+                chordObj.chordPattern = sanitizePat(chordObj.chordPattern) || initChordPattern();
+                
+                if (!chordObj.bassPattern) {
+                    chordObj.bassPattern = JSON.parse(JSON.stringify(chordObj.chordPattern));
+                    chordObj.bassPattern.instances.forEach(inst => inst.id = Math.random().toString(36).substring(2, 10));
+                } else {
+                    chordObj.bassPattern = sanitizePat(chordObj.bassPattern) || initChordPattern();
+                }
+
+                chordObj.drumPattern = sanitizePat(chordObj.drumPattern) || initChordPattern();
+
                 return chordObj;
             });
         }
@@ -152,6 +176,15 @@ export function loadAndApplyInitialState() {
                     state.temporarySwaps[idx] = swapObj;
                 }
             });
+        }
+
+        // 4. Sanitize Global Patterns Array
+        if (savedState.globalPatterns) {
+            state.globalPatterns = {
+                chordPattern: sanitizePat(savedState.globalPatterns.chordPattern) || initChordPattern(),
+                bassPattern: sanitizePat(savedState.globalPatterns.bassPattern) || initChordPattern(),
+                drumPattern: sanitizePat(savedState.globalPatterns.drumPattern) || initChordPattern()
+            };
         }
     }
     applyLoopBounds();

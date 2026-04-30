@@ -8,8 +8,9 @@ export function generateId() {
  * Initializes a default rhythm pattern for a newly created or unedited chord.
  * The timeline is normalized from 0.0 (start) to 1.0 (end of the chord slot).
  */
-export function initChordPattern() {
+export function initChordPattern(isLocalOverride = false) {
     return {
+        isLocalOverride,
         // Global state for this specific chord's generative features
         generative: {
             mode: 'off', // 'off', 'one-shot', 'continuous'
@@ -27,6 +28,18 @@ export function initChordPattern() {
             }
         ]
     };
+}
+
+/**
+ * Initializes a full set of patterns for a chord (Chords, Bass, Drums).
+ * The bass defaults to inheriting the chord's rhythm slices.
+ */
+export function initPatternSet() {
+    const chordPattern = initChordPattern(false);
+    const bassPattern = JSON.parse(JSON.stringify(chordPattern));
+    bassPattern.instances.forEach(inst => inst.id = generateId()); // Ensure unique DOM IDs
+    const drumPattern = initChordPattern(false);
+    return { chordPattern, bassPattern, drumPattern };
 }
 
 /**
@@ -252,4 +265,39 @@ export function resizeInstance(pattern, instanceId, edge, newTime) {
         inst.id === instanceId ? { ...inst, startTime: newStart, duration: newDuration } : inst
     );
     return { ...pattern, instances: newInstances };
+}
+
+/**
+ * Resolves a pattern to a specific duration.
+ * If isGlobal is true, the pattern is treated as a 4-beat master loop.
+ * It will be truncated if the chord is shorter, or looped if the chord is longer.
+ */
+export function resolvePattern(pattern, isGlobal, chordBeats) {
+    if (!isGlobal) return pattern; // Local patterns scale to fit natively
+
+    const GLOBAL_BEATS = 4;
+    const resolvedInstances = [];
+    const loops = Math.ceil(chordBeats / GLOBAL_BEATS);
+
+    for (let loop = 0; loop < loops; loop++) {
+        for (const inst of pattern.instances) {
+            const absStart = (loop * GLOBAL_BEATS) + (inst.startTime * GLOBAL_BEATS);
+            let absEnd = absStart + (inst.duration * GLOBAL_BEATS);
+
+            if (absStart >= chordBeats) continue;
+            if (absEnd > chordBeats) absEnd = chordBeats;
+
+            const newDuration = absEnd - absStart;
+            if (newDuration > 0.001) { // Prevent micro-slices
+                resolvedInstances.push({
+                    ...inst,
+                    id: inst.id + '_' + loop,
+                    startTime: absStart / chordBeats,
+                    duration: newDuration / chordBeats
+                });
+            }
+        }
+    }
+
+    return { ...pattern, instances: resolvedInstances };
 }

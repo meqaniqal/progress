@@ -1,4 +1,4 @@
-import { initChordPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance, resizeInstance, generateId } from './patternUtils.js';
+import { initChordPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance, resizeInstance, generateId, resolvePattern } from './patternUtils.js';
 
 const editorState = {
     activeIndex: null,
@@ -7,7 +7,9 @@ const editorState = {
     isResizing: null,
     draggedInstanceId: null,
     clipboardPattern: null,
-    gridStepIndex: 5 // Default to 1/16th note
+    gridStepIndex: 5, // Default to 1/16th note
+    activeTab: 'chordPattern', // 'chordPattern', 'bassPattern', 'drumPattern'
+    isGlobal: false // false = Local Override, true = Global Pattern
 };
 
 let app = {}; // Stores references to global state and injected callbacks
@@ -21,17 +23,73 @@ const GRID_STEPS = [
     { label: '1/16', value: 0.0625 }
 ];
 
-export function initRhythmEditor(config) {
-    app = config;
+function hasValidContext() {
+    if (editorState.isGlobal) return true;
+    return editorState.activeIndex !== null && app.state.currentProgression[editorState.activeIndex] != null;
+}
 
-    const closeBtn = document.getElementById('btn-close-rhythm');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            if (app.onClose) app.onClose();
-        });
+function getCurrentPattern() {
+    if (editorState.isGlobal) return app.state.globalPatterns[editorState.activeTab];
+    if (editorState.activeIndex === null) return null;
+    const chord = app.state.currentProgression[editorState.activeIndex];
+    if (!chord) return null;
+    
+    const localPat = chord[editorState.activeTab];
+    if (localPat && !localPat.isLocalOverride) {
+        const globalPat = app.state.globalPatterns[editorState.activeTab];
+        const beats = Number(chord.duration) || 4;
+        return resolvePattern(globalPat, true, beats);
     }
+    return localPat;
+}
 
-    // --- Grid Slider Setup ---
+function setCurrentPattern(newPattern, markAsOverride = true) {
+    if (editorState.isGlobal) {
+        app.state.globalPatterns[editorState.activeTab] = newPattern;
+    } else {
+        if (editorState.activeIndex === null) return;
+        const chord = app.state.currentProgression[editorState.activeIndex];
+        if (chord) {
+            if (markAsOverride) newPattern.isLocalOverride = true;
+            chord[editorState.activeTab] = newPattern;
+        }
+    }
+}
+
+function getDurationBeats() {
+    if (editorState.isGlobal) return 4;
+    if (editorState.activeIndex === null) return 4;
+    const chord = app.state.currentProgression[editorState.activeIndex];
+    return chord ? (Number(chord.duration) || 4) : 4;
+}
+
+/** Sets up the 'Chords' | 'Bass' | 'Drums' tabs and the 'Global' | 'Local' toggle. */
+function _setupTabsAndToggles() {
+    // --- Tabs & Global/Local Toggle Setup ---
+    const tabs = document.querySelectorAll('.pattern-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            tabs.forEach(t => t.classList.remove('active'));
+            e.target.classList.add('active');
+            editorState.activeTab = e.target.dataset.tab;
+            renderRhythmTimeline();
+        });
+    });
+
+    const toggles = document.querySelectorAll('.toggle-btn');
+    toggles.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent foldaway header collapse
+            toggles.forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            editorState.isGlobal = e.target.dataset.mode === 'global';
+            renderRhythmTimeline();
+        });
+    });
+}
+
+/** Sets up the grid snapping slider. */
+function _setupGridSlider() {
     const gridSlider = document.getElementById('rhythm-grid-slider');
     const gridDisplay = document.getElementById('grid-display-value');
     
@@ -41,7 +99,10 @@ export function initRhythmEditor(config) {
         editorState.gridStepIndex = parseInt(e.target.value, 10);
         gridDisplay.textContent = GRID_STEPS[editorState.gridStepIndex].label;
     });
+}
 
+/** Sets up the arpeggiator controls and apply button. */
+function _setupArpControls() {
     // --- Arp Controls Setup ---
     const applyArpBtn = document.getElementById('btn-apply-arp');
     
@@ -80,11 +141,11 @@ export function initRhythmEditor(config) {
     }
 
     function handleArpDropdownChange() {
-        if (editorState.activeIndex === null) return;
-        const chord = app.state.currentProgression[editorState.activeIndex];
-        if (!chord || !chord.pattern) return;
+        if (editorState.activeTab !== 'chordPattern') return;
+        const pattern = getCurrentPattern();
+        if (!pattern) return;
 
-        const selectedInsts = chord.pattern.instances.filter(i => i.isSelected);
+        const selectedInsts = pattern.instances.filter(i => i.isSelected);
         // Update settings in real-time if an arp is already active on the selection
         if (selectedInsts.length > 0 && selectedInsts[0].arpSettings !== null) {
             const newSettings = {
@@ -93,7 +154,7 @@ export function initRhythmEditor(config) {
                 gate: 0.9 
             };
             app.saveHistoryState();
-            chord.pattern = applyArpSettings(chord.pattern, selectedInsts.map(i => i.id), newSettings);
+            setCurrentPattern(applyArpSettings(pattern, selectedInsts.map(i => i.id), newSettings));
             app.persistAppState();
             renderRhythmTimeline();
         }
@@ -104,11 +165,11 @@ export function initRhythmEditor(config) {
 
     // --- Apply / Toggle Arp Button ---
     applyArpBtn.addEventListener('click', () => {
-        if (editorState.activeIndex === null) return;
-        const chord = app.state.currentProgression[editorState.activeIndex];
-        if (!chord || !chord.pattern) return;
+        if (editorState.activeTab !== 'chordPattern') return;
+        const pattern = getCurrentPattern();
+        if (!pattern) return;
 
-        const selectedInsts = chord.pattern.instances.filter(i => i.isSelected);
+        const selectedInsts = pattern.instances.filter(i => i.isSelected);
         if (selectedInsts.length === 0) {
             alert("Please select at least one instance using the Select tool.");
             return;
@@ -119,22 +180,24 @@ export function initRhythmEditor(config) {
         const newSettings = hasArp ? null : { style: styleSelect.value, rate: rateSelect.value, gate: 0.9 };
 
         app.saveHistoryState();
-        chord.pattern = applyArpSettings(chord.pattern, selectedInsts.map(i => i.id), newSettings);
+        setCurrentPattern(applyArpSettings(pattern, selectedInsts.map(i => i.id), newSettings));
         app.persistAppState();
         renderRhythmTimeline();
     });
+}
 
+/** Sets up the Copy, Paste, Reset, and Delete buttons in the toolbar. */
+function _setupToolbarButtons() {
     // --- Copy & Paste Buttons ---
     const btnCopy = document.getElementById('btn-rhythm-copy');
     const btnPaste = document.getElementById('btn-rhythm-paste');
 
     btnCopy.addEventListener('click', () => {
-        if (editorState.activeIndex === null) return;
-        const chord = app.state.currentProgression[editorState.activeIndex];
-        if (!chord || !chord.pattern) return;
+        const pattern = getCurrentPattern();
+        if (!pattern) return;
         
         // Deep copy the pattern to the clipboard
-        editorState.clipboardPattern = JSON.parse(JSON.stringify(chord.pattern));
+        editorState.clipboardPattern = JSON.parse(JSON.stringify(pattern));
         btnPaste.disabled = false;
         
         // UX Feedback
@@ -144,44 +207,73 @@ export function initRhythmEditor(config) {
     });
 
     btnPaste.addEventListener('click', () => {
-        if (editorState.activeIndex === null || !editorState.clipboardPattern) return;
-        const chord = app.state.currentProgression[editorState.activeIndex];
-        if (!chord) return;
+        if (!editorState.clipboardPattern) return;
+        const pattern = getCurrentPattern();
+        if (!pattern) return;
         
         app.saveHistoryState();
         
         // Deep copy from clipboard and regenerate IDs to prevent cross-chord collisions
         const pastedPattern = JSON.parse(JSON.stringify(editorState.clipboardPattern));
-        pastedPattern.instances.forEach(inst => inst.id = generateId());
+        pastedPattern.instances.forEach(inst => {
+            inst.id = generateId();
+            if (editorState.activeTab !== 'chordPattern') {
+                inst.arpSettings = null; // Strip arps if pasting into Bass or Drums
+            }
+        });
         
-        chord.pattern = pastedPattern;
+        setCurrentPattern(pastedPattern);
         app.persistAppState();
         renderRhythmTimeline();
     });
 
-    // --- Reset & Delete Buttons ---
-    document.getElementById('btn-rhythm-reset').addEventListener('click', () => {
-        if (editorState.activeIndex === null) return;
-        const chord = app.state.currentProgression[editorState.activeIndex];
-        if (!chord) return;
-        app.saveHistoryState();
-        chord.pattern = initChordPattern();
-        editorState.activeOverlayId = null;
-        app.persistAppState();
-        renderRhythmTimeline();
-    });
+    // --- Reset & Clear Buttons ---
+    const btnReset = document.getElementById('btn-rhythm-reset');
+    const btnClear = document.getElementById('btn-rhythm-clear');
+
+    if (btnReset) {
+        btnReset.addEventListener('click', () => {
+            if (editorState.isGlobal || editorState.activeIndex === null) return;
+            app.saveHistoryState();
+            const chord = app.state.currentProgression[editorState.activeIndex];
+            if (chord && chord[editorState.activeTab]) {
+                chord[editorState.activeTab].isLocalOverride = false;
+            }
+            editorState.activeOverlayId = null;
+            app.persistAppState();
+            renderRhythmTimeline();
+        });
+    }
+
+    if (btnClear) {
+        btnClear.addEventListener('click', () => {
+            const pattern = getCurrentPattern();
+            if (!pattern) return;
+            app.saveHistoryState();
+            const clearedPat = initChordPattern();
+            if (!editorState.isGlobal) {
+                clearedPat.isLocalOverride = true;
+            }
+            setCurrentPattern(clearedPat, true);
+            editorState.activeOverlayId = null;
+            app.persistAppState();
+            renderRhythmTimeline();
+        });
+    }
 
     document.getElementById('btn-rhythm-delete').addEventListener('click', () => {
-        if (editorState.activeIndex === null) return;
-        const chord = app.state.currentProgression[editorState.activeIndex];
-        if (!chord || !chord.pattern) return;
+        const pattern = getCurrentPattern();
+        if (!pattern) return;
         app.saveHistoryState();
-        chord.pattern = { ...chord.pattern, instances: chord.pattern.instances.filter(i => !i.isSelected) };
+        setCurrentPattern({ ...pattern, instances: pattern.instances.filter(i => !i.isSelected) });
         editorState.activeOverlayId = null;
         app.persistAppState();
         renderRhythmTimeline();
     });
+}
 
+/** Sets up the complex pointer events for dragging, resizing, and creating instances. */
+function _setupTimelinePointerEvents() {
     // --- Timeline Interactions (Pointer Events for Mobile + Desktop) ---
     const timeline = document.getElementById('rhythm-timeline');
     let dragStartX = 0;
@@ -206,7 +298,7 @@ export function initRhythmEditor(config) {
         const resizeHandle = e.target.closest('.resize-handle');
         if (resizeHandle) {
             e.stopPropagation();
-            if (editorState.activeIndex === null) return;
+            if (!hasValidContext()) return;
             
             const instanceEl = resizeHandle.closest('.rhythm-instance');
             const instId = instanceEl.dataset.id;
@@ -217,11 +309,11 @@ export function initRhythmEditor(config) {
             timeline.setPointerCapture(e.pointerId);
             app.saveHistoryState();
             
-            const chord = app.state.currentProgression[editorState.activeIndex];
-            if (chord && chord.pattern) {
-                const currentInst = chord.pattern.instances.find(i => i.id === editorState.draggedInstanceId);
+            const pattern = getCurrentPattern();
+            if (pattern) {
+                const currentInst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
                 if (currentInst && !currentInst.isSelected) {
-                    chord.pattern = exclusiveSelect(chord.pattern, editorState.draggedInstanceId);
+                    setCurrentPattern(exclusiveSelect(pattern, editorState.draggedInstanceId), false);
                 }
             }
             return;
@@ -231,17 +323,17 @@ export function initRhythmEditor(config) {
         const now = Date.now();
 
         if (!instanceEl) {
-            if (editorState.activeIndex === null) return;
+            if (!hasValidContext()) return;
             // Manual double-tap detection for empty timeline areas
             if (now - lastTapTime < 300 && lastTapId === 'empty') {
-                const chord = app.state.currentProgression[editorState.activeIndex];
-                if (!chord || !chord.pattern) return;
+                const pattern = getCurrentPattern();
+                if (!pattern) return;
 
                 const rect = timeline.getBoundingClientRect();
                 const clickRatio = (e.clientX - rect.left) / rect.width;
 
                 app.saveHistoryState();
-                chord.pattern = fillGapInstance(chord.pattern, clickRatio);
+                setCurrentPattern(fillGapInstance(pattern, clickRatio));
                 app.persistAppState();
                 renderRhythmTimeline();
                 lastTapTime = 0;
@@ -252,7 +344,7 @@ export function initRhythmEditor(config) {
             return;
         }
 
-        if (editorState.activeIndex === null) return;
+        if (!hasValidContext()) return;
         
         const instId = instanceEl.dataset.id;
 
@@ -268,8 +360,8 @@ export function initRhythmEditor(config) {
         lastTapTime = now;
         lastTapId = instId;
 
-        const chord = app.state.currentProgression[editorState.activeIndex];
-        if (!chord || !chord.pattern) return;
+        const pattern = getCurrentPattern();
+        if (!pattern) return;
 
         dragStartX = e.clientX;
         dragStartY = e.clientY;
@@ -278,7 +370,7 @@ export function initRhythmEditor(config) {
         
         timeline.setPointerCapture(e.pointerId);
         
-        const inst = chord.pattern.instances.find(i => i.id === instId);
+        const inst = pattern.instances.find(i => i.id === instId);
         originalStartTime = inst ? inst.startTime : 0;
         originalDuration = inst ? inst.duration : 0;
         
@@ -287,10 +379,12 @@ export function initRhythmEditor(config) {
             app.saveHistoryState();
             
             // Auto-select on long press
-            const currentChord = app.state.currentProgression[editorState.activeIndex];
-            const currentInst = currentChord.pattern.instances.find(i => i.id === editorState.draggedInstanceId);
-            if (currentInst && !currentInst.isSelected) {
-                currentChord.pattern = exclusiveSelect(currentChord.pattern, editorState.draggedInstanceId);
+            const pat = getCurrentPattern();
+            if (pat) {
+                const currentInst = pat.instances.find(i => i.id === editorState.draggedInstanceId);
+                if (currentInst && !currentInst.isSelected) {
+                    setCurrentPattern(exclusiveSelect(pat, editorState.draggedInstanceId), false);
+                }
             }
 
             renderRhythmTimeline(); // Apply grabbing visuals via state
@@ -299,26 +393,26 @@ export function initRhythmEditor(config) {
 
     timeline.addEventListener('pointermove', (e) => {
         if (editorState.isResizing && editorState.draggedInstanceId) {
+            if (!hasValidContext()) return;
             const rect = timeline.getBoundingClientRect();
             let newTime = (e.clientX - rect.left) / rect.width;
 
-            const chord = app.state.currentProgression[editorState.activeIndex];
-
             // Grid Snapping Math
             const gridValue = GRID_STEPS[editorState.gridStepIndex].value;
-            const actualGridValue = gridValue * (4 / (Number(chord.duration) || 4));
+            const actualGridValue = gridValue * (4 / getDurationBeats());
             if (actualGridValue > 0 && !e.shiftKey) {
                 newTime = Math.round(newTime / actualGridValue) * actualGridValue;
             }
 
-            const inst = chord.pattern.instances.find(i => i.id === editorState.draggedInstanceId);
+            const pattern = getCurrentPattern();
+            const inst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
             
-            const newPattern = resizeInstance(chord.pattern, editorState.draggedInstanceId, editorState.isResizing, newTime);
+            const newPattern = resizeInstance(pattern, editorState.draggedInstanceId, editorState.isResizing, newTime);
             const updatedInst = newPattern.instances.find(i => i.id === editorState.draggedInstanceId);
             
             // Pure state diff check: Only re-render if the math ACTUALLY changed the instance bounds
             if (inst && updatedInst && (updatedInst.startTime !== inst.startTime || updatedInst.duration !== inst.duration)) {
-                chord.pattern = newPattern;
+                setCurrentPattern(newPattern);
                 renderRhythmTimeline();
             }
             return;
@@ -335,11 +429,11 @@ export function initRhythmEditor(config) {
                 app.saveHistoryState();
 
                 // Auto-select on drag start
-                const chord = app.state.currentProgression[editorState.activeIndex];
-                if (chord && chord.pattern) {
-                    const inst = chord.pattern.instances.find(i => i.id === editorState.draggedInstanceId);
+                if (hasValidContext()) {
+                    const pat = getCurrentPattern();
+                    const inst = pat.instances.find(i => i.id === editorState.draggedInstanceId);
                     if (inst && !inst.isSelected) {
-                        chord.pattern = exclusiveSelect(chord.pattern, editorState.draggedInstanceId);
+                        setCurrentPattern(exclusiveSelect(pat, editorState.draggedInstanceId), false);
                     }
                 }
                 renderRhythmTimeline();
@@ -347,6 +441,7 @@ export function initRhythmEditor(config) {
         }
 
         if (!editorState.isDragging || !editorState.draggedInstanceId) return;
+        if (!hasValidContext()) return;
         
         const deltaX = e.clientX - dragStartX;
         const rect = timeline.getBoundingClientRect();
@@ -354,23 +449,22 @@ export function initRhythmEditor(config) {
         
         let newStartTime = originalStartTime + deltaRatio;
 
-        const chord = app.state.currentProgression[editorState.activeIndex];
-
         // Grid Snapping Math
         const gridValue = GRID_STEPS[editorState.gridStepIndex].value;
-        const actualGridValue = gridValue * (4 / (Number(chord.duration) || 4));
+        const actualGridValue = gridValue * (4 / getDurationBeats());
         if (actualGridValue > 0 && !e.shiftKey) {
             newStartTime = Math.round(newStartTime / actualGridValue) * actualGridValue;
         }
 
-        const inst = chord.pattern.instances.find(i => i.id === editorState.draggedInstanceId);
+        const pattern = getCurrentPattern();
+        const inst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
         
-        const newPattern = moveInstance(chord.pattern, editorState.draggedInstanceId, newStartTime, originalDuration);
+        const newPattern = moveInstance(pattern, editorState.draggedInstanceId, newStartTime, originalDuration);
         const updatedInst = newPattern.instances.find(i => i.id === editorState.draggedInstanceId);
         
         // Pure state diff check: Only re-render if the math ACTUALLY changed the instance bounds
         if (inst && updatedInst && (updatedInst.startTime !== inst.startTime || updatedInst.duration !== inst.duration)) {
-            chord.pattern = newPattern;
+            setCurrentPattern(newPattern);
             renderRhythmTimeline();
         }
     });
@@ -398,13 +492,15 @@ export function initRhythmEditor(config) {
             editorState.draggedInstanceId = null;
         } else if (editorState.draggedInstanceId) {
             timeline.releasePointerCapture(e.pointerId);
-            const chord = app.state.currentProgression[editorState.activeIndex];
-            const inst = chord.pattern.instances.find(i => i.id === editorState.draggedInstanceId);
-            if (inst) {
-                app.saveHistoryState();
-                chord.pattern = exclusiveSelect(chord.pattern, editorState.draggedInstanceId);
-                app.persistAppState();
-                renderRhythmTimeline();
+            if (hasValidContext()) {
+                const pattern = getCurrentPattern();
+                const inst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
+                if (inst) {
+                    app.saveHistoryState();
+                    setCurrentPattern(exclusiveSelect(pattern, editorState.draggedInstanceId), false);
+                    app.persistAppState();
+                    renderRhythmTimeline();
+                }
             }
             editorState.draggedInstanceId = null;
         }
@@ -431,15 +527,19 @@ export function initRhythmEditor(config) {
         editorState.draggedInstanceId = null;
         renderRhythmTimeline();
     });
+}
 
+/** Sets up delegated event listeners for the slice/fill overlay. */
+function _setupOverlayEvents() {
+    const timeline = document.getElementById('rhythm-timeline');
     // --- Slider & Overlay Delegation ---
     timeline.addEventListener('input', (e) => {
         if (e.target.classList.contains('slice-range')) {
             const instId = e.target.dataset.id;
-            const chord = app.state.currentProgression[editorState.activeIndex];
-            const inst = chord.pattern.instances.find(i => i.id === instId);
+            const pattern = getCurrentPattern();
+            const inst = pattern.instances.find(i => i.id === instId);
             const gridValue = GRID_STEPS[editorState.gridStepIndex].value;
-            const actualGridValue = gridValue * (4 / (Number(chord.duration) || 4));
+            const actualGridValue = gridValue * (4 / getDurationBeats());
 
             let rawVal = parseFloat(e.target.value); // Range 5-95
             let splitGlobal = inst.startTime + (rawVal / 100) * inst.duration;
@@ -466,13 +566,13 @@ export function initRhythmEditor(config) {
             const slider = document.querySelector(`.slice-range[data-id="${instId}"]`);
             let splitGlobal = slider.dataset.splitGlobal;
             
-            const chord = app.state.currentProgression[editorState.activeIndex];
-            const inst = chord.pattern.instances.find(i => i.id === instId);
+            const pattern = getCurrentPattern();
+            const inst = pattern.instances.find(i => i.id === instId);
             
             if (splitGlobal === undefined) {
                 splitGlobal = inst.startTime + (inst.duration / 2);
                 const gridValue = GRID_STEPS[editorState.gridStepIndex].value;
-                const actualGridValue = gridValue * (4 / (Number(chord.duration) || 4));
+                const actualGridValue = gridValue * (4 / getDurationBeats());
                 if (actualGridValue > 0) {
                     splitGlobal = Math.round(splitGlobal / actualGridValue) * actualGridValue;
                 }
@@ -483,8 +583,9 @@ export function initRhythmEditor(config) {
             const splitRatio = (splitGlobal - inst.startTime) / inst.duration;
             if (splitRatio >= 0.05 && splitRatio <= 0.95) {
                 app.saveHistoryState();
-                chord.pattern = sliceInstance(chord.pattern, instId, splitRatio);
-                chord.pattern.instances = chord.pattern.instances.map(i => ({ ...i, isSelected: false }));
+                let newPattern = sliceInstance(pattern, instId, splitRatio);
+                newPattern.instances = newPattern.instances.map(i => ({ ...i, isSelected: false }));
+                setCurrentPattern(newPattern);
                 editorState.activeOverlayId = null;
                 app.persistAppState();
                 renderRhythmTimeline();
@@ -492,14 +593,25 @@ export function initRhythmEditor(config) {
         } else if (e.target.classList.contains('btn-do-fill')) {
             e.stopPropagation();
             const instId = e.target.dataset.id;
-            const chord = app.state.currentProgression[editorState.activeIndex];
+            const pattern = getCurrentPattern();
             app.saveHistoryState();
-            chord.pattern = expandInstance(chord.pattern, instId);
+            setCurrentPattern(expandInstance(pattern, instId));
             editorState.activeOverlayId = null;
             app.persistAppState();
             renderRhythmTimeline();
         }
     });
+}
+
+export function initRhythmEditor(config) {
+    app = config;
+
+    _setupTabsAndToggles();
+    _setupGridSlider();
+    _setupArpControls();
+    _setupToolbarButtons();
+    _setupTimelinePointerEvents();
+    _setupOverlayEvents();
 }
 
 export function openRhythmEditor(index) {
@@ -508,8 +620,6 @@ export function openRhythmEditor(index) {
     const chord = app.state.currentProgression[index];
     if (!chord) { closeRhythmEditor(); return; }
 
-    document.getElementById('rhythm-editor-title').textContent = `Rhythm Editor: ${chord.symbol}`;
-    
     renderRhythmTimeline();
     
     const panel = document.getElementById('rhythm-editor-panel');
@@ -530,14 +640,37 @@ export function closeRhythmEditor() {
 
 function renderRhythmTimeline() {
     const container = document.getElementById('rhythm-timeline');
-    if (editorState.activeIndex === null) {
+    if (!editorState.isGlobal && editorState.activeIndex === null) {
         container.innerHTML = '';
         return;
     }
     
-    const chord = app.state.currentProgression[editorState.activeIndex];
-    const pattern = chord.pattern || { instances: [] };
+    const pattern = getCurrentPattern() || { instances: [] };
     
+    // Dynamic panel title
+    const titleEl = document.getElementById('rhythm-editor-title');
+    if (titleEl) {
+        const tabNames = { chordPattern: 'Chords', bassPattern: 'Bass', drumPattern: 'Drums' };
+        if (editorState.isGlobal) {
+            titleEl.textContent = `Global Pattern: ${tabNames[editorState.activeTab]}`;
+        } else {
+            const chord = app.state.currentProgression[editorState.activeIndex];
+            const isOverride = chord && chord[editorState.activeTab] && chord[editorState.activeTab].isLocalOverride;
+            titleEl.textContent = chord ? `Pattern Editor: ${chord.symbol} (${tabNames[editorState.activeTab]})${isOverride ? ' [Override]' : ' [Inherited]'}` : 'Pattern Editor';
+        }
+    }
+    
+    const btnReset = document.getElementById('btn-rhythm-reset');
+    if (btnReset) {
+        btnReset.style.display = editorState.isGlobal ? 'none' : 'inline-block';
+        if (!editorState.isGlobal) {
+            const chord = app.state.currentProgression[editorState.activeIndex];
+            const isOverride = chord && chord[editorState.activeTab] && chord[editorState.activeTab].isLocalOverride;
+            btnReset.style.opacity = isOverride ? '1' : '0.5';
+            btnReset.disabled = !isOverride;
+        }
+    }
+
     // Sync Arp Dropdowns with current selection
     const styleSelect = document.getElementById('arp-style-select');
     const rateSelect = document.getElementById('arp-rate-select');
@@ -548,6 +681,12 @@ function renderRhythmTimeline() {
             rateSelect.value = selectedInsts[0].arpSettings.rate || 'segment';
         }
     }
+
+    const applyArpBtn = document.getElementById('btn-apply-arp');
+    const isChordTab = editorState.activeTab === 'chordPattern';
+    if (applyArpBtn) applyArpBtn.style.display = isChordTab ? 'inline-block' : 'none';
+    if (styleSelect) styleSelect.style.display = isChordTab ? 'inline-block' : 'none';
+    if (rateSelect) rateSelect.style.display = isChordTab ? 'inline-block' : 'none';
 
     // 1. Remove obsolete nodes to prevent memory leaks and ghost elements
     const existingNodes = Array.from(container.querySelectorAll('.rhythm-instance'));
@@ -577,7 +716,7 @@ function renderRhythmTimeline() {
 
         el.className = 'rhythm-instance';
         if (inst.isSelected) el.classList.add('selected');
-        if (inst.arpSettings) el.classList.add('arp-active');
+        if (inst.arpSettings && isChordTab) el.classList.add('arp-active');
         if (editorState.isDragging && inst.id === editorState.draggedInstanceId) el.classList.add('grabbing');
         
         el.style.left = `${inst.startTime * 100}%`;

@@ -58,7 +58,8 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] **Architectural Refactoring - Events:** Implement Event Delegation for the Chord Inspector in `ui.js` to prevent memory leaks from orphaned listeners.
 - [x] Generative Multi-Pass Export (UI and multi-pass looping engine integrated; pending probabilistic logic).
 - [ ] Probabilistic Pattern Sequencing (Assign loop-through probabilities to specific rhythm/arp patterns).
-- [ ] Drum Track Integration (Global rhythm, local per-chord overrides, intelligent chord-to-drum snapping).
+- [x] Unified Pattern Architecture: Global/Local cascading state (Reset inherits Global, Clear forces 1-block local override).
+- [ ] Drum Machine Synthesis & Grid Editor (4-piece kit: Kick, Snare, CHH, OHH. Multi-row grid, double-click add/remove, drag to switch rows. Exports to MIDI/WAV).
 - [ ] Intelligent Bassline Generation (Shares rhythm editor tech, single note focus).
 - [x] **True Minor Key & Omni-Scale Theory Framework:**
   - [x] Decouple global key state to support modes (Major/Minor).
