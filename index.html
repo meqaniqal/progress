@@ -16,6 +16,23 @@
         // Auto-generate cache-busting version number for mobile devices
         const version = new Date().getTime();
         
+        // Generate an Import Map to apply cache-busting to all internal ES Module imports automatically
+        const jsFiles = [
+            'arp', 'chordDictionary', 'config', 'dragdrop', 'midi', 'patternUtils',
+            'progressmain', 'promptGenerator', 'rhythmEditor', 'sequencer', 'stateUtils', 
+            'storage', 'store', 'synth', 'theory', 'ui', 'wavEncoder', 'wavExport'
+        ];
+        
+        const imports = {};
+        jsFiles.forEach(file => {
+            imports[`./${file}.js`] = `./${file}.js?v=${version}`;
+        });
+
+        const mapScript = document.createElement('script');
+        mapScript.type = 'importmap';
+        mapScript.textContent = JSON.stringify({ imports });
+        document.head.appendChild(mapScript);
+
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = `style.css?v=${version}`;
@@ -23,7 +40,7 @@
         
         const script = document.createElement('script');
         script.type = 'module';
-        script.src = `progressmain.js?v=${version}`;
+        script.src = `./progressmain.js`; // The import map will append the version automatically
         document.head.appendChild(script);
     </script>
 </head>
@@ -56,6 +73,15 @@
                 <option value="phrygian">Phrygian</option>
                 <option value="lydian">Lydian</option>
                 <option value="mixolydian">Mixolydian</option>
+                <option value="wholeTone">Whole Tone</option>
+                <option value="diminishedWH">Diminished</option>
+                <option value="altered">Altered (Super Locrian)</option>
+            </select>
+            <select id="global-voicing" class="rhythm-select" style="padding: 4px 8px;">
+                <option value="auto">Voicing: Auto</option>
+                <option value="close">Close</option>
+                <option value="spread">Spread</option>
+                <option value="quartal">Quartal</option>
             </select>
         </div>
         <div id="palette-diatonic">
@@ -68,13 +94,13 @@
             <button class="chord-btn" data-chord="vi">vi</button>
             <button class="chord-btn" data-chord="vii°">vii°</button>
         </div>
-        <div style="margin-top: 10px;">
+        <div id="palette-borrowed" style="margin-top: 10px;">
             <strong>Borrowed (Modal Mixture):</strong>
             <button class="chord-btn borrowed" data-chord="iv">iv</button>
             <button class="chord-btn borrowed" data-chord="bVI">♭VI</button>
             <button class="chord-btn borrowed" data-chord="bVII">♭VII</button>
         </div>
-        <div style="margin-top: 10px;">
+        <div id="palette-extended" style="margin-top: 10px;">
             <strong>Extended & Altered:</strong>
             <button class="chord-btn" data-chord="Imaj9">Imaj9</button>
             <button class="chord-btn" data-chord="ii9">ii9</button>
@@ -91,6 +117,11 @@
             <strong style="color: var(--placeholder-border);">🚀 Modulation Detected!</strong>
             <p style="font-size: 14px; margin: 6px 0;">Smooth the transition from <strong id="mod-from-key"></strong> to <strong id="mod-to-key"></strong> using these suggested Pivot chords:</p>
             <div id="mod-buttons" style="display: flex; flex-wrap: wrap;"></div>
+        </div>
+
+        <div id="inspector-section" style="display: none; margin-top: 20px; padding-top: 15px; border-top: 2px solid var(--border-main);">
+            <h3 style="margin: 0 0 12px 0; color: var(--original-chord-highlight); font-size: 16px;" id="inspector-title">Selected Chord</h3>
+            <div id="inspector-content" style="display: flex; flex-direction: column; gap: 12px;"></div>
         </div>
 
         <div id="progression-display"></div>
@@ -117,20 +148,6 @@
         <button class="control-btn primary" id="btn-export">⤓ Download MIDI</button>
         <button class="control-btn primary" id="btn-export-wav">⤓ Download WAV</button>
         <button class="control-btn secondary" id="btn-ai-prompt">🤖 AI Prompt</button>
-    </div>
-
-    <!-- Inline Chord Inspector Panel -->
-    <div class="panel foldaway-panel" id="chord-inspector-panel" style="display: none; margin-bottom: 1.5rem; border-left: 4px solid var(--original-chord-highlight);">
-        <div class="foldaway-header" id="inspector-header">
-            <h3 style="margin: 0; border: none; padding: 0; color: var(--original-chord-highlight); display: flex; align-items: center;">
-                <span class="foldaway-icon">▼</span>
-                <span id="inspector-title">Chord Inspector</span>
-            </h3>
-        </div>
-        
-        <div class="foldaway-content" id="inspector-content" style="display: flex; flex-direction: column; gap: 12px;">
-            <!-- Controls rendered here dynamically via JS -->
-        </div>
     </div>
 
     <!-- Per-Chord Rhythm Editor Panel (Anchored) -->

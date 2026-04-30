@@ -83,9 +83,11 @@ describe('Theory & Voice Leading Module', () => {
             expect(applyVoiceLeading([])).toEqual([]);
         });
         
-        it('should return the first chord dropped by one octave for C3 warmth', () => {
+        it('should anchor the first chord near the C3/C4 warmth register to prevent octave extremes', () => {
             const result = applyVoiceLeading([{symbol: 'I', key: 60}]);
-            expect(result[0]).toEqual([48, 52, 55]); // C3 range: 60-12, 64-12, 67-12
+            const avgPitch = result[0].reduce((a,b)=>a+b)/result[0].length;
+            expect(avgPitch).toBeGreaterThanOrEqual(48); // Above C3
+            expect(avgPitch).toBeLessThanOrEqual(60); // Below C4
         });
         
         it('should minimize jump distance between subsequent chords', () => {

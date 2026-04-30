@@ -1,14 +1,16 @@
-import { generateAIPrompt } from './promptGenerator.js?v=3';
-import { CONFIG } from './config.js?v=3';
-import { auditionChord, playProgression, stopAllAudio } from './sequencer.js?v=3';
-import { initDragAndDrop } from './dragdrop.js?v=3';
-import { exportToMidi } from './midi.js?v=3';
-import { exportToWav } from './wavExport.js?v=3';
-import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder } from './stateUtils.js?v=3';
-import { initChordPattern } from './patternUtils.js?v=3';
-import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmEditor.js?v=3';
-import { KEY_NAMES, highlightChordInUI, updateLoopButtonUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js?v=3';
-import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState } from './store.js?v=3';
+import { generateAIPrompt } from './promptGenerator.js';
+import { CONFIG } from './config.js';
+import { getChordNotes, getPlayableNotes } from './theory.js';
+import { initAudio, getAudioCurrentTime, midiToFreq, playTone } from './synth.js';
+import { auditionChord, playProgression, stopAllAudio } from './sequencer.js';
+import { initDragAndDrop } from './dragdrop.js';
+import { exportToMidi } from './midi.js';
+import { exportToWav } from './wavExport.js';
+import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder } from './stateUtils.js';
+import { initChordPattern } from './patternUtils.js';
+import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmEditor.js';
+import { KEY_NAMES, highlightChordInUI, updateLoopButtonUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
+import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState } from './store.js';
 
         let isPlaying = false;
         let currentPlaybackStopFunction = null; // Stores the stop function returned by audio.playProgression
@@ -82,23 +84,66 @@ import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoSta
                 if (altSymbol === originalChord.symbol) {
                     delete state.temporarySwaps[index];
                 } else {
-                    state.temporarySwaps[index] = { symbol: altSymbol, key: originalChord.key, duration: originalChord.duration || 2 };
+                    // Create a swap object that only contains the changed property.
+                    // getActiveProgression will merge it with the original.
+                    state.temporarySwaps[index] = { symbol: altSymbol };
                 }
-                const chordToAudition = state.temporarySwaps[index] || originalChord;
-                if (!isPlaying) auditionChord(chordToAudition.symbol, chordToAudition.key);
+                persistAppState(); // Persist before getting active progression for audition
+                
+                const chordToAudition = getActiveProgression()[index];
+                if (!isPlaying) {
+                    let notesToPlay = null;
+                    if (state.useVoiceLeading) {
+                        notesToPlay = getPlayableNotes(getActiveProgression(), state)[index];
+                    }
+                    auditionChord(chordToAudition.symbol, chordToAudition.key, notesToPlay);
+                }
+                
+                renderProgression();
+            },
+            onStepInversion: (index, direction) => {
+                saveHistoryState();
+                const chordToModify = getActiveProgression()[index];
+                const currentOffset = chordToModify.inversionOffset ?? 0;
+                const newOffset = currentOffset + direction;
+
+                if (state.temporarySwaps[index]) {
+                    state.temporarySwaps[index] = { ...state.temporarySwaps[index], inversionOffset: newOffset };
+                } else {
+                    state.currentProgression[index].inversionOffset = newOffset;
+                }
+                persistAppState();
+                const newlyActiveProg = getActiveProgression();
+                const notesToPlay = getPlayableNotes(newlyActiveProg, state)[index];
+                auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay);
+                renderProgression();
+            },
+            onChangeVoicing: (index, voicingObj) => {
+                saveHistoryState();
+                state.currentProgression[index].voicing = voicingObj;
+                if (state.temporarySwaps[index]) state.temporarySwaps[index] = { ...state.temporarySwaps[index], voicing: voicingObj };
                 persistAppState();
                 renderProgression();
             },
-            onModulateKey: (index, newKey) => {
+            onChangeVoicingType: (index, type) => {
                 saveHistoryState();
-                state.baseKey = newKey;
+                state.currentProgression[index].voicingType = type;
+                if (state.temporarySwaps[index]) state.temporarySwaps[index].voicingType = type;
+                persistAppState();
+
+                const newlyActiveProg = getActiveProgression();
+                const notesToPlay = getPlayableNotes(newlyActiveProg, state)[index];
+                auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay);
+                renderProgression();
+            },
+            onChangeChordKey: (index, newKey) => {
+                saveHistoryState();
                 state.currentProgression[index].key = newKey;
                 if (state.temporarySwaps[index]) {
                     state.temporarySwaps[index].key = newKey;
                 }
                 persistAppState();
                 renderProgression();
-                updateKeyAndModeDisplay(state);
             },
             onTransposeChord: (index) => {
                 saveHistoryState();
@@ -160,6 +205,13 @@ function _loadAndApplyInitialState() {
     updateKeyAndModeDisplay(state);
     document.getElementById('bpm-slider').value = state.bpm;
     updateLoopButtonUI(state);
+    
+    const globalVoicingEl = document.getElementById('global-voicing');
+    if (globalVoicingEl) {
+        globalVoicingEl.value = state.globalVoicing;
+        globalVoicingEl.addEventListener('change', (e) => { state.globalVoicing = e.target.value; persistAppState(); renderProgression(); });
+    }
+    
     const multipassInput = document.getElementById('multipass-input');
     if (multipassInput) multipassInput.value = state.exportPasses || 1;
     document.getElementById('voice-leading').checked = state.useVoiceLeading;
@@ -275,7 +327,11 @@ function _setupProgressionDisplayEvents(display) {
         // Clicked the chord badge itself
         const displayChord = state.temporarySwaps[index] || originalChord;
         if (!isPlaying) {
-            auditionChord(displayChord.symbol, displayChord.key);
+            let notesToPlay = null;
+            if (state.useVoiceLeading) {
+                notesToPlay = getPlayableNotes(getActiveProgression(), state)[index];
+            }
+            auditionChord(displayChord.symbol, displayChord.key, notesToPlay);
         }
 
         // Always select the clicked chord (no toggling off)

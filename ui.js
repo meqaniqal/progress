@@ -1,4 +1,4 @@
-import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getAlternatives, getTurnaroundSuggestions, getDiatonicChords } from './theory.js?v=3';
+import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getAlternatives, getTurnaroundSuggestions, getDiatonicChords, SCALE_PREFIXES, getSynestheticColorProfile } from './theory.js';
 
 export const KEY_NAMES = {
     60: 'C', 61: 'C♯/D♭', 62: 'D', 63: 'D♯/E♭', 64: 'E', 65: 'F',
@@ -31,17 +31,32 @@ export function updateKeyAndModeDisplay(state) {
     const modeSelector = document.getElementById('mode-selector');
     if (modeSelector) modeSelector.value = state.mode;
     
+    const isExotic = !!SCALE_PREFIXES[state.mode];
+    
     const diatonicContainer = document.getElementById('palette-diatonic');
     if (diatonicContainer) {
+        const label = diatonicContainer.querySelector('strong');
+        if (label) label.textContent = isExotic ? 'Scale Chords:' : 'Diatonic:';
+
         const btns = diatonicContainer.querySelectorAll('.chord-btn');
         const diatonicSymbols = getDiatonicChords(state.mode);
         btns.forEach((btn, index) => {
             if (diatonicSymbols[index]) {
                 btn.dataset.chord = diatonicSymbols[index];
                 btn.textContent = diatonicSymbols[index].replace(/b/g, '♭').replace(/#/g, '♯');
+                btn.style.display = 'inline-block';
+            } else {
+                btn.style.display = 'none'; // Hide leftover buttons (e.g., 7th button in 6-note scales)
             }
         });
     }
+
+    // Hide traditional functional chord palettes when using symmetric/exotic scales
+    const borrowedContainer = document.getElementById('palette-borrowed');
+    if (borrowedContainer) borrowedContainer.style.display = isExotic ? 'none' : 'block';
+    
+    const extendedContainer = document.getElementById('palette-extended');
+    if (extendedContainer) extendedContainer.style.display = isExotic ? 'none' : 'block';
 }
 
 function createBracketElement(id, text) {
@@ -55,6 +70,7 @@ function createBracketElement(id, text) {
 
 export function renderProgression(state, selectedChordIndex, callbacks) {
     const display = document.getElementById('progression-display');
+
     const existingItems = display.querySelectorAll('.progression-item');
 
     state.currentProgression.forEach((chord, index) => {
@@ -100,51 +116,21 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         if (isTemp) el.classList.add('temporary');
         else el.classList.remove('temporary');
 
-        const profile = getHarmonicProfile(displayChord.symbol, state.mode, displayChord.key);
-        const chordNotes = getChordNotes(displayChord.symbol, displayChord.key);
-        let absoluteHue = 240; 
-        if (chordNotes) {
-            const rootMidi = chordNotes[0];
-            const pitchClass = rootMidi % 12;
-            const circlePos = (pitchClass * 7) % 12; 
-            absoluteHue = (240 + (circlePos * 30)) % 360;
-        }
-
-        let backwardTensionDelta = 0;
-        let forwardTensionDelta = 0;
+        const prevChord = index > 0 ? (state.temporarySwaps[index - 1] || state.currentProgression[index - 1]) : null;
+        const nextChord = index < state.currentProgression.length - 1 ? (state.temporarySwaps[index + 1] || state.currentProgression[index + 1]) : null;
         
-        if (index > 0) {
-            const prevChord = state.temporarySwaps[index - 1] || state.currentProgression[index - 1];
-            const prevProfile = getHarmonicProfile(prevChord.symbol, state.mode, prevChord.key);
-            backwardTensionDelta = profile.tension - prevProfile.tension;
-        }
-        
-        if (index < state.currentProgression.length - 1) {
-            const nextChord = state.temporarySwaps[index + 1] || state.currentProgression[index + 1];
-            const nextProfile = getHarmonicProfile(nextChord.symbol, state.mode, nextChord.key);
-            forwardTensionDelta = nextProfile.tension - profile.tension;
-        }
+        const colors = getSynestheticColorProfile(displayChord, prevChord, nextChord, state.mode);
 
-        let satValue = profile.isBorrowed ? 85 : 50 + Math.max(0, backwardTensionDelta * 15) + Math.max(0, forwardTensionDelta * 10);
-        const lumOffset = (profile.tension * 8) + (backwardTensionDelta * 4) + (forwardTensionDelta * 2);
-
-        el.style.setProperty('--dyn-hue', absoluteHue);
-        el.style.setProperty('--dyn-sat', `${Math.min(100, satValue)}%`);
-        el.style.setProperty('--dyn-lum-offset', `${lumOffset}%`);
+        el.style.setProperty('--dyn-hue', colors.hue);
+        el.style.setProperty('--dyn-sat', `${colors.saturation}%`);
+        el.style.setProperty('--dyn-lum-offset', `${colors.luminosityOffset}%`);
 
         const graphSegment = el.querySelector('.tension-graph-segment');
         if (graphSegment) {
-            const yStart = (1 - (profile.tension + 1) / 2) * 100;
+            const yStart = (1 - (colors.tension + 1) / 2) * 100;
             graphSegment.style.setProperty('--tension-y-start', `${yStart}%`);
-
-            if (index < state.currentProgression.length - 1) {
-                const nextChord = state.temporarySwaps[index + 1] || state.currentProgression[index + 1];
-                const nextProfile = getHarmonicProfile(nextChord.symbol, state.mode, nextChord.key);
-                const yEnd = (1 - (nextProfile.tension + 1) / 2) * 100;
-                graphSegment.style.setProperty('--tension-y-end', `${yEnd}%`);
-            } else {
-                graphSegment.style.setProperty('--tension-y-end', `${yStart}%`);
-            }
+            const yEnd = (1 - (colors.nextTension + 1) / 2) * 100;
+            graphSegment.style.setProperty('--tension-y-end', `${yEnd}%`);
         }
 
         const isSelected = selectedChordIndex !== null && Number(selectedChordIndex) === index;
@@ -269,20 +255,27 @@ function handleInspectorClick(e) {
         case 'turnaround':
             currentUICallbacks.onAddTurnaround(index, btn.dataset.alt, parseInt(btn.dataset.key, 10));
             break;
+        case 'step-inversion':
+            const direction = parseInt(btn.dataset.direction, 10);
+            currentUICallbacks.onStepInversion(index, direction);
+            break;
     }
 }
 
 function handleInspectorChange(e) {
     if (!currentUICallbacks) return;
     const select = e.target;
-    if (select.tagName === 'SELECT' && select.dataset.action === 'modulate') {
+    if (select.tagName === 'SELECT' && select.dataset.action === 'changeChordKey') {
         const index = parseInt(select.dataset.index, 10);
-        currentUICallbacks.onModulateKey(index, parseInt(select.value, 10));
+        currentUICallbacks.onChangeChordKey(index, parseInt(select.value, 10));
+    } else if (select.tagName === 'SELECT' && select.dataset.action === 'changeVoicingType') {
+        const index = parseInt(select.dataset.index, 10);
+        currentUICallbacks.onChangeVoicingType(index, select.value);
     }
 }
 
 function renderChordInspector(state, selectedChordIndex, callbacks) {
-    const panel = document.getElementById('chord-inspector-panel');
+    const panel = document.getElementById('inspector-section');
     if (!panel) return;
     
     if (selectedChordIndex === null || !state.currentProgression[selectedChordIndex]) {
@@ -308,7 +301,7 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
     const isTemp = state.temporarySwaps[index] !== undefined;
     const displayChord = isTemp ? state.temporarySwaps[index] : originalChord;
 
-    document.getElementById('inspector-title').textContent = `Inspector: ${displayChord.symbol}`;
+    document.getElementById('inspector-title').textContent = `Selected Chord: ${displayChord.symbol}`;
 
     const altsRow = document.createElement('div');
     altsRow.className = 'inspector-row';
@@ -316,7 +309,7 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
     const altsBtnContainer = document.createElement('div');
     altsBtnContainer.className = 'inspector-btn-group';
     
-    const alts = getAlternatives(displayChord.symbol);
+    const alts = getAlternatives(displayChord.symbol, displayChord.key, state.mode);
     if (isTemp) alts.unshift(originalChord.symbol);
     
     if (alts.length === 0) {
@@ -338,40 +331,127 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
     altsRow.appendChild(altsBtnContainer);
     content.appendChild(altsRow);
 
-    const modRow = document.createElement('div');
-    modRow.className = 'inspector-row';
-    modRow.innerHTML = `<strong class="inspector-label">Modulate Key:</strong>`;
+    // --- Unified Tools Row (Transpose, Duration, Delete) ---
+    const toolsRow = document.createElement('div');
+    toolsRow.className = 'inspector-row';
+    toolsRow.style.display = 'flex';
+    toolsRow.style.flexWrap = 'wrap';
+    toolsRow.style.gap = '20px';
+    toolsRow.style.alignItems = 'center';
+    toolsRow.style.marginTop = '4px';
+
+    // 1. Transpose
+    const modBlock = document.createElement('div');
+    modBlock.style.display = 'flex';
+    modBlock.style.alignItems = 'center';
+    modBlock.style.gap = '8px';
+    modBlock.innerHTML = `<strong class="inspector-label">Transpose:</strong>`;
     const modSelect = document.createElement('select');
     modSelect.className = 'rhythm-select';
+    modSelect.style.padding = '4px 8px';
     Object.entries(KEY_NAMES).forEach(([val, name]) => {
         const opt = document.createElement('option');
         opt.value = val;
         opt.textContent = name;
-        if (parseInt(val, 10) === state.baseKey) opt.selected = true;
+        if (parseInt(val, 10) === displayChord.key) opt.selected = true;
         modSelect.appendChild(opt);
     });
-    modSelect.dataset.action = 'modulate';
+    modSelect.dataset.action = 'changeChordKey';
     modSelect.dataset.index = index;
-    modRow.appendChild(modSelect);
-    content.appendChild(modRow);
+    modBlock.appendChild(modSelect);
+    toolsRow.appendChild(modBlock);
 
-    if (displayChord.key !== state.baseKey) {
-        const transRow = document.createElement('div');
-        transRow.className = 'inspector-row';
-        transRow.innerHTML = `<strong class="inspector-label">Out of Key:</strong>`;
-        const transBtn = document.createElement('button');
-        transBtn.className = 'chord-btn';
-        const modeStr = state.mode.charAt(0).toUpperCase() + state.mode.slice(1).replace(/([A-Z])/g, ' $1').trim();
-        transBtn.textContent = `Transpose to ${KEY_NAMES[state.baseKey]} ${modeStr}`;
-        transBtn.dataset.action = 'transpose';
-        transBtn.dataset.index = index;
-        transRow.appendChild(transBtn);
-        content.appendChild(transRow);
+    // --- Voicing Type ---
+    const voicingBlock = document.createElement('div');
+    voicingBlock.style.display = 'flex';
+    voicingBlock.style.alignItems = 'center';
+    voicingBlock.style.gap = '8px';
+    voicingBlock.innerHTML = `<strong class="inspector-label">Voicing:</strong>`;
+    const voicingSelect = document.createElement('select');
+    voicingSelect.className = 'rhythm-select';
+    voicingSelect.style.padding = '4px 8px';
+    
+    const types = [
+        { val: 'global', label: 'Global' },
+        { val: 'auto', label: 'Auto' },
+        { val: 'close', label: 'Close' },
+        { val: 'quartal', label: 'Quartal' },
+        { val: 'spread', label: 'Spread' }
+    ];
+    const currentType = displayChord.voicingType || 'global';
+    types.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.val;
+        opt.textContent = t.label;
+        if (t.val === currentType) opt.selected = true;
+        voicingSelect.appendChild(opt);
+    });
+    voicingSelect.dataset.action = 'changeVoicingType';
+    voicingSelect.dataset.index = index;
+    voicingBlock.appendChild(voicingSelect);
+    toolsRow.appendChild(voicingBlock);
+
+    // --- Inversion Stepper ---
+    const invBlock = document.createElement('div');
+    invBlock.style.display = 'flex';
+    invBlock.style.alignItems = 'center';
+    invBlock.style.gap = '8px';
+    invBlock.innerHTML = `<strong class="inspector-label">Inversion:</strong>`;
+
+    const invOffset = displayChord.inversionOffset ?? 0;
+
+    const stepperContainer = document.createElement('div');
+    stepperContainer.style.display = 'flex';
+    stepperContainer.style.alignItems = 'center';
+    stepperContainer.style.gap = '4px';
+
+    const displaySpan = document.createElement('span');
+    displaySpan.style.minWidth = '30px';
+    displaySpan.style.textAlign = 'center';
+    displaySpan.style.fontWeight = '600';
+    displaySpan.style.fontSize = '16px';
+    displaySpan.textContent = invOffset > 0 ? `+${invOffset}` : invOffset;
+    if (invOffset === 0) {
+        displaySpan.style.opacity = '0.7';
+        displaySpan.title = 'Auto';
     }
 
-    const durRow = document.createElement('div');
-    durRow.className = 'inspector-row';
-    durRow.innerHTML = `<strong class="inspector-label">Duration (Beats):</strong>`;
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.flexDirection = 'column';
+    buttonContainer.style.gap = '2px';
+
+    const upBtn = document.createElement('button');
+    upBtn.className = 'chord-btn';
+    upBtn.textContent = '▲';
+    upBtn.dataset.action = 'step-inversion';
+    upBtn.dataset.index = index;
+    upBtn.dataset.direction = '1';
+    upBtn.style.cssText = 'padding: 0px 6px; line-height: 1; font-size: 10px; margin: 0;';
+
+    const downBtn = document.createElement('button');
+    downBtn.className = 'chord-btn';
+    downBtn.textContent = '▼';
+    downBtn.dataset.action = 'step-inversion';
+    downBtn.dataset.index = index;
+    downBtn.dataset.direction = '-1';
+    downBtn.style.cssText = 'padding: 0px 6px; line-height: 1; font-size: 10px; margin: 0;';
+
+    buttonContainer.appendChild(upBtn);
+    buttonContainer.appendChild(downBtn);
+
+    stepperContainer.appendChild(displaySpan);
+    stepperContainer.appendChild(buttonContainer);
+    invBlock.appendChild(stepperContainer);
+
+    toolsRow.appendChild(invBlock);
+
+    // 2. Duration
+    const durBlock = document.createElement('div');
+    durBlock.style.display = 'flex';
+    durBlock.style.alignItems = 'center';
+    durBlock.style.gap = '8px';
+    durBlock.innerHTML = `<strong class="inspector-label">Beats:</strong>`;
     const durBtnContainer = document.createElement('div');
     durBtnContainer.className = 'inspector-btn-group';
     const durations = [1, 2, 4, 8];
@@ -388,23 +468,43 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
         btn.dataset.action = 'duration';
         btn.dataset.index = index;
         btn.dataset.duration = dur;
+        btn.style.padding = '4px 10px';
+        btn.style.margin = '0 2px';
         durBtnContainer.appendChild(btn);
     });
-    durRow.appendChild(durBtnContainer);
-    content.appendChild(durRow);
+    durBlock.appendChild(durBtnContainer);
+    toolsRow.appendChild(durBlock);
 
-    const actionRow = document.createElement('div');
-    actionRow.className = 'inspector-row';
-    actionRow.style.marginTop = '8px';
-    
+    // 3. Delete
     const delBtn = document.createElement('button');
     delBtn.className = 'chord-btn';
     delBtn.style.color = '#ef4444';
     delBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-    delBtn.innerHTML = '🗑 Delete Chord';
+    delBtn.style.marginLeft = 'auto';
+    delBtn.style.padding = '4px 12px';
+    delBtn.innerHTML = '🗑 Delete';
     delBtn.dataset.action = 'delete';
     delBtn.dataset.index = index;
-    actionRow.appendChild(delBtn);
+    toolsRow.appendChild(delBtn);
+
+    content.appendChild(toolsRow);
+
+    // --- Conditional Rows (Out of Key & Turnaround) ---
+    if (displayChord.key !== state.baseKey) {
+        const transRow = document.createElement('div');
+        transRow.className = 'inspector-row';
+        transRow.style.marginTop = '4px';
+        transRow.innerHTML = `<strong class="inspector-label" style="margin-right: 8px;">Out of Key:</strong>`;
+        const transBtn = document.createElement('button');
+        transBtn.className = 'chord-btn';
+        transBtn.style.padding = '4px 10px';
+        const modeStr = state.mode.charAt(0).toUpperCase() + state.mode.slice(1).replace(/([A-Z])/g, ' $1').trim();
+        transBtn.textContent = `Transpose to ${KEY_NAMES[state.baseKey]} ${modeStr}`;
+        transBtn.dataset.action = 'transpose';
+        transBtn.dataset.index = index;
+        transRow.appendChild(transBtn);
+        content.appendChild(transRow);
+    }
 
     const firstChordIndex = state.isLooping ? state.loopStart : 0;
     const lastChordIndex = state.isLooping ? Math.max(0, state.loopEnd - 1) : Math.max(0, state.currentProgression.length - 1);
@@ -412,26 +512,34 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
     if (index === lastChordIndex && state.currentProgression.length > 0) {
         const firstChord = state.temporarySwaps[firstChordIndex] || state.currentProgression[firstChordIndex];
         if (firstChord) {
+            const turnRow = document.createElement('div');
+            turnRow.className = 'inspector-row';
+            turnRow.style.display = 'flex';
+            turnRow.style.flexWrap = 'wrap';
+            turnRow.style.gap = '8px';
+            turnRow.style.alignItems = 'center';
+            turnRow.style.marginTop = '4px';
+
             const turnLabel = document.createElement('span');
             turnLabel.className = 'inspector-label';
-            turnLabel.style.marginLeft = 'auto';
-            turnLabel.style.minWidth = 'auto';
             turnLabel.style.color = 'var(--ctrl-primary-bg)';
+            turnLabel.style.fontWeight = 'bold';
             turnLabel.textContent = `Turnaround to ${firstChord.symbol}:`;
-            actionRow.appendChild(turnLabel);
+            turnRow.appendChild(turnLabel);
 
-            const turnarounds = getTurnaroundSuggestions(firstChord.symbol, state.mode);
+            const turnarounds = getTurnaroundSuggestions(firstChord.symbol, state.mode, state.baseKey);
             turnarounds.forEach(alt => {
                 const btn = document.createElement('button');
                 btn.className = 'chord-btn';
+                btn.style.padding = '4px 10px';
                 btn.textContent = `+ ${alt}`;
                 btn.dataset.action = 'turnaround';
                 btn.dataset.index = index;
                 btn.dataset.alt = alt;
                 btn.dataset.key = firstChord.key;
-                actionRow.appendChild(btn);
+                turnRow.appendChild(btn);
             });
+            content.appendChild(turnRow);
         }
     }
-    content.appendChild(actionRow);
 }

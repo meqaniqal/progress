@@ -51,14 +51,15 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Rhythm Pattern Copy/Paste:** Copy sliced/arpeggiated rhythm patterns from one chord and paste them to another. (Complete ✅)
 - **Polyrhythmic Arpeggiation:** Export chords as sequenced MIDI/WAV patterns (e.g., 5/16 arp patterns over a 4/4 bassline). (Complete ✅)
 - **Variable Chord Durations:** Adjust individual chord lengths (1, 2, 4, or 8 beats) directly from the UI, dynamically scaling playback, exports, and timeline grids. (Complete ✅)
-- **Foldaway Workspace UI:** Establish a collapsible panel paradigm for the Inspector, Rhythm Editor, Bassline, and future Melody editors, enabling users to choose between focused sequential stages or concurrent multi-panel workflows. (Complete ✅)
+- **Foldaway Workspace UI:** Establish a collapsible panel paradigm for the Inspector and Rhythm Editors, keeping the UI compact. (Complete ✅)
 - **Inspector Auto-Transpose:** Modulating the key from the Inspector automatically transposes the currently selected chord to the new key. (Complete ✅)
 - **Always-Visible Transport:** Relocate transport controls above foldaway panels for consistent, easy access. (Complete ✅)
 - **Functional Transposition:** Context-aware button in the Inspector to instantly transpose any out-of-key chord to the currently selected global key. (Complete ✅)
 - **Workflow & Defaults Adjustments:** Optimized defaults (120bpm, 2 beats) and immediate UI feedback for rapid sequencing. (Complete ✅)
 - **Architectural Refactoring:** Extract global state to a dedicated store, optimize DOM reconciliation in the Rhythm Editor, and implement strict event delegation in the Inspector.
 - **Generative Multi-Pass Export:** State data structure stubbed; pending export logic and UI.
-- **Intelligent Bassline Generation:** Rhythm-informed, genre-appropriate basslines.
+- **Unified Tabbed Pattern Editor:** Consolidating Chords, Bass, and Drums into a single tabbed UI with `Global / Local` toggles to maintain a hyper-compact workspace.
+- **Intelligent Bassline Editor:** Timeline-based slash chords, walking basslines, and rhythm-informed generation.
 - **Advanced Modular Synthesis:** Pluggable, editable synths for Chords and Basslines, optimized for AI audio recognition and professional WAV export.
 - **Professional Generative Drums:** High-quality generative drum editor with decoupled modular UI logic.
 - **True Minor Key & Omni-Scale Framework:**

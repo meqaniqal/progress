@@ -1,16 +1,16 @@
-import { getChordNotes, applyVoiceLeading } from './theory.js';
+import { getChordNotes, getPlayableNotes } from './theory.js';
 import { CONFIG } from './config.js';
 import { audioBufferToWav } from './wavEncoder.js';
 import { generateArpNotes } from './arp.js';
 
 // --- Layer 1: Pure Timeline Calculator (Testable) ---
-export function calculateAudioTimeline(progression, bpm, useVoiceLeading, exportPasses = 1) {
+export function calculateAudioTimeline(progression, bpm, useVoiceLeading, exportPasses = 1, globalOptions = {}) {
     const timeline = [];
     let currentTime = 0;
 
     let notesArray = [];
     if (useVoiceLeading) {
-        notesArray = applyVoiceLeading(progression);
+        notesArray = getPlayableNotes(progression, globalOptions);
     } else {
         // Drop by 1 octave (-12) to match the pad register warmth used in live playback
         notesArray = progression.map(chord => getChordNotes(chord.symbol, chord.key).map(n => n - 12));
@@ -89,7 +89,7 @@ export async function exportToWav(state, buttonElement) {
     if (buttonElement) buttonElement.textContent = 'Rendering...';
 
     try {
-        const timeline = calculateAudioTimeline(state.currentProgression, state.bpm, state.useVoiceLeading, state.exportPasses);
+        const timeline = calculateAudioTimeline(state.currentProgression, state.bpm, state.useVoiceLeading, state.exportPasses, state);
         if (timeline.length === 0) return;
 
         const totalDuration = timeline.reduce((max, ev) => Math.max(max, ev.startTime + ev.duration), 0);

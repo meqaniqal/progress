@@ -1,4 +1,4 @@
-import { getChordNotes, applyVoiceLeading } from './theory.js';
+import { getChordNotes, getPlayableNotes } from './theory.js';
 import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators } from './synth.js';
@@ -8,7 +8,7 @@ let uiTimeouts = [];
 const LOOKAHEAD_MS = 25;
 const SCHEDULE_AHEAD_SEC = 0.1;
 
-export function auditionChord(chordSymbol, baseKey) {
+export function auditionChord(chordSymbol, baseKey, specificNotes = null) {
     initAudio();
 
     const chordNotes = getChordNotes(chordSymbol, baseKey);
@@ -16,9 +16,10 @@ export function auditionChord(chordSymbol, baseKey) {
 
     const rootNoteMidi = chordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
     const now = getAudioCurrentTime();
+    const notesToPlay = specificNotes || chordNotes.map(n => n - 12);
 
     // Play chord and bass note without interrupting main playback loop
-    chordNotes.forEach(note => playTone(midiToFreq(note - 12), now, CONFIG.AUDITION_DURATION_SEC, 'sawtooth'));
+    notesToPlay.forEach(note => playTone(midiToFreq(note), now, CONFIG.AUDITION_DURATION_SEC, 'sawtooth'));
     playTone(midiToFreq(rootNoteMidi), now, CONFIG.AUDITION_DURATION_SEC, 'sine');
 }
 
@@ -74,20 +75,20 @@ export function playProgression(getState, onHighlight, onComplete) {
         }
 
         const absIndex = bounds.start + chordIndexRel;
-        const sliceToPlay = state.currentProgression.slice(bounds.start, bounds.end);
         
         let notesToPlay = [];
         if (state.useVoiceLeading) {
-            const vlSlice = applyVoiceLeading(sliceToPlay);
-            notesToPlay = vlSlice[chordIndexRel];
+            // Must calculate from the full progression to get proper voice leading context
+            const allPlayableNotes = getPlayableNotes(state.currentProgression, state);
+            notesToPlay = allPlayableNotes[absIndex];
         } else {
             // Drop by 1 octave (-12) to match standard audition and pad register warmth
-            notesToPlay = getChordNotes(sliceToPlay[chordIndexRel].symbol, sliceToPlay[chordIndexRel].key).map(n => n - 12);
+            notesToPlay = getChordNotes(state.currentProgression[absIndex].symbol, state.currentProgression[absIndex].key).map(n => n - 12);
         }
         
         if (!notesToPlay) return;
 
-        const chordObj = sliceToPlay[chordIndexRel];
+        const chordObj = state.currentProgression[absIndex];
         const beats = Number(chordObj.duration) || 2;
         const chordSlotDuration = (60.0 / Number(state.bpm)) * beats;
         const pattern = chordObj.pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };

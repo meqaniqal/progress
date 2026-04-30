@@ -21,17 +21,19 @@
 - **Dynamic Color Mapping:** Chords are not static badges. Their background colors dynamically shift based on their harmonic relationship to the base key and surrounding context. By mapping the Circle of Fifths to the Color Wheel (Hue), Harmonic Function to Luminosity, and Modal Mixture to Saturation, users intuitively *see* tension, release, and dissonance.
 
 ### 4. Advanced Sequencer View & Pattern Editing
-- **Foldaway Workspace Paradigm:** To support both focused, multi-stage sequential workflows and complex concurrent editing, all per-chord tools (Chord Inspector, Rhythm Editor, Bassline Editor, and future Melody Editor) exist as collapsible "foldaway" panels. Users can expand only what they need to reduce clutter, or open multiple panels simultaneously to cross-reference edits.
+- **Unified Tabbed Editor Paradigm:** To prevent vertical scrolling fatigue and keep the UI hyper-compact, all pattern editing (Chords, Bass, Drums) occurs in a single, anchored "Pattern Editor" panel. A top-level tab bar (`[ Chords ] [ Bass ] [ Drums ]`) allows users to quickly switch instrument focus. The tab state persists when clicking different chords in the sequence, enabling lightning-fast workflow.
+- **Global vs. Local Patterns:** The pattern editor features a master toggle for `[ Global Pattern ]` vs. `[ Local Override ]`. 
+  - **Global:** Define a master 4-beat rhythm/pattern for an instrument. Variable-length chords adapt intelligently (e.g., a 2-beat chord plays the first half of the global pattern; an 8-beat chord loops it twice).
+  - **Local:** Detach a specific chord from the global groove to program custom drum fills, bass walks, or syncopated chord stabs.
 - **Visual Timeline:** Instead of a simple tray, view chords on a timeline or piano-roll-style grid.
-- **Global Drum & Rhythm Construction:** Construct master drum rhythms that act as the foundational basis for the track. Drums have a global rhythm but can be locally edited for each individual chord segment.
 - **Per-Chord Rhythm/Timing Editor:** When a chord is selected, a dedicated timeline opens where the chord initially extends through the entire edit window. Users can slice and break the chord up into multiple rhythmic instances of itself manually or via automatic modification options.
 - **Grid & Free-Time Manipulation:** Instances can be moved around at user-defined grid intervals, or nudged completely off-grid (by toggling the grid off, or holding `Shift` while dragging on a desktop).
-- **Intelligent Rhythm Snapping:** If a drum rhythm is programmed for that chord's timeline, a single-click option allows users to intelligently (or via musical randomization) snap and syncopate unedited chord instances directly to the underlying drum groove.
+- **Intelligent Bassline Editing:** The Bass tab inherits the rhythmic slices of the Chord tab by default, ensuring tight lock-step. However, users can slice the bass independently and assign custom pitches to each slice relative to the chord (e.g., forcing a 5th in the bass creates a slash chord like C/G; assigning scalar steps creates a walking bassline).
+- **Integrated Drum Machine:** The Drums tab provides a step-sequencer tailored for kicks, snares, and hi-hats, perfectly synced to the chord duration grid.
 - **Localized Arpeggiation:** Users can drag a selection box around specific notes or chord instances in the editor. Applying arpeggiation *replaces* these selected notes with an arpeggiated version, allowing for intricate, localized polyrhythms.
 - **Generative Arp Modes:** Arpeggiation includes several modes, such as static sequences, one-shot randomization, or continuous regeneration applied every time the playback loop restarts.
 - **Multi-Pass Generative Export:** If continuous per-loop randomization is active, users can choose to export multiple passes of the sequence to MIDI or WAV. This captures the exact randomized output that occurred in the last *x* set of loopthroughs (or *x* loops since active), ensuring fleeting generative magic is permanently captured for the DAW.
 - **Probabilistic Pattern Sequencing:** Assign probabilities to different rhythm or arpeggiator patterns occurring on a given loopthrough. This allows the progression's rhythm to organically shift and evolve over time, hooking perfectly into the Multi-Pass Generative Export.
-- **Micro-Arrangement:** Within the pattern editor, apply octave shifts, specific inversions, and custom voicings to individual instances of the chord. All edits render into the final exported MIDI.
 - **Contrapuntal Voice Tweaking:** Manually nudge individual notes within a generated chord to fix unpleasant intervals or create intersecting melodies, even if it conceptually alters the chord's pure theoretical name. The app supports "listening" over strict "theory".
 - **Adjustable Duration:** Click and drag to change the length of each chord.
 - **Ripple Editing:** Optionally, have the timeline automatically push subsequent chords forward when a preceding chord's duration is extended, maintaining the overall sequence.
@@ -116,13 +118,11 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Rhythm Editor UX Redesign (Completed):** Unified press/drag interactions, smart boundary collisions, vertical slider for slicing/filling gaps, and a comprehensive grid slider with triplet support.
 - **Edge-Dragging to Resize (Completed):** Ability to click and drag the left or right edges of a slice in the Rhythm Editor to dynamically resize it without moving its opposite boundary.
 - **Variable Chord Durations (Completed):** Allow changing the total time dedicated to a chord in the sequence (1, 2, 4, or 8 beats) via the chord swap popover. The Rhythm Editor timeline visually and mathematically adapts its normalized `0.0 - 1.0` space to reflect this variable length during audio playback and MIDI/WAV export.
-- **UI Architecture Shift (Completed):** Replacing the vertical context menu with a permanent, horizontal "Inspector Panel". Establishing a "Foldaway" (collapsible) panel paradigm for the Inspector, Rhythm, Bassline, and Melody editors to allow flexible sequential or concurrent editing.
+- **UI Architecture Shift (Completed):** Replacing the vertical context menu with a permanent, horizontal "Inspector Panel". Establishing a compact editor panel paradigm to keep the interface highly accessible without vertical scroll bloat.
 - **Inspector Auto-Transpose (Completed):** Modulating the key directly from a chord's Inspector panel automatically transposes that specific chord into the new key, streamlining workflow.
 - **Always-Visible Transport (Completed):** Transport and global controls are positioned above the foldaway panels, ensuring playback and export features are never pushed off-screen when deep-editing a chord.
 - **Architectural Scaling (Completed):** Extracting the global state machine from the main controller to a dedicated store, implementing targeted DOM node reconciliation in the Rhythm Editor for 60fps dragging, and applying strict event delegation in the UI to prevent memory leaks.
 - **Generative Multi-Pass Export (Completed):** Export Passes UI added and multi-pass looping integrated into MIDI/WAV offline rendering engines.
-- **Probabilistic Pattern Sequencing:** Allow assigning percent-based probabilities to specific rhythm/arp patterns per loop cycle.
-- **Intelligent Bassline & Drum Generation:** Drum tracks with global/local edits, and basslines built on the same rhythm editor tech.
 - **True Minor Key & Omni-Scale Theory Framework (Completed):** 
   - **State & UI (Completed):** `state.mode` supports modes (`major`, `minor`) with dynamic UI palettes swapping diatonic/borrowed chords.
   - **Context-Aware Math (Completed):** Tension analysis (`getHarmonicProfile`), modulation, and turnaround suggestions accurately contextualize relative to the active mode.
@@ -130,6 +130,10 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Workflow & Defaults Adjustments (Completed):** Update default tempo to 120bpm and default chord duration to 2 beats. Ensure duration button highlighting updates immediately upon selection.
 - **Rhythm Pattern Copy/Paste (Completed):** Ability to copy a sliced/arpeggiated rhythm pattern from one chord and paste it to another.
 - **Functional Transposition (Completed):** Added a context-aware button in the Swap Menu to instantly transpose any out-of-key chord to the currently selected global key.
+- **Unified Tabbed Pattern Editor:** Transform the current Rhythm Editor into a multi-tabbed interface (`Chords` | `Bass` | `Drums`) with a `Global / Local` toggle for sequence-wide vs per-chord pattern building.
+- **Bassline Engine & Slash Chords:** Implement the `Bass` tab, allowing users to detach bass slices from the chord rhythm and assign explicit pitches to create slash chords and walking lines.
+- **Drum Sequencer Engine:** Implement the `Drums` tab and audio scheduler for integrated beats.
+- **Probabilistic Pattern Sequencing:** Allow assigning percent-based probabilities to specific rhythm/arp patterns per loop cycle.
 
 ### 6. Advanced Modular Synthesis & Sound Design (Future Goal)
 - **Editable AI-Targeted Synths:** The default sine/sawtooth engines will become options among multiple modular synths. Planned are highly customizable synths specifically geared toward producing maximum clarity for AI audio recognition or direct integration into professional DAW projects via WAV export.

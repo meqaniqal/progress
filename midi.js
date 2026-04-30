@@ -1,4 +1,4 @@
-import { getChordNotes, applyVoiceLeading } from './theory.js';
+import { getChordNotes, getPlayableNotes } from './theory.js';
 import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
 
@@ -11,7 +11,7 @@ export function exportToMidi(state) {
     let midiNotesToWrite = [];
 
     if (state.useVoiceLeading) {
-        midiNotesToWrite = applyVoiceLeading(state.currentProgression);
+        midiNotesToWrite = getPlayableNotes(state.currentProgression, state);
     } else {
         // Just use block root position chords
         // Drop by 1 octave (-12) to match the pad register warmth used in audio playback
