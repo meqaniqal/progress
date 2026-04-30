@@ -1,6 +1,6 @@
 import { saveState, loadState } from './storage.js';
 import { calculateLoopBounds } from './stateUtils.js';
-import { initChordPattern, initPatternSet } from './patternUtils.js';
+import { initChordPattern, initDrumPattern, initPatternSet } from './patternUtils.js';
 
 export const state = {
     currentProgression: [],
@@ -102,20 +102,37 @@ export function loadAndApplyInitialState() {
         }
 
         // Helper for sanitizing any rhythm pattern
-        const sanitizePat = (pat) => {
-            if (!pat || !Array.isArray(pat.instances)) return null;
-            return {
-                ...pat,
-                // If a legacy pattern is migrating, preserve it by defaulting to a local override
-                isLocalOverride: pat.isLocalOverride !== undefined ? Boolean(pat.isLocalOverride) : true,
-                instances: pat.instances.map(inst => ({
-                    ...inst,
-                    id: typeof inst.id === 'string' ? inst.id.replace(/[^a-zA-Z0-9\-_]/g, '').substring(0, 16) : Math.random().toString(36).substring(2, 10),
-                    startTime: typeof inst.startTime !== 'undefined' ? Number(inst.startTime) : 0,
-                    duration: typeof inst.duration !== 'undefined' ? Number(inst.duration) : 1,
-                    isSelected: Boolean(inst.isSelected)
-                }))
-            };
+        const sanitizePat = (pat, isDrum = false) => {
+            if (!pat) return null;
+            if (isDrum) {
+                if (!Array.isArray(pat.hits)) return null;
+                return {
+                    ...pat,
+                    isLocalOverride: pat.isLocalOverride !== undefined ? Boolean(pat.isLocalOverride) : true,
+                    lengthBeats: typeof pat.lengthBeats === 'number' ? pat.lengthBeats : 4,
+                    hits: pat.hits.map(hit => ({
+                        ...hit,
+                        id: typeof hit.id === 'string' ? hit.id.replace(/[^a-zA-Z0-9\-_]/g, '').substring(0, 16) : Math.random().toString(36).substring(2, 10),
+                        time: typeof hit.time !== 'undefined' ? Number(hit.time) : 0,
+                        row: typeof hit.row === 'string' ? hit.row : 'kick',
+                        velocity: typeof hit.velocity !== 'undefined' ? Number(hit.velocity) : 1.0
+                    }))
+                };
+            } else {
+                if (!Array.isArray(pat.instances)) return null;
+                return {
+                    ...pat,
+                    // If a legacy pattern is migrating, preserve it by defaulting to a local override
+                    isLocalOverride: pat.isLocalOverride !== undefined ? Boolean(pat.isLocalOverride) : true,
+                    instances: pat.instances.map(inst => ({
+                        ...inst,
+                        id: typeof inst.id === 'string' ? inst.id.replace(/[^a-zA-Z0-9\-_]/g, '').substring(0, 16) : Math.random().toString(36).substring(2, 10),
+                        startTime: typeof inst.startTime !== 'undefined' ? Number(inst.startTime) : 0,
+                        duration: typeof inst.duration !== 'undefined' ? Number(inst.duration) : 1,
+                        isSelected: Boolean(inst.isSelected)
+                    }))
+                };
+            }
         };
 
         // 2. Sanitize Progression Array (Prevent XSS and malformed structures)
@@ -140,16 +157,16 @@ export function loadAndApplyInitialState() {
                     delete chordObj.pattern;
                 }
 
-                chordObj.chordPattern = sanitizePat(chordObj.chordPattern) || initChordPattern();
+                chordObj.chordPattern = sanitizePat(chordObj.chordPattern, false) || initChordPattern();
                 
                 if (!chordObj.bassPattern) {
                     chordObj.bassPattern = JSON.parse(JSON.stringify(chordObj.chordPattern));
                     chordObj.bassPattern.instances.forEach(inst => inst.id = Math.random().toString(36).substring(2, 10));
                 } else {
-                    chordObj.bassPattern = sanitizePat(chordObj.bassPattern) || initChordPattern();
+                    chordObj.bassPattern = sanitizePat(chordObj.bassPattern, false) || initChordPattern();
                 }
 
-                chordObj.drumPattern = sanitizePat(chordObj.drumPattern) || initChordPattern();
+                chordObj.drumPattern = sanitizePat(chordObj.drumPattern, true) || initChordPattern();
 
                 return chordObj;
             });
@@ -181,9 +198,9 @@ export function loadAndApplyInitialState() {
         // 4. Sanitize Global Patterns Array
         if (savedState.globalPatterns) {
             state.globalPatterns = {
-                chordPattern: sanitizePat(savedState.globalPatterns.chordPattern) || initChordPattern(),
-                bassPattern: sanitizePat(savedState.globalPatterns.bassPattern) || initChordPattern(),
-                drumPattern: sanitizePat(savedState.globalPatterns.drumPattern) || initChordPattern()
+                chordPattern: sanitizePat(savedState.globalPatterns.chordPattern, false) || initChordPattern(),
+                bassPattern: sanitizePat(savedState.globalPatterns.bassPattern, false) || initChordPattern(),
+                drumPattern: sanitizePat(savedState.globalPatterns.drumPattern, true) || initDrumPattern()
             };
         }
     }

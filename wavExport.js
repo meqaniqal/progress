@@ -3,11 +3,13 @@ import { CONFIG } from './config.js';
 import { audioBufferToWav } from './wavEncoder.js';
 import { generateArpNotes } from './arp.js';
 import { resolvePattern } from './patternUtils.js';
+import { playDrum, initAudio } from './synth.js';
 
 // --- Layer 1: Pure Timeline Calculator (Testable) ---
 export function calculateAudioTimeline(progression, bpm, useVoiceLeading, exportPasses = 1, globalOptions = {}) {
     const timeline = [];
     let currentTime = 0;
+    let currentBeat = 0;
 
     let notesArray = [];
     if (useVoiceLeading) {
@@ -98,7 +100,57 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     });
                 });
             }
+            
+            // Add Drums
+            const drumPat = chord.drumPattern;
+            if (drumPat && drumPat.isLocalOverride) {
+                if (drumPat.hits) {
+                    for (const hit of drumPat.hits) {
+                        const hitTimeSec = currentTime + (hit.time * beats * (60.0 / Number(bpm)));
+                        timeline.push({
+                            type: 'drum',
+                            drumType: hit.row,
+                            startTime: hitTimeSec,
+                            velocity: hit.velocity || 1.0,
+                            duration: 0.5 // Safe max length bound
+                        });
+                    }
+                }
+            } else if (globalOptions.globalPatterns && globalOptions.globalPatterns.drumPattern) {
+                const globalDrumPat = globalOptions.globalPatterns.drumPattern;
+                const gLength = globalDrumPat.lengthBeats || 4;
+                
+                if (globalDrumPat.hits) {
+                    for (const hit of globalDrumPat.hits) {
+                        if (hit.time >= 1.0) continue; // Non-destructive truncation
+                        const hitBeatOffset = hit.time * gLength;
+                        let loopStartBeat = Math.floor(currentBeat / gLength) * gLength;
+                        
+                        let absoluteHitBeat = Math.round((loopStartBeat + hitBeatOffset) * 10000) / 10000;
+                        let currentBeatRounded = Math.round(currentBeat * 10000) / 10000;
+                        let chordEndBeatRounded = Math.round((currentBeat + beats) * 10000) / 10000;
+                        
+                        if (absoluteHitBeat < currentBeatRounded) absoluteHitBeat += gLength;
+                        
+                        while (absoluteHitBeat < chordEndBeatRounded) {
+                            const beatWithinChord = absoluteHitBeat - currentBeatRounded;
+                            const hitTimeSec = currentTime + (beatWithinChord * (60.0 / Number(bpm)));
+                            timeline.push({
+                                type: 'drum',
+                                drumType: hit.row,
+                                startTime: hitTimeSec,
+                                velocity: hit.velocity || 1.0,
+                                duration: 0.5 // Safe max length bound
+                            });
+                            absoluteHitBeat += gLength;
+                            absoluteHitBeat = Math.round(absoluteHitBeat * 10000) / 10000;
+                        }
+                    }
+                }
+            }
+            
             currentTime += duration;
+            currentBeat += beats;
         });
     }
     return timeline;
@@ -115,6 +167,7 @@ export async function exportToWav(state, buttonElement) {
     if (buttonElement) buttonElement.textContent = 'Rendering...';
 
     try {
+        initAudio(); // Ensures the global noise buffer exists for snare/hi-hats
         const timeline = calculateAudioTimeline(state.currentProgression, state.bpm, state.useVoiceLeading, state.exportPasses, state);
         if (timeline.length === 0) return;
 
@@ -133,6 +186,11 @@ export async function exportToWav(state, buttonElement) {
         masterCompressor.connect(offlineCtx.destination);
 
         timeline.forEach(ev => {
+            if (ev.type === 'drum') {
+                playDrum(ev.drumType, ev.startTime, ev.velocity, offlineCtx, masterCompressor);
+                return;
+            }
+
             const osc = offlineCtx.createOscillator();
             const gainNode = offlineCtx.createGain();
             let filterNode = null;

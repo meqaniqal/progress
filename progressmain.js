@@ -8,7 +8,7 @@ import { exportToMidi } from './midi.js';
 import { exportToWav } from './wavExport.js';
 import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder } from './stateUtils.js';
 import { initPatternSet } from './patternUtils.js';
-import { initRhythmEditor, openRhythmEditor, closeRhythmEditor } from './rhythmEditor.js';
+import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
 import { KEY_NAMES, highlightChordInUI, updateLoopButtonUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
 import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState } from './store.js';
 
@@ -369,7 +369,8 @@ function _setupControlButtons() {
                     playToggleBtn.textContent = '▶';
                     isPlaying = false;
                     currentPlaybackStopFunction = null;
-                }
+                },
+                highlightDrumHit
             );
             playToggleBtn.textContent = '■';
             isPlaying = true;

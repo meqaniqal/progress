@@ -31,6 +31,17 @@ export function initChordPattern(isLocalOverride = false) {
 }
 
 /**
+ * Initializes a default drum pattern using a discrete hit-based grid.
+ */
+export function initDrumPattern(isLocalOverride = false) {
+    return {
+        isLocalOverride,
+        lengthBeats: 4, // Independent beat length (e.g., 4, 8, 16) for global patterns
+        hits: [] // e.g., { id: '...', time: 0.25, row: 'kick', velocity: 1.0 }
+    };
+}
+
+/**
  * Initializes a full set of patterns for a chord (Chords, Bass, Drums).
  * The bass defaults to inheriting the chord's rhythm slices.
  */
@@ -38,8 +49,34 @@ export function initPatternSet() {
     const chordPattern = initChordPattern(false);
     const bassPattern = JSON.parse(JSON.stringify(chordPattern));
     bassPattern.instances.forEach(inst => inst.id = generateId()); // Ensure unique DOM IDs
-    const drumPattern = initChordPattern(false);
+    const drumPattern = initDrumPattern(false);
     return { chordPattern, bassPattern, drumPattern };
+}
+
+/**
+ * Adds a new hit to a drum pattern.
+ */
+export function addDrumHit(pattern, hit) {
+    const newHit = { ...hit, id: generateId() };
+    const hits = pattern && Array.isArray(pattern.hits) ? pattern.hits : [];
+    return { ...pattern, hits: [...hits, newHit] };
+}
+
+/**
+ * Removes a hit from a drum pattern by its ID.
+ */
+export function removeDrumHit(pattern, hitId) {
+    const hits = pattern && Array.isArray(pattern.hits) ? pattern.hits : [];
+    return { ...pattern, hits: hits.filter(h => h.id !== hitId) };
+}
+
+/**
+ * Updates properties of a specific drum hit.
+ */
+export function updateDrumHit(pattern, hitId, updates) {
+    const hits = pattern && Array.isArray(pattern.hits) ? pattern.hits : [];
+    const newHits = hits.map(h => h.id === hitId ? { ...h, ...updates } : h);
+    return { ...pattern, hits: newHits };
 }
 
 /**
@@ -275,29 +312,47 @@ export function resizeInstance(pattern, instanceId, edge, newTime) {
 export function resolvePattern(pattern, isGlobal, chordBeats) {
     if (!isGlobal) return pattern; // Local patterns scale to fit natively
 
-    const GLOBAL_BEATS = 4;
+    const GLOBAL_BEATS = pattern.lengthBeats || 4;
     const resolvedInstances = [];
+    const resolvedHits = [];
     const loops = Math.ceil(chordBeats / GLOBAL_BEATS);
 
     for (let loop = 0; loop < loops; loop++) {
-        for (const inst of pattern.instances) {
-            const absStart = (loop * GLOBAL_BEATS) + (inst.startTime * GLOBAL_BEATS);
-            let absEnd = absStart + (inst.duration * GLOBAL_BEATS);
+        if (pattern.instances) {
+            for (const inst of pattern.instances) {
+                const absStart = (loop * GLOBAL_BEATS) + (inst.startTime * GLOBAL_BEATS);
+                let absEnd = absStart + (inst.duration * GLOBAL_BEATS);
 
-            if (absStart >= chordBeats) continue;
-            if (absEnd > chordBeats) absEnd = chordBeats;
+                if (absStart >= chordBeats) continue;
+                if (absEnd > chordBeats) absEnd = chordBeats;
 
-            const newDuration = absEnd - absStart;
-            if (newDuration > 0.001) { // Prevent micro-slices
-                resolvedInstances.push({
-                    ...inst,
-                    id: inst.id + '_' + loop,
-                    startTime: absStart / chordBeats,
-                    duration: newDuration / chordBeats
+                const newDuration = absEnd - absStart;
+                if (newDuration > 0.001) { // Prevent micro-slices
+                    resolvedInstances.push({
+                        ...inst,
+                        id: inst.id + '_' + loop,
+                        startTime: absStart / chordBeats,
+                        duration: newDuration / chordBeats
+                    });
+                }
+            }
+        }
+        if (pattern.hits) {
+            for (const hit of pattern.hits) {
+                const absTime = (loop * GLOBAL_BEATS) + (hit.time * GLOBAL_BEATS);
+                if (absTime >= chordBeats) continue;
+                
+                resolvedHits.push({
+                    ...hit,
+                    id: hit.id + '_' + loop,
+                    time: absTime / chordBeats
                 });
             }
         }
     }
 
-    return { ...pattern, instances: resolvedInstances };
+    const resolved = { ...pattern };
+    if (pattern.instances) resolved.instances = resolvedInstances;
+    if (pattern.hits) resolved.hits = resolvedHits;
+    return resolved;
 }

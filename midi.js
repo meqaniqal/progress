@@ -132,7 +132,90 @@ export function exportToMidi(state) {
         });
     }
 
-    const write = new MidiWriter.Writer([track, bassTrack], { tempo: state.bpm });
+    // --- Add Drum Track (Channel 10) ---
+    const drumTrack = new MidiWriter.Track();
+    // MIDI Channel 10 is reserved for Percussion (MidiWriter uses 1-based indexing, so channel: 10)
+    let currentDrumGlobalTick = 0;
+    let drumSlotStartTick = 0;
+    let currentDrumBeat = 0;
+    
+    const DRUM_MIDI_MAP = {
+        'kick': 36, // C1 (General MIDI Bass Drum 1)
+        'snare': 38, // D1 (General MIDI Acoustic Snare)
+        'chh': 42,  // F#1 (General MIDI Closed Hi-Hat)
+        'ohh': 46   // A#1 (General MIDI Open Hi-Hat)
+    };
+
+    for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
+        state.currentProgression.forEach(chord => {
+            const beats = Number(chord.duration) || 2;
+            const slotTicks = beats * 128;
+            const drumPat = chord.drumPattern;
+            
+            let hitsToPlay = [];
+
+            if (drumPat && drumPat.isLocalOverride) {
+                if (drumPat.hits) {
+                    for (const hit of drumPat.hits) {
+                        hitsToPlay.push({ ...hit, absBeat: hit.time * beats });
+                    }
+                }
+            } else if (state.globalPatterns && state.globalPatterns.drumPattern) {
+                const globalDrumPat = state.globalPatterns.drumPattern;
+                const gLength = globalDrumPat.lengthBeats || 4;
+                
+                if (globalDrumPat.hits) {
+                    for (const hit of globalDrumPat.hits) {
+                        if (hit.time >= 1.0) continue; // Non-destructive truncation
+                        const hitBeatOffset = hit.time * gLength;
+                        let loopStartBeat = Math.floor(currentDrumBeat / gLength) * gLength;
+                        
+                        let absoluteHitBeat = Math.round((loopStartBeat + hitBeatOffset) * 10000) / 10000;
+                        let currentDrumBeatRounded = Math.round(currentDrumBeat * 10000) / 10000;
+                        let chordEndBeatRounded = Math.round((currentDrumBeat + beats) * 10000) / 10000;
+                        
+                        if (absoluteHitBeat < currentDrumBeatRounded) absoluteHitBeat += gLength;
+                        
+                        while (absoluteHitBeat < chordEndBeatRounded) {
+                            hitsToPlay.push({ ...hit, absBeat: absoluteHitBeat - currentDrumBeatRounded });
+                            absoluteHitBeat += gLength;
+                            absoluteHitBeat = Math.round(absoluteHitBeat * 10000) / 10000;
+                        }
+                    }
+                }
+            }
+
+            // Group simultaneous hits to avoid sequential offset issues in MidiWriterJS
+            const groupedHits = {};
+            hitsToPlay.forEach(hit => {
+                const tick = drumSlotStartTick + Math.round(hit.absBeat * 128);
+                if (!groupedHits[tick]) groupedHits[tick] = { pitches: [], velocity: 0 };
+                groupedHits[tick].pitches.push(DRUM_MIDI_MAP[hit.row] || 36);
+                groupedHits[tick].velocity = Math.max(groupedHits[tick].velocity, Math.round((hit.velocity || 1.0) * 100));
+            });
+
+            const sortedTicks = Object.keys(groupedHits).map(Number).sort((a, b) => a - b);
+
+            sortedTicks.forEach(tick => {
+                const waitTicks = Math.max(0, tick - currentDrumGlobalTick);
+                const noteDurationTicks = 16; // Short crisp hit duration (1/32 note)
+                
+                drumTrack.addEvent(new MidiWriter.NoteEvent({
+                    pitch: groupedHits[tick].pitches,
+                    duration: `T${noteDurationTicks}`,
+                    wait: `T${waitTicks}`,
+                    velocity: groupedHits[tick].velocity,
+                    channel: 10
+                }));
+                currentDrumGlobalTick += waitTicks + noteDurationTicks;
+            });
+
+            drumSlotStartTick += slotTicks;
+            currentDrumBeat += beats;
+        });
+    }
+
+    const write = new MidiWriter.Writer([track, bassTrack, drumTrack], { tempo: state.bpm });
     const dataUri = write.dataUri();
 
     // Trigger download

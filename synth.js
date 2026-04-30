@@ -3,6 +3,7 @@ import { CONFIG } from './config.js';
 let audioCtx;
 let activeOscillators = [];
 let masterCompressor; // Module-scoped, but only initialized once
+export let noiseBuffer = null; // Pre-allocated for drum synthesis
 
 export function initAudio() {
     if (!audioCtx) {
@@ -17,6 +18,15 @@ export function initAudio() {
         masterCompressor.release.setValueAtTime(CONFIG.COMPRESSOR_RELEASE, audioCtx.currentTime);
         
         masterCompressor.connect(audioCtx.destination);
+        
+        // Pre-allocate a reusable 2-second white noise buffer for Snare/Hats
+        // Creating buffers dynamically inside a tight sequencer loop causes CPU spikes.
+        const bufferSize = audioCtx.sampleRate * 2.0;
+        noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1;
+        }
     }
     if (audioCtx.state === 'suspended') {
         audioCtx.resume();
@@ -74,6 +84,105 @@ export function playTone(freq, startTime, duration, type = 'sine') {
     };
 
     activeOscillators.push(osc);
+}
+
+function _playKick(time, velocity, ctx, dest) {
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    // Pitch envelope for the "thump"
+    osc.frequency.setValueAtTime(150, time);
+    osc.frequency.exponentialRampToValueAtTime(50, time + 0.1);
+
+    // Volume envelope
+    gain.gain.setValueAtTime(velocity, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+
+    osc.connect(gain);
+    gain.connect(dest);
+
+    osc.start(time);
+    osc.stop(time + 0.4);
+}
+
+function _playSnare(time, velocity, ctx, dest) {
+    if (!ctx || !noiseBuffer) return;
+    // Noise component for the "snap"
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'highpass';
+    noiseFilter.frequency.value = 1000;
+    const noiseGain = ctx.createGain();
+
+    noiseGain.gain.setValueAtTime(velocity * 0.8, time);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+    
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(dest);
+
+    // Body component for the "thwack"
+    const body = ctx.createOscillator();
+    body.type = 'triangle';
+    const bodyGain = ctx.createGain();
+    
+    body.frequency.setValueAtTime(100, time);
+    bodyGain.gain.setValueAtTime(velocity * 0.7, time);
+    bodyGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+
+    body.connect(bodyGain);
+    bodyGain.connect(dest);
+
+    noise.start(time);
+    noise.stop(time + 0.2);
+    body.start(time);
+    body.stop(time + 0.1);
+}
+
+function _playHat(time, velocity, duration, ctx, dest) {
+    if (!ctx || !noiseBuffer) return;
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'highpass';
+    noiseFilter.frequency.value = 7000;
+    const noiseGain = ctx.createGain();
+
+    noiseGain.gain.setValueAtTime(velocity * 0.4, time);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(dest);
+
+    noise.start(time);
+    noise.stop(time + duration);
+}
+
+export function playDrum(type, startTime, velocity = 1.0, customCtx = null, customDest = null) {
+    if (!audioCtx && !customCtx) initAudio();
+    
+    const ctx = customCtx || audioCtx;
+    const dest = customDest || masterCompressor;
+    if (!ctx) return;
+
+    switch (type) {
+        case 'kick':
+            _playKick(startTime, velocity, ctx, dest);
+            break;
+        case 'snare':
+            _playSnare(startTime, velocity, ctx, dest);
+            break;
+        case 'chh': // Closed Hi-Hat
+            _playHat(startTime, velocity, 0.05, ctx, dest);
+            break;
+        case 'ohh': // Open Hi-Hat
+            _playHat(startTime, velocity, 0.3, ctx, dest);
+            break;
+    }
 }
 
 export function stopOscillators() {

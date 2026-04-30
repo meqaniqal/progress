@@ -179,9 +179,13 @@
                 <button class="control-btn secondary" id="btn-rhythm-paste" style="padding: 6px 12px; font-size: 13px;" title="Paste rhythm pattern" disabled>📋 Paste</button>
                 <button class="control-btn secondary" id="btn-rhythm-delete" style="padding: 6px 12px; font-size: 13px;" title="Delete selected slices">🗑 Delete</button>
                 <button class="control-btn primary" id="btn-apply-arp" style="padding: 6px 12px; font-size: 13px;">✨ Apply Arp</button>
+                <div id="zoom-controls-group" style="display: none; align-items: center; gap: 4px; margin-left: 8px; background: var(--bg-body); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main);">
+                    <button class="control-btn secondary" id="btn-zoom-out" style="padding: 2px 6px; font-size: 13px; border: none; background: transparent;" title="Zoom Out">🔍-</button>
+                    <button class="control-btn secondary" id="btn-zoom-in" style="padding: 2px 6px; font-size: 13px; border: none; background: transparent;" title="Zoom In">🔍+</button>
+                </div>
                 <div style="display: flex; align-items: center; gap: 8px; margin-left: 8px; background: var(--bg-body); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main);">
-                    <label style="font-size: 12px; font-weight: bold; opacity: 0.8; margin: 0; min-width: 65px;">Grid: <span id="grid-display-value">1/16</span></label>
-                    <input type="range" id="rhythm-grid-slider" min="0" max="5" value="5" style="width: 75px; margin: 0; cursor: pointer;">
+                    <button id="btn-grid-toggle" class="tool-btn active" style="padding: 4px 8px; font-size: 12px; min-width: 75px; text-align: center; border-radius: 4px; margin: 0;" title="Toggle Grid Snapping">Grid: <span id="grid-display-value">1/16</span></button>
+                    <input type="range" id="rhythm-grid-slider" min="0" max="4" value="4" style="width: 75px; margin: 0; cursor: pointer;">
                 </div>
             </div>
         </div>

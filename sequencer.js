@@ -1,7 +1,7 @@
 import { getChordNotes, getPlayableNotes } from './theory.js';
 import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
-import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators } from './synth.js';
+import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators, playDrum } from './synth.js';
 import { resolvePattern } from './patternUtils.js';
 
 let uiTimeouts = [];
@@ -36,6 +36,14 @@ function getBounds(state) {
     return { start, end };
 }
 
+function getAbsoluteBeatPos(progression, index) {
+    let beats = 0;
+    for (let i = 0; i < index; i++) {
+        beats += Number(progression[i].duration) || 2;
+    }
+    return beats;
+}
+
 /**
  * Starts playback of a progression. Returns a function to stop this specific playback instance.
  * @param {function} getState - Function to get the current application state.
@@ -43,7 +51,7 @@ function getBounds(state) {
  * @param {function} onComplete - Callback when playback finishes (if not looping).
  * @returns {function} A function that, when called, stops this playback instance.
  */
-export function playProgression(getState, onHighlight, onComplete) {
+export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
     initAudio();
 
     let nextNoteTime = 0.0;
@@ -145,6 +153,62 @@ export function playProgression(getState, onHighlight, onComplete) {
                 const gateDuration = instanceDuration * 0.95;
                 playTone(midiToFreq(rootNoteMidi), instanceStartTime, gateDuration, 'sine');
             });
+        }
+        
+        // --- Schedule Drums ---
+        const absBeatStart = getAbsoluteBeatPos(state.currentProgression, absIndex);
+        const drumPat = chordObj.drumPattern;
+        
+        if (drumPat && drumPat.isLocalOverride) {
+            // Local Punch-In
+            if (drumPat.hits) {
+                for (const hit of drumPat.hits) {
+                    const hitTimeSec = time + (hit.time * beats * (60.0 / Number(state.bpm)));
+                    playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
+                    if (onDrumPlay && hit.id) {
+                        const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
+                        const tId = setTimeout(() => {
+                            onDrumPlay(hit.id);
+                            uiTimeouts = uiTimeouts.filter(id => id !== tId);
+                        }, Math.max(0, delayMs));
+                        uiTimeouts.push(tId);
+                    }
+                }
+            }
+        } else if (state.globalPatterns && state.globalPatterns.drumPattern) {
+            // Global Continuous Loop
+            const globalDrumPat = state.globalPatterns.drumPattern;
+            const gLength = globalDrumPat.lengthBeats || 4;
+            
+            if (globalDrumPat.hits) {
+                for (const hit of globalDrumPat.hits) {
+                    if (hit.time >= 1.0) continue; // Non-destructive truncation
+                    const hitBeatOffset = hit.time * gLength;
+                    let loopStartBeat = Math.floor(absBeatStart / gLength) * gLength;
+                    
+                    let absoluteHitBeat = Math.round((loopStartBeat + hitBeatOffset) * 10000) / 10000;
+                    let absBeatStartRounded = Math.round(absBeatStart * 10000) / 10000;
+                    let chordEndBeatRounded = Math.round((absBeatStart + beats) * 10000) / 10000;
+                    
+                    if (absoluteHitBeat < absBeatStartRounded) absoluteHitBeat += gLength;
+                    
+                    while (absoluteHitBeat < chordEndBeatRounded) {
+                        const beatWithinChord = absoluteHitBeat - absBeatStartRounded;
+                        const hitTimeSec = time + (beatWithinChord * (60.0 / Number(state.bpm)));
+                        playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
+                        if (onDrumPlay && hit.id) {
+                            const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
+                            const tId = setTimeout(() => {
+                                onDrumPlay(hit.id);
+                                uiTimeouts = uiTimeouts.filter(id => id !== tId);
+                            }, Math.max(0, delayMs));
+                            uiTimeouts.push(tId);
+                        }
+                        absoluteHitBeat += gLength;
+                        absoluteHitBeat = Math.round(absoluteHitBeat * 10000) / 10000;
+                    }
+                }
+            }
         }
 
         const delayMs = (time - getAudioCurrentTime()) * 1000;
