@@ -108,6 +108,9 @@ export function playTone(freq, startTime, duration, type = 'sine') {
 
     // Prevent memory leaks by letting the oscillator clean itself up when finished
     osc.onended = () => {
+        osc.disconnect();
+        gainNode.disconnect();
+        if (filterNode) filterNode.disconnect();
         activeOscillators = activeOscillators.filter(o => o !== osc);
     };
 

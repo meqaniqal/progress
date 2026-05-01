@@ -172,7 +172,7 @@ export async function exportToWav(state, buttonElement) {
         if (timeline.length === 0) return;
 
         const totalDuration = timeline.reduce((max, ev) => Math.max(max, ev.startTime + ev.duration), 0);
-        const renderDuration = totalDuration + CONFIG.RELEASE_TIME + 0.5; // Extra tail for release
+        const renderDuration = totalDuration + CONFIG.RELEASE_TIME + CONFIG.EXPORT_TAIL_PADDING; // Extra tail for release
         
         const sampleRate = 44100;
         const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, sampleRate * renderDuration, sampleRate);
