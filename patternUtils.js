@@ -24,7 +24,8 @@ export function initChordPattern(isLocalOverride = false) {
                 duration: 1.0, // Full length of the chord slot
                 type: 'chord', // 'chord' means it plays all notes. Later 'note' can represent single isolated pitches.
                 isSelected: false,
-                arpSettings: null // e.g., { style: 'up', rate: 0.25, gate: 0.8 }
+                arpSettings: null, // e.g., { style: 'up', rate: 0.25, gate: 0.8 }
+                probability: 1.0 // 1.0 = 100% chance to play
             }
         ]
     };
@@ -57,7 +58,7 @@ export function initPatternSet() {
  * Adds a new hit to a drum pattern.
  */
 export function addDrumHit(pattern, hit) {
-    const newHit = { ...hit, id: generateId() };
+    const newHit = { probability: 1.0, ...hit, id: generateId() };
     const hits = pattern && Array.isArray(pattern.hits) ? pattern.hits : [];
     return { ...pattern, hits: [...hits, newHit] };
 }
@@ -77,6 +78,15 @@ export function updateDrumHit(pattern, hitId, updates) {
     const hits = pattern && Array.isArray(pattern.hits) ? pattern.hits : [];
     const newHits = hits.map(h => h.id === hitId ? { ...h, ...updates } : h);
     return { ...pattern, hits: newHits };
+}
+
+/**
+ * Updates properties of a specific slice instance.
+ */
+export function updateInstance(pattern, instanceId, updates) {
+    const instances = pattern && Array.isArray(pattern.instances) ? pattern.instances : [];
+    const newInstances = instances.map(inst => inst.id === instanceId ? { ...inst, ...updates } : inst);
+    return { ...pattern, instances: newInstances };
 }
 
 /**
@@ -253,7 +263,8 @@ export function fillGapInstance(pattern, clickRatio) {
             duration: gapEnd - gapStart,
             type: 'chord',
             isSelected: false,
-            arpSettings: null
+            arpSettings: null,
+            probability: 1.0
         };
         return { ...pattern, instances: [...pattern.instances, newInst] };
     }

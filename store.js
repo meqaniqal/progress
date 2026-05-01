@@ -124,7 +124,8 @@ export function loadAndApplyInitialState() {
                         id: typeof hit.id === 'string' ? hit.id.replace(/[^a-zA-Z0-9\-_]/g, '').substring(0, 16) : Math.random().toString(36).substring(2, 10),
                         time: typeof hit.time !== 'undefined' ? Number(hit.time) : 0,
                         row: typeof hit.row === 'string' ? hit.row : 'kick',
-                        velocity: typeof hit.velocity !== 'undefined' ? Number(hit.velocity) : 1.0
+                        velocity: typeof hit.velocity !== 'undefined' ? Number(hit.velocity) : 1.0,
+                        probability: typeof hit.probability !== 'undefined' ? Number(hit.probability) : 1.0
                     }))
                 };
             } else {
@@ -138,7 +139,8 @@ export function loadAndApplyInitialState() {
                         id: typeof inst.id === 'string' ? inst.id.replace(/[^a-zA-Z0-9\-_]/g, '').substring(0, 16) : Math.random().toString(36).substring(2, 10),
                         startTime: typeof inst.startTime !== 'undefined' ? Number(inst.startTime) : 0,
                         duration: typeof inst.duration !== 'undefined' ? Number(inst.duration) : 1,
-                        isSelected: Boolean(inst.isSelected)
+                        isSelected: Boolean(inst.isSelected),
+                        probability: typeof inst.probability !== 'undefined' ? Number(inst.probability) : 1.0
                     }))
                 };
             }

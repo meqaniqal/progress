@@ -37,6 +37,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
 
             if (chordNotes) {
                 pattern.instances.forEach(instance => {
+                    if (instance.probability !== undefined && Math.random() > instance.probability) return;
+
                     const instanceStartTime = currentTime + (instance.startTime * duration);
                     const instanceDuration = instance.duration * duration;
 
@@ -87,6 +89,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                 bPattern = resolvePattern(bPattern, isGlobalBass, Number(chord.duration) || 2);
 
                 bPattern.instances.forEach(instance => {
+                    if (instance.probability !== undefined && Math.random() > instance.probability) return;
+
                     const instanceStartTime = currentTime + (instance.startTime * duration);
                     const instanceDuration = instance.duration * duration;
                     const gateDuration = instanceDuration * 0.95;
@@ -106,6 +110,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
             if (drumPat && drumPat.isLocalOverride) {
                 if (drumPat.hits) {
                     for (const hit of drumPat.hits) {
+                        if (hit.probability !== undefined && Math.random() > hit.probability) continue;
+
                         const hitTimeSec = currentTime + (hit.time * beats * (60.0 / Number(bpm)));
                         timeline.push({
                             type: 'drum',
@@ -135,13 +141,15 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                         while (absoluteHitBeat < chordEndBeatRounded) {
                             const beatWithinChord = absoluteHitBeat - currentBeatRounded;
                             const hitTimeSec = currentTime + (beatWithinChord * (60.0 / Number(bpm)));
-                            timeline.push({
-                                type: 'drum',
-                                drumType: hit.row,
-                                startTime: hitTimeSec,
-                                velocity: hit.velocity || 1.0,
-                                duration: 0.5 // Safe max length bound
-                            });
+                            if (hit.probability === undefined || Math.random() <= hit.probability) {
+                                timeline.push({
+                                    type: 'drum',
+                                    drumType: hit.row,
+                                    startTime: hitTimeSec,
+                                    velocity: hit.velocity || 1.0,
+                                    duration: 0.5 // Safe max length bound
+                                });
+                            }
                             absoluteHitBeat += gLength;
                             absoluteHitBeat = Math.round(absoluteHitBeat * 10000) / 10000;
                         }

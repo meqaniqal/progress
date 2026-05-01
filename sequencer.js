@@ -112,6 +112,8 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
 
         // Render each rhythmic slice instance inside the chord slot
         pattern.instances.forEach(instance => {
+            if (instance.probability !== undefined && Math.random() > instance.probability) return;
+
             const instanceStartTime = time + (instance.startTime * chordSlotDuration);
             const instanceDuration = instance.duration * chordSlotDuration;
 
@@ -148,6 +150,8 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             bPattern = resolvePattern(bPattern, isGlobalBass, beats);
             
             bPattern.instances.forEach(instance => {
+                if (instance.probability !== undefined && Math.random() > instance.probability) return;
+
                 const instanceStartTime = time + (instance.startTime * chordSlotDuration);
                 const instanceDuration = instance.duration * chordSlotDuration;
                 const gateDuration = instanceDuration * 0.95;
@@ -163,6 +167,8 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             // Local Punch-In
             if (drumPat.hits) {
                 for (const hit of drumPat.hits) {
+                    if (hit.probability !== undefined && Math.random() > hit.probability) continue;
+
                     const hitTimeSec = time + (hit.time * beats * (60.0 / Number(state.bpm)));
                     playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
                     if (onDrumPlay && hit.id) {
@@ -195,14 +201,16 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                     while (absoluteHitBeat < chordEndBeatRounded) {
                         const beatWithinChord = absoluteHitBeat - absBeatStartRounded;
                         const hitTimeSec = time + (beatWithinChord * (60.0 / Number(state.bpm)));
-                        playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
-                        if (onDrumPlay && hit.id) {
-                            const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
-                            const tId = setTimeout(() => {
-                                onDrumPlay(hit.id);
-                                uiTimeouts = uiTimeouts.filter(id => id !== tId);
-                            }, Math.max(0, delayMs));
-                            uiTimeouts.push(tId);
+                        if (hit.probability === undefined || Math.random() <= hit.probability) {
+                            playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
+                            if (onDrumPlay && hit.id) {
+                                const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
+                                const tId = setTimeout(() => {
+                                    onDrumPlay(hit.id);
+                                    uiTimeouts = uiTimeouts.filter(id => id !== tId);
+                                }, Math.max(0, delayMs));
+                                uiTimeouts.push(tId);
+                            }
                         }
                         absoluteHitBeat += gLength;
                         absoluteHitBeat = Math.round(absoluteHitBeat * 10000) / 10000;

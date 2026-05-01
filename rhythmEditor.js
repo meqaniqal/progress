@@ -1,4 +1,4 @@
-import { initChordPattern, initDrumPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance, resizeInstance, generateId, resolvePattern, addDrumHit, removeDrumHit, updateDrumHit } from './patternUtils.js';
+import { initChordPattern, initDrumPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance, resizeInstance, generateId, resolvePattern, addDrumHit, removeDrumHit, updateDrumHit, updateInstance } from './patternUtils.js';
 import { playDrum, getAudioCurrentTime } from './synth.js';
 
 const editorState = {
@@ -306,42 +306,58 @@ function _setupDrumControls() {
                 renderRhythmTimeline();
             }
         });
+    }
+}
 
-        let drumVelocityContainer = document.createElement('div');
-        drumVelocityContainer.id = 'drum-velocity-container';
-        drumVelocityContainer.style.display = 'none';
-        drumVelocityContainer.style.alignItems = 'center';
-        drumVelocityContainer.style.gap = '8px';
-        drumVelocityContainer.style.marginLeft = '8px';
-        drumVelocityContainer.style.padding = '4px 8px';
-        drumVelocityContainer.style.background = 'var(--display-bg)';
-        drumVelocityContainer.style.borderRadius = '4px';
-        drumVelocityContainer.innerHTML = `
-            <span style="font-size: 12px; font-weight: bold; opacity: 0.8;">Velocity:</span>
-            <input type="range" id="drum-velocity-slider" min="0.1" max="1.0" step="0.05" value="1.0" style="width: 70px; margin: 0; cursor: pointer;">
-        `;
-        drumLengthSelect.parentNode.insertBefore(drumVelocityContainer, drumCropBtn.nextSibling);
-
-        const velocitySlider = drumVelocityContainer.querySelector('#drum-velocity-slider');
-        
-        // Live visual updates while dragging the slider
-        velocitySlider.addEventListener('input', (e) => {
-            if (!editorState.selectedHitId) return;
+/** Sets up the unified properties controls (Velocity, Probability). */
+function _setupPropertiesControls() {
+    const velSlider = document.getElementById('prop-velocity-slider');
+    const probSlider = document.getElementById('prop-probability-slider');
+    
+    if (velSlider) {
+        velSlider.addEventListener('input', (e) => {
+            if (!editorState.selectedHitId || editorState.activeTab !== 'drumPattern') return;
             const pattern = getCurrentPattern();
             if (!pattern) return;
             const newVelocity = parseFloat(e.target.value);
             setCurrentPattern(updateDrumHit(pattern, editorState.selectedHitId, { velocity: newVelocity }), false);
             app.persistAppState();
-            renderRhythmTimeline();
+            renderRhythmTimeline(); // Will re-render and keep the slider at the new value
         });
 
-        // Audition and save history when slider is released
-        velocitySlider.addEventListener('change', (e) => {
-            if (!editorState.selectedHitId) return;
+        velSlider.addEventListener('change', (e) => {
+            if (!editorState.selectedHitId || editorState.activeTab !== 'drumPattern') return;
             const pattern = getCurrentPattern();
             if (!pattern) return;
             const hit = pattern.hits.find(h => h.id === editorState.selectedHitId);
             if (hit) playDrum(hit.row, getAudioCurrentTime(), hit.velocity);
+            app.saveHistoryState();
+        });
+    }
+
+    if (probSlider) {
+        probSlider.addEventListener('input', (e) => {
+            const pattern = getCurrentPattern();
+            if (!pattern) return;
+            const newProb = parseFloat(e.target.value);
+            
+            if (editorState.activeTab === 'drumPattern' && editorState.selectedHitId) {
+                setCurrentPattern(updateDrumHit(pattern, editorState.selectedHitId, { probability: newProb }), false);
+            } else if (editorState.activeTab !== 'drumPattern') {
+                const selectedInsts = pattern.instances.filter(i => i.isSelected);
+                if (selectedInsts.length > 0) {
+                    let newPattern = pattern;
+                    selectedInsts.forEach(inst => {
+                        newPattern = updateInstance(newPattern, inst.id, { probability: newProb });
+                    });
+                    setCurrentPattern(newPattern, false);
+                }
+            }
+            app.persistAppState();
+            renderRhythmTimeline();
+        });
+
+        probSlider.addEventListener('change', (e) => {
             app.saveHistoryState();
         });
     }
@@ -985,6 +1001,7 @@ export function initRhythmEditor(config) {
     _setupGridSlider();
     _setupArpControls();
     _setupDrumControls();
+    _setupPropertiesControls();
     _setupToolbarButtons();
     _setupTimelinePointerEvents();
     _setupOverlayEvents();
@@ -1089,17 +1106,36 @@ function renderRhythmTimeline() {
         }
     }
 
-    const velocityContainer = document.getElementById('drum-velocity-container');
-    if (velocityContainer) {
-        let showVelocity = false;
+    const propsGroup = document.getElementById('item-properties-group');
+    const velWrapper = document.getElementById('prop-velocity-wrapper');
+    const probWrapper = document.getElementById('prop-probability-wrapper');
+    const velSlider = document.getElementById('prop-velocity-slider');
+    const probSlider = document.getElementById('prop-probability-slider');
+
+    if (propsGroup && velWrapper && probWrapper && velSlider && probSlider) {
+        let showProps = false;
+        let showVel = false;
+
         if (editorState.activeTab === 'drumPattern' && editorState.selectedHitId && pattern && pattern.hits) {
             const selectedHit = pattern.hits.find(h => h.id === editorState.selectedHitId);
             if (selectedHit) {
-                showVelocity = true;
-                velocityContainer.querySelector('input').value = selectedHit.velocity !== undefined ? selectedHit.velocity : 1.0;
+                showProps = true;
+                showVel = true;
+                velSlider.value = selectedHit.velocity !== undefined ? selectedHit.velocity : 1.0;
+                probSlider.value = selectedHit.probability !== undefined ? selectedHit.probability : 1.0;
+            }
+        } else if (editorState.activeTab !== 'drumPattern' && pattern && pattern.instances) {
+            const selectedInsts = pattern.instances.filter(i => i.isSelected);
+            if (selectedInsts.length > 0) {
+                showProps = true;
+                showVel = false;
+                // If multiple are selected, mirror the probability of the first selected block
+                probSlider.value = selectedInsts[0].probability !== undefined ? selectedInsts[0].probability : 1.0;
             }
         }
-        velocityContainer.style.display = showVelocity ? 'flex' : 'none';
+
+        propsGroup.style.display = showProps ? 'flex' : 'none';
+        velWrapper.style.display = showVel ? 'flex' : 'none';
     }
 
     if (editorState.activeTab === 'drumPattern') {
