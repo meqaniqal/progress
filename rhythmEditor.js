@@ -320,7 +320,7 @@ function _setupPropertiesControls() {
             const pattern = getCurrentPattern();
             if (!pattern) return;
             const newVelocity = parseFloat(e.target.value);
-            setCurrentPattern(updateDrumHit(pattern, editorState.selectedHitId, { velocity: newVelocity }), false);
+            setCurrentPattern(updateDrumHit(pattern, editorState.selectedHitId, { velocity: newVelocity }));
             app.persistAppState();
             renderRhythmTimeline(); // Will re-render and keep the slider at the new value
         });
@@ -342,7 +342,7 @@ function _setupPropertiesControls() {
             const newProb = parseFloat(e.target.value);
             
             if (editorState.activeTab === 'drumPattern' && editorState.selectedHitId) {
-                setCurrentPattern(updateDrumHit(pattern, editorState.selectedHitId, { probability: newProb }), false);
+                setCurrentPattern(updateDrumHit(pattern, editorState.selectedHitId, { probability: newProb }));
             } else if (editorState.activeTab !== 'drumPattern') {
                 const selectedInsts = pattern.instances.filter(i => i.isSelected);
                 if (selectedInsts.length > 0) {
@@ -350,7 +350,7 @@ function _setupPropertiesControls() {
                     selectedInsts.forEach(inst => {
                         newPattern = updateInstance(newPattern, inst.id, { probability: newProb });
                     });
-                    setCurrentPattern(newPattern, false);
+                    setCurrentPattern(newPattern);
                 }
             }
             app.persistAppState();
@@ -612,7 +612,7 @@ function _setupTimelinePointerEvents() {
             if (pattern) {
                 const currentInst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
                 if (currentInst && !currentInst.isSelected) {
-                    setCurrentPattern(exclusiveSelect(pattern, editorState.draggedInstanceId), false);
+                    setCurrentPattern(exclusiveSelect(pattern, editorState.draggedInstanceId));
                 }
             }
             return;
@@ -682,7 +682,7 @@ function _setupTimelinePointerEvents() {
             if (pat) {
                 const currentInst = pat.instances.find(i => i.id === editorState.draggedInstanceId);
                 if (currentInst && !currentInst.isSelected) {
-                    setCurrentPattern(exclusiveSelect(pat, editorState.draggedInstanceId), false);
+                    setCurrentPattern(exclusiveSelect(pat, editorState.draggedInstanceId));
                 }
             }
 
@@ -758,7 +758,7 @@ function _setupTimelinePointerEvents() {
         }
 
         if (editorState.draggedInstanceId && !editorState.isDragging) {
-            if (Math.abs(e.clientX - dragStartX) > 5 || Math.abs(e.clientY - dragStartY) > 5) {
+            if (Math.abs(e.clientX - dragStartX) > 10 || Math.abs(e.clientY - dragStartY) > 10) {
                 // User moved past the threshold, initiate drag immediately!
                 if (longPressTimer) {
                     clearTimeout(longPressTimer);
@@ -772,7 +772,7 @@ function _setupTimelinePointerEvents() {
                     const pat = getCurrentPattern();
                     const inst = pat.instances.find(i => i.id === editorState.draggedInstanceId);
                     if (inst && !inst.isSelected) {
-                        setCurrentPattern(exclusiveSelect(pat, editorState.draggedInstanceId), false);
+                        setCurrentPattern(exclusiveSelect(pat, editorState.draggedInstanceId));
                     }
                 }
                 renderRhythmTimeline();
@@ -850,7 +850,7 @@ function _setupTimelinePointerEvents() {
                 const inst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
                 if (inst) {
                     app.saveHistoryState();
-                    setCurrentPattern(exclusiveSelect(pattern, editorState.draggedInstanceId), false);
+                    setCurrentPattern(exclusiveSelect(pattern, editorState.draggedInstanceId));
                     app.persistAppState();
                     renderRhythmTimeline();
                 }
