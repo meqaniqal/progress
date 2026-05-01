@@ -3,6 +3,20 @@ import { CONFIG } from './config.js';
 let audioCtx;
 let activeOscillators = [];
 let masterCompressor; // Module-scoped, but only initialized once
+
+let chordsGain, bassGain, drumsGain;
+let trackVolumes = { chords: 0.8, bass: 0.8, drums: 0.8 };
+
+export function setTrackVolume(track, vol) {
+    trackVolumes[track] = vol;
+    if (audioCtx) {
+        const time = audioCtx.currentTime;
+        if (track === 'chords' && chordsGain) chordsGain.gain.setTargetAtTime(vol, time, 0.05);
+        if (track === 'bass' && bassGain) bassGain.gain.setTargetAtTime(vol, time, 0.05);
+        if (track === 'drums' && drumsGain) drumsGain.gain.setTargetAtTime(vol, time, 0.05);
+    }
+}
+
 export let noiseBuffer = null; // Pre-allocated for drum synthesis
 
 export function initAudio() {
@@ -18,6 +32,19 @@ export function initAudio() {
         masterCompressor.release.setValueAtTime(CONFIG.COMPRESSOR_RELEASE, audioCtx.currentTime);
         
         masterCompressor.connect(audioCtx.destination);
+        
+        // Setup individual track buses
+        if (!chordsGain) {
+            chordsGain = audioCtx.createGain();
+            bassGain = audioCtx.createGain();
+            drumsGain = audioCtx.createGain();
+            chordsGain.gain.value = trackVolumes.chords;
+            bassGain.gain.value = trackVolumes.bass;
+            drumsGain.gain.value = trackVolumes.drums;
+            chordsGain.connect(masterCompressor);
+            bassGain.connect(masterCompressor);
+            drumsGain.connect(masterCompressor);
+        }
         
         // Pre-allocate a reusable 2-second white noise buffer for Snare/Hats
         // Creating buffers dynamically inside a tight sequencer loop causes CPU spikes.
@@ -56,14 +83,15 @@ export function playTone(freq, startTime, duration, type = 'sine') {
     // Envelope to avoid clicks: Attack -> Sustain -> Release
     gainNode.gain.setValueAtTime(0, startTime);
     gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + safeAttack); // Attack
-    gainNode.gain.setValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + duration - safeRelease); // Sustain
+    gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + duration - safeRelease); // Explicit sustain hold
     gainNode.gain.linearRampToValueAtTime(0, startTime + duration); // Release
+
+    const targetGainNode = type === 'sawtooth' ? chordsGain : bassGain;
 
     // Apply Low-Pass Filter specifically for sawtooth pad chords
     if (type === 'sawtooth') {
         filterNode = audioCtx.createBiquadFilter();
         filterNode.type = 'lowpass';
-        // Smooth filter envelope: starts a bit brighter, decays to warm sustain
         filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 1.5, startTime);
         filterNode.frequency.exponentialRampToValueAtTime(CONFIG.SYNTH_LPF_CUTOFF, startTime + safeAttack);
         filterNode.Q.value = CONFIG.SYNTH_LPF_RESONANCE;
@@ -73,10 +101,10 @@ export function playTone(freq, startTime, duration, type = 'sine') {
     } else {
         osc.connect(gainNode);
     }
-    gainNode.connect(masterCompressor); // Route to master bus
+    gainNode.connect(targetGainNode);
 
     osc.start(startTime);
-    osc.stop(startTime + duration);
+    osc.stop(startTime + duration + 0.1); // Add 100ms safety padding so it dies silently
 
     // Prevent memory leaks by letting the oscillator clean itself up when finished
     osc.onended = () => {
@@ -97,7 +125,7 @@ function _playKick(time, velocity, ctx, dest) {
     osc.frequency.exponentialRampToValueAtTime(50, time + 0.1);
 
     // Volume envelope
-    gain.gain.setValueAtTime(velocity, time);
+    gain.gain.setValueAtTime(velocity * 0.5, time); // Balanced against synth headroom
     gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
 
     osc.connect(gain);
@@ -117,7 +145,7 @@ function _playSnare(time, velocity, ctx, dest) {
     noiseFilter.frequency.value = 1000;
     const noiseGain = ctx.createGain();
 
-    noiseGain.gain.setValueAtTime(velocity * 0.8, time);
+    noiseGain.gain.setValueAtTime(velocity * 0.4, time); // Balanced against synth headroom
     noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
     
     noise.connect(noiseFilter);
@@ -130,7 +158,7 @@ function _playSnare(time, velocity, ctx, dest) {
     const bodyGain = ctx.createGain();
     
     body.frequency.setValueAtTime(100, time);
-    bodyGain.gain.setValueAtTime(velocity * 0.7, time);
+    bodyGain.gain.setValueAtTime(velocity * 0.35, time); // Balanced against synth headroom
     bodyGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
 
     body.connect(bodyGain);
@@ -151,7 +179,7 @@ function _playHat(time, velocity, duration, ctx, dest) {
     noiseFilter.frequency.value = 7000;
     const noiseGain = ctx.createGain();
 
-    noiseGain.gain.setValueAtTime(velocity * 0.4, time);
+    noiseGain.gain.setValueAtTime(velocity * 0.2, time); // Balanced against synth headroom
     noiseGain.gain.exponentialRampToValueAtTime(0.01, time + duration);
 
     noise.connect(noiseFilter);
@@ -166,7 +194,7 @@ export function playDrum(type, startTime, velocity = 1.0, customCtx = null, cust
     if (!audioCtx && !customCtx) initAudio();
     
     const ctx = customCtx || audioCtx;
-    const dest = customDest || masterCompressor;
+    const dest = customDest || drumsGain;
     if (!ctx) return;
 
     switch (type) {

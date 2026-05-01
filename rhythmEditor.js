@@ -8,6 +8,7 @@ const editorState = {
     isResizing: null,
     draggedInstanceId: null, // For slices
     draggedHitId: null,      // For drum hits
+    selectedHitId: null,     // For drum hit velocity editing
     clipboardPattern: null,
     gridStepIndex: 4, // Default to 1/16th note
     isGridEnabled: true,
@@ -305,6 +306,44 @@ function _setupDrumControls() {
                 renderRhythmTimeline();
             }
         });
+
+        let drumVelocityContainer = document.createElement('div');
+        drumVelocityContainer.id = 'drum-velocity-container';
+        drumVelocityContainer.style.display = 'none';
+        drumVelocityContainer.style.alignItems = 'center';
+        drumVelocityContainer.style.gap = '8px';
+        drumVelocityContainer.style.marginLeft = '8px';
+        drumVelocityContainer.style.padding = '4px 8px';
+        drumVelocityContainer.style.background = 'var(--display-bg)';
+        drumVelocityContainer.style.borderRadius = '4px';
+        drumVelocityContainer.innerHTML = `
+            <span style="font-size: 12px; font-weight: bold; opacity: 0.8;">Velocity:</span>
+            <input type="range" id="drum-velocity-slider" min="0.1" max="1.0" step="0.05" value="1.0" style="width: 70px; margin: 0; cursor: pointer;">
+        `;
+        drumLengthSelect.parentNode.insertBefore(drumVelocityContainer, drumCropBtn.nextSibling);
+
+        const velocitySlider = drumVelocityContainer.querySelector('#drum-velocity-slider');
+        
+        // Live visual updates while dragging the slider
+        velocitySlider.addEventListener('input', (e) => {
+            if (!editorState.selectedHitId) return;
+            const pattern = getCurrentPattern();
+            if (!pattern) return;
+            const newVelocity = parseFloat(e.target.value);
+            setCurrentPattern(updateDrumHit(pattern, editorState.selectedHitId, { velocity: newVelocity }), false);
+            app.persistAppState();
+            renderRhythmTimeline();
+        });
+
+        // Audition and save history when slider is released
+        velocitySlider.addEventListener('change', (e) => {
+            if (!editorState.selectedHitId) return;
+            const pattern = getCurrentPattern();
+            if (!pattern) return;
+            const hit = pattern.hits.find(h => h.id === editorState.selectedHitId);
+            if (hit) playDrum(hit.row, getAudioCurrentTime(), hit.velocity);
+            app.saveHistoryState();
+        });
     }
 }
 
@@ -493,6 +532,7 @@ function _setupTimelinePointerEvents() {
                 }
 
                 if (hitElement) { // Double-tapped on a hit, so remove it
+                    if (hitElement.dataset.id === editorState.selectedHitId) editorState.selectedHitId = null;
                     pattern = removeDrumHit(pattern, hitElement.dataset.id);
                 } else { // Double-tapped on empty space, so add a hit
                     const actualGridValue = getActiveGridValue();
@@ -516,8 +556,10 @@ function _setupTimelinePointerEvents() {
 
             if (hitElement) { // Single press on a hit, prepare for drag
                 editorState.draggedHitId = hitElement.dataset.id;
+                editorState.selectedHitId = hitElement.dataset.id;
                 app.saveHistoryState();
             } else {
+                editorState.selectedHitId = null;
                 editorState.isPanning = true;
                 panStartX = e.clientX;
                 panStartScrollLeft = timeline.scrollLeft;
@@ -1047,6 +1089,19 @@ function renderRhythmTimeline() {
         }
     }
 
+    const velocityContainer = document.getElementById('drum-velocity-container');
+    if (velocityContainer) {
+        let showVelocity = false;
+        if (editorState.activeTab === 'drumPattern' && editorState.selectedHitId && pattern && pattern.hits) {
+            const selectedHit = pattern.hits.find(h => h.id === editorState.selectedHitId);
+            if (selectedHit) {
+                showVelocity = true;
+                velocityContainer.querySelector('input').value = selectedHit.velocity !== undefined ? selectedHit.velocity : 1.0;
+            }
+        }
+        velocityContainer.style.display = showVelocity ? 'flex' : 'none';
+    }
+
     if (editorState.activeTab === 'drumPattern') {
         _renderDrumGrid(container, pattern);
     } else {
@@ -1189,12 +1244,12 @@ function _renderDrumGrid(container, pattern) {
             if (i === 0) {
                 line.style.opacity = '0.15'; // Make the first line faint so hits don't look like vertical sliders
             } else if (Math.abs(beatPos - Math.round(beatPos)) < 0.001) { // Beat lines
-                line.style.opacity = '0.6';
+                line.style.opacity = '0.8';
                 line.style.width = '2px';
                 line.style.backgroundColor = 'var(--text-main)';
                 line.style.transform = 'translateX(-1px)'; // Center the 2px line
             } else if (Math.abs((beatPos * 2) - Math.round(beatPos * 2)) < 0.001) { // 8th note lines
-                line.style.opacity = '0.3';
+                line.style.opacity = '0.4';
             } else { // 16th note lines
                 line.style.opacity = '0.15';
             }
@@ -1241,10 +1296,15 @@ function _renderDrumGrid(container, pattern) {
             if (hit.id === editorState.draggedHitId) {
                 hitEl.classList.add('grabbing');
             }
+            if (hit.id === editorState.selectedHitId) {
+                hitEl.classList.add('selected');
+            }
             if (hit.time >= 1.0) {
                 if (hit.time > 1.25) return; // Hard limit out-of-bounds scrolling to 25% past the boundary
                 hitEl.style.opacity = '0.2';
                 hitEl.style.pointerEvents = 'none'; // Prevent interaction with truncated data
+            } else {
+                hitEl.style.opacity = 0.3 + (hit.velocity !== undefined ? hit.velocity : 1.0) * 0.7;
             }
             parentRow.appendChild(hitEl);
         });

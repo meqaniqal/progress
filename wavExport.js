@@ -184,10 +184,18 @@ export async function exportToWav(state, buttonElement) {
         masterCompressor.attack.value = CONFIG.COMPRESSOR_ATTACK;
         masterCompressor.release.value = CONFIG.COMPRESSOR_RELEASE;
         masterCompressor.connect(offlineCtx.destination);
+        
+        const chordsGain = offlineCtx.createGain(); chordsGain.gain.value = state.volumes.chords ?? 0.8;
+        const bassGain = offlineCtx.createGain(); bassGain.gain.value = state.volumes.bass ?? 0.8;
+        const drumsGain = offlineCtx.createGain(); drumsGain.gain.value = state.volumes.drums ?? 0.8;
+        
+        chordsGain.connect(masterCompressor);
+        bassGain.connect(masterCompressor);
+        drumsGain.connect(masterCompressor);
 
         timeline.forEach(ev => {
             if (ev.type === 'drum') {
-                playDrum(ev.drumType, ev.startTime, ev.velocity, offlineCtx, masterCompressor);
+                playDrum(ev.drumType, ev.startTime, ev.velocity, offlineCtx, drumsGain);
                 return;
             }
 
@@ -203,8 +211,10 @@ export async function exportToWav(state, buttonElement) {
 
             gainNode.gain.setValueAtTime(0, ev.startTime);
             gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, ev.startTime + safeAttack);
-            gainNode.gain.setValueAtTime(CONFIG.SUSTAIN_LEVEL, ev.startTime + ev.duration - safeRelease);
+            gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, ev.startTime + ev.duration - safeRelease);
             gainNode.gain.linearRampToValueAtTime(0, ev.startTime + ev.duration);
+
+            const targetGainNode = ev.type === 'sawtooth' ? chordsGain : bassGain;
 
             if (ev.type === 'sawtooth') {
                 filterNode = offlineCtx.createBiquadFilter();
@@ -218,10 +228,10 @@ export async function exportToWav(state, buttonElement) {
             } else {
                 osc.connect(gainNode);
             }
+            gainNode.connect(targetGainNode);
             
-            gainNode.connect(masterCompressor);
             osc.start(ev.startTime);
-            osc.stop(ev.startTime + ev.duration);
+            osc.stop(ev.startTime + ev.duration + 0.1); // Add 100ms safety padding
         });
 
         const renderedBuffer = await offlineCtx.startRendering();

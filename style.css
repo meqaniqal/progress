@@ -427,6 +427,11 @@ button.control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .drum-hit.chh-hit { background-color: #f59e0b; }
 .drum-hit.ohh-hit { background-color: #fcd34d; }
 
+.drum-hit.selected {
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px var(--original-chord-highlight);
+    z-index: 21;
+}
 .drum-hit.playing {
     transform: translate(-50%, -50%) scale(1.4);
     filter: brightness(1.5);

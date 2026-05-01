@@ -25,6 +25,10 @@ export function exportToMidi(state) {
 
     let currentTick = 0;
     let slotStartTick = 0;
+    
+    const chordsVol = state.volumes ? state.volumes.chords : 0.8;
+    const bassVol = state.volumes ? state.volumes.bass : 0.8;
+    const drumsVol = state.volumes ? state.volumes.drums : 0.8;
 
     for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
         // Add polyrhythmic chords and arpeggios to track
@@ -69,7 +73,7 @@ export function exportToMidi(state) {
                             pitch: [event.note],
                             duration: `T${noteDurationTicks}`,
                             wait: `T${waitTicks}`,
-                            velocity: CONFIG.MIDI_CHORD_VELOCITY
+                            velocity: Math.min(127, Math.round(CONFIG.MIDI_CHORD_VELOCITY * (chordsVol / 0.8)))
                         }));
                         currentTick += waitTicks + noteDurationTicks;
                     });
@@ -82,7 +86,7 @@ export function exportToMidi(state) {
                         pitch: chordNotes,
                         duration: `T${noteDurationTicks}`,
                         wait: `T${waitTicks}`,
-                        velocity: CONFIG.MIDI_CHORD_VELOCITY 
+                        velocity: Math.min(127, Math.round(CONFIG.MIDI_CHORD_VELOCITY * (chordsVol / 0.8)))
                     }));
                     currentTick += waitTicks + noteDurationTicks;
                 }
@@ -123,7 +127,7 @@ export function exportToMidi(state) {
                     pitch: [rootNote], 
                     duration: `T${instanceDurationTicks}`, 
                     wait: `T${waitTicks}`,
-                    velocity: CONFIG.MIDI_BASS_VELOCITY 
+                    velocity: Math.min(127, Math.round(CONFIG.MIDI_BASS_VELOCITY * (bassVol / 0.8)))
                 }));
                 currentBassGlobalTick += waitTicks + instanceDurationTicks;
             });
@@ -191,7 +195,7 @@ export function exportToMidi(state) {
                 const tick = drumSlotStartTick + Math.round(hit.absBeat * 128);
                 if (!groupedHits[tick]) groupedHits[tick] = { pitches: [], velocity: 0 };
                 groupedHits[tick].pitches.push(DRUM_MIDI_MAP[hit.row] || 36);
-                groupedHits[tick].velocity = Math.max(groupedHits[tick].velocity, Math.round((hit.velocity || 1.0) * 100));
+                groupedHits[tick].velocity = Math.min(127, Math.max(groupedHits[tick].velocity, Math.round((hit.velocity || 1.0) * 100 * (drumsVol / 0.8))));
             });
 
             const sortedTicks = Object.keys(groupedHits).map(Number).sort((a, b) => a - b);

@@ -145,6 +145,12 @@
             <strong>Export Passes:</strong>
             <input type="number" id="multipass-input" min="1" max="32" value="1" style="width: 50px;" title="Number of loopthroughs to export">
         </label>
+        <div style="display: flex; gap: 12px; border-left: 2px solid var(--border-main); padding-left: 15px; margin-left: 5px;">
+            <strong style="align-self: center;">Mixer:</strong>
+            <label style="font-size: 13px;">Chords <input type="range" id="vol-chords" min="0" max="1.5" step="0.05" value="0.8" style="width: 50px;"></label>
+            <label style="font-size: 13px;">Bass <input type="range" id="vol-bass" min="0" max="1.5" step="0.05" value="0.8" style="width: 50px;"></label>
+            <label style="font-size: 13px;">Drums <input type="range" id="vol-drums" min="0" max="1.5" step="0.05" value="0.8" style="width: 50px;"></label>
+        </div>
         <button class="control-btn primary" id="btn-export">⤓ Download MIDI</button>
         <button class="control-btn primary" id="btn-export-wav">⤓ Download WAV</button>
         <button class="control-btn secondary" id="btn-ai-prompt">🤖 AI Prompt</button>

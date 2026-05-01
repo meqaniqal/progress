@@ -1,7 +1,7 @@
 import { generateAIPrompt } from './promptGenerator.js';
 import { CONFIG } from './config.js';
 import { getChordNotes, getPlayableNotes } from './theory.js';
-import { initAudio, getAudioCurrentTime, midiToFreq, playTone } from './synth.js';
+import { initAudio, getAudioCurrentTime, midiToFreq, playTone, setTrackVolume } from './synth.js';
 import { auditionChord, playProgression, stopAllAudio } from './sequencer.js';
 import { initDragAndDrop } from './dragdrop.js';
 import { exportToMidi } from './midi.js';
@@ -212,6 +212,14 @@ function _loadAndApplyInitialState() {
         globalVoicingEl.addEventListener('change', (e) => { state.globalVoicing = e.target.value; persistAppState(); renderProgression(); });
     }
     
+    ['chords', 'bass', 'drums'].forEach(track => {
+        const el = document.getElementById(`vol-${track}`);
+        if (el) {
+            el.value = state.volumes[track];
+            setTrackVolume(track, state.volumes[track]);
+        }
+    });
+    
     const multipassInput = document.getElementById('multipass-input');
     if (multipassInput) multipassInput.value = state.exportPasses || 1;
     document.getElementById('voice-leading').checked = state.useVoiceLeading;
@@ -396,6 +404,19 @@ function _setupControlButtons() {
         state.bpm = parseInt(e.target.value, 10);
         persistAppState();
     });
+    
+    ['chords', 'bass', 'drums'].forEach(track => {
+        const el = document.getElementById(`vol-${track}`);
+        if (el) {
+            el.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                state.volumes[track] = val;
+                setTrackVolume(track, val);
+                persistAppState();
+            });
+        }
+    });
+
     document.getElementById('btn-loop-toggle').addEventListener('click', () => {
         state.isLooping = !state.isLooping;
         updateLoopButtonUI(state);

@@ -16,6 +16,7 @@ export const state = {
     theme: 'light',
     mode: 'major',
     exportPasses: 1,
+    volumes: { chords: 0.8, bass: 0.8, drums: 0.8 }, // 0.8 provides headroom for mixing
     selectedChordIndex: null,
     globalPatterns: initPatternSet()
 };
@@ -94,6 +95,14 @@ export function loadAndApplyInitialState() {
         if (savedState.exportPasses !== undefined) {
             const parsedPasses = parseInt(savedState.exportPasses, 10);
             if (!isNaN(parsedPasses)) state.exportPasses = Math.max(1, Math.min(32, parsedPasses));
+        }
+        
+        if (savedState.volumes) {
+            state.volumes = {
+                chords: typeof savedState.volumes.chords === 'number' ? savedState.volumes.chords : 0.8,
+                bass: typeof savedState.volumes.bass === 'number' ? savedState.volumes.bass : 0.8,
+                drums: typeof savedState.volumes.drums === 'number' ? savedState.volumes.drums : 0.8
+            };
         }
         
         if (savedState.selectedChordIndex !== undefined && savedState.selectedChordIndex !== null) {
