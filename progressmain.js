@@ -9,7 +9,7 @@ import { exportToWav } from './wavExport.js';
 import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder } from './stateUtils.js';
 import { initPatternSet } from './patternUtils.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
-import { KEY_NAMES, highlightChordInUI, updateLoopButtonUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
+import { KEY_NAMES, highlightChordInUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
 import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState } from './store.js';
 
         let isPlaying = false;
@@ -204,7 +204,6 @@ function _loadAndApplyInitialState() {
     document.getElementById('key-selector').value = state.baseKey;
     updateKeyAndModeDisplay(state);
     document.getElementById('bpm-slider').value = state.bpm;
-    updateLoopButtonUI(state);
     
     const globalVoicingEl = document.getElementById('global-voicing');
     if (globalVoicingEl) {
@@ -333,7 +332,7 @@ function _setupProgressionDisplayEvents(display) {
         }
 
         // Clicked the chord badge itself
-        const displayChord = getActiveProgression()[index];
+        const displayChord = state.temporarySwaps[index] || originalChord;
         if (!isPlaying) {
             let notesToPlay = null;
             if (state.useVoiceLeading) {
@@ -417,13 +416,6 @@ function _setupControlButtons() {
         }
     });
 
-    document.getElementById('btn-loop-toggle').addEventListener('click', () => {
-        state.isLooping = !state.isLooping;
-        updateLoopButtonUI(state);
-        applyLoopBounds();
-        persistAppState();
-        renderProgression();
-    });
     document.getElementById('voice-leading').addEventListener('change', (e) => {
         state.useVoiceLeading = e.target.checked;
         persistAppState();
@@ -533,6 +525,29 @@ function _setupFoldawayPanels() {
     });
 }
 
+function _setupGlobalDoubleTap() {
+    let lastTapTime = 0;
+    
+    document.addEventListener('pointerdown', (e) => {
+        // Ignore taps on all interactive elements, timelines, panels, and controls
+        const ignoredSelectors = 'button, input, select, textarea, .progression-item, .chord-btn, .rhythm-instance, .drum-hit, .bracket-element, .controls, .foldaway-header, .pattern-tab, .swap-menu, .rhythm-timeline-container, .modal-content, .drum-row-label';
+        if (e.target.closest(ignoredSelectors)) {
+            lastTapTime = 0;
+            return;
+        }
+        
+        const now = Date.now();
+        if (now - lastTapTime < 300) {
+            e.preventDefault(); // Attempt to prevent double-tap zoom on mobile
+            const playToggleBtn = document.getElementById('btn-play-toggle');
+            if (playToggleBtn) playToggleBtn.click();
+            lastTapTime = 0;
+        } else {
+            lastTapTime = now;
+        }
+    });
+}
+
 // --- Main Entry Point ---
 function initApp() {
     const display = document.getElementById('progression-display');
@@ -550,7 +565,13 @@ function initApp() {
     _setupProgressionDisplayEvents(display);
     _setupDragAndDrop(display);
     _setupFoldawayPanels();
+    _setupGlobalDoubleTap();
     renderProgression();
+
+    // Reveal the UI smoothly now that everything is styled and loaded
+    document.documentElement.classList.add('loaded');
+    document.body.style.visibility = 'visible';
+    document.body.style.opacity = '1';
 }
 
 // Robust initialization: handle cases where DOM is already loaded

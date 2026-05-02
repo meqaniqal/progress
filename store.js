@@ -8,7 +8,7 @@ export const state = {
     history: [], // Stores progression snapshots for Undo
     baseKey: 60, // C4
     bpm: 120,
-    isLooping: true,
+    isLooping: true, // Hardcoded to always loop
     useVoiceLeading: true,
     globalVoicing: 'auto', // 'auto', 'close', 'spread', 'quartal'
     loopStart: 0,
@@ -83,7 +83,7 @@ export function loadAndApplyInitialState() {
             if (!isNaN(parsedBpm)) state.bpm = Math.max(40, Math.min(300, parsedBpm));
         }
         
-        state.isLooping = Boolean(savedState.isLooping ?? savedState.loop ?? state.isLooping);
+        state.isLooping = true; // Hardcoded to always loop
         state.useVoiceLeading = Boolean(savedState.useVoiceLeading ?? savedState.voiceLeading ?? state.useVoiceLeading);
         state.globalVoicing = savedState.globalVoicing || 'auto';
         state.theme = savedState.theme === 'dark' ? 'dark' : 'light';

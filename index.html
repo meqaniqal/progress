@@ -4,80 +4,57 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Progress</title>
-    <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@2.1.4/browser/midiwriter.js"></script>
+    
+    <!-- 1. CSS loaded first to block render until styles are ready -->
+    <link rel="stylesheet" href="style.css?v=1.0">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
-    <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
-    <script>
-        // Initialize the mobile drag-and-drop polyfill
-        MobileDragDrop.polyfill({ dragImageTranslateOverride: MobileDragDrop.scrollBehaviourDragImageTranslateOverride });
-        window.addEventListener('touchmove', function() {}, {passive: false}); // Required to prevent scrolling while dragging
-    </script>
-    <script>
-        // Auto-generate cache-busting version number for mobile devices
-        const version = new Date().getTime();
-        
-        // Generate an Import Map to apply cache-busting to all internal ES Module imports automatically
-        const jsFiles = [
-            'arp', 'chordDictionary', 'config', 'dragdrop', 'midi', 'patternUtils',
-            'progressmain', 'promptGenerator', 'rhythmEditor', 'sequencer', 'stateUtils', 
-            'storage', 'store', 'synth', 'theory', 'ui', 'wavEncoder', 'wavExport'
-        ];
-        
-        const imports = {};
-        jsFiles.forEach(file => {
-            imports[`./${file}.js`] = `./${file}.js?v=${version}`;
-        });
-
-        const mapScript = document.createElement('script');
-        mapScript.type = 'importmap';
-        mapScript.textContent = JSON.stringify({ imports });
-        document.head.appendChild(mapScript);
-
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = `style.css?v=${version}`;
-        document.head.appendChild(link);
-        
-        const script = document.createElement('script');
-        script.type = 'module';
-        script.src = `./progressmain.js`; // The import map will append the version automatically
-        document.head.appendChild(script);
-    </script>
+    
+    <!-- Hide body and show spinner to prevent Flash of Unstyled Content (FOUC) while scripts load -->
     <style>
-        /* Force drag handles to stay above overlays and guarantee visibility */
-        .resize-handle {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 12px;
-            background: rgba(255, 255, 255, 0.3);
-            cursor: ew-resize;
-            z-index: 50 !important; /* Punches through active slice-overlays */
-            opacity: 0;
+        body { visibility: hidden; opacity: 0; transition: opacity 0.3s ease; }
+        html::before {
+            content: '';
+            position: fixed;
+            top: 50%; left: 50%;
+            width: 40px; height: 40px;
+            margin: -20px 0 0 -20px;
+            border: 4px solid rgba(79, 70, 229, 0.2);
+            border-top-color: #4f46e5;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
         }
-        .resize-handle.left { left: 0; }
-        .resize-handle.right { right: 0; }
-        .resize-handle:hover { background: rgba(255, 255, 255, 0.8) !important; }
-
-        .rhythm-instance:hover .resize-handle,
-        .rhythm-instance.selected .resize-handle {
-            opacity: 1 !important;
-        }
-        /* Mobile Usability: Make drag handles fatter and always visible on touch devices */
-        @media (pointer: coarse) {
-            .resize-handle {
-                opacity: 1 !important;
-                width: 24px !important;
-            }
-        }
+        html.loaded::before { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
+
+    <!-- 2. Scripts deferred to prevent HTML parsing blocks -->
+    <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@2.1.4/browser/midiwriter.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js" defer></script>
+    <script src="init.js" defer></script>
 </head>
 <body>
-    <h1>Progress: <span style="font-size: 1rem; font-weight: 400; opacity: 0.8;">Build neuroharmonic chord progressions</span></h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-main); padding-bottom: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
+        <h1 style="border-bottom: none; padding-bottom: 0; margin: 0;">Progress: <span style="font-size: 1rem; font-weight: 400; opacity: 0.8;">Build neuroharmonic chord progressions</span></h1>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <label style="font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                <strong>Export Passes:</strong>
+                <input type="number" id="multipass-input" min="1" max="32" value="1" style="width: 50px; padding: 4px;" title="Number of loopthroughs to export">
+            </label>
+            <button class="control-btn primary" id="btn-export" style="padding: 6px 12px; font-size: 13px;">💾 MIDI</button>
+            <button class="control-btn primary" id="btn-export-wav" style="padding: 6px 12px; font-size: 13px;">💾 WAV</button>
+            <button class="control-btn secondary" id="btn-ai-prompt" style="padding: 6px 12px; font-size: 13px;">🤖 AI Prompt</button>
+        </div>
+    </div>
 
     <div class="panel" id="builder-panel">
         <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
-            <strong style="font-size: 16px;">Key: <span id="key-display">C Major</span></strong>
+            <button class="control-btn secondary" id="btn-undo" title="Undo" disabled style="padding: 4px 8px; font-size: 13px;">↩ Undo</button>
+            <button class="control-btn secondary" id="btn-clear" title="Clear Progression" style="padding: 4px 8px; font-size: 13px;">🗑 Clear</button>
+            <label style="font-size: 13px; display: flex; align-items: center; gap: 6px; margin-right: 10px;">
+                <input type="checkbox" id="voice-leading" checked> 
+                <strong>Voice Leading</strong>
+            </label>
+            <strong style="font-size: 16px; border-left: 2px solid var(--border-main); padding-left: 10px;">Key: <span id="key-display">C Major</span></strong>
             <select id="key-selector" class="rhythm-select" style="padding: 4px 8px;">
                 <option value="60">C</option>
                 <option value="61">C♯/D♭</option>
@@ -156,32 +133,18 @@
     </div>
 
     <!-- Global Transport Controls -->
-    <div class="panel controls">
+    <div class="controls" id="transport-bar">
         <button class="control-btn primary" id="btn-play-toggle" title="Play/Stop">▶</button>
-        <button class="control-btn primary" id="btn-loop-toggle" title="Toggle Loop">🔁</button>
-        <button class="control-btn secondary" id="btn-undo" title="Undo" disabled>↩ Undo</button>
-        <button class="control-btn primary" id="btn-clear" title="Clear Progression">🗑</button>
         <label>
             <strong>BPM:</strong>
             <input type="number" id="bpm-slider" value="90" min="40" max="240" style="width: 60px;">
         </label>
-        <label>
-            <input type="checkbox" id="voice-leading" checked> 
-            <strong>Minimize note movement between chords</strong>
-        </label>
-        <label>
-            <strong>Export Passes:</strong>
-            <input type="number" id="multipass-input" min="1" max="32" value="1" style="width: 50px;" title="Number of loopthroughs to export">
-        </label>
-        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border-left: 2px solid var(--border-main); padding-left: 15px; margin-left: 5px;">
-            <strong style="align-self: center;">Mixer:</strong>
-            <label style="font-size: 13px;">Chords <input type="range" id="vol-chords" min="0" max="1.5" step="0.05" value="0.8" style="width: 50px;"></label>
-            <label style="font-size: 13px;">Bass <input type="range" id="vol-bass" min="0" max="1.5" step="0.05" value="0.8" style="width: 50px;"></label>
-            <label style="font-size: 13px;">Drums <input type="range" id="vol-drums" min="0" max="1.5" step="0.05" value="0.8" style="width: 50px;"></label>
+        <div style="display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; border-left: 2px solid var(--border-main); padding-left: 15px; margin-left: 5px;">
+            <strong style="align-self: center;">Mix:</strong>
+            <label style="display: flex; align-items: center; gap: 4px;" title="Chords Volume"><span style="font-size: 16px; line-height: 1;">🎹</span><input type="range" id="vol-chords" min="0" max="1.5" step="0.05" value="0.8" style="width: 45px; margin: 0;"></label>
+            <label style="display: flex; align-items: center; gap: 4px;" title="Bass Volume"><span style="font-size: 16px; line-height: 1;">🎸</span><input type="range" id="vol-bass" min="0" max="1.5" step="0.05" value="0.8" style="width: 45px; margin: 0;"></label>
+            <label style="display: flex; align-items: center; gap: 4px;" title="Drums Volume"><span style="font-size: 16px; line-height: 1;">🥁</span><input type="range" id="vol-drums" min="0" max="1.5" step="0.05" value="0.8" style="width: 45px; margin: 0;"></label>
         </div>
-        <button class="control-btn primary" id="btn-export">⤓ Download MIDI</button>
-        <button class="control-btn primary" id="btn-export-wav">⤓ Download WAV</button>
-        <button class="control-btn secondary" id="btn-ai-prompt">🤖 AI Prompt</button>
     </div>
 
     <!-- Per-Chord Rhythm Editor Panel (Anchored) -->
