@@ -96,7 +96,7 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         }
 
         const isTemp = state.temporarySwaps[index] !== undefined;
-        const displayChord = isTemp ? state.temporarySwaps[index] : chord;
+        const displayChord = isTemp ? { ...chord, ...state.temporarySwaps[index] } : chord;
 
         const labelSpan = el.querySelector('.chord-label');
         if (labelSpan) labelSpan.textContent = `${displayChord.symbol} `;
@@ -107,8 +107,8 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         if (isTemp) el.classList.add('temporary');
         else el.classList.remove('temporary');
 
-        const prevChord = index > 0 ? (state.temporarySwaps[index - 1] || state.currentProgression[index - 1]) : null;
-        const nextChord = index < state.currentProgression.length - 1 ? (state.temporarySwaps[index + 1] || state.currentProgression[index + 1]) : null;
+        const prevChord = index > 0 ? (state.temporarySwaps[index - 1] ? { ...state.currentProgression[index - 1], ...state.temporarySwaps[index - 1] } : state.currentProgression[index - 1]) : null;
+        const nextChord = index < state.currentProgression.length - 1 ? (state.temporarySwaps[index + 1] ? { ...state.currentProgression[index + 1], ...state.temporarySwaps[index + 1] } : state.currentProgression[index + 1]) : null;
         
         const colors = getSynestheticColorProfile(displayChord, prevChord, nextChord, state.mode);
 
@@ -290,7 +290,7 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
     const index = selectedChordIndex;
     const originalChord = state.currentProgression[index];
     const isTemp = state.temporarySwaps[index] !== undefined;
-    const displayChord = isTemp ? state.temporarySwaps[index] : originalChord;
+    const displayChord = isTemp ? { ...originalChord, ...state.temporarySwaps[index] } : originalChord;
 
     document.getElementById('inspector-title').textContent = `Selected Chord: ${displayChord.symbol}`;
 
@@ -501,7 +501,8 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
     const lastChordIndex = state.isLooping ? Math.max(0, state.loopEnd - 1) : Math.max(0, state.currentProgression.length - 1);
     
     if (index === lastChordIndex && state.currentProgression.length > 0) {
-        const firstChord = state.temporarySwaps[firstChordIndex] || state.currentProgression[firstChordIndex];
+        const firstChordOriginal = state.currentProgression[firstChordIndex];
+        const firstChord = state.temporarySwaps[firstChordIndex] ? { ...firstChordOriginal, ...state.temporarySwaps[firstChordIndex] } : firstChordOriginal;
         if (firstChord) {
             const turnRow = document.createElement('div');
             turnRow.className = 'inspector-row';

@@ -332,7 +332,7 @@ function _setupProgressionDisplayEvents(display) {
         }
 
         // Clicked the chord badge itself
-        const displayChord = state.temporarySwaps[index] || originalChord;
+        const displayChord = getActiveProgression()[index];
         if (!isPlaying) {
             let notesToPlay = null;
             if (state.useVoiceLeading) {
