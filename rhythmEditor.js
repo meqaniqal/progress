@@ -1043,15 +1043,20 @@ function renderRhythmTimeline() {
     // Dynamic panel title
     const titleEl = document.getElementById('rhythm-editor-title');
     if (titleEl) {
-        const tabNames = { chordPattern: 'Chords', bassPattern: 'Bass', drumPattern: 'Drums' };
+        const prefixMap = {
+            chordPattern: 'Pattern Editor',
+            bassPattern: 'Bass Pattern',
+            drumPattern: 'Drum Editor'
+        };
+        const prefix = prefixMap[editorState.activeTab];
+        
         if (editorState.isGlobal) {
-            titleEl.textContent = `Global Pattern: ${tabNames[editorState.activeTab]}`;
+            titleEl.textContent = `${prefix} (global)`;
         } else {
             const chord = app.state.currentProgression[editorState.activeIndex];
             const swap = app.state.temporarySwaps ? app.state.temporarySwaps[editorState.activeIndex] : null;
             const activeChord = swap ? { ...chord, ...swap } : chord;
-            const isOverride = activeChord && activeChord[editorState.activeTab] && activeChord[editorState.activeTab].isLocalOverride;
-            titleEl.textContent = activeChord ? `Pattern Editor: ${activeChord.symbol} (${tabNames[editorState.activeTab]})${isOverride ? ' [Override]' : ' [Inherited]'}` : 'Pattern Editor';
+            titleEl.textContent = activeChord ? `${prefix}: ${activeChord.symbol}` : prefix;
         }
     }
     

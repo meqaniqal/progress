@@ -227,15 +227,16 @@ function _loadAndApplyInitialState() {
 function _setupThemeToggle() {
     document.documentElement.setAttribute('data-theme', state.theme);
     
-    const themeToggleBtn = document.createElement('button');
-    themeToggleBtn.id = 'theme-toggle';
-    themeToggleBtn.textContent = state.theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
-    themeToggleBtn.addEventListener('click', () => {
-        state.theme = state.theme === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', state.theme);
-        themeToggleBtn.textContent = state.theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
-        persistAppState();
-    });
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    if (themeToggleBtn) {
+        themeToggleBtn.textContent = state.theme === 'dark' ? '☀️' : '🌙';
+        themeToggleBtn.addEventListener('click', () => {
+            state.theme = state.theme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', state.theme);
+            themeToggleBtn.textContent = state.theme === 'dark' ? '☀️' : '🌙';
+            persistAppState();
+        });
+    }
     
     document.getElementById('btn-export-wav').addEventListener('click', (e) => {
         // Get active swaps applied for the exact audio the user hears
@@ -281,7 +282,6 @@ function _setupThemeToggle() {
             setTimeout(() => copyBtn.textContent = originalText, 2000);
         });
     });
-    document.body.appendChild(themeToggleBtn);
 }
 
 function _setupKeyAndModeSelectors() {
@@ -390,6 +390,16 @@ function _setupControlButtons() {
             e.preventDefault(); // Prevent page scroll and default button clicks
             playToggleBtn.click();
         }
+    });
+
+    document.getElementById('btn-nav-top').addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    document.getElementById('btn-nav-editor').addEventListener('click', () => {
+        const editor = document.getElementById('rhythm-editor-panel');
+        if (editor && editor.style.display !== 'none') editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        else document.getElementById('progression-display').scrollIntoView({ behavior: 'smooth', block: 'end' });
     });
 
     document.getElementById('btn-undo').addEventListener('click', undo);

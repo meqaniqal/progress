@@ -89,6 +89,20 @@
                 <option value="quartal">Quartal</option>
             </select>
         </div>
+        
+        <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 15px; background: var(--display-bg); padding: 10px; border-radius: 6px; border: 1px solid var(--border-main);">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                <strong>BPM:</strong>
+                <input type="number" id="bpm-slider" class="rhythm-select" value="90" min="40" max="240" style="width: 60px; padding: 4px;">
+            </label>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border-left: 2px solid var(--border-main); padding-left: 15px;">
+                <strong style="align-self: center; font-size: 13px;">Mix:</strong>
+                <label style="display: flex; align-items: center; gap: 4px;" title="Chords Volume"><span style="font-size: 16px; line-height: 1;">🎹</span><input type="range" id="vol-chords" min="0" max="1.5" step="0.05" value="0.8" style="width: 60px; margin: 0;"></label>
+                <label style="display: flex; align-items: center; gap: 4px;" title="Bass Volume"><span style="font-size: 16px; line-height: 1;">🎸</span><input type="range" id="vol-bass" min="0" max="1.5" step="0.05" value="0.8" style="width: 60px; margin: 0;"></label>
+                <label style="display: flex; align-items: center; gap: 4px;" title="Drums Volume"><span style="font-size: 16px; line-height: 1;">🥁</span><input type="range" id="vol-drums" min="0" max="1.5" step="0.05" value="0.8" style="width: 60px; margin: 0;"></label>
+            </div>
+        </div>
+
         <div id="palette-diatonic">
             <strong>Diatonic:</strong>
             <button class="chord-btn" data-chord="I">I</button>
@@ -135,16 +149,11 @@
     <!-- Global Transport Controls -->
     <div class="controls" id="transport-bar">
         <button class="control-btn primary" id="btn-play-toggle" title="Play/Stop">▶</button>
-        <label>
-            <strong>BPM:</strong>
-            <input type="number" id="bpm-slider" value="90" min="40" max="240" style="width: 60px;">
-        </label>
-        <div style="display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; border-left: 2px solid var(--border-main); padding-left: 15px; margin-left: 5px;">
-            <strong style="align-self: center;">Mix:</strong>
-            <label style="display: flex; align-items: center; gap: 4px;" title="Chords Volume"><span style="font-size: 16px; line-height: 1;">🎹</span><input type="range" id="vol-chords" min="0" max="1.5" step="0.05" value="0.8" style="width: 45px; margin: 0;"></label>
-            <label style="display: flex; align-items: center; gap: 4px;" title="Bass Volume"><span style="font-size: 16px; line-height: 1;">🎸</span><input type="range" id="vol-bass" min="0" max="1.5" step="0.05" value="0.8" style="width: 45px; margin: 0;"></label>
-            <label style="display: flex; align-items: center; gap: 4px;" title="Drums Volume"><span style="font-size: 16px; line-height: 1;">🥁</span><input type="range" id="vol-drums" min="0" max="1.5" step="0.05" value="0.8" style="width: 45px; margin: 0;"></label>
-        </div>
+        <div style="border-left: 2px solid var(--border-main); height: 24px; margin: 0 5px;"></div>
+        <button class="control-btn secondary" id="btn-nav-top" title="Scroll to Top" style="padding: 6px 12px; font-size: 16px;">⬆️</button>
+        <button class="control-btn secondary" id="btn-nav-editor" title="Scroll to Pattern Editor" style="padding: 6px 12px; font-size: 16px;">⬇️</button>
+        <div style="border-left: 2px solid var(--border-main); height: 24px; margin: 0 5px;"></div>
+        <button class="control-btn secondary" id="theme-toggle" title="Toggle Theme" style="padding: 6px 12px; font-size: 16px;">🌙</button>
     </div>
 
     <!-- Per-Chord Rhythm Editor Panel (Anchored) -->
