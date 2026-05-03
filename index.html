@@ -49,7 +49,8 @@
                     <input type="number" id="multipass-input" min="1" max="32" value="1" style="width: 50px; padding: 4px;" title="Number of loopthroughs to export">
                 </label>
                 <button class="control-btn primary" id="btn-export" style="padding: 6px 12px; font-size: 13px;">💾 MIDI</button>
-                <button class="control-btn primary" id="btn-export-wav" style="padding: 6px 12px; font-size: 13px;">💾 WAV</button>
+                <button class="control-btn primary" id="btn-export-wav" style="padding: 6px 12px; font-size: 13px;" title="Export Master Mix to WAV">💾 WAV Mix</button>
+                <button class="control-btn primary" id="btn-export-stems" style="padding: 6px 12px; font-size: 13px;" title="Export each track separately to WAV">💾 Stems</button>
                 <button class="control-btn secondary" id="btn-ai-prompt" style="padding: 6px 12px; font-size: 13px;">🤖 AI Prompt</button>
                 <button class="control-btn secondary" id="btn-settings" title="Settings" style="padding: 6px 10px; font-size: 16px;">⚙️</button>
             </div>
@@ -255,7 +256,8 @@
                     </div>
                 </div>
             </div>
-            <div style="display: flex; justify-content: flex-end;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                <button class="control-btn" id="btn-reset-session" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.5); font-size: 13px;" title="Clear all data and reset to defaults">⚠️ Factory Reset</button>
                 <button class="control-btn primary" id="btn-close-settings">Done</button>
             </div>
         </div>

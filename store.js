@@ -1,4 +1,4 @@
-import { saveState, loadState } from './storage.js';
+import { saveState, loadState, clearState } from './storage.js';
 import { calculateLoopBounds } from './stateUtils.js';
 import { initChordPattern, initDrumPattern, initPatternSet } from './patternUtils.js';
 
@@ -70,6 +70,26 @@ export function undoState() {
 
 export function persistAppState() {
     saveState(state);
+}
+
+export function resetSession() {
+    clearState();
+    state.currentProgression = [];
+    state.temporarySwaps = {};
+    state.history = [];
+    state.baseKey = 60;
+    state.bpm = 120;
+    state.isLooping = true;
+    state.useVoiceLeading = true;
+    state.globalVoicing = 'auto';
+    state.loopStart = 0;
+    state.loopEnd = 0;
+    state.theme = 'light';
+    state.mode = 'major';
+    state.exportPasses = 1;
+    state.volumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 };
+    state.selectedChordIndex = null;
+    state.globalPatterns = initPatternSet();
 }
 
 export function loadAndApplyInitialState() {

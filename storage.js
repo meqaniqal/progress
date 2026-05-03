@@ -19,3 +19,11 @@ export function loadState() {
         return null;
     }
 }
+
+export function clearState() {
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+        console.error('[storage] Failed to clear state', e);
+    }
+}

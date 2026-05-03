@@ -10,7 +10,7 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
 import { initPatternSet } from './patternUtils.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
 import { KEY_NAMES, highlightChordInUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
-import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState } from './store.js';
+import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, resetSession } from './store.js';
 
         let isPlaying = false;
         let currentPlaybackStopFunction = null; // Stores the stop function returned by audio.playProgression
@@ -260,6 +260,46 @@ function _setupTopBarEvents() {
             settingsModal.classList.remove('visible');
             setTimeout(() => settingsModal.style.display = 'none', 200);
         });
+        
+        const resetSessionBtn = document.getElementById('btn-reset-session');
+        if (resetSessionBtn) {
+            resetSessionBtn.addEventListener('click', () => {
+                if (confirm("Are you sure you want to factory reset the app? All progress and settings will be permanently lost.")) {
+                    if (currentPlaybackStopFunction) currentPlaybackStopFunction();
+                    isPlaying = false;
+                    const playToggleBtn = document.getElementById('btn-play-toggle');
+                    if (playToggleBtn) playToggleBtn.textContent = '▶';
+                    
+                    resetSession();
+                    
+                    // Sync UI with fresh state
+                    document.getElementById('key-selector').value = state.baseKey;
+                    updateKeyAndModeDisplay(state);
+                    document.getElementById('bpm-slider').value = state.bpm;
+                    
+                    ['master', 'chords', 'bass', 'bassHarmonic', 'drums'].forEach(track => {
+                        const el = document.getElementById(`vol-${track}`);
+                        if (el) {
+                            el.value = state.volumes[track];
+                            try { setTrackVolume(track, state.volumes[track]); } catch (err) {}
+                        }
+                    });
+                    
+                    const multipassInput = document.getElementById('multipass-input');
+                    if (multipassInput) multipassInput.value = state.exportPasses;
+                    document.getElementById('voice-leading').checked = state.useVoiceLeading;
+                    
+                    const themeSelector = document.getElementById('theme-selector');
+                    if (themeSelector) themeSelector.value = state.theme;
+                    document.documentElement.setAttribute('data-theme', state.theme);
+                    
+                    renderProgression();
+                    
+                    settingsModal.classList.remove('visible');
+                    setTimeout(() => settingsModal.style.display = 'none', 200);
+                }
+            });
+        }
     }
 
     document.getElementById('btn-export-wav').addEventListener('click', (e) => {
@@ -267,6 +307,49 @@ function _setupTopBarEvents() {
         const exportState = { ...state, currentProgression: getActiveProgression() };
         exportToWav(exportState, e.target);
     });
+
+    const stemsBtn = document.getElementById('btn-export-stems');
+    if (stemsBtn) {
+        stemsBtn.addEventListener('click', (e) => {
+            const btn = e.target;
+            const originalText = btn.textContent;
+            btn.textContent = '⏳ Stems...';
+            btn.disabled = true;
+
+            const tracks = ['chords', 'bass', 'bassHarmonic', 'drums'];
+            let delay = 0;
+
+            tracks.forEach((track) => {
+                if (state.volumes[track] > 0.01) {
+                    const exportState = { 
+                        ...state, 
+                        currentProgression: getActiveProgression(),
+                        volumes: { ...state.volumes }
+                    };
+                    
+                    // Solo the current track by muting everything else
+                    tracks.forEach(t => {
+                        if (t !== track) {
+                            exportState.volumes[t] = 0;
+                        }
+                    });
+
+                    setTimeout(() => {
+                        // Use a dummy element so the internal export engine doesn't mess with our button's label
+                        const dummyBtn = document.createElement('button');
+                        exportToWav(exportState, dummyBtn);
+                    }, delay);
+                    
+                    delay += 1000; // Stagger downloads by 1s to prevent browser blockage
+                }
+            });
+
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }, delay + 500);
+        });
+    }
 
     document.getElementById('btn-ai-prompt').addEventListener('click', () => {
         const activeProgression = getActiveProgression();
