@@ -30,9 +30,9 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                 isGlobalChord = true;
             }
             pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-            pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 4);
+            pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 2);
             
-            const beats = Number(chord.duration) || 4;
+            const beats = Number(chord.duration) || 2;
             const duration = (60.0 / Number(bpm)) * beats;
 
             if (chordNotes) {
@@ -56,8 +56,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                                 freq: Math.pow(2, (event.note - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                                 startTime: instanceStartTime + event.startTime,
                                 duration: event.duration, // generateArpNotes handles the exact gate logic
-                                type: 'sawtooth',
-                                track: 'chords'
+                                type: 'sawtooth'
                             });
                         });
                     } else {
@@ -68,8 +67,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                                 freq: Math.pow(2, (midiNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                                 startTime: instanceStartTime,
                                 duration: gateDuration,
-                                type: 'sawtooth', // Chords pad
-                                track: 'chords'
+                                type: 'sawtooth' // Chords pad
                             });
                         });
                     }
@@ -88,7 +86,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     isGlobalBass = true;
                 }
                 bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-                bPattern = resolvePattern(bPattern, isGlobalBass, Number(chord.duration) || 4);
+                bPattern = resolvePattern(bPattern, isGlobalBass, Number(chord.duration) || 2);
 
                 bPattern.instances.forEach(instance => {
                     if (instance.probability !== undefined && Math.random() > instance.probability) return;
@@ -102,16 +100,16 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                         freq: Math.pow(2, (bassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                         startTime: instanceStartTime,
                         duration: gateDuration,
-                        type: 'sine', // Sub bass
-                        track: 'bass'
+                        type: 'sine' // Sub bass
                     });
+
+                    // --- Bass Harmonic Layer (Sawtooth Enhance) ---
                     timeline.push({
                         midiNote: bassNote,
                         freq: Math.pow(2, (bassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                         startTime: instanceStartTime,
                         duration: gateDuration,
-                        type: 'sawtooth', // Harmonic bass
-                        track: 'bassHarmonic'
+                        type: 'sawtooth-bass' // Dedicated type for routing
                     });
                 });
             }
@@ -224,35 +222,36 @@ export async function exportToWav(state, buttonElement) {
             const gainNode = offlineCtx.createGain();
             let filterNode = null;
 
-            osc.type = ev.type;
+            osc.type = ev.type === 'sawtooth-bass' ? 'sawtooth' : ev.type;
             osc.frequency.value = ev.freq;
 
             const safeAttack = Math.min(CONFIG.ATTACK_TIME, ev.duration * 0.3);
             const safeRelease = Math.min(CONFIG.RELEASE_TIME, ev.duration * 0.5);
+            const sustainLevel = ev.type === 'sawtooth-bass' ? CONFIG.SUSTAIN_LEVEL * 0.8 : CONFIG.SUSTAIN_LEVEL;
 
             gainNode.gain.setValueAtTime(0, ev.startTime);
-            gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, ev.startTime + safeAttack);
-            gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, ev.startTime + ev.duration - safeRelease);
+            gainNode.gain.linearRampToValueAtTime(sustainLevel, ev.startTime + safeAttack);
+            gainNode.gain.linearRampToValueAtTime(sustainLevel, ev.startTime + ev.duration - safeRelease);
             gainNode.gain.linearRampToValueAtTime(0, ev.startTime + ev.duration);
 
-            const targetGainNode = ev.track === 'chords' ? chordsGain :
-                                   ev.track === 'bassHarmonic' ? bassHarmonicGain :
-                                   ev.track === 'bass' ? bassGain :
-                                   (ev.type === 'sawtooth' ? chordsGain : bassGain); // fallback
+            let targetGainNode = bassGain;
+            if (ev.type === 'sawtooth') targetGainNode = chordsGain;
+            if (ev.type === 'sawtooth-bass') targetGainNode = bassHarmonicGain;
 
-            if (ev.track === 'bassHarmonic') {
-                filterNode = offlineCtx.createBiquadFilter();
-                filterNode.type = 'highpass';
-                filterNode.frequency.setValueAtTime(200, ev.startTime); // Cut off sub frequencies
-                osc.connect(filterNode);
-                filterNode.connect(gainNode);
-            } else if (ev.type === 'sawtooth') {
+            if (ev.type === 'sawtooth') {
                 filterNode = offlineCtx.createBiquadFilter();
                 filterNode.type = 'lowpass';
                 filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 1.5, ev.startTime);
                 filterNode.frequency.exponentialRampToValueAtTime(CONFIG.SYNTH_LPF_CUTOFF, ev.startTime + safeAttack);
                 filterNode.Q.value = CONFIG.SYNTH_LPF_RESONANCE;
 
+                osc.connect(filterNode);
+                filterNode.connect(gainNode);
+            } else if (ev.type === 'sawtooth-bass') {
+                filterNode = offlineCtx.createBiquadFilter();
+                filterNode.type = 'lowpass';
+                filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 2.5, ev.startTime);
+                
                 osc.connect(filterNode);
                 filterNode.connect(gainNode);
             } else {

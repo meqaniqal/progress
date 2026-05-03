@@ -215,8 +215,11 @@ function _loadAndApplyInitialState() {
     if (state.volumes.bassHarmonic === undefined) {
         state.volumes.bassHarmonic = 0.0;
     }
+    if (state.volumes.master === undefined) {
+        state.volumes.master = 1.0;
+    }
     
-    ['chords', 'bass', 'drums'].forEach(track => {
+    ['master', 'chords', 'bass', 'bassHarmonic', 'drums'].forEach(track => {
         const el = document.getElementById(`vol-${track}`);
         if (el) {
             el.value = state.volumes[track];
@@ -224,31 +227,41 @@ function _loadAndApplyInitialState() {
         }
     });
     
-    try {
-        setTrackVolume('bassHarmonic', state.volumes.bassHarmonic);
-    } catch (e) {
-        console.warn('bassHarmonic track not yet initialized in synth.js');
-    }
-    
     const multipassInput = document.getElementById('multipass-input');
     if (multipassInput) multipassInput.value = state.exportPasses || 1;
     document.getElementById('voice-leading').checked = state.useVoiceLeading;
 }
 
-function _setupThemeToggle() {
+function _setupTopBarEvents() {
     document.documentElement.setAttribute('data-theme', state.theme);
     
-    const themeToggleBtn = document.getElementById('theme-toggle');
-    if (themeToggleBtn) {
-        themeToggleBtn.textContent = state.theme === 'dark' ? '☀️' : '🌙';
-        themeToggleBtn.addEventListener('click', () => {
-            state.theme = state.theme === 'dark' ? 'light' : 'dark';
+    const themeSelector = document.getElementById('theme-selector');
+    if (themeSelector) {
+        themeSelector.value = state.theme;
+        themeSelector.addEventListener('change', (e) => {
+            state.theme = e.target.value;
             document.documentElement.setAttribute('data-theme', state.theme);
-            themeToggleBtn.textContent = state.theme === 'dark' ? '☀️' : '🌙';
             persistAppState();
         });
     }
     
+    const settingsBtn = document.getElementById('btn-settings');
+    const settingsModal = document.getElementById('settings-modal');
+    const closeSettingsBtn = document.getElementById('btn-close-settings');
+    
+    if (settingsBtn && settingsModal && closeSettingsBtn) {
+        settingsBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'flex';
+            settingsModal.offsetHeight; // trigger reflow
+            settingsModal.classList.add('visible');
+        });
+        
+        closeSettingsBtn.addEventListener('click', () => {
+            settingsModal.classList.remove('visible');
+            setTimeout(() => settingsModal.style.display = 'none', 200);
+        });
+    }
+
     document.getElementById('btn-export-wav').addEventListener('click', (e) => {
         // Get active swaps applied for the exact audio the user hears
         const exportState = { ...state, currentProgression: getActiveProgression() };
@@ -415,37 +428,13 @@ function _setupControlButtons() {
         persistAppState();
     });
     
-    let bassMixMode = 'sub'; // 'sub' or 'harmonic'
-    const btnToggleBassMix = document.getElementById('btn-toggle-bass-mix');
-    const volBassSlider = document.getElementById('vol-bass');
-    
-    if (btnToggleBassMix && volBassSlider) {
-        btnToggleBassMix.addEventListener('click', (e) => {
-            e.preventDefault();
-            bassMixMode = bassMixMode === 'sub' ? 'harmonic' : 'sub';
-            
-            if (bassMixMode === 'harmonic') {
-                btnToggleBassMix.style.background = 'var(--ctrl-primary-bg)';
-                btnToggleBassMix.title = 'Toggle Bass Edit: Harmonic';
-                btnToggleBassMix.textContent = '〰️';
-            } else {
-                btnToggleBassMix.style.background = 'transparent';
-                btnToggleBassMix.title = 'Toggle Bass Edit: Sub';
-                btnToggleBassMix.textContent = '🎸';
-            }
-            
-            volBassSlider.value = bassMixMode === 'sub' ? state.volumes.bass : state.volumes.bassHarmonic;
-        });
-    }
-
-    ['chords', 'bass', 'drums'].forEach(track => {
+    ['master', 'chords', 'bass', 'bassHarmonic', 'drums'].forEach(track => {
         const el = document.getElementById(`vol-${track}`);
         if (el) {
             el.addEventListener('input', (e) => {
                 const val = parseFloat(e.target.value);
-                const actualTrack = (track === 'bass' && bassMixMode === 'harmonic') ? 'bassHarmonic' : track;
-                state.volumes[actualTrack] = val;
-                try { setTrackVolume(actualTrack, val); } catch (err) {}
+                state.volumes[track] = val;
+                try { setTrackVolume(track, val); } catch (err) {}
                 persistAppState();
             });
         }
@@ -575,7 +564,7 @@ function _setupGlobalDoubleTap() {
 function initApp() {
     const display = document.getElementById('progression-display');
     _loadAndApplyInitialState();
-    _setupThemeToggle();
+    _setupTopBarEvents();
     initRhythmEditor({ 
         state, 
         saveHistoryState, 

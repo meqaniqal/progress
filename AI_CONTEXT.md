@@ -57,6 +57,7 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] **Architectural Refactoring - State:** Clean up module-scoped mutable state variables in `rhythmEditor.js`.
 - [x] **Architectural Refactoring - Events:** Implement Event Delegation for the Chord Inspector in `ui.js` to prevent memory leaks from orphaned listeners.
 - [x] Generative Multi-Pass Export (UI and multi-pass looping engine fully integrated for both MIDI and WAV).
+- [x] **UI Decluttering:** Moved Theme, BPM, Mixer, and Voice Leading settings into a dedicated Settings Modal via the top bar gear icon. Added independent Master volume control.
 - [x] Probabilistic Pattern Sequencing (Per-slice and per-hit probability sliders for generative, organically evolving rhythms).
 - [x] Unified Pattern Architecture: Global/Local cascading state (Reset inherits Global, Clear forces 1-block local override).
 - [x] Drum Machine Synthesis & Grid Editor: 4-piece kit (Kick, Snare, CHH, OHH). Includes a dual-view workflow: a scrollable, independent-length Global pattern that loops continuously across the entire progression (featuring non-destructive truncation, smart duplication, panning, and DAW-style page-flipping), and a zoomed-in Local override view featuring "ghost notes" for precise drum fills.

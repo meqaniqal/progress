@@ -4,13 +4,14 @@ let audioCtx;
 let activeOscillators = [];
 let masterCompressor; // Module-scoped, but only initialized once
 
-let chordsGain, bassGain, bassHarmonicGain, drumsGain;
-let trackVolumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 };
+let masterGain, chordsGain, bassGain, bassHarmonicGain, drumsGain;
+let trackVolumes = { master: 1.0, chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 };
 
 export function setTrackVolume(track, vol) {
     trackVolumes[track] = vol;
     if (audioCtx) {
         const time = audioCtx.currentTime;
+        if (track === 'master' && masterGain) masterGain.gain.setTargetAtTime(vol, time, 0.05);
         if (track === 'chords' && chordsGain) chordsGain.gain.setTargetAtTime(vol, time, 0.05);
         if (track === 'bass' && bassGain) bassGain.gain.setTargetAtTime(vol, time, 0.05);
         if (track === 'bassHarmonic' && bassHarmonicGain) bassHarmonicGain.gain.setTargetAtTime(vol, time, 0.05);
@@ -32,7 +33,11 @@ export function initAudio() {
         masterCompressor.attack.setValueAtTime(CONFIG.COMPRESSOR_ATTACK, audioCtx.currentTime);
         masterCompressor.release.setValueAtTime(CONFIG.COMPRESSOR_RELEASE, audioCtx.currentTime);
         
-        masterCompressor.connect(audioCtx.destination);
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = trackVolumes.master;
+        
+        masterCompressor.connect(masterGain);
+        masterGain.connect(audioCtx.destination);
         
         // Setup individual track buses
         if (!chordsGain) {
@@ -91,10 +96,6 @@ export function playTone(freq, startTime, duration, type = 'sine') {
     gainNode.gain.linearRampToValueAtTime(0, startTime + duration); // Release
 
     const targetGainNode = type === 'sawtooth' ? chordsGain : bassGain;
-    
-    let harmonicOsc = null;
-    let harmonicGain = null;
-    let harmonicFilter = null;
 
     // Apply Low-Pass Filter specifically for sawtooth pad chords
     if (type === 'sawtooth') {
@@ -108,30 +109,6 @@ export function playTone(freq, startTime, duration, type = 'sine') {
         filterNode.connect(gainNode);
     } else {
         osc.connect(gainNode);
-        
-        // If this is the bass track, simultaneously play the harmonic layer
-        harmonicOsc = audioCtx.createOscillator();
-        harmonicOsc.type = 'sawtooth'; // High harmonics that translate well to phone speakers
-        harmonicOsc.frequency.value = freq;
-        
-        harmonicGain = audioCtx.createGain();
-        harmonicGain.gain.setValueAtTime(0, startTime);
-        harmonicGain.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + safeAttack);
-        harmonicGain.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + duration - safeRelease);
-        harmonicGain.gain.linearRampToValueAtTime(0, startTime + duration);
-        
-        // Highpass filter to keep the low-end clean and prevent phase issues with the sub
-        harmonicFilter = audioCtx.createBiquadFilter();
-        harmonicFilter.type = 'highpass';
-        harmonicFilter.frequency.setValueAtTime(200, startTime); // Cut off sub frequencies
-        
-        harmonicOsc.connect(harmonicFilter);
-        harmonicFilter.connect(harmonicGain);
-        harmonicGain.connect(bassHarmonicGain);
-        
-        harmonicOsc.start(startTime);
-        harmonicOsc.stop(startTime + duration + 0.1);
-        activeOscillators.push(harmonicOsc);
     }
     gainNode.connect(targetGainNode);
 
@@ -144,16 +121,45 @@ export function playTone(freq, startTime, duration, type = 'sine') {
         gainNode.disconnect();
         if (filterNode) filterNode.disconnect();
         activeOscillators = activeOscillators.filter(o => o !== osc);
-        
-        if (harmonicOsc) {
-            try { harmonicOsc.disconnect(); } catch(e) {}
-            try { harmonicGain.disconnect(); } catch(e) {}
-            if (harmonicFilter) { try { harmonicFilter.disconnect(); } catch(e) {} }
-            activeOscillators = activeOscillators.filter(o => o !== harmonicOsc);
-        }
     };
 
     activeOscillators.push(osc);
+
+    // --- Bass Harmonic Layer (Sawtooth Enhance) ---
+    if (type === 'sine') {
+        const harmOsc = audioCtx.createOscillator();
+        const harmGain = audioCtx.createGain();
+        const harmFilter = audioCtx.createBiquadFilter();
+
+        harmOsc.type = 'sawtooth';
+        harmOsc.frequency.value = freq;
+
+        // Match the sub bass envelope, scaled to a good mixing volume
+        harmGain.gain.setValueAtTime(0, startTime);
+        harmGain.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL * 0.8, startTime + safeAttack);
+        harmGain.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL * 0.8, startTime + duration - safeRelease);
+        harmGain.gain.linearRampToValueAtTime(0, startTime + duration);
+
+        // Filter the sawtooth slightly higher than the chords so it provides warm mid-presence
+        harmFilter.type = 'lowpass';
+        harmFilter.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 2.5, startTime);
+        
+        harmOsc.connect(harmFilter);
+        harmFilter.connect(harmGain);
+        harmGain.connect(bassHarmonicGain); // Route to the dedicated Enhance bus
+
+        harmOsc.start(startTime);
+        harmOsc.stop(startTime + duration + 0.1);
+
+        harmOsc.onended = () => {
+            harmOsc.disconnect();
+            harmGain.disconnect();
+            harmFilter.disconnect();
+            activeOscillators = activeOscillators.filter(o => o !== harmOsc);
+        };
+
+        activeOscillators.push(harmOsc);
+    }
 }
 
 function _playKick(time, velocity, ctx, dest) {
