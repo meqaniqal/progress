@@ -120,7 +120,7 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Rhythm Editor UX Redesign (Completed):** Unified press/drag interactions, smart boundary collisions, vertical slider for slicing/filling gaps, and a comprehensive grid slider with triplet support.
 - **Edge-Dragging to Resize (Completed):** Ability to click and drag the left or right edges of a slice in the Rhythm Editor to dynamically resize it without moving its opposite boundary.
 - **Variable Chord Durations (Completed):** Allow changing the total time dedicated to a chord in the sequence (1, 2, 4, or 8 beats) via the chord swap popover. The Rhythm Editor timeline visually and mathematically adapts its normalized `0.0 - 1.0` space to reflect this variable length during audio playback and MIDI/WAV export.
-- **UI Architecture Shift (Completed):** Replacing the vertical context menu with a permanent, horizontal "Inspector Panel". Establishing a compact editor panel paradigm to keep the interface highly accessible without vertical scroll bloat.
+- **UI Architecture Shift (Completed):** Replacing the vertical context menu with a permanent, horizontal "Inspector Panel" bridging smoothly with the tray via native scroll-snapping, to keep the interface highly accessible without vertical scroll bloat.
 - **Inspector Auto-Transpose (Completed):** Modulating the key directly from a chord's Inspector panel automatically transposes that specific chord into the new key, streamlining workflow.
 - **Always-Visible Transport (Completed):** Transport and global controls are positioned above the foldaway panels, ensuring playback and export features are never pushed off-screen when deep-editing a chord.
 - **Architectural Scaling (Completed):** Extracting the global state machine from the main controller to a dedicated store, implementing targeted DOM node reconciliation in the Rhythm Editor for 60fps dragging, and applying strict event delegation in the UI to prevent memory leaks.
@@ -135,10 +135,14 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Unified Tabbed Pattern Editor:** Transform the current Rhythm Editor into a multi-tabbed interface (`Chords` | `Bass` | `Drums`) with a `Global / Local` toggle for sequence-wide vs per-chord pattern building.
 - **Bassline Engine & Slash Chords:** Implement the `Bass` tab, allowing users to detach bass slices from the chord rhythm and assign explicit pitches to create slash chords and walking lines.
 - **Drum Sequencer Engine:** Implement the `Drums` tab and audio scheduler for integrated beats.
-- **Probabilistic Pattern Sequencing:** Allow assigning percent-based probabilities to specific rhythm/arp patterns per loop cycle.
+- **Probabilistic Pattern Sequencing (Completed):** Allow assigning percent-based probabilities to specific rhythm/arp patterns and drum hits per loop cycle to create generative variation.
 
 ### 6. Advanced Modular Synthesis & Sound Design (Future Goal)
 - **Editable AI-Targeted Synths:** The default sine/sawtooth engines will become options among multiple modular synths. Planned are highly customizable synths specifically geared toward producing maximum clarity for AI audio recognition or direct integration into professional DAW projects via WAV export.
 - **Bass-Geared Synthesizers:** A dedicated, modular synth for the bassline layer, featuring editable parameters for sub-harmonics and drive to anchor AI generations.
 - **Professional Generative Drums:** A drum editor that uses professional-grade sampling or synthesis to produce high-quality drum exports.
 - **Modular UI Architecture:** Each of these engines (Synth, Bass, Drums) will exist as entirely decoupled modules with their own localized UI logic to ensure the app remains performant, testable, and clean.
+
+### 7. Progressive Disclosure & Simple Mode (Future Goal)
+- **Beginner-Friendly Defaults:** A default "Simple Mode" upon app load that hides advanced theory configurations, the timeline editor, and complex voicings.
+- **Progressive Interface:** A settings gear that allows users to progressively turn on "Advanced Mode" features (like the Rhythm Editor, Borrowed/Extended chords palettes, and specific sound design tools) as they gain familiarity with the workflow.

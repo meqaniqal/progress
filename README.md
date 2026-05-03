@@ -56,8 +56,9 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Always-Visible Transport:** Relocate transport controls above foldaway panels for consistent, easy access. (Complete ✅)
 - **Functional Transposition:** Context-aware button in the Inspector to instantly transpose any out-of-key chord to the currently selected global key. (Complete ✅)
 - **Workflow & Defaults Adjustments:** Optimized defaults (120bpm, 2 beats) and immediate UI feedback for rapid sequencing. (Complete ✅)
-- **Architectural Refactoring:** Extract global state to a dedicated store, optimize DOM reconciliation in the Rhythm Editor, and implement strict event delegation in the Inspector.
-- **Generative Multi-Pass Export:** State data structure stubbed; pending export logic and UI.
+- **Architectural Refactoring:** Extract global state to a dedicated store, optimize DOM reconciliation in the Rhythm Editor, and implement strict event delegation in the Inspector. (Complete ✅)
+- **Generative Multi-Pass Export:** Multi-pass export logic and UI fully integrated for both MIDI and offline WAV rendering. (Complete ✅)
+- **Probabilistic Pattern Sequencing:** Allow assigning percent-based probabilities to specific rhythm/arp patterns or drum hits, creating organically evolving grooves. (Complete ✅)
 - **Unified Tabbed Pattern Editor:** Consolidating Chords, Bass, and Drums into a single tabbed UI. Features a Global/Local cascade system where local changes detach from the global pattern, "Reset to Global" re-inherits the global pattern, and "Clear" explicitly overrides to a single un-sliced block. (Complete ✅)
 - **Intelligent Bassline Editor:** Timeline-based slash chords, walking basslines, and rhythm-informed generation.
 - **Advanced Modular Synthesis:** Pluggable, editable synths for Chords and Basslines, optimized for AI audio recognition and professional WAV export.

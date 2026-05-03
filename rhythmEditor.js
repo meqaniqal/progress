@@ -1044,9 +1044,9 @@ function renderRhythmTimeline() {
     const titleEl = document.getElementById('rhythm-editor-title');
     if (titleEl) {
         const prefixMap = {
-            chordPattern: 'Pattern Editor',
+            chordPattern: 'Chord Pattern',
             bassPattern: 'Bass Pattern',
-            drumPattern: 'Drum Editor'
+            drumPattern: 'Drum Pattern'
         };
         const prefix = prefixMap[editorState.activeTab];
         

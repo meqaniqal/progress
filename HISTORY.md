@@ -52,7 +52,8 @@
 - Dynamically scaled Rhythm Editor grid snapping to perfectly align with variable chord durations.
 - Resolved string-to-number coercion bugs in local state loading to ensure robust, glitch-free audio scheduling.
 - Implemented Omni-Scale Theory updates, making harmonic tension analysis, modulations, and turnarounds fully mode-aware.
-- Added Generative Multi-Pass Export UI controls and integrated looping logic into both MIDI and offline WAV export engines.
+- Added Generative Multi-Pass Export UI controls and integrated multi-pass looping into both MIDI and offline WAV export engines.
+- Implemented Probabilistic Pattern Sequencing, allowing users to assign per-slice and per-hit probabilities to create generative, organically evolving rhythms across loopthroughs.
 - Established a continuous chord selection model with `localStorage` persistence to ensure seamless foldaway panel UX.
 - Integrated `arp.js` into export pipelines to ensure 1:1 playback parity for polyrhythmic arpeggiation in WAV and MIDI files.
 - Replaced hardcoded chord dictionaries with a generative mathematical Roman Numeral parser, unlocking full Omni-Scale support for exotic modes (Dorian, Lydian, Harmonic Minor, etc.).

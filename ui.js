@@ -1,4 +1,4 @@
-import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getAlternatives, getTurnaroundSuggestions, getDiatonicChords, SCALE_PREFIXES, getSynestheticColorProfile } from './theory.js';
+import { getPlayableNotes, getHarmonicProfile, getChordNotes, getTransitionSuggestions, getAlternatives, getTurnaroundSuggestions, getDiatonicChords, SCALE_PREFIXES, getSynestheticColorProfile } from './theory.js';
 
 export const KEY_NAMES = {
     60: 'C', 61: 'C♯/D♭', 62: 'D', 63: 'D♯/E♭', 64: 'E', 65: 'F',
@@ -250,6 +250,9 @@ function handleInspectorClick(e) {
             const direction = parseInt(btn.dataset.direction, 10);
             currentUICallbacks.onStepInversion(index, direction);
             break;
+        case 'set-global-voicing':
+            currentUICallbacks.onSetGlobalVoicing(btn.dataset.val);
+            break;
     }
 }
 
@@ -259,9 +262,36 @@ function handleInspectorChange(e) {
     if (select.tagName === 'SELECT' && select.dataset.action === 'changeChordKey') {
         const index = parseInt(select.dataset.index, 10);
         currentUICallbacks.onChangeChordKey(index, parseInt(select.value, 10));
-    } else if (select.tagName === 'SELECT' && select.dataset.action === 'changeVoicingType') {
+    } else if (select.tagName === 'INPUT' && select.dataset.action === 'duration-slider') {
         const index = parseInt(select.dataset.index, 10);
-        currentUICallbacks.onChangeVoicingType(index, select.value);
+        currentUICallbacks.onChangeDuration(index, parseInt(select.value, 10));
+    } else if (select.tagName === 'INPUT' && select.dataset.action === 'voicing-slider') {
+        const index = parseInt(select.dataset.index, 10);
+        const types = ['global', 'auto', 'close', 'quartal', 'spread'];
+        const val = Math.round(parseFloat(select.value));
+        currentUICallbacks.onChangeVoicingType(index, types[val]);
+    }
+}
+
+function handleInspectorInput(e) {
+    if (!currentUICallbacks || !currentUIState) return;
+    const target = e.target;
+    if (target.tagName === 'INPUT' && target.dataset.action === 'duration-slider') {
+        const label = document.getElementById('dur-label-' + target.dataset.index);
+        if (label) label.innerHTML = `<strong>Beats:</strong> ${target.value}`;
+    } else if (target.tagName === 'INPUT' && target.dataset.action === 'voicing-slider') {
+        const val = Math.round(parseFloat(target.value));
+        const label = document.getElementById('voicing-label-' + target.dataset.index);
+        const types = ['Global', 'Auto', 'Close', 'Quartal', 'Spread'];
+        const valStrings = ['global', 'auto', 'close', 'quartal', 'spread'];
+        if (label) label.innerHTML = `<strong>Voicing:</strong> ${types[val]}`;
+        
+        const setGlobalBtn = document.querySelector(`.set-global-btn[data-index="${target.dataset.index}"]`);
+        if (setGlobalBtn) {
+            setGlobalBtn.title = `Set '${types[val]}' as the new master default`;
+            setGlobalBtn.dataset.val = valStrings[val];
+            setGlobalBtn.style.display = val === 0 ? 'none' : 'inline-block';
+        }
     }
 }
 
@@ -284,6 +314,7 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
         isInspectorDelegated = true;
         content.addEventListener('click', handleInspectorClick);
         content.addEventListener('change', handleInspectorChange);
+        content.addEventListener('input', handleInspectorInput);
     }
     content.innerHTML = '';
 
@@ -311,6 +342,11 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
             btn.className = 'chord-btn';
             btn.textContent = alt;
             if (isTemp && i === 0) btn.classList.add('original-swap-option');
+            
+            // Style as a flat tinted tag instead of a heavy block to differentiate from palette "Add" buttons
+            btn.style.background = 'rgba(74, 222, 128, 0.15)';
+            btn.style.border = '1px solid rgba(74, 222, 128, 0.3)';
+            btn.style.boxShadow = 'none';
             
             btn.dataset.action = 'swap';
             btn.dataset.index = index;
@@ -352,15 +388,20 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
     modBlock.appendChild(modSelect);
     toolsRow.appendChild(modBlock);
 
-    // --- Voicing Type ---
+    // --- Voicing Type Slider ---
     const voicingBlock = document.createElement('div');
     voicingBlock.style.display = 'flex';
     voicingBlock.style.alignItems = 'center';
-    voicingBlock.style.gap = '8px';
-    voicingBlock.innerHTML = `<strong class="inspector-label">Voicing:</strong>`;
-    const voicingSelect = document.createElement('select');
-    voicingSelect.className = 'rhythm-select';
-    voicingSelect.style.padding = '4px 8px';
+    voicingBlock.style.flexWrap = 'wrap';
+    voicingBlock.style.gap = '12px';
+
+    const currentType = displayChord.voicingType || 'global';
+
+    // Calculate identical results for highlighting
+    const mockProg = state.currentProgression.map((c, i) => {
+        const swap = state.temporarySwaps[i];
+        return swap ? { ...c, ...swap } : c;
+    });
     
     const types = [
         { val: 'global', label: 'Global' },
@@ -369,17 +410,76 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
         { val: 'quartal', label: 'Quartal' },
         { val: 'spread', label: 'Spread' }
     ];
-    const currentType = displayChord.voicingType || 'global';
+    
+    const vLabel = document.createElement('span');
+    vLabel.id = 'voicing-label-' + index;
+    vLabel.className = 'inspector-label';
+    vLabel.style.display = 'inline-block';
+    vLabel.style.width = '140px'; // Prevent horizontal layout shift when text changes
+    const activeLabel = types.find(t => t.val === currentType).label;
+    vLabel.innerHTML = `<strong>Voicing:</strong> ${activeLabel}`;
+    voicingBlock.appendChild(vLabel);
+
+    const resultsMap = {};
+    const uniqueResults = [];
     types.forEach(t => {
-        const opt = document.createElement('option');
-        opt.value = t.val;
-        opt.textContent = t.label;
-        if (t.val === currentType) opt.selected = true;
-        voicingSelect.appendChild(opt);
+        mockProg[index] = { ...mockProg[index], voicingType: t.val };
+        const notes = getPlayableNotes(mockProg, state)[index];
+        const noteStr = notes ? notes.join(',') : 'none';
+        resultsMap[t.val] = noteStr;
+        if (!uniqueResults.includes(noteStr)) {
+            uniqueResults.push(noteStr);
+        }
     });
-    voicingSelect.dataset.action = 'changeVoicingType';
-    voicingSelect.dataset.index = index;
-    voicingBlock.appendChild(voicingSelect);
+
+    // Distinct visual indicator colors for matching chord note outputs
+    const colorPalette = [
+        '#3b82f6', // Blue
+        '#10b981', // Green
+        '#f59e0b', // Amber
+        '#8b5cf6', // Purple
+        '#ec4899'  // Pink
+    ];
+
+    const gradientStops = types.map((t, i) => {
+        const resultIndex = uniqueResults.indexOf(resultsMap[t.val]);
+        const matchColor = colorPalette[resultIndex % colorPalette.length];
+        return `${matchColor} ${i * 20}%, ${matchColor} ${(i + 1) * 20}%`;
+    }).join(', ');
+
+    const vSlider = document.createElement('input');
+    vSlider.type = 'range';
+    vSlider.className = 'voicing-slider';
+    vSlider.min = 0;
+    vSlider.max = 4;
+    vSlider.step = 0.01;
+    vSlider.value = types.findIndex(t => t.val === currentType);
+    vSlider.dataset.action = 'voicing-slider';
+    vSlider.dataset.index = index;
+    vSlider.style.background = `linear-gradient(to right, ${gradientStops})`;
+    vSlider.title = "Equivalent voicings share the same color track";
+    
+    voicingBlock.appendChild(vSlider);
+
+    // Buttons: Set as Global
+    const vBtnGroup = document.createElement('div');
+    vBtnGroup.style.display = 'flex';
+    vBtnGroup.style.gap = '6px';
+    
+    const setGlobalBtn = document.createElement('button');
+    setGlobalBtn.className = 'control-btn secondary set-global-btn';
+    setGlobalBtn.style.padding = '2px 8px';
+    setGlobalBtn.style.fontSize = '12px';
+    setGlobalBtn.textContent = 'Set as Global';
+    setGlobalBtn.title = `Set '${activeLabel}' as the new master default`;
+    setGlobalBtn.dataset.action = 'set-global-voicing';
+    setGlobalBtn.dataset.index = index;
+    setGlobalBtn.dataset.val = currentType;
+    setGlobalBtn.style.display = currentType === 'global' ? 'none' : 'inline-block';
+    
+    vBtnGroup.appendChild(setGlobalBtn);
+    
+    voicingBlock.appendChild(vBtnGroup);
     toolsRow.appendChild(voicingBlock);
 
     // --- Inversion Stepper ---
@@ -441,29 +541,31 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
     const durBlock = document.createElement('div');
     durBlock.style.display = 'flex';
     durBlock.style.alignItems = 'center';
-    durBlock.style.gap = '8px';
-    durBlock.innerHTML = `<strong class="inspector-label">Beats:</strong>`;
-    const durBtnContainer = document.createElement('div');
-    durBtnContainer.className = 'inspector-btn-group';
-    const durations = [1, 2, 4, 8];
-    const currentDuration = Number(displayChord.duration) || 2;
-    durations.forEach(dur => {
-        const btn = document.createElement('button');
-        btn.className = 'chord-btn';
-        btn.textContent = dur;
-        if (dur === currentDuration) {
-            btn.style.backgroundColor = 'var(--ctrl-primary-bg)';
-            btn.style.color = '#ffffff';
-            btn.style.borderColor = 'var(--ctrl-primary-bg)';
-        } else btn.style.opacity = '0.6';
-        btn.dataset.action = 'duration';
-        btn.dataset.index = index;
-        btn.dataset.duration = dur;
-        btn.style.padding = '4px 10px';
-        btn.style.margin = '0 2px';
-        durBtnContainer.appendChild(btn);
-    });
-    durBlock.appendChild(durBtnContainer);
+    durBlock.style.gap = '12px';
+    
+    const currentDuration = Number(displayChord.duration) || 4;
+    const durLabel = document.createElement('span');
+    durLabel.id = 'dur-label-' + index;
+    durLabel.className = 'inspector-label';
+    durLabel.style.display = 'inline-block';
+    durLabel.style.width = '90px'; // Prevent horizontal layout shift
+    durLabel.innerHTML = `<strong>Beats:</strong> ${currentDuration}`;
+    
+    const durSlider = document.createElement('input');
+    durSlider.type = 'range';
+    durSlider.min = 1;
+    durSlider.max = 8;
+    durSlider.step = 1;
+    durSlider.value = currentDuration;
+    durSlider.dataset.action = 'duration-slider';
+    durSlider.dataset.index = index;
+    durSlider.setAttribute('list', 'beat-snaps');
+    durSlider.style.width = '120px';
+    durSlider.style.margin = '0';
+    durSlider.style.cursor = 'pointer';
+    
+    durBlock.appendChild(durLabel);
+    durBlock.appendChild(durSlider);
     toolsRow.appendChild(durBlock);
 
     // 3. Delete

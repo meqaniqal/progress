@@ -4,8 +4,8 @@ let audioCtx;
 let activeOscillators = [];
 let masterCompressor; // Module-scoped, but only initialized once
 
-let chordsGain, bassGain, drumsGain;
-let trackVolumes = { chords: 0.8, bass: 0.8, drums: 0.8 };
+let chordsGain, bassGain, bassHarmonicGain, drumsGain;
+let trackVolumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 };
 
 export function setTrackVolume(track, vol) {
     trackVolumes[track] = vol;
@@ -13,6 +13,7 @@ export function setTrackVolume(track, vol) {
         const time = audioCtx.currentTime;
         if (track === 'chords' && chordsGain) chordsGain.gain.setTargetAtTime(vol, time, 0.05);
         if (track === 'bass' && bassGain) bassGain.gain.setTargetAtTime(vol, time, 0.05);
+        if (track === 'bassHarmonic' && bassHarmonicGain) bassHarmonicGain.gain.setTargetAtTime(vol, time, 0.05);
         if (track === 'drums' && drumsGain) drumsGain.gain.setTargetAtTime(vol, time, 0.05);
     }
 }
@@ -37,12 +38,15 @@ export function initAudio() {
         if (!chordsGain) {
             chordsGain = audioCtx.createGain();
             bassGain = audioCtx.createGain();
+            bassHarmonicGain = audioCtx.createGain();
             drumsGain = audioCtx.createGain();
             chordsGain.gain.value = trackVolumes.chords;
             bassGain.gain.value = trackVolumes.bass;
+            bassHarmonicGain.gain.value = trackVolumes.bassHarmonic;
             drumsGain.gain.value = trackVolumes.drums;
             chordsGain.connect(masterCompressor);
             bassGain.connect(masterCompressor);
+            bassHarmonicGain.connect(masterCompressor);
             drumsGain.connect(masterCompressor);
         }
         
@@ -87,6 +91,10 @@ export function playTone(freq, startTime, duration, type = 'sine') {
     gainNode.gain.linearRampToValueAtTime(0, startTime + duration); // Release
 
     const targetGainNode = type === 'sawtooth' ? chordsGain : bassGain;
+    
+    let harmonicOsc = null;
+    let harmonicGain = null;
+    let harmonicFilter = null;
 
     // Apply Low-Pass Filter specifically for sawtooth pad chords
     if (type === 'sawtooth') {
@@ -100,6 +108,30 @@ export function playTone(freq, startTime, duration, type = 'sine') {
         filterNode.connect(gainNode);
     } else {
         osc.connect(gainNode);
+        
+        // If this is the bass track, simultaneously play the harmonic layer
+        harmonicOsc = audioCtx.createOscillator();
+        harmonicOsc.type = 'sawtooth'; // High harmonics that translate well to phone speakers
+        harmonicOsc.frequency.value = freq;
+        
+        harmonicGain = audioCtx.createGain();
+        harmonicGain.gain.setValueAtTime(0, startTime);
+        harmonicGain.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + safeAttack);
+        harmonicGain.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + duration - safeRelease);
+        harmonicGain.gain.linearRampToValueAtTime(0, startTime + duration);
+        
+        // Highpass filter to keep the low-end clean and prevent phase issues with the sub
+        harmonicFilter = audioCtx.createBiquadFilter();
+        harmonicFilter.type = 'highpass';
+        harmonicFilter.frequency.setValueAtTime(200, startTime); // Cut off sub frequencies
+        
+        harmonicOsc.connect(harmonicFilter);
+        harmonicFilter.connect(harmonicGain);
+        harmonicGain.connect(bassHarmonicGain);
+        
+        harmonicOsc.start(startTime);
+        harmonicOsc.stop(startTime + duration + 0.1);
+        activeOscillators.push(harmonicOsc);
     }
     gainNode.connect(targetGainNode);
 
@@ -112,6 +144,13 @@ export function playTone(freq, startTime, duration, type = 'sine') {
         gainNode.disconnect();
         if (filterNode) filterNode.disconnect();
         activeOscillators = activeOscillators.filter(o => o !== osc);
+        
+        if (harmonicOsc) {
+            try { harmonicOsc.disconnect(); } catch(e) {}
+            try { harmonicGain.disconnect(); } catch(e) {}
+            if (harmonicFilter) { try { harmonicFilter.disconnect(); } catch(e) {} }
+            activeOscillators = activeOscillators.filter(o => o !== harmonicOsc);
+        }
     };
 
     activeOscillators.push(osc);

@@ -30,9 +30,9 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                 isGlobalChord = true;
             }
             pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-            pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 2);
+            pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 4);
             
-            const beats = Number(chord.duration) || 2;
+            const beats = Number(chord.duration) || 4;
             const duration = (60.0 / Number(bpm)) * beats;
 
             if (chordNotes) {
@@ -56,7 +56,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                                 freq: Math.pow(2, (event.note - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                                 startTime: instanceStartTime + event.startTime,
                                 duration: event.duration, // generateArpNotes handles the exact gate logic
-                                type: 'sawtooth'
+                                type: 'sawtooth',
+                                track: 'chords'
                             });
                         });
                     } else {
@@ -67,7 +68,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                                 freq: Math.pow(2, (midiNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                                 startTime: instanceStartTime,
                                 duration: gateDuration,
-                                type: 'sawtooth' // Chords pad
+                                type: 'sawtooth', // Chords pad
+                                track: 'chords'
                             });
                         });
                     }
@@ -86,7 +88,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     isGlobalBass = true;
                 }
                 bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-                bPattern = resolvePattern(bPattern, isGlobalBass, Number(chord.duration) || 2);
+                bPattern = resolvePattern(bPattern, isGlobalBass, Number(chord.duration) || 4);
 
                 bPattern.instances.forEach(instance => {
                     if (instance.probability !== undefined && Math.random() > instance.probability) return;
@@ -100,7 +102,16 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                         freq: Math.pow(2, (bassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                         startTime: instanceStartTime,
                         duration: gateDuration,
-                        type: 'sine' // Sub bass
+                        type: 'sine', // Sub bass
+                        track: 'bass'
+                    });
+                    timeline.push({
+                        midiNote: bassNote,
+                        freq: Math.pow(2, (bassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
+                        startTime: instanceStartTime,
+                        duration: gateDuration,
+                        type: 'sawtooth', // Harmonic bass
+                        track: 'bassHarmonic'
                     });
                 });
             }
@@ -195,10 +206,12 @@ export async function exportToWav(state, buttonElement) {
         
         const chordsGain = offlineCtx.createGain(); chordsGain.gain.value = state.volumes.chords ?? 0.8;
         const bassGain = offlineCtx.createGain(); bassGain.gain.value = state.volumes.bass ?? 0.8;
+        const bassHarmonicGain = offlineCtx.createGain(); bassHarmonicGain.gain.value = state.volumes.bassHarmonic ?? 0.0;
         const drumsGain = offlineCtx.createGain(); drumsGain.gain.value = state.volumes.drums ?? 0.8;
         
         chordsGain.connect(masterCompressor);
         bassGain.connect(masterCompressor);
+        bassHarmonicGain.connect(masterCompressor);
         drumsGain.connect(masterCompressor);
 
         timeline.forEach(ev => {
@@ -222,9 +235,18 @@ export async function exportToWav(state, buttonElement) {
             gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, ev.startTime + ev.duration - safeRelease);
             gainNode.gain.linearRampToValueAtTime(0, ev.startTime + ev.duration);
 
-            const targetGainNode = ev.type === 'sawtooth' ? chordsGain : bassGain;
+            const targetGainNode = ev.track === 'chords' ? chordsGain :
+                                   ev.track === 'bassHarmonic' ? bassHarmonicGain :
+                                   ev.track === 'bass' ? bassGain :
+                                   (ev.type === 'sawtooth' ? chordsGain : bassGain); // fallback
 
-            if (ev.type === 'sawtooth') {
+            if (ev.track === 'bassHarmonic') {
+                filterNode = offlineCtx.createBiquadFilter();
+                filterNode.type = 'highpass';
+                filterNode.frequency.setValueAtTime(200, ev.startTime); // Cut off sub frequencies
+                osc.connect(filterNode);
+                filterNode.connect(gainNode);
+            } else if (ev.type === 'sawtooth') {
                 filterNode = offlineCtx.createBiquadFilter();
                 filterNode.type = 'lowpass';
                 filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 1.5, ev.startTime);

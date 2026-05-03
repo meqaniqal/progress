@@ -16,7 +16,7 @@ export const state = {
     theme: 'light',
     mode: 'major',
     exportPasses: 1,
-    volumes: { chords: 0.8, bass: 0.8, drums: 0.8 }, // 0.8 provides headroom for mixing
+    volumes: { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 }, // 0.8 provides headroom for mixing
     selectedChordIndex: null,
     globalPatterns: initPatternSet()
 };
@@ -101,6 +101,7 @@ export function loadAndApplyInitialState() {
             state.volumes = {
                 chords: typeof savedState.volumes.chords === 'number' ? savedState.volumes.chords : 0.8,
                 bass: typeof savedState.volumes.bass === 'number' ? savedState.volumes.bass : 0.8,
+                bassHarmonic: typeof savedState.volumes.bassHarmonic === 'number' ? savedState.volumes.bassHarmonic : 0.0,
                 drums: typeof savedState.volumes.drums === 'number' ? savedState.volumes.drums : 0.8
             };
         }
@@ -158,7 +159,7 @@ export function loadAndApplyInitialState() {
                 }
 
                 chordObj.key = typeof chordObj.key === 'number' ? Math.max(0, Math.min(127, chordObj.key)) : state.baseKey;
-                chordObj.duration = typeof chordObj.duration !== 'undefined' ? Math.max(0.25, Number(chordObj.duration) || 2) : 2;
+                chordObj.duration = typeof chordObj.duration !== 'undefined' ? Math.max(1, Math.round(Number(chordObj.duration)) || 4) : 4;
                 chordObj.voicingType = typeof item.voicingType === 'string' ? item.voicingType : 'global';
                 chordObj.voicing = item.voicing ? { ...item.voicing } : null;
 

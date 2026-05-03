@@ -24,7 +24,7 @@ import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoSta
         function addChord(numeral, targetKey = state.baseKey) {
             saveHistoryState();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
-            state.currentProgression.push({ symbol: numeral, key: targetKey, ...initPatternSet(), duration: 2 });
+            state.currentProgression.push({ symbol: numeral, key: targetKey, ...initPatternSet(), duration: 4 });
             
             if (isAtEnd) state.loopEnd = state.currentProgression.length;
             
@@ -136,6 +136,12 @@ import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoSta
                 auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay);
                 renderProgression();
             },
+            onSetGlobalVoicing: (type) => {
+                saveHistoryState();
+                state.globalVoicing = type;
+                persistAppState();
+                renderProgression();
+            },
             onChangeChordKey: (index, newKey) => {
                 saveHistoryState();
                 state.currentProgression[index].key = newKey;
@@ -163,7 +169,7 @@ import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoSta
                 saveHistoryState();
                 const insertIndex = index + 1;
                 state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
-                state.currentProgression.splice(insertIndex, 0, { symbol: altSymbol, key: key, ...initPatternSet(), duration: 2 });
+                state.currentProgression.splice(insertIndex, 0, { symbol: altSymbol, key: key, ...initPatternSet(), duration: 4 });
                 if (insertIndex <= state.loopEnd) state.loopEnd++;
                 state.selectedChordIndex = insertIndex;
                 auditionChord(altSymbol, key);
@@ -205,10 +211,9 @@ function _loadAndApplyInitialState() {
     updateKeyAndModeDisplay(state);
     document.getElementById('bpm-slider').value = state.bpm;
     
-    const globalVoicingEl = document.getElementById('global-voicing');
-    if (globalVoicingEl) {
-        globalVoicingEl.value = state.globalVoicing;
-        globalVoicingEl.addEventListener('change', (e) => { state.globalVoicing = e.target.value; persistAppState(); renderProgression(); });
+    // Ensure bassHarmonic volume state exists (default 0.0 for silent)
+    if (state.volumes.bassHarmonic === undefined) {
+        state.volumes.bassHarmonic = 0.0;
     }
     
     ['chords', 'bass', 'drums'].forEach(track => {
@@ -218,6 +223,12 @@ function _loadAndApplyInitialState() {
             setTrackVolume(track, state.volumes[track]);
         }
     });
+    
+    try {
+        setTrackVolume('bassHarmonic', state.volumes.bassHarmonic);
+    } catch (e) {
+        console.warn('bassHarmonic track not yet initialized in synth.js');
+    }
     
     const multipassInput = document.getElementById('multipass-input');
     if (multipassInput) multipassInput.value = state.exportPasses || 1;
@@ -392,16 +403,6 @@ function _setupControlButtons() {
         }
     });
 
-    document.getElementById('btn-nav-top').addEventListener('click', () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-
-    document.getElementById('btn-nav-editor').addEventListener('click', () => {
-        const editor = document.getElementById('rhythm-editor-panel');
-        if (editor && editor.style.display !== 'none') editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        else document.getElementById('progression-display').scrollIntoView({ behavior: 'smooth', block: 'end' });
-    });
-
     document.getElementById('btn-undo').addEventListener('click', undo);
     document.getElementById('btn-clear').addEventListener('click', clearProgression);
     document.getElementById('btn-export').addEventListener('click', () => {
@@ -414,13 +415,37 @@ function _setupControlButtons() {
         persistAppState();
     });
     
+    let bassMixMode = 'sub'; // 'sub' or 'harmonic'
+    const btnToggleBassMix = document.getElementById('btn-toggle-bass-mix');
+    const volBassSlider = document.getElementById('vol-bass');
+    
+    if (btnToggleBassMix && volBassSlider) {
+        btnToggleBassMix.addEventListener('click', (e) => {
+            e.preventDefault();
+            bassMixMode = bassMixMode === 'sub' ? 'harmonic' : 'sub';
+            
+            if (bassMixMode === 'harmonic') {
+                btnToggleBassMix.style.background = 'var(--ctrl-primary-bg)';
+                btnToggleBassMix.title = 'Toggle Bass Edit: Harmonic';
+                btnToggleBassMix.textContent = '〰️';
+            } else {
+                btnToggleBassMix.style.background = 'transparent';
+                btnToggleBassMix.title = 'Toggle Bass Edit: Sub';
+                btnToggleBassMix.textContent = '🎸';
+            }
+            
+            volBassSlider.value = bassMixMode === 'sub' ? state.volumes.bass : state.volumes.bassHarmonic;
+        });
+    }
+
     ['chords', 'bass', 'drums'].forEach(track => {
         const el = document.getElementById(`vol-${track}`);
         if (el) {
             el.addEventListener('input', (e) => {
                 const val = parseFloat(e.target.value);
-                state.volumes[track] = val;
-                setTrackVolume(track, val);
+                const actualTrack = (track === 'bass' && bassMixMode === 'harmonic') ? 'bassHarmonic' : track;
+                state.volumes[actualTrack] = val;
+                try { setTrackVolume(actualTrack, val); } catch (err) {}
                 persistAppState();
             });
         }
@@ -486,7 +511,7 @@ function _setupDragAndDrop(display) {
             const isAtEnd = state.loopEnd === state.currentProgression.length;
             state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
             state.selectedChordIndex = insertIndex;
-            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, ...initPatternSet(), duration: 2 });
+            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, ...initPatternSet(), duration: 4 });
             
             if (newLoopStart !== null && newLoopEnd !== null) {
                 state.loopStart = newLoopStart;
@@ -523,24 +548,12 @@ function _setupDragAndDrop(display) {
     });
 }
 
-function _setupFoldawayPanels() {
-    document.querySelectorAll('.foldaway-header').forEach(header => {
-        header.addEventListener('click', (e) => {
-            // Prevent toggling if clicking the close button inside the header
-            if (e.target.closest('.remove-btn')) return;
-            
-            const panel = header.closest('.foldaway-panel');
-            panel.classList.toggle('collapsed');
-        });
-    });
-}
-
 function _setupGlobalDoubleTap() {
     let lastTapTime = 0;
     
     document.addEventListener('pointerdown', (e) => {
         // Ignore taps on all interactive elements, timelines, panels, and controls
-        const ignoredSelectors = 'button, input, select, textarea, .progression-item, .chord-btn, .rhythm-instance, .drum-hit, .bracket-element, .controls, .foldaway-header, .pattern-tab, .swap-menu, .rhythm-timeline-container, .modal-content, .drum-row-label';
+        const ignoredSelectors = 'button, input, select, textarea, .progression-item, .chord-btn, .rhythm-instance, .drum-hit, .bracket-element, .controls, .pattern-tab, .swap-menu, .rhythm-timeline-container, .modal-content, .drum-row-label';
         if (e.target.closest(ignoredSelectors)) {
             lastTapTime = 0;
             return;
@@ -574,7 +587,6 @@ function initApp() {
     _setupChordButtons();
     _setupProgressionDisplayEvents(display);
     _setupDragAndDrop(display);
-    _setupFoldawayPanels();
     _setupGlobalDoubleTap();
     renderProgression();
 

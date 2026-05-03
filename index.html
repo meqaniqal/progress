@@ -11,6 +11,13 @@
     
     <!-- Hide body and show spinner to prevent Flash of Unstyled Content (FOUC) while scripts load -->
     <style>
+        html { scroll-snap-type: y proximity; }
+        /* Apply magnetic gravity to the top of major panels */
+        #top-header, #progression-display, #inspector-section, #rhythm-editor-panel {
+            scroll-snap-align: start;
+            scroll-margin-top: 15px;
+        }
+        
         body { visibility: hidden; opacity: 0; transition: opacity 0.3s ease; }
         html::before {
             content: '';
@@ -33,16 +40,32 @@
     <script src="init.js" defer></script>
 </head>
 <body>
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-main); padding-bottom: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
-        <h1 style="border-bottom: none; padding-bottom: 0; margin: 0;">Progress: <span style="font-size: 1rem; font-weight: 400; opacity: 0.8;">Build neuroharmonic chord progressions</span></h1>
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <label style="font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                <strong>Export Passes:</strong>
-                <input type="number" id="multipass-input" min="1" max="32" value="1" style="width: 50px; padding: 4px;" title="Number of loopthroughs to export">
+    <div id="top-header">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-main); padding-bottom: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; gap: 15px;">
+            <h1 style="border-bottom: none; padding-bottom: 0; margin: 0;">Progress: <span style="font-size: 1rem; font-weight: 400; opacity: 0.8;">Build neuroharmonic chord progressions</span></h1>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <label style="font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                    <strong>Export Passes:</strong>
+                    <input type="number" id="multipass-input" min="1" max="32" value="1" style="width: 50px; padding: 4px;" title="Number of loopthroughs to export">
+                </label>
+                <button class="control-btn primary" id="btn-export" style="padding: 6px 12px; font-size: 13px;">💾 MIDI</button>
+                <button class="control-btn primary" id="btn-export-wav" style="padding: 6px 12px; font-size: 13px;">💾 WAV</button>
+                <button class="control-btn secondary" id="btn-ai-prompt" style="padding: 6px 12px; font-size: 13px;">🤖 AI Prompt</button>
+                <button class="control-btn secondary" id="theme-toggle" title="Toggle Theme" style="padding: 6px 10px; font-size: 16px;">🌙</button>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; align-items: center; gap: 15px; background: var(--display-bg); padding: 10px; border-radius: 6px; border: 1px solid var(--border-main);">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                <strong>BPM:</strong>
+                <input type="number" id="bpm-slider" class="rhythm-select" value="90" min="40" max="240" style="width: 60px; padding: 4px;">
             </label>
-            <button class="control-btn primary" id="btn-export" style="padding: 6px 12px; font-size: 13px;">💾 MIDI</button>
-            <button class="control-btn primary" id="btn-export-wav" style="padding: 6px 12px; font-size: 13px;">💾 WAV</button>
-            <button class="control-btn secondary" id="btn-ai-prompt" style="padding: 6px 12px; font-size: 13px;">🤖 AI Prompt</button>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border-left: 2px solid var(--border-main); padding-left: 15px;">
+                <strong style="align-self: center; font-size: 13px;">Mix:</strong>
+                <label style="display: flex; align-items: center; gap: 4px;" title="Chords Volume"><span style="font-size: 16px; line-height: 1;">🎹</span><input type="range" id="vol-chords" min="0" max="1.5" step="0.05" value="0.8" style="width: 60px; margin: 0;"></label>
+                <label style="display: flex; align-items: center; gap: 4px;" title="Bass Volume"><button id="btn-toggle-bass-mix" class="control-btn secondary" style="padding: 2px 4px; font-size: 16px; line-height: 1; margin: 0; border: none; background: transparent; cursor: pointer; border-radius: 4px;" title="Toggle Bass Edit: Sub">🎸</button><input type="range" id="vol-bass" min="0" max="1.5" step="0.05" value="0.8" style="width: 60px; margin: 0;"></label>
+                <label style="display: flex; align-items: center; gap: 4px;" title="Drums Volume"><span style="font-size: 16px; line-height: 1;">🥁</span><input type="range" id="vol-drums" min="0" max="1.5" step="0.05" value="0.8" style="width: 60px; margin: 0;"></label>
+            </div>
         </div>
     </div>
 
@@ -82,27 +105,8 @@
                 <option value="diminishedWH">Diminished</option>
                 <option value="altered">Altered (Super Locrian)</option>
             </select>
-            <select id="global-voicing" class="rhythm-select" style="padding: 4px 8px;">
-                <option value="auto">Voicing: Auto</option>
-                <option value="close">Close</option>
-                <option value="spread">Spread</option>
-                <option value="quartal">Quartal</option>
-            </select>
         </div>
         
-        <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 15px; background: var(--display-bg); padding: 10px; border-radius: 6px; border: 1px solid var(--border-main);">
-            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
-                <strong>BPM:</strong>
-                <input type="number" id="bpm-slider" class="rhythm-select" value="90" min="40" max="240" style="width: 60px; padding: 4px;">
-            </label>
-            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border-left: 2px solid var(--border-main); padding-left: 15px;">
-                <strong style="align-self: center; font-size: 13px;">Mix:</strong>
-                <label style="display: flex; align-items: center; gap: 4px;" title="Chords Volume"><span style="font-size: 16px; line-height: 1;">🎹</span><input type="range" id="vol-chords" min="0" max="1.5" step="0.05" value="0.8" style="width: 60px; margin: 0;"></label>
-                <label style="display: flex; align-items: center; gap: 4px;" title="Bass Volume"><span style="font-size: 16px; line-height: 1;">🎸</span><input type="range" id="vol-bass" min="0" max="1.5" step="0.05" value="0.8" style="width: 60px; margin: 0;"></label>
-                <label style="display: flex; align-items: center; gap: 4px;" title="Drums Volume"><span style="font-size: 16px; line-height: 1;">🥁</span><input type="range" id="vol-drums" min="0" max="1.5" step="0.05" value="0.8" style="width: 60px; margin: 0;"></label>
-            </div>
-        </div>
-
         <div id="palette-diatonic">
             <strong>Diatonic:</strong>
             <button class="chord-btn" data-chord="I">I</button>
@@ -140,7 +144,7 @@
 
         <div id="progression-display"></div>
 
-        <div id="inspector-section" style="display: none; margin-top: 20px; padding-top: 15px; border-top: 2px solid var(--border-main);">
+        <div id="inspector-section" style="display: none; margin-top: 8px; padding: 15px; border-top: 2px solid var(--original-chord-highlight, #4ade80); background: rgba(74, 222, 128, 0.05); border-radius: 0 0 8px 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
             <h3 style="margin: 0 0 12px 0; color: var(--original-chord-highlight); font-size: 16px;" id="inspector-title">Selected Chord</h3>
             <div id="inspector-content" style="display: flex; flex-direction: column; gap: 12px;"></div>
         </div>
@@ -149,29 +153,21 @@
     <!-- Global Transport Controls -->
     <div class="controls" id="transport-bar">
         <button class="control-btn primary" id="btn-play-toggle" title="Play/Stop">▶</button>
-        <div style="border-left: 2px solid var(--border-main); height: 24px; margin: 0 5px;"></div>
-        <button class="control-btn secondary" id="btn-nav-top" title="Scroll to Top" style="padding: 6px 12px; font-size: 16px;">⬆️</button>
-        <button class="control-btn secondary" id="btn-nav-editor" title="Scroll to Pattern Editor" style="padding: 6px 12px; font-size: 16px;">⬇️</button>
-        <div style="border-left: 2px solid var(--border-main); height: 24px; margin: 0 5px;"></div>
-        <button class="control-btn secondary" id="theme-toggle" title="Toggle Theme" style="padding: 6px 12px; font-size: 16px;">🌙</button>
     </div>
 
     <!-- Per-Chord Rhythm Editor Panel (Anchored) -->
-    <div class="panel foldaway-panel" id="rhythm-editor-panel" style="display: none; margin-bottom: 1.5rem;">
-        <div class="foldaway-header" id="rhythm-header">
-            <h3 style="margin: 0; border: none; padding: 0; display: flex; align-items: center; width: 100%; justify-content: space-between;">
-                <div style="display: flex; align-items: center;">
-                    <span class="foldaway-icon">▼</span>
-                    <span id="rhythm-editor-title">Pattern Editor</span>
-                </div>
-                <div class="global-local-toggle" style="margin-right: 10px;">
-                    <button class="toggle-btn" data-mode="global">Global Pattern</button>
-                    <button class="toggle-btn active" data-mode="local">Local Override</button>
-                </div>
+    <div class="panel" id="rhythm-editor-panel" style="display: none; margin-bottom: 1.5rem;">
+        <div id="rhythm-header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid var(--border-main); padding-bottom: 10px; margin-bottom: 12px;">
+            <h3 style="margin: 0; border: none; padding: 0; font-size: 16px; display: flex; align-items: center;">
+                <span id="rhythm-editor-title">Pattern Editor</span>
             </h3>
+            <div class="global-local-toggle">
+                <button class="toggle-btn" data-mode="global">Global Pattern</button>
+                <button class="toggle-btn active" data-mode="local">Local Override</button>
+            </div>
         </div>
         
-        <div class="foldaway-content" id="rhythm-editor-content">
+        <div id="rhythm-editor-content">
         <div class="pattern-tabs">
             <button class="pattern-tab active" data-tab="chordPattern">Chords</button>
             <button class="pattern-tab" data-tab="bassPattern">Bass</button>
@@ -225,5 +221,11 @@
         </div>
     </div>
 
+    <datalist id="beat-snaps">
+        <option value="1"></option>
+        <option value="2"></option>
+        <option value="4"></option>
+        <option value="8"></option>
+    </datalist>
 </body>
 </html>
