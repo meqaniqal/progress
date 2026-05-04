@@ -23,7 +23,7 @@ export function initChordPattern(isLocalOverride = false) {
                 startTime: 0.0,
                 duration: 1.0, // Full length of the chord slot
                 type: 'chord', // 'chord' means it plays all notes. Later 'note' can represent single isolated pitches.
-                isSelected: false,
+                isSelected: true,
                 arpSettings: null, // e.g., { style: 'up', rate: 0.25, gate: 0.8 }
                 probability: 1.0 // 1.0 = 100% chance to play
             }
@@ -100,10 +100,10 @@ export function sliceInstance(pattern, instanceId, splitRatio = 0.5) {
     const duration1 = target.duration * splitRatio;
     const duration2 = target.duration * (1 - splitRatio);
 
-    const inst1 = { ...target, duration: duration1, id: generateId() };
-    const inst2 = { ...target, startTime: target.startTime + duration1, duration: duration2, id: generateId() };
+    const inst1 = { ...target, duration: duration1, id: generateId(), isSelected: true };
+    const inst2 = { ...target, startTime: target.startTime + duration1, duration: duration2, id: generateId(), isSelected: false };
 
-    const newInstances = [...pattern.instances];
+    const newInstances = pattern.instances.map(inst => ({ ...inst, isSelected: false }));
     newInstances.splice(index, 1, inst1, inst2);
 
     return { ...pattern, instances: newInstances };
@@ -157,11 +157,8 @@ export function exclusiveSelect(pattern, instanceId) {
     const target = pattern.instances.find(inst => inst.id === instanceId);
     if (!target) return pattern;
 
-    const selectedCount = pattern.instances.filter(i => i.isSelected).length;
-    const willBeSelected = !(target.isSelected && selectedCount === 1);
-
     const newInstances = pattern.instances.map(inst => 
-        ({ ...inst, isSelected: inst.id === instanceId ? willBeSelected : false })
+        ({ ...inst, isSelected: inst.id === instanceId })
     );
     return { ...pattern, instances: newInstances };
 }
@@ -262,11 +259,12 @@ export function fillGapInstance(pattern, clickRatio) {
             startTime: gapStart,
             duration: gapEnd - gapStart,
             type: 'chord',
-            isSelected: false,
+            isSelected: true,
             arpSettings: null,
             probability: 1.0
         };
-        return { ...pattern, instances: [...pattern.instances, newInst] };
+        const newInstances = pattern.instances.map(inst => ({ ...inst, isSelected: false }));
+        return { ...pattern, instances: [...newInstances, newInst] };
     }
     return pattern;
 }

@@ -483,7 +483,11 @@ function _setupToolbarButtons() {
         if (!pattern) return;
         app.saveHistoryState();
         if (pattern.instances) {
-            setCurrentPattern({ ...pattern, instances: pattern.instances.filter(i => !i.isSelected) });
+            let remaining = pattern.instances.filter(i => !i.isSelected);
+            if (remaining.length > 0 && !remaining.some(i => i.isSelected)) {
+                remaining[remaining.length - 1].isSelected = true;
+            }
+            setCurrentPattern({ ...pattern, instances: remaining });
         }
         editorState.activeOverlayId = null;
         app.persistAppState();
@@ -613,6 +617,7 @@ function _setupTimelinePointerEvents() {
                 const currentInst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
                 if (currentInst && !currentInst.isSelected) {
                     setCurrentPattern(exclusiveSelect(pattern, editorState.draggedInstanceId));
+                    renderRhythmTimeline();
                 }
             }
             return;
@@ -949,7 +954,6 @@ function _setupOverlayEvents() {
             if (splitRatio >= 0.05 && splitRatio <= 0.95) {
                 app.saveHistoryState();
                 let newPattern = sliceInstance(pattern, instId, splitRatio);
-                newPattern.instances = newPattern.instances.map(i => ({ ...i, isSelected: false }));
                 setCurrentPattern(newPattern);
                 editorState.activeOverlayId = null;
                 app.persistAppState();
@@ -1189,6 +1193,7 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
         if (inst.isSelected) el.classList.add('selected');
         if (inst.arpSettings && isChordTab) el.classList.add('arp-active');
         if (editorState.isDragging && inst.id === editorState.draggedInstanceId) el.classList.add('grabbing');
+        if (editorState.activeOverlayId === inst.id) el.classList.add('has-overlay');
         
         el.style.left = `${inst.startTime * 100}%`;
         el.style.width = `${inst.duration * 100}%`;

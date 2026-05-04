@@ -664,6 +664,74 @@ function _setupGlobalDoubleTap() {
     });
 }
 
+function _setupManual() {
+    const settingsBtn = document.getElementById('btn-settings');
+    if (!document.getElementById('btn-manual') && settingsBtn) {
+        const manualBtn = document.createElement('button');
+        manualBtn.id = 'btn-manual';
+        manualBtn.className = settingsBtn.className;
+        manualBtn.title = 'App Manual';
+        manualBtn.innerHTML = '📖';
+        settingsBtn.parentNode.insertBefore(manualBtn, settingsBtn.nextSibling);
+    }
+
+    if (!document.getElementById('manual-modal')) {
+        const modal = document.createElement('div');
+        modal.id = 'manual-modal';
+        modal.className = 'modal-overlay';
+        modal.style.display = 'none';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <h2>Progress Basics</h2>
+                <p style="margin-bottom: 20px; line-height: 1.6;">
+                    There are 3 main vertical sections: the chord selector, the chord tray where the chord progression lives, and the chord swap section. You can add chords from the chord selector to the chord tray via drag/drop, or double tap to add to the end of the progression. Chords can be dragged around in the tray to reorder them. Tapping a chord to select it gives it a green border and the chord swap panel below lets you click to swap out that chord for other candidates. There is a play button to start/stop playback...you can also doubletap on empty parts of the app to start/stop playback. There are loop brackets embedded in the chord tray that can be dragged to select the area of the chord progression you want to loop. Thats the basics. I will make a youtube walkthrough pretty soon and have a link in the app to it.
+                </p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="cb-show-manual"> Show this on startup
+                    </label>
+                    <button id="btn-close-manual" class="control-btn primary">Got it</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    const manualBtn = document.getElementById('btn-manual');
+    const manualModal = document.getElementById('manual-modal');
+    const closeBtn = document.getElementById('btn-close-manual');
+    const cbShowManual = document.getElementById('cb-show-manual');
+
+    if (manualBtn && manualModal && closeBtn && cbShowManual) {
+        cbShowManual.checked = state.showManualOnStartup;
+        
+        cbShowManual.addEventListener('change', (e) => {
+            state.showManualOnStartup = e.target.checked;
+            persistAppState();
+        });
+
+        manualBtn.addEventListener('click', () => {
+            cbShowManual.checked = state.showManualOnStartup;
+            manualModal.style.display = 'flex';
+            manualModal.offsetHeight;
+            manualModal.classList.add('visible');
+        });
+
+        closeBtn.addEventListener('click', () => {
+            manualModal.classList.remove('visible');
+            setTimeout(() => manualModal.style.display = 'none', 200);
+        });
+
+        if (state.showManualOnStartup) {
+            setTimeout(() => {
+                manualModal.style.display = 'flex';
+                manualModal.offsetHeight;
+                manualModal.classList.add('visible');
+            }, 500);
+        }
+    }
+}
+
 // --- Main Entry Point ---
 function initApp() {
     const display = document.getElementById('progression-display');
@@ -682,6 +750,7 @@ function initApp() {
     _setupDragAndDrop(display);
     _setupSmartDragCollapse();
     _setupGlobalDoubleTap();
+    _setupManual();
     renderProgression();
 
     // Reveal the UI smoothly now that everything is styled and loaded

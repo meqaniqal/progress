@@ -18,7 +18,8 @@ export const state = {
     exportPasses: 1,
     volumes: { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 }, // 0.8 provides headroom for mixing
     selectedChordIndex: null,
-    globalPatterns: initPatternSet()
+    globalPatterns: initPatternSet(),
+    showManualOnStartup: true
 };
 
 // Resolves the progression with any active temporary swaps applied
@@ -90,6 +91,7 @@ export function resetSession() {
     state.volumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 };
     state.selectedChordIndex = null;
     state.globalPatterns = initPatternSet();
+    state.showManualOnStartup = true;
 }
 
 export function loadAndApplyInitialState() {
@@ -116,6 +118,8 @@ export function loadAndApplyInitialState() {
             const parsedPasses = parseInt(savedState.exportPasses, 10);
             if (!isNaN(parsedPasses)) state.exportPasses = Math.max(1, Math.min(32, parsedPasses));
         }
+        
+        state.showManualOnStartup = savedState.showManualOnStartup !== undefined ? Boolean(savedState.showManualOnStartup) : true;
         
         if (savedState.volumes) {
             state.volumes = {
