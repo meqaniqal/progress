@@ -181,6 +181,13 @@ function _playKick(time, velocity, ctx, dest) {
 
     osc.start(time);
     osc.stop(time + 0.4);
+
+    osc.onended = () => {
+        osc.disconnect();
+        gain.disconnect();
+        activeOscillators = activeOscillators.filter(o => o !== osc);
+    };
+    activeOscillators.push(osc);
 }
 
 function _playSnare(time, velocity, ctx, dest) {
@@ -216,6 +223,19 @@ function _playSnare(time, velocity, ctx, dest) {
     noise.stop(time + 0.2);
     body.start(time);
     body.stop(time + 0.1);
+
+    noise.onended = () => {
+        noise.disconnect();
+        noiseFilter.disconnect();
+        noiseGain.disconnect();
+        activeOscillators = activeOscillators.filter(o => o !== noise);
+    };
+    body.onended = () => {
+        body.disconnect();
+        bodyGain.disconnect();
+        activeOscillators = activeOscillators.filter(o => o !== body);
+    };
+    activeOscillators.push(noise, body);
 }
 
 function _playHat(time, velocity, duration, ctx, dest) {
@@ -236,6 +256,14 @@ function _playHat(time, velocity, duration, ctx, dest) {
 
     noise.start(time);
     noise.stop(time + duration);
+
+    noise.onended = () => {
+        noise.disconnect();
+        noiseFilter.disconnect();
+        noiseGain.disconnect();
+        activeOscillators = activeOscillators.filter(o => o !== noise);
+    };
+    activeOscillators.push(noise);
 }
 
 export function playDrum(type, startTime, velocity = 1.0, customCtx = null, customDest = null) {

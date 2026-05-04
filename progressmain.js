@@ -65,6 +65,7 @@ import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoSta
             state.temporarySwaps = {};
             state.selectedChordIndex = null;
             if (currentPlaybackStopFunction) currentPlaybackStopFunction(); // Stop current playback
+        stopAllAudio(); // Kill any scheduled lookahead audio nodes
             isPlaying = false;
             if (document.getElementById('btn-play-toggle')) document.getElementById('btn-play-toggle').textContent = '▶';
             state.currentProgression = [];
@@ -266,6 +267,7 @@ function _setupTopBarEvents() {
             resetSessionBtn.addEventListener('click', () => {
                 if (confirm("Are you sure you want to factory reset the app? All progress and settings will be permanently lost.")) {
                     if (currentPlaybackStopFunction) currentPlaybackStopFunction();
+                stopAllAudio();
                     isPlaying = false;
                     const playToggleBtn = document.getElementById('btn-play-toggle');
                     if (playToggleBtn) playToggleBtn.textContent = '▶';
@@ -472,6 +474,7 @@ function _setupControlButtons() {
     playToggleBtn.addEventListener('click', () => {
         if (isPlaying) {
             if (currentPlaybackStopFunction) currentPlaybackStopFunction();
+            stopAllAudio();
             playToggleBtn.textContent = '▶';
             isPlaying = false;
             currentPlaybackStopFunction = null;
