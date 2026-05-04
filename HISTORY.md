@@ -57,3 +57,5 @@
 - Established a continuous chord selection model with `localStorage` persistence to ensure seamless foldaway panel UX.
 - Integrated `arp.js` into export pipelines to ensure 1:1 playback parity for polyrhythmic arpeggiation in WAV and MIDI files.
 - Replaced hardcoded chord dictionaries with a generative mathematical Roman Numeral parser, unlocking full Omni-Scale support for exotic modes (Dorian, Lydian, Harmonic Minor, etc.).
+- **Mobile UX Overhaul:** Disabled native double-tap-to-zoom to enable reliable global play/pause via touch. Removed vertical magnetic scroll-snapping for precision manual scrolling.
+- **Smart Drag-and-Drop & Transport:** Converted the fixed bottom transport into a Floating Action Button (FAB) to maximize vertical real estate. Added dynamic CSS transitions to collapse inactive chord palettes during drag operations, instantly bringing the drop tray into the mobile viewport. Fixed HTML5 bracket-drag ghosting glitches.

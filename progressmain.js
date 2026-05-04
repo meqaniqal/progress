@@ -620,6 +620,24 @@ function _setupDragAndDrop(display) {
     });
 }
 
+function _setupSmartDragCollapse() {
+    document.addEventListener('dragstart', (e) => {
+        const btn = e.target.closest('.chord-btn');
+        if (btn) {
+            const palette = btn.closest('.chord-palette');
+            if (palette) {
+                document.body.classList.add('is-dragging-palette');
+                palette.classList.add('active-palette');
+            }
+        }
+    }, { passive: true });
+
+    document.addEventListener('dragend', () => {
+        document.body.classList.remove('is-dragging-palette');
+        document.querySelectorAll('.chord-palette').forEach(p => p.classList.remove('active-palette'));
+    });
+}
+
 function _setupGlobalDoubleTap() {
     let lastTapTime = 0;
     
@@ -659,6 +677,7 @@ function initApp() {
     _setupChordButtons();
     _setupProgressionDisplayEvents(display);
     _setupDragAndDrop(display);
+    _setupSmartDragCollapse();
     _setupGlobalDoubleTap();
     renderProgression();
 

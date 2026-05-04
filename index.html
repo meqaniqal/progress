@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Progress</title>
     
     <!-- 1. CSS loaded first to block render until styles are ready -->
@@ -11,13 +11,6 @@
     
     <!-- Hide body and show spinner to prevent Flash of Unstyled Content (FOUC) while scripts load -->
     <style>
-        html { scroll-snap-type: y proximity; }
-        /* Apply magnetic gravity to the top of major panels */
-        #top-header, #progression-display, #inspector-section, #rhythm-editor-panel {
-            scroll-snap-align: start;
-            scroll-margin-top: 15px;
-        }
-        
         body { visibility: hidden; opacity: 0; transition: opacity 0.3s ease; }
         html::before {
             content: '';
@@ -91,7 +84,7 @@
             </select>
         </div>
         
-        <div id="palette-diatonic">
+        <div id="palette-diatonic" class="chord-palette">
             <strong>Diatonic:</strong>
             <button class="chord-btn" data-chord="I">I</button>
             <button class="chord-btn" data-chord="ii">ii</button>
@@ -101,13 +94,13 @@
             <button class="chord-btn" data-chord="vi">vi</button>
             <button class="chord-btn" data-chord="vii°">vii°</button>
         </div>
-        <div id="palette-borrowed" style="margin-top: 10px;">
+        <div id="palette-borrowed" class="chord-palette">
             <strong>Borrowed (Modal Mixture):</strong>
             <button class="chord-btn borrowed" data-chord="iv">iv</button>
             <button class="chord-btn borrowed" data-chord="bVI">♭VI</button>
             <button class="chord-btn borrowed" data-chord="bVII">♭VII</button>
         </div>
-        <div id="palette-extended" style="margin-top: 10px;">
+        <div id="palette-extended" class="chord-palette">
             <strong>Extended & Altered:</strong>
             <button class="chord-btn" data-chord="Imaj9">Imaj9</button>
             <button class="chord-btn" data-chord="ii9">ii9</button>
@@ -135,7 +128,7 @@
     </div>
 
     <!-- Global Transport Controls -->
-    <div class="controls" id="transport-bar">
+    <div id="transport-bar">
         <button class="control-btn primary" id="btn-play-toggle" title="Play/Stop">▶</button>
     </div>
 

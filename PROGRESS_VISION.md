@@ -136,6 +136,9 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Bassline Engine & Slash Chords:** Implement the `Bass` tab, allowing users to detach bass slices from the chord rhythm and assign explicit pitches to create slash chords and walking lines.
 - **Drum Sequencer Engine:** Implement the `Drums` tab and audio scheduler for integrated beats.
 - **Probabilistic Pattern Sequencing (Completed):** Allow assigning percent-based probabilities to specific rhythm/arp patterns and drum hits per loop cycle to create generative variation.
+- [x] **Mobile Viewport & Double-Tap:** Disable native browser double-tap-to-zoom to ensure global background double-taps reliably trigger play/pause on touch devices. Removed vertical scroll-snapping for precise manual scrolling.
+- [x] **Floating Transport:** Convert the bottom transport bar into a bottom-corner Floating Action Button (FAB) to maximize vertical real estate while keeping playback accessible.
+- [x] **Smart Drag-and-Drop:** Dynamically collapse inactive chord palettes during drag operations to instantly bring the chord tray drop-zone into the mobile viewport.
 
 ### 6. Advanced Modular Synthesis & Sound Design (Future Goal)
 - **Editable AI-Targeted Synths:** The default sine/sawtooth engines will become options among multiple modular synths. Planned are highly customizable synths specifically geared toward producing maximum clarity for AI audio recognition or direct integration into professional DAW projects via WAV export.
