@@ -363,11 +363,12 @@ button.control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     top: 0;
     bottom: 0;
     width: 12px;
-    max-width: 50%;
+    max-width: 35%; /* Always leave at least the middle 30% free for dragging */
     background: rgba(255, 255, 255, 0.3);
     cursor: ew-resize;
     z-index: 50 !important; /* Punches through active slice-overlays */
     opacity: 0;
+    pointer-events: none; /* Disable handle interactions unless hovered/selected */
 }
 
 /* Expanded invisible touch target for handles to solve tiny slice grab issues */
@@ -376,32 +377,32 @@ button.control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     position: absolute;
     top: -10px;
     bottom: -10px;
-    /* Minimal horizontal bleed to prevent overlapping adjacent slices and cursor flicker */
-    left: -2px;
-    right: -2px;
 }
 
+/* Bleed outward ONLY to prevent eating into the middle drag zone */
 .resize-handle.left { left: 0; }
+.resize-handle.left::before { left: -6px; right: 0; }
 .resize-handle.right { right: 0; }
+.resize-handle.right::before { right: -6px; left: 0; }
 .resize-handle:hover { background: rgba(255, 255, 255, 0.8) !important; }
 
 .rhythm-instance:hover .resize-handle,
 .rhythm-instance.selected .resize-handle {
     opacity: 1 !important;
+    pointer-events: auto; /* Activate handles only when parent is active */
 }
 
-/* Mobile Usability: Make drag handles fatter and always visible on touch devices */
+/* Mobile Usability: Make drag handles fatter */
 @media (pointer: coarse) {
     .resize-handle {
-        opacity: 1 !important;
         width: 20px;
     }
     .resize-handle::before {
         top: -20px;
         bottom: -20px;
-        left: -4px;
-        right: -4px;
     }
+    .resize-handle.left::before { left: -15px; }
+    .resize-handle.right::before { right: -15px; }
 }
 
 /* --- Slice & Fill Overlay --- */
