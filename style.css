@@ -272,6 +272,16 @@ button.control-btn.secondary { background: var(--ctrl-secondary-bg); color: var(
 button.control-btn.secondary:hover { background: var(--ctrl-secondary-hover); }
 button.control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+#export-wav-container.button-mode {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+#export-wav-container.button-mode #btn-export-wav-switch {
+    border-radius: 6px !important;
+}
+
 /* Modal Styles */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 2000; opacity: 0; transition: opacity 0.2s ease; }
 .modal-overlay.visible { opacity: 1; }
