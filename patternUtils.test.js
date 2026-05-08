@@ -1,4 +1,4 @@
-import { initChordPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance, resizeInstance } from './patternUtils.js';
+import { initChordPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance, resizeInstance, drawPatternBlock } from './patternUtils.js';
 
 describe('Pattern Utils - Rhythm Pattern Editor', () => {
     it('should initialize a default chord pattern', () => {
@@ -185,6 +185,70 @@ describe('Pattern Utils - Rhythm Pattern Editor', () => {
             pattern = resizeInstance(pattern, '1', 'left', 0.5); // Trying to push start past end
             expect(pattern.instances[0].startTime).toBeCloseTo(0.38); // 0.4 - 0.02
             expect(pattern.instances[0].duration).toBeCloseTo(0.02);
+        });
+    });
+
+    describe('drawPatternBlock (Boolean Carving)', () => {
+        it('should add a new block when drawing in empty space', () => {
+            let pattern = { instances: [] };
+            pattern = drawPatternBlock(pattern, 0.2, 0.4);
+            expect(pattern.instances.length).toBe(1);
+            expect(pattern.instances[0].startTime).toBe(0.2);
+            expect(pattern.instances[0].duration).toBe(0.4);
+            expect(pattern.instances[0].isSelected).toBe(true);
+        });
+
+        it('should truncate an existing block when drawing overlaps its right side', () => {
+            let pattern = { instances: [{ id: '1', startTime: 0.0, duration: 0.5 }] };
+            pattern = drawPatternBlock(pattern, 0.4, 0.3); // Draw from 0.4 to 0.7
+            expect(pattern.instances.length).toBe(2);
+            expect(pattern.instances[0].id).toBe('1');
+            expect(pattern.instances[0].duration).toBeCloseTo(0.4);
+            expect(pattern.instances[1].startTime).toBe(0.4);
+            expect(pattern.instances[1].duration).toBe(0.3);
+        });
+
+        it('should truncate an existing block when drawing overlaps its left side', () => {
+            let pattern = { instances: [{ id: '1', startTime: 0.4, duration: 0.5 }] };
+            pattern = drawPatternBlock(pattern, 0.2, 0.3); // Draw from 0.2 to 0.5
+            expect(pattern.instances.length).toBe(2);
+            expect(pattern.instances[0].startTime).toBe(0.2);
+            expect(pattern.instances[0].duration).toBe(0.3);
+            expect(pattern.instances[1].id).toBe('1');
+            expect(pattern.instances[1].startTime).toBe(0.5);
+            expect(pattern.instances[1].duration).toBeCloseTo(0.4);
+        });
+
+        it('should split an existing block when drawing completely inside it', () => {
+            let pattern = { instances: [{ id: '1', startTime: 0.0, duration: 1.0 }] };
+            pattern = drawPatternBlock(pattern, 0.3, 0.4); // Draw from 0.3 to 0.7
+            expect(pattern.instances.length).toBe(3);
+            expect(pattern.instances[0].id).toBe('1');
+            expect(pattern.instances[0].startTime).toBe(0.0);
+            expect(pattern.instances[0].duration).toBeCloseTo(0.3);
+            expect(pattern.instances[1].startTime).toBe(0.3);
+            expect(pattern.instances[1].duration).toBe(0.4);
+            expect(pattern.instances[2].id).not.toBe('1');
+            expect(pattern.instances[2].startTime).toBe(0.7);
+            expect(pattern.instances[2].duration).toBeCloseTo(0.3);
+        });
+
+        it('should completely delete a block if it is swallowed by the drawn area', () => {
+            let pattern = { instances: [{ id: '1', startTime: 0.4, duration: 0.2 }] };
+            pattern = drawPatternBlock(pattern, 0.2, 0.6); // Draw from 0.2 to 0.8
+            expect(pattern.instances.length).toBe(1);
+            expect(pattern.instances[0].id).not.toBe('1');
+            expect(pattern.instances[0].startTime).toBe(0.2);
+            expect(pattern.instances[0].duration).toBe(0.6);
+        });
+
+        it('should carve a hole without adding a block when isEraser is true', () => {
+            let pattern = { instances: [{ id: '1', startTime: 0.0, duration: 1.0 }] };
+            pattern = drawPatternBlock(pattern, 0.4, 0.2, true); // Erase from 0.4 to 0.6
+            expect(pattern.instances.length).toBe(2);
+            expect(pattern.instances[0].duration).toBeCloseTo(0.4);
+            expect(pattern.instances[1].startTime).toBeCloseTo(0.6);
+            expect(pattern.instances[1].duration).toBeCloseTo(0.4);
         });
     });
 });

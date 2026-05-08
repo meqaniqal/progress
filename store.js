@@ -19,7 +19,8 @@ export const state = {
     volumes: { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 }, // 0.8 provides headroom for mixing
     selectedChordIndex: null,
     globalPatterns: initPatternSet(),
-    showManualOnStartup: true
+    showManualOnStartup: true,
+    enableExperimentalDrawMode: false
 };
 
 // Resolves the progression with any active temporary swaps applied
@@ -92,6 +93,7 @@ export function resetSession() {
     state.selectedChordIndex = null;
     state.globalPatterns = initPatternSet();
     state.showManualOnStartup = true;
+    state.enableExperimentalDrawMode = false;
 }
 
 export function loadAndApplyInitialState() {
@@ -120,6 +122,7 @@ export function loadAndApplyInitialState() {
         }
         
         state.showManualOnStartup = savedState.showManualOnStartup !== undefined ? Boolean(savedState.showManualOnStartup) : true;
+        state.enableExperimentalDrawMode = Boolean(savedState.enableExperimentalDrawMode);
         
         if (savedState.volumes) {
             state.volumes = {
@@ -164,6 +167,7 @@ export function loadAndApplyInitialState() {
                         id: typeof inst.id === 'string' ? inst.id.replace(/[^a-zA-Z0-9\-_]/g, '').substring(0, 16) : Math.random().toString(36).substring(2, 10),
                         startTime: typeof inst.startTime !== 'undefined' ? Number(inst.startTime) : 0,
                         duration: typeof inst.duration !== 'undefined' ? Number(inst.duration) : 1,
+                        pitchOffset: typeof inst.pitchOffset !== 'undefined' ? Number(inst.pitchOffset) : 0,
                         isSelected: Boolean(inst.isSelected),
                         probability: typeof inst.probability !== 'undefined' ? Number(inst.probability) : 1.0
                     }))

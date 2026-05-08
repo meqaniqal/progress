@@ -95,9 +95,11 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     const instanceDuration = instance.duration * duration;
                     const gateDuration = instanceDuration * 0.95;
 
+                    const finalBassNote = bassNote + (instance.pitchOffset || 0);
+
                     timeline.push({
-                        midiNote: bassNote,
-                        freq: Math.pow(2, (bassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
+                        midiNote: finalBassNote,
+                        freq: Math.pow(2, (finalBassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                         startTime: instanceStartTime,
                         duration: gateDuration,
                         type: 'sine' // Sub bass
@@ -105,8 +107,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
 
                     // --- Bass Harmonic Layer (Sawtooth Enhance) ---
                     timeline.push({
-                        midiNote: bassNote,
-                        freq: Math.pow(2, (bassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
+                        midiNote: finalBassNote,
+                        freq: Math.pow(2, (finalBassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                         startTime: instanceStartTime,
                         duration: gateDuration,
                         type: 'sawtooth-bass' // Dedicated type for routing

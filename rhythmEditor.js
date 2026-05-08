@@ -1,11 +1,19 @@
-import { initChordPattern, initDrumPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance, resizeInstance, generateId, resolvePattern, addDrumHit, removeDrumHit, updateDrumHit, updateInstance } from './patternUtils.js';
-import { playDrum, getAudioCurrentTime } from './synth.js';
+import { initChordPattern, initDrumPattern, sliceInstance, toggleSelection, exclusiveSelect, applyArpSettings, moveInstance, fillGapInstance, expandInstance, resizeInstance, drawPatternBlock, generateId, resolvePattern, addDrumHit, removeDrumHit, updateDrumHit, updateInstance } from './patternUtils.js';
+import { playDrum, getAudioCurrentTime, playTone, initAudio, midiToFreq } from './synth.js';
+import { getChordNotes } from './theory.js';
+import { CONFIG } from './config.js';
 
 const editorState = {
     activeIndex: null,
     activeOverlayId: null,
     isDragging: false,
     isResizing: null,
+    isDrawModeEnabled: false,
+    isDrawing: false,
+    isPitchModeEnabled: false,
+    drawStartRatio: null,
+    drawModeAction: null,
+    drawStartPattern: null,
     draggedInstanceId: null, // For slices
     draggedHitId: null,      // For drum hits
     selectedHitId: null,     // For drum hit velocity editing
@@ -62,6 +70,28 @@ function getCurrentPattern() {
     return localPat;
 }
 
+function auditionSlicePitch(pitchOffset = 0) {
+    if (!hasValidContext()) return;
+    initAudio();
+    
+    // Merge active temporary swaps so auditioning matches the true playback root
+    const baseChord = app.state.currentProgression[editorState.activeIndex];
+    const swap = app.state.temporarySwaps ? app.state.temporarySwaps[editorState.activeIndex] : null;
+    const chord = swap ? { ...baseChord, ...swap } : baseChord;
+    
+    if (!chord) return;
+    const notes = getChordNotes(chord.symbol, chord.key);
+    if (!notes) return;
+    
+    const now = getAudioCurrentTime();
+    const duration = 0.4; // Short, punchy audition
+    
+    // Play chord pad and bass note together
+    notes.forEach(n => playTone(midiToFreq(n - 12), now, duration, 'sawtooth'));
+    const finalBassNote = notes[0] + CONFIG.BASS_OCTAVE_DROP + pitchOffset;
+    playTone(midiToFreq(finalBassNote), now, duration, 'sine');
+}
+
 function setCurrentPattern(newPattern, markAsOverride = true) {
     if (editorState.isGlobal) {
         app.state.globalPatterns[editorState.activeTab] = newPattern;
@@ -109,6 +139,7 @@ function _setupTabsAndToggles() {
             tabs.forEach(t => t.classList.remove('active'));
             e.target.classList.add('active');
             editorState.activeTab = e.target.dataset.tab;
+            editorState.activeOverlayId = null; // Clear overlay when switching tabs
             renderRhythmTimeline();
         });
     });
@@ -120,6 +151,7 @@ function _setupTabsAndToggles() {
             toggles.forEach(b => b.classList.remove('active'));
             e.target.classList.add('active');
             editorState.isGlobal = e.target.dataset.mode === 'global';
+            editorState.activeOverlayId = null; // Clear overlay when switching modes
             renderRhythmTimeline();
         });
     });
@@ -145,6 +177,10 @@ function _setupGridSlider() {
             } else {
                 btnGridToggle.classList.remove('active');
             }
+                btnGridToggle.blur();
+                // Force browser to instantly drop sticky :hover state on touch devices
+                btnGridToggle.style.pointerEvents = 'none';
+                setTimeout(() => btnGridToggle.style.pointerEvents = '', 50);
         });
     }
 
@@ -314,6 +350,34 @@ function _setupPropertiesControls() {
     const velSlider = document.getElementById('prop-velocity-slider');
     const probSlider = document.getElementById('prop-probability-slider');
     
+    // --- Pitch Property Controls ---
+    const btnPitchUp = document.getElementById('btn-pitch-up');
+    const btnPitchDown = document.getElementById('btn-pitch-down');
+
+    const adjustPitch = (delta) => {
+        if (editorState.activeTab !== 'bassPattern' || !editorState.isPitchModeEnabled) return;
+        const pattern = getCurrentPattern();
+        if (!pattern) return;
+        const selectedInsts = pattern.instances.filter(i => i.isSelected);
+        if (selectedInsts.length === 0) return;
+        let newPattern = pattern;
+        app.saveHistoryState();
+        let lastNewPitch = 0;
+        selectedInsts.forEach(inst => {
+            const currentPitch = inst.pitchOffset || 0;
+            const newPitch = Math.max(-12, Math.min(12, currentPitch + delta));
+            newPattern = updateInstance(newPattern, inst.id, { pitchOffset: newPitch });
+            lastNewPitch = newPitch;
+        });
+        setCurrentPattern(newPattern);
+        app.persistAppState();
+        renderRhythmTimeline();
+        auditionSlicePitch(lastNewPitch); // Audition the change when using buttons
+    };
+
+    if (btnPitchUp) btnPitchUp.addEventListener('click', () => adjustPitch(1));
+    if (btnPitchDown) btnPitchDown.addEventListener('click', () => adjustPitch(-1));
+
     if (velSlider) {
         velSlider.addEventListener('input', (e) => {
             if (!editorState.selectedHitId || editorState.activeTab !== 'drumPattern') return;
@@ -365,6 +429,34 @@ function _setupPropertiesControls() {
 
 /** Sets up the Copy, Paste, Reset, and Delete buttons in the toolbar. */
 function _setupToolbarButtons() {
+    // --- Pitch Mode Toggle ---
+    const btnPitchToggle = document.getElementById('btn-pitch-toggle');
+    if (btnPitchToggle) {
+        btnPitchToggle.addEventListener('click', () => {
+            editorState.isPitchModeEnabled = !editorState.isPitchModeEnabled;
+            editorState.activeOverlayId = null; // Clear overlay when toggling pitch mode
+            btnPitchToggle.blur();
+            btnPitchToggle.style.pointerEvents = 'none';
+            setTimeout(() => btnPitchToggle.style.pointerEvents = '', 50);
+            renderRhythmTimeline();
+        });
+    }
+
+    // --- Draw Mode Toggle ---
+    const btnDrawToggle = document.getElementById('btn-draw-toggle');
+    if (btnDrawToggle) {
+        btnDrawToggle.addEventListener('click', () => {
+            editorState.isDrawModeEnabled = !editorState.isDrawModeEnabled;
+                
+                btnDrawToggle.blur();
+                // Force browser to instantly drop sticky :hover state on touch devices
+                btnDrawToggle.style.pointerEvents = 'none';
+                setTimeout(() => btnDrawToggle.style.pointerEvents = '', 50);
+                
+            renderRhythmTimeline(); // Update cursor display and button state
+        });
+    }
+
     // --- Copy & Paste Buttons ---
     const btnCopy = document.getElementById('btn-rhythm-copy');
     const btnPaste = document.getElementById('btn-rhythm-paste');
@@ -375,7 +467,9 @@ function _setupToolbarButtons() {
         
         // Deep copy the pattern to the clipboard
         const sourceBeats = getDurationBeats();
-        editorState.clipboardPattern = JSON.parse(JSON.stringify({ ...pattern, sourceBeats }));
+        const patternToCopy = JSON.parse(JSON.stringify(pattern));
+        patternToCopy.sourceBeats = sourceBeats;
+        editorState.clipboardPattern = patternToCopy;
         btnPaste.disabled = false;
         
         // UX Feedback
@@ -404,41 +498,88 @@ function _setupToolbarButtons() {
         const targetBeats = getDurationBeats();
         const sourceBeats = pastedPattern.sourceBeats || targetBeats;
         
+        let initialPattern = { ...pastedPattern };
+        let finalPattern = { ...pastedPattern };
+        
         // Shield against copying chord slices into drum hits
         if (pastedPattern.instances) {
-            const validInstances = [];
+            const initialInstances = [];
+            const finalInstances = [];
+            
             pastedPattern.instances.forEach(inst => {
-                inst.id = generateId();
-                if (editorState.activeTab !== 'chordPattern') {
-                    inst.arpSettings = null; // Strip arps if pasting into Bass
-                }
+                const newId = generateId();
+                
+                // Initial state: Scaled to fit exactly as it looked in the source
+                initialInstances.push({
+                    ...inst,
+                    id: newId,
+                    arpSettings: editorState.activeTab !== 'chordPattern' ? null : inst.arpSettings,
+                    isAnimating: true
+                });
+
                 const absStart = inst.startTime * sourceBeats;
                 const absDuration = inst.duration * sourceBeats;
-                if (absStart < targetBeats) {
-                    inst.startTime = absStart / targetBeats;
-                    inst.duration = Math.min(absDuration, targetBeats - absStart) / targetBeats;
-                    validInstances.push(inst);
+
+                if (absStart >= targetBeats) return; // Drop instances completely outside the new chord
+
+                const newStartTime = absStart / targetBeats;
+                const newDuration = Math.min(absDuration, targetBeats - absStart) / targetBeats;
+
+                if (newDuration > 0.001) { // Avoid creating zero-width instances
+                    // Final state: Absolute time, truncated
+                    finalInstances.push({
+                        ...inst,
+                        id: newId,
+                        arpSettings: editorState.activeTab !== 'chordPattern' ? null : inst.arpSettings,
+                        startTime: newStartTime,
+                        duration: newDuration,
+                        isAnimating: true
+                    });
                 }
             });
-            pastedPattern.instances = validInstances;
+            initialPattern.instances = initialInstances;
+            finalPattern.instances = finalInstances;
         }
+        
         if (pastedPattern.hits) {
-            const validHits = [];
+            const initialHits = [];
+            const finalHits = [];
+            
             pastedPattern.hits.forEach(hit => {
-                hit.id = generateId();
+                const newId = generateId();
+                
+                // Initial state
+                initialHits.push({
+                    ...hit,
+                    id: newId
+                });
+
                 const absBeat = hit.time * sourceBeats;
                 if (absBeat < targetBeats) {
-                    hit.time = absBeat / targetBeats;
-                    validHits.push(hit);
+                    // Final state: Absolute time
+                    finalHits.push({
+                        ...hit,
+                        id: newId,
+                        time: absBeat / targetBeats
+                    });
                 }
             });
-            pastedPattern.hits = validHits;
+            initialPattern.hits = initialHits;
+            finalPattern.hits = finalHits;
         }
-        delete pastedPattern.sourceBeats;
+        delete initialPattern.sourceBeats;
+        delete finalPattern.sourceBeats;
         
-        setCurrentPattern(pastedPattern);
-        app.persistAppState();
+        // 1. Render the superimposed (original layout) immediately
+        setCurrentPattern(initialPattern, true);
         renderRhythmTimeline();
+        
+        // 2. Animate to the final absolute/truncated positions
+        setTimeout(() => {
+            setCurrentPattern(finalPattern, true);
+            app.persistAppState();
+            renderRhythmTimeline();
+        }, 50); // slight delay ensures DOM registers the initial state for CSS transition
     });
 
     // --- Reset & Clear Buttons ---
@@ -493,6 +634,85 @@ function _setupToolbarButtons() {
         app.persistAppState();
         renderRhythmTimeline();
     });
+
+    // --- Experimental Push/Pull Buttons ---
+    const btnPushGlobal = document.getElementById('btn-push-global');
+    const btnPullGlobal = document.getElementById('btn-pull-global');
+
+    if (btnPushGlobal) {
+        btnPushGlobal.addEventListener('click', () => {
+            if (editorState.activeIndex === null) return;
+            const pattern = getCurrentPattern();
+            if (!pattern) return;
+            app.saveHistoryState();
+            
+            const globalCopy = JSON.parse(JSON.stringify(pattern));
+            globalCopy.isLocalOverride = false;
+            app.state.globalPatterns[editorState.activeTab] = globalCopy;
+            
+            const chord = app.state.currentProgression[editorState.activeIndex];
+            if (chord && chord[editorState.activeTab]) {
+                chord[editorState.activeTab].isLocalOverride = false;
+            }
+            
+            app.persistAppState();
+            renderRhythmTimeline();
+        });
+    }
+
+    if (btnPullGlobal) {
+        btnPullGlobal.addEventListener('click', () => {
+            if (editorState.activeIndex === null) return;
+            app.saveHistoryState();
+            const chord = app.state.currentProgression[editorState.activeIndex];
+            if (chord && chord[editorState.activeTab]) {
+                chord[editorState.activeTab].isLocalOverride = false;
+            }
+            editorState.activeOverlayId = null;
+            app.persistAppState();
+            renderRhythmTimeline();
+        });
+    }
+}
+
+/** Applies the boolean carve/draw math during pointer interactions. */
+function applyDrawMath(startRatio, endRatio) {
+    let start = Math.min(startRatio, endRatio);
+    let end = Math.max(startRatio, endRatio);
+    let duration = end - start;
+    
+    // Ensure a minimal duration so single clicks register as a block
+    if (duration < 0.01) {
+        const step = getActiveGridValue();
+        if (step > 0) {
+            start = Math.floor(start / step) * step;
+            duration = step;
+        } else {
+            duration = 0.05;
+        }
+    }
+
+    let newPattern = JSON.parse(JSON.stringify(editorState.drawStartPattern));
+    const isEraser = editorState.drawModeAction === 'erase';
+
+    if (editorState.isGridEnabled) {
+        const step = getActiveGridValue();
+        if (step > 0) {
+            const startStep = Math.floor(start / step);
+            const endStep = Math.ceil((start + duration) / step);
+            for (let i = startStep; i < endStep; i++) {
+                const s = i * step;
+                newPattern = drawPatternBlock(newPattern, s, step, isEraser);
+            }
+        } else {
+            newPattern = drawPatternBlock(newPattern, start, duration, isEraser);
+        }
+    } else {
+        newPattern = drawPatternBlock(newPattern, start, duration, isEraser);
+    }
+
+    setCurrentPattern(newPattern, true);
+    renderRhythmTimeline();
 }
 
 /** Sets up the complex pointer events for dragging, resizing, and creating instances. */
@@ -509,6 +729,9 @@ function _setupTimelinePointerEvents() {
     let lastTapCoords = { x: 0, y: 0 }; // For double-tap position check
     let panStartX = 0;
     let panStartScrollLeft = 0;
+    
+    // Hard block standard right-click context menus inside the timeline
+    timeline.addEventListener('contextmenu', e => e.preventDefault());
 
     // Trackpad Pinch-to-Zoom support strictly for Global Drums
     timeline.addEventListener('wheel', (e) => {
@@ -593,6 +816,28 @@ function _setupTimelinePointerEvents() {
             e.stopPropagation();
             return;
         }
+
+        const isExperimental = app.state.enableExperimentalDrawMode;
+        const isChordOrBass = editorState.activeTab === 'chordPattern' || editorState.activeTab === 'bassPattern';
+
+        // Handle Pencil Draw Interaction
+        if (isExperimental && isChordOrBass && editorState.isDrawModeEnabled) {
+            if (!hasValidContext()) return;
+            const rect = getTimelineRect();
+            const clickRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            const pattern = getCurrentPattern();
+            const clickedInst = pattern.instances.find(i => clickRatio >= i.startTime && clickRatio <= i.startTime + i.duration);
+            
+            editorState.drawModeAction = clickedInst ? 'erase' : 'draw';
+            editorState.drawStartRatio = clickRatio;
+            editorState.drawStartPattern = JSON.parse(JSON.stringify(pattern));
+            editorState.isDrawing = true;
+            timeline.setPointerCapture(e.pointerId);
+            app.saveHistoryState();
+            applyDrawMath(clickRatio, clickRatio);
+            return;
+        }
+
         if (editorState.activeOverlayId) {
             editorState.activeOverlayId = null;
             renderRhythmTimeline(); // Close the overlay if clicking elsewhere
@@ -617,6 +862,7 @@ function _setupTimelinePointerEvents() {
                 const currentInst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
                 if (currentInst && !currentInst.isSelected) {
                     setCurrentPattern(exclusiveSelect(pattern, editorState.draggedInstanceId));
+                auditionSlicePitch(currentInst.pitchOffset || 0);
                     renderRhythmTimeline();
                 }
             }
@@ -654,11 +900,16 @@ function _setupTimelinePointerEvents() {
 
         // Manual double-tap detection for slice instances
         if (now - lastTapTime < 300 && lastTapId === instId) {
-            e.stopPropagation();
-            editorState.activeOverlayId = instId;
-            renderRhythmTimeline();
-            lastTapTime = 0;
-            return;
+            if (editorState.activeTab === 'bassPattern' && editorState.isPitchModeEnabled) {
+                // Allow rapid taps to pass through as a grab in Pitch Mode
+                lastTapTime = 0;
+            } else {
+                e.stopPropagation();
+                editorState.activeOverlayId = instId;
+                renderRhythmTimeline();
+                lastTapTime = 0;
+                return;
+            }
         }
         
         lastTapTime = now;
@@ -675,9 +926,37 @@ function _setupTimelinePointerEvents() {
         timeline.setPointerCapture(e.pointerId);
         
         const inst = pattern.instances.find(i => i.id === instId);
-        originalStartTime = inst ? inst.startTime : 0;
-        originalDuration = inst ? inst.duration : 0;
-        
+        if (inst) {
+            originalStartTime = inst.startTime;
+            originalDuration = inst.duration;
+            editorState.dragStartPitchOffset = inst.pitchOffset || 0;
+            
+            if (editorState.activeTab === 'bassPattern' || editorState.activeTab === 'chordPattern') {
+                auditionSlicePitch(inst.pitchOffset || 0);
+            }
+            
+            let requiresRender = false;
+            if (!editorState.isGlobal && !pattern.isLocalOverride) {
+                // Eagerly materialize the pattern into a Local Override if we interact with it in Local Mode
+                app.saveHistoryState();
+                setCurrentPattern(exclusiveSelect(pattern, instId), true);
+                requiresRender = true;
+            } else if (!inst.isSelected) {
+                app.saveHistoryState();
+                setCurrentPattern(exclusiveSelect(pattern, instId));
+                requiresRender = true;
+            }
+
+            if (requiresRender) {
+                app.persistAppState();
+                renderRhythmTimeline();
+            }
+        } else {
+            originalStartTime = 0;
+            originalDuration = 0;
+            editorState.dragStartPitchOffset = 0;
+        }
+
         longPressTimer = setTimeout(() => {
             editorState.isDragging = true;
             app.saveHistoryState();
@@ -737,6 +1016,13 @@ function _setupTimelinePointerEvents() {
         }
         if (editorState.activeTab === 'drumPattern') return;
 
+        if (editorState.isDrawing && editorState.drawStartPattern) {
+            const rect = getTimelineRect();
+            const currentRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            applyDrawMath(editorState.drawStartRatio, currentRatio);
+            return;
+        }
+
         if (editorState.isResizing && editorState.draggedInstanceId) {
             if (!hasValidContext()) return;
             const rect = getTimelineRect();
@@ -763,7 +1049,10 @@ function _setupTimelinePointerEvents() {
         }
 
         if (editorState.draggedInstanceId && !editorState.isDragging) {
-            if (Math.abs(e.clientX - dragStartX) > 10 || Math.abs(e.clientY - dragStartY) > 10) {
+            const isPitchDrag = editorState.isPitchModeEnabled && editorState.activeTab === 'bassPattern';
+            const thresholdY = isPitchDrag ? 3 : 10;
+            
+            if (Math.abs(e.clientX - dragStartX) > 10 || Math.abs(e.clientY - dragStartY) > thresholdY) {
                 // User moved past the threshold, initiate drag immediately!
                 if (longPressTimer) {
                     clearTimeout(longPressTimer);
@@ -787,6 +1076,25 @@ function _setupTimelinePointerEvents() {
         if (!editorState.isDragging || !editorState.draggedInstanceId) return;
         if (!hasValidContext()) return;
         
+        // Handle Pitch Dragging (Lock X-axis)
+        if (editorState.isPitchModeEnabled && editorState.activeTab === 'bassPattern') {
+            const deltaY = e.clientY - dragStartY;
+            const rect = getTimelineRect();
+            // 3% per semitone -> semitone height in pixels = rect.height * 0.03
+            const semitonePx = rect.height * 0.03;
+            const deltaPitch = -Math.round(deltaY / semitonePx);
+            const newPitch = Math.max(-12, Math.min(12, editorState.dragStartPitchOffset + deltaPitch));
+            
+            const pattern = getCurrentPattern();
+            const inst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
+            if (inst && newPitch !== (inst.pitchOffset || 0)) {
+                setCurrentPattern(updateInstance(pattern, editorState.draggedInstanceId, { pitchOffset: newPitch }));
+                renderRhythmTimeline();
+                auditionSlicePitch(newPitch);
+            }
+            return; 
+        }
+
         const deltaX = e.clientX - dragStartX;
         const rect = getTimelineRect();
         const deltaRatio = deltaX / rect.width;
@@ -827,6 +1135,15 @@ function _setupTimelinePointerEvents() {
             return;
         }
         if (editorState.activeTab === 'drumPattern') return;
+
+        if (editorState.isDrawing) {
+            editorState.isDrawing = false;
+            editorState.drawStartPattern = null;
+            timeline.releasePointerCapture(e.pointerId);
+            app.persistAppState();
+            renderRhythmTimeline();
+            return;
+        }
 
         if (longPressTimer) {
             clearTimeout(longPressTimer);
@@ -878,6 +1195,14 @@ function _setupTimelinePointerEvents() {
             return;
         }
         if (editorState.activeTab === 'drumPattern') return;
+
+        if (editorState.isDrawing) {
+            editorState.isDrawing = false;
+            editorState.drawStartPattern = null;
+            timeline.releasePointerCapture(e.pointerId);
+            renderRhythmTimeline();
+            return;
+        }
 
         if (longPressTimer) {
             clearTimeout(longPressTimer);
@@ -1064,15 +1389,71 @@ function renderRhythmTimeline() {
         }
     }
     
-    const btnReset = document.getElementById('btn-rhythm-reset');
-    if (btnReset) {
-        btnReset.style.display = editorState.isGlobal ? 'none' : 'inline-block';
-        if (!editorState.isGlobal) {
+    // --- Mode Controls Display Logic ---
+    const legacyToggle = document.getElementById('legacy-mode-toggle');
+    const experimentalPushPull = document.getElementById('experimental-push-pull');
+    const btnLegacyReset = document.getElementById('btn-rhythm-reset');
+
+    const isExperimental = app.state.enableExperimentalDrawMode;
+    const isChordOrBass = editorState.activeTab === 'chordPattern' || editorState.activeTab === 'bassPattern';
+
+    if (isExperimental && isChordOrBass) {
+        editorState.isGlobal = false; // Force edit-in-place local behavior
+        if (legacyToggle) legacyToggle.style.display = 'none';
+        if (experimentalPushPull) {
             const chord = app.state.currentProgression[editorState.activeIndex];
             const isOverride = chord && chord[editorState.activeTab] && chord[editorState.activeTab].isLocalOverride;
-            btnReset.style.opacity = isOverride ? '1' : '0.5';
-            btnReset.disabled = !isOverride;
+            experimentalPushPull.style.display = isOverride ? 'flex' : 'none';
         }
+        if (btnLegacyReset) btnLegacyReset.style.display = 'none'; // Hide legacy reset button in toolbar
+    } else {
+        if (legacyToggle) legacyToggle.style.display = 'flex';
+        if (experimentalPushPull) experimentalPushPull.style.display = 'none';
+        
+        // Restore legacy reset button visibility
+        if (btnLegacyReset) {
+            btnLegacyReset.style.display = editorState.isGlobal ? 'none' : 'inline-block';
+            if (!editorState.isGlobal) {
+                const chord = app.state.currentProgression[editorState.activeIndex];
+                const isOverride = chord && chord[editorState.activeTab] && chord[editorState.activeTab].isLocalOverride;
+                btnLegacyReset.style.opacity = isOverride ? '1' : '0.5';
+                btnLegacyReset.disabled = !isOverride;
+            }
+        }
+    }
+    
+    const isBassTab = editorState.activeTab === 'bassPattern';
+    const btnPitchToggle = document.getElementById('btn-pitch-toggle');
+    const btnDrawToggle = document.getElementById('btn-draw-toggle');
+    
+    if (btnPitchToggle) {
+        btnPitchToggle.style.display = isBassTab ? 'inline-block' : 'none';
+        btnPitchToggle.classList.toggle('active', editorState.isPitchModeEnabled);
+    }
+
+    if (isBassTab && editorState.isPitchModeEnabled) {
+        editorState.isDrawModeEnabled = false; // Disable draw mode when pitching
+        if (btnDrawToggle) btnDrawToggle.style.display = 'none';
+        container.style.cursor = 'ns-resize';
+    } else {
+        if (btnDrawToggle) {
+            btnDrawToggle.style.display = (isExperimental && isChordOrBass) ? 'inline-block' : 'none';
+            btnDrawToggle.classList.toggle('active', editorState.isDrawModeEnabled);
+        }
+        container.style.cursor = (isExperimental && isChordOrBass && editorState.isDrawModeEnabled) ? 'crosshair' : 'default';
+    }
+
+    // Sync the legacy toggle's visual state
+    if (legacyToggle && !isExperimental) {
+        const toggles = legacyToggle.querySelectorAll('.toggle-btn');
+        toggles.forEach(b => {
+            if ((b.dataset.mode === 'global' && editorState.isGlobal) || 
+                (b.dataset.mode === 'local' && !editorState.isGlobal)) {
+                b.classList.add('active');
+            } else {
+                b.classList.remove('active');
+            }
+        });
     }
 
     // Sync Arp Dropdowns with current selection
@@ -1116,6 +1497,14 @@ function renderRhythmTimeline() {
     }
 
     const propsGroup = document.getElementById('item-properties-group');
+    const pitchWrapper = document.getElementById('prop-pitch-wrapper');
+    const pitchDisplay = document.getElementById('prop-pitch-display');
+    const PITCH_LABELS = {
+        '-12': '-8ve', '-11': '-M7', '-10': '-m7', '-9': '-M6', '-8': '-m6', '-7': '-P5', '-6': '-TT', '-5': '-P4', '-4': '-M3', '-3': '-m3', '-2': '-M2', '-1': '-m2',
+        '0': 'Root',
+        '1': 'm2', '2': 'M2', '3': 'm3', '4': 'M3', '5': 'P4', '6': 'TT', '7': 'P5', '8': 'm6', '9': 'M6', '10': 'm7', '11': 'M7', '12': '+8ve'
+    };
+
     const velWrapper = document.getElementById('prop-velocity-wrapper');
     const probWrapper = document.getElementById('prop-probability-wrapper');
     const velSlider = document.getElementById('prop-velocity-slider');
@@ -1140,6 +1529,16 @@ function renderRhythmTimeline() {
                 showVel = false;
                 // If multiple are selected, mirror the probability of the first selected block
                 probSlider.value = selectedInsts[0].probability !== undefined ? selectedInsts[0].probability : 1.0;
+                
+                if (editorState.activeTab === 'bassPattern' && editorState.isPitchModeEnabled) {
+                    if (pitchWrapper) pitchWrapper.style.display = 'flex';
+                    const pOff = selectedInsts[0].pitchOffset || 0;
+                    if (pitchDisplay) pitchDisplay.textContent = PITCH_LABELS[pOff] || pOff;
+                } else if (pitchWrapper) {
+                    pitchWrapper.style.display = 'none';
+                }
+            } else if (pitchWrapper) {
+                pitchWrapper.style.display = 'none';
             }
         }
 
@@ -1162,6 +1561,36 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
     // Remove the drum grid if it was left over from the Drums tab
     const leftoverDrumGrid = container.querySelector('.drum-grid');
     if (leftoverDrumGrid) leftoverDrumGrid.remove();
+    
+    const isPitchMode = editorState.activeTab === 'bassPattern' && editorState.isPitchModeEnabled;
+
+    // Draw Piano Roll Root Line
+    let prGrid = container.querySelector('.piano-roll-grid');
+    if (isPitchMode) {
+        if (!prGrid) {
+            prGrid = document.createElement('div');
+            prGrid.className = 'piano-roll-grid';
+            prGrid.style.position = 'absolute';
+            prGrid.style.top = '0';
+            prGrid.style.left = '0';
+            prGrid.style.right = '0';
+            prGrid.style.bottom = '0';
+            prGrid.style.pointerEvents = 'none';
+            for (let i = -12; i <= 12; i++) {
+                const line = document.createElement('div');
+                line.style.position = 'absolute';
+                line.style.left = '0';
+                line.style.right = '0';
+                line.style.top = `${50 - (i * 3)}%`;
+                line.style.height = i === 0 ? '2px' : '1px';
+                line.style.background = i === 0 ? 'rgba(128, 128, 128, 0.4)' : 'rgba(128, 128, 128, 0.15)';
+                prGrid.appendChild(line);
+            }
+            container.insertBefore(prGrid, container.firstChild);
+        }
+    } else if (prGrid) {
+        prGrid.remove();
+    }
 
     // 1. Remove obsolete nodes to prevent memory leaks and ghost elements
     const existingNodes = Array.from(container.querySelectorAll('.rhythm-instance'));
@@ -1195,12 +1624,29 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
         if (editorState.isDragging && inst.id === editorState.draggedInstanceId) el.classList.add('grabbing');
         if (editorState.activeOverlayId === inst.id) el.classList.add('has-overlay');
         
+        if (inst.isAnimating) {
+            el.classList.add('animate-paste');
+            setTimeout(() => el.classList.remove('animate-paste'), 450);
+            delete inst.isAnimating; // Clean up state so it doesn't trigger again
+        }
+        
         el.style.left = `${inst.startTime * 100}%`;
         el.style.width = `${inst.duration * 100}%`;
-        
+
+        if (isPitchMode) {
+            const pOffset = inst.pitchOffset || 0;
+            const blockHeight = 16;
+            const topPercent = 50 - (pOffset * 3) - (blockHeight / 2);
+            el.style.top = `${topPercent}%`;
+            el.style.height = `${blockHeight}%`;
+        } else {
+            el.style.top = '10%';
+            el.style.height = '80%';
+        }
+
         let overlay = el.querySelector('.slice-overlay');
 
-        if (editorState.activeOverlayId === inst.id) {
+        if (editorState.activeOverlayId === inst.id && !isPitchMode) {
             const others = pattern.instances.filter(i => i.id !== inst.id);
             let leftBound = 0.0;
             let rightBound = 1.0;

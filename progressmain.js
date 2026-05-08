@@ -231,6 +231,9 @@ function _loadAndApplyInitialState() {
     const multipassInput = document.getElementById('multipass-input');
     if (multipassInput) multipassInput.value = state.exportPasses || 1;
     document.getElementById('voice-leading').checked = state.useVoiceLeading;
+    
+    const expDrawInput = document.getElementById('experimental-draw-mode');
+    if (expDrawInput) expDrawInput.checked = state.enableExperimentalDrawMode;
 }
 
 function _setupTopBarEvents() {
@@ -290,6 +293,9 @@ function _setupTopBarEvents() {
                     const multipassInput = document.getElementById('multipass-input');
                     if (multipassInput) multipassInput.value = state.exportPasses;
                     document.getElementById('voice-leading').checked = state.useVoiceLeading;
+                    
+                    const expDrawInput = document.getElementById('experimental-draw-mode');
+                    if (expDrawInput) expDrawInput.checked = state.enableExperimentalDrawMode;
                     
                     const themeSelector = document.getElementById('theme-selector');
                     if (themeSelector) themeSelector.value = state.theme;
@@ -619,6 +625,15 @@ function _setupControlButtons() {
         state.useVoiceLeading = e.target.checked;
         persistAppState();
     });
+    
+    const expDrawInput = document.getElementById('experimental-draw-mode');
+    if (expDrawInput) {
+        expDrawInput.addEventListener('change', (e) => {
+            state.enableExperimentalDrawMode = e.target.checked;
+            persistAppState();
+            renderProgression(); // Sync UI immediately
+        });
+    }
 
     const multipassInput = document.getElementById('multipass-input');
     if (multipassInput) {

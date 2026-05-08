@@ -68,6 +68,14 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
   - [x] Context-aware tension analysis based on the active scale's tonic.
   - [x] Mode-aware modulation and turnaround suggestions.
   - [x] Omni-scale support (Dorian, Lydian, Harmonic/Melodic Minor, etc.).
+- [ ] **Experimental Draw Mode & Global/Local UX Refactor (Current Focus):**
+  - Shift from Global/Local toggle to an "Edit-in-Place" Push/Pull workflow (`Set Global` / `From Global` buttons).
+  - Change default Global pattern to a single, continuous chord block.
+  - Introduce a "Pencil" Draw tool.
+  - Implement grid-aware sequence painting (Grid ON) vs. continuous block extension (Grid OFF).
+  - Implement Boolean "Carving/Erasing" math for drawing over existing slices.
+  - *Protocol requirement:* The Boolean overlap/carving math must be isolated in a pure, Jest-testable module before integration.
+  - *Protocol requirement:* Hide this new editor behind a persistent Settings toggle (`enableExperimentalDrawMode`) during development to preserve legacy stability.
 
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.

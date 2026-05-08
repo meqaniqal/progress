@@ -139,9 +139,15 @@
             <h3 style="margin: 0; border: none; padding: 0; font-size: 16px; display: flex; align-items: center;">
                 <span id="rhythm-editor-title">Pattern Editor</span>
             </h3>
-            <div class="global-local-toggle">
-                <button class="toggle-btn" data-mode="global">Global Pattern</button>
-                <button class="toggle-btn active" data-mode="local">Local Override</button>
+            <div id="pattern-mode-controls" style="display: flex; gap: 8px;">
+                <div class="global-local-toggle" id="legacy-mode-toggle">
+                    <button class="toggle-btn" data-mode="global">Global Pattern</button>
+                    <button class="toggle-btn active" data-mode="local">Local Override</button>
+                </div>
+                <div id="experimental-push-pull" style="display: none; gap: 8px;">
+                    <button class="control-btn secondary" id="btn-pull-global" style="padding: 4px 10px; font-size: 11px;" title="Revert to inheriting the Global Pattern">↺ From Global</button>
+                    <button class="control-btn secondary" id="btn-push-global" style="padding: 4px 10px; font-size: 11px;" title="Push this pattern to update the Global Master">⇡ Set Global</button>
+                </div>
             </div>
         </div>
         
@@ -168,6 +174,11 @@
                     <input type="range" id="rhythm-grid-slider" min="0" max="4" value="4" style="width: 75px; margin: 0; cursor: pointer;">
                 </div>
                 <div id="item-properties-group" style="display: none; align-items: center; gap: 10px; margin-left: 8px; background: var(--display-bg); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main);">
+                    <div id="prop-pitch-wrapper" style="display: none; align-items: center; gap: 4px; background: var(--bg-body); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-main);">
+                        <button class="control-btn secondary" id="btn-pitch-down" style="padding: 2px 6px; font-size: 12px; border: none; background: transparent;">-</button>
+                        <span id="prop-pitch-display" style="font-size: 11px; font-weight: bold; width: 32px; text-align: center; color: var(--text-main);">Root</span>
+                        <button class="control-btn secondary" id="btn-pitch-up" style="padding: 2px 6px; font-size: 12px; border: none; background: transparent;">+</button>
+                    </div>
                     <div id="prop-velocity-wrapper" style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 11px; font-weight: bold; opacity: 0.8;" title="Velocity">VEL:</span>
                         <input type="range" id="prop-velocity-slider" min="0.1" max="1.0" step="0.05" value="1.0" style="width: 60px; margin: 0; cursor: pointer;">
@@ -180,6 +191,10 @@
             </div>
         </div>
         
+        <div id="editor-mode-toggles" style="display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 0px; transform: translateY(1px); position: relative; z-index: 2; padding-right: 15px;">
+            <button id="btn-draw-toggle" class="tool-btn" style="display: none; padding: 6px 14px; font-size: 11px; border-radius: 6px 6px 0 0; margin: 0; border-bottom: hidden; box-shadow: 0 -2px 5px rgba(0,0,0,0.03);" title="Toggle Pencil Draw Tool">✏️ Draw Mode</button>
+            <button id="btn-pitch-toggle" class="tool-btn" style="display: none; padding: 6px 14px; font-size: 11px; border-radius: 6px 6px 0 0; margin: 0; border-bottom: hidden; box-shadow: 0 -2px 5px rgba(0,0,0,0.03);" title="Toggle Pitch Mode (Piano Roll)">🎹 Pitch Mode</button>
+        </div>
         <div class="rhythm-timeline-container" id="rhythm-timeline">
             <!-- Instances rendered here dynamically -->
         </div>
@@ -221,6 +236,11 @@
                 <div style="display: flex; justify-content: space-between; align-items: center;" title="Calculates the shortest melodic distance between chords for smooth transitions">
                     <strong style="font-size: 14px; border-bottom: 1px dotted var(--text-main); cursor: help;">Voice Leading ℹ️</strong>
                     <input type="checkbox" id="voice-leading" checked style="transform: scale(1.2); margin-right: 5px;">
+                </div>
+                <!-- Experimental Draw Mode -->
+                <div style="display: flex; justify-content: space-between; align-items: center;" title="Enable the new edit-in-place workflow and pencil draw tool">
+                    <strong style="font-size: 14px; border-bottom: 1px dotted var(--text-main); cursor: help;">Experimental Draw Mode ℹ️</strong>
+                    <input type="checkbox" id="experimental-draw-mode" style="transform: scale(1.2); margin-right: 5px;">
                 </div>
                 <!-- Mixer -->
                 <div style="margin-top: 5px;">

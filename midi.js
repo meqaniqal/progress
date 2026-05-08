@@ -123,8 +123,10 @@ export function exportToMidi(state) {
                 const instanceDurationTicks = Math.round(instance.duration * slotTicks * 0.95);
                 const waitTicks = Math.max(0, instanceStartTick - currentBassGlobalTick);
 
+                const finalBassNote = rootNote + (instance.pitchOffset || 0);
+
                 bassTrack.addEvent(new MidiWriter.NoteEvent({ 
-                    pitch: [rootNote], 
+                    pitch: [finalBassNote], 
                     duration: `T${instanceDurationTicks}`, 
                     wait: `T${waitTicks}`,
                     velocity: Math.min(127, Math.round(CONFIG.MIDI_BASS_VELOCITY * (bassVol / 0.8)))

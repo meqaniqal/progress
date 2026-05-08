@@ -155,7 +155,8 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                 const instanceStartTime = time + (instance.startTime * chordSlotDuration);
                 const instanceDuration = instance.duration * chordSlotDuration;
                 const gateDuration = instanceDuration * 0.95;
-                playTone(midiToFreq(rootNoteMidi), instanceStartTime, gateDuration, 'sine');
+                const finalBassNote = rootNoteMidi + (instance.pitchOffset || 0);
+                playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, 'sine');
             });
         }
         
