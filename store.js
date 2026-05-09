@@ -20,7 +20,7 @@ export const state = {
     selectedChordIndex: null,
     globalPatterns: initPatternSet(),
     showManualOnStartup: true,
-    enableExperimentalDrawMode: false
+    enableExperimentalDrawMode: true
 };
 
 // Resolves the progression with any active temporary swaps applied
@@ -93,7 +93,7 @@ export function resetSession() {
     state.selectedChordIndex = null;
     state.globalPatterns = initPatternSet();
     state.showManualOnStartup = true;
-    state.enableExperimentalDrawMode = false;
+    state.enableExperimentalDrawMode = true;
 }
 
 export function loadAndApplyInitialState() {
@@ -122,7 +122,7 @@ export function loadAndApplyInitialState() {
         }
         
         state.showManualOnStartup = savedState.showManualOnStartup !== undefined ? Boolean(savedState.showManualOnStartup) : true;
-        state.enableExperimentalDrawMode = Boolean(savedState.enableExperimentalDrawMode);
+        state.enableExperimentalDrawMode = savedState.enableExperimentalDrawMode !== undefined ? Boolean(savedState.enableExperimentalDrawMode) : true;
         
         if (savedState.volumes) {
             state.volumes = {
