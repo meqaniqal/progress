@@ -39,7 +39,7 @@ function getBounds(state) {
 function getAbsoluteBeatPos(progression, index) {
     let beats = 0;
     for (let i = 0; i < index; i++) {
-        beats += Number(progression[i].duration) || 4;
+        beats += Number(progression[i].duration) || 2;
     }
     return beats;
 }
@@ -98,7 +98,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         if (!notesToPlay) return;
 
         const chordObj = state.currentProgression[absIndex];
-        const beats = Number(chordObj.duration) || 4;
+        const beats = Number(chordObj.duration) || 2;
         const chordSlotDuration = (60.0 / Number(state.bpm)) * beats;
         
         let pattern = chordObj.chordPattern;
@@ -235,7 +235,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         const sliceLength = bounds.end - bounds.start;
 
         const chordObj = state.currentProgression[bounds.start + currentChordIndexRel];
-        const beats = chordObj ? (Number(chordObj.duration) || 4) : 4;
+        const beats = chordObj ? (Number(chordObj.duration) || 2) : 2;
         const chordDuration = (60.0 / Number(state.bpm)) * beats;
         nextNoteTime += chordDuration;
 

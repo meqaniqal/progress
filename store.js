@@ -41,7 +41,8 @@ export const state = {
         zoomLevel: 1.0,
         isPanning: false,
         activeTab: 'chordPattern',
-        isGlobal: false
+        isGlobal: false,
+        justPushedToGlobalIndex: null
     }
 };
 
@@ -68,12 +69,44 @@ export function updateEditorState(updates) {
 export function updatePattern(tab, pattern, activeIndex, isGlobal, markAsOverride = true) {
     if (isGlobal) {
         state.globalPatterns[tab] = pattern;
+        
+        if (tab === 'chordPattern') {
+            const oldBassPattern = state.globalPatterns['bassPattern'];
+            const bassCopy = JSON.parse(JSON.stringify(pattern));
+            bassCopy.instances.forEach(inst => {
+                inst.id = Math.random().toString(36).substring(2, 10);
+                if (oldBassPattern && Array.isArray(oldBassPattern.instances)) {
+                    const center = inst.startTime + (inst.duration / 2);
+                    const oldInst = oldBassPattern.instances.find(o => center >= o.startTime && center <= o.startTime + o.duration);
+                    if (oldInst && oldInst.pitchOffset) {
+                        inst.pitchOffset = oldInst.pitchOffset;
+                    }
+                }
+            });
+            state.globalPatterns['bassPattern'] = bassCopy;
+        }
     } else {
         if (activeIndex === null) return;
         const chord = state.currentProgression[activeIndex];
         if (chord) {
             if (markAsOverride) pattern.isLocalOverride = true;
             chord[tab] = pattern;
+            
+            if (tab === 'chordPattern') {
+                const oldBassPattern = chord['bassPattern'];
+                const bassCopy = JSON.parse(JSON.stringify(pattern));
+                bassCopy.instances.forEach(inst => {
+                    inst.id = Math.random().toString(36).substring(2, 10);
+                    if (oldBassPattern && Array.isArray(oldBassPattern.instances)) {
+                        const center = inst.startTime + (inst.duration / 2);
+                        const oldInst = oldBassPattern.instances.find(o => center >= o.startTime && center <= o.startTime + o.duration);
+                        if (oldInst && oldInst.pitchOffset) {
+                            inst.pitchOffset = oldInst.pitchOffset;
+                        }
+                    }
+                });
+                chord['bassPattern'] = bassCopy;
+            }
         }
     }
 }
@@ -81,8 +114,34 @@ export function updatePattern(tab, pattern, activeIndex, isGlobal, markAsOverrid
 export function pushPatternToGlobal(tab, pattern, activeIndex) {
     const globalCopy = JSON.parse(JSON.stringify(pattern));
     globalCopy.isLocalOverride = false;
+    
+    const chord = state.currentProgression[activeIndex];
+    globalCopy.lengthBeats = chord ? (Number(chord.duration) || 2) : 2;
+    
+    if (!globalCopy.globalMode) {
+        globalCopy.globalMode = 'loop';
+    }
+    
     state.globalPatterns[tab] = globalCopy;
+    state.editorState.justPushedToGlobalIndex = activeIndex;
     resetPatternToGlobal(tab, activeIndex);
+    
+    if (tab === 'chordPattern') {
+        const oldGlobalBass = state.globalPatterns['bassPattern'];
+        const bassCopy = JSON.parse(JSON.stringify(globalCopy));
+        bassCopy.instances.forEach(inst => {
+            inst.id = Math.random().toString(36).substring(2, 10);
+            if (oldGlobalBass && Array.isArray(oldGlobalBass.instances)) {
+                const center = inst.startTime + (inst.duration / 2);
+                const oldInst = oldGlobalBass.instances.find(o => center >= o.startTime && center <= o.startTime + o.duration);
+                if (oldInst && oldInst.pitchOffset) {
+                    inst.pitchOffset = oldInst.pitchOffset;
+                }
+            }
+        });
+        state.globalPatterns['bassPattern'] = bassCopy;
+        resetPatternToGlobal('bassPattern', activeIndex);
+    }
 }
 
 export function resetPatternToGlobal(tab, activeIndex) {
@@ -169,7 +228,8 @@ export function resetSession() {
         zoomLevel: 1.0,
         isPanning: false,
         activeTab: 'chordPattern',
-        isGlobal: false
+        isGlobal: false,
+        justPushedToGlobalIndex: null
     };
 }
 
@@ -264,7 +324,7 @@ export function loadAndApplyInitialState() {
                 }
 
                 chordObj.key = typeof chordObj.key === 'number' ? Math.max(0, Math.min(127, chordObj.key)) : state.baseKey;
-                chordObj.duration = typeof chordObj.duration !== 'undefined' ? Math.max(1, Math.round(Number(chordObj.duration)) || 4) : 4;
+                chordObj.duration = typeof chordObj.duration !== 'undefined' ? Math.max(1, Math.round(Number(chordObj.duration)) || 2) : 2;
                 chordObj.voicingType = typeof item.voicingType === 'string' ? item.voicingType : 'global';
                 chordObj.voicing = item.voicing ? { ...item.voicing } : null;
 

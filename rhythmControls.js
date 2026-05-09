@@ -21,6 +21,7 @@ function _setupTabsAndToggles() {
             e.target.classList.add('active');
             editorState.activeTab = e.target.dataset.tab;
             editorState.activeOverlayId = null; // Clear overlay when switching tabs
+            editorState.justPushedToGlobalIndex = null;
             renderRhythmTimeline();
         });
     });

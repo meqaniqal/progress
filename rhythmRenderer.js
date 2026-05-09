@@ -51,7 +51,75 @@ export function renderRhythmTimeline() {
         if (experimentalPushPull) {
             const chord = app.state.currentProgression[editorState.activeIndex];
             const isOverride = chord && chord[editorState.activeTab] && chord[editorState.activeTab].isLocalOverride;
-            experimentalPushPull.style.display = isOverride ? 'flex' : 'none';
+            
+            const justPushed = editorState.justPushedToGlobalIndex === editorState.activeIndex;
+            
+            experimentalPushPull.style.display = (isOverride || justPushed) ? 'flex' : 'none';
+            experimentalPushPull.style.flexDirection = 'column';
+            experimentalPushPull.style.alignItems = 'center';
+            experimentalPushPull.style.gap = '8px';
+            
+            let btnContainer = document.getElementById('push-pull-btn-container');
+            if (!btnContainer) {
+                btnContainer = document.createElement('div');
+                btnContainer.id = 'push-pull-btn-container';
+                btnContainer.style.display = 'flex';
+                btnContainer.style.gap = '8px';
+                while (experimentalPushPull.firstChild) {
+                    btnContainer.appendChild(experimentalPushPull.firstChild);
+                }
+                experimentalPushPull.appendChild(btnContainer);
+            }
+            
+            let globalModeContainer = document.getElementById('global-mode-container');
+            if (!globalModeContainer) {
+                globalModeContainer = document.createElement('div');
+                globalModeContainer.id = 'global-mode-container';
+                globalModeContainer.style.display = 'flex';
+                globalModeContainer.style.alignItems = 'center';
+                globalModeContainer.style.gap = '8px';
+                globalModeContainer.style.fontSize = '12px';
+                globalModeContainer.style.background = 'rgba(0,0,0,0.05)';
+                globalModeContainer.style.padding = '4px 8px';
+                globalModeContainer.style.borderRadius = '4px';
+                globalModeContainer.innerHTML = `
+                    <label style="color: var(--text-muted); margin:0;">Apply to longer chords:</label>
+                    <select id="global-mode-select" class="rhythm-select" style="padding: 2px 4px; font-size: 11px; margin:0; min-width: 100px;">
+                        <option value="loop">Loop Pattern</option>
+                        <option value="empty">Leave Empty</option>
+                        <option value="stretch">Stretch to Fit</option>
+                    </select>
+                `;
+                experimentalPushPull.appendChild(globalModeContainer);
+                
+                const selectEl = globalModeContainer.querySelector('#global-mode-select');
+                selectEl.addEventListener('change', (e) => {
+                    const globalPat = app.state.globalPatterns[editorState.activeTab];
+                    if (globalPat) {
+                        app.saveHistoryState();
+                        globalPat.globalMode = e.target.value;
+                        app.persistAppState();
+                        renderRhythmTimeline();
+                    }
+                });
+            }
+            
+            const btnPush = btnContainer.querySelector('#btn-push-global');
+            const btnPull = btnContainer.querySelector('#btn-pull-global');
+
+            if (justPushed && !isOverride) {
+                globalModeContainer.style.display = 'flex';
+                const selectEl = globalModeContainer.querySelector('#global-mode-select');
+                const globalPat = app.state.globalPatterns[editorState.activeTab];
+                if (globalPat) selectEl.value = globalPat.globalMode || 'loop';
+                
+                if (btnPush) btnPush.style.display = 'none';
+                if (btnPull) btnPull.style.display = 'inline-block';
+            } else if (isOverride) {
+                globalModeContainer.style.display = 'none';
+                if (btnPush) btnPush.style.display = 'inline-block';
+                if (btnPull) btnPull.style.display = 'inline-block';
+            }
         }
         if (btnLegacyReset) btnLegacyReset.style.display = 'none'; // Hide legacy reset button in toolbar
     } else {

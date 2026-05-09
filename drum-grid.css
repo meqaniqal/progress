@@ -1,0 +1,85 @@
+/* --- Drum Grid Editor --- */
+.drum-grid {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.drum-row {
+    position: relative;
+    flex: 1;
+    border-bottom: 1px solid var(--border-main);
+}
+.drum-row:last-child {
+    border-bottom: none;
+}
+
+.drum-row-label {
+    position: sticky;
+    left: 0;
+    height: 100%;
+    width: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--text-main);
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border-main);
+    z-index: 30;
+    box-shadow: 2px 0 4px rgba(0,0,0,0.05);
+    box-sizing: border-box;
+}
+
+.drum-grid-line {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 1px;
+    background-color: var(--border-main);
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.drum-hit {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.5);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    cursor: pointer;
+    z-index: 10;
+    transition: transform 0.1s ease, background-color 0.1s ease;
+    touch-action: none;
+}
+.drum-hit:hover {
+    transform: translate(-50%, -50%) scale(1.1);
+}
+.drum-hit.kick-hit { background-color: #ef4444; }
+.drum-hit.snare-hit { background-color: #3b82f6; }
+.drum-hit.chh-hit { background-color: #f59e0b; }
+.drum-hit.ohh-hit { background-color: #fcd34d; }
+
+.drum-hit.selected {
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px var(--original-chord-highlight);
+    z-index: 21;
+}
+.drum-hit.playing {
+    transform: translate(-50%, -50%) scale(1.4);
+    filter: brightness(1.5);
+    box-shadow: 0 0 8px rgba(255,255,255,0.8);
+    z-index: 25;
+}
+.drum-hit.grabbing {
+    transform: translate(-50%, -50%) scale(1.2);
+    filter: brightness(1.3);
+    z-index: 20;
+}

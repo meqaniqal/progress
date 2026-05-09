@@ -158,16 +158,7 @@ export function exclusiveSelect(pattern, instanceId) {
     const target = pattern.instances.find(inst => inst.id === instanceId);
     if (!target) return pattern;
 
-    // Check if target is currently the ONLY selected instance
-    const selectedInstances = pattern.instances.filter(inst => inst.isSelected);
-    const isOnlyTargetSelected = selectedInstances.length === 1 && selectedInstances[0].id === instanceId;
-
-    if (isOnlyTargetSelected) {
-        // Toggle it off
-        const newInstances = pattern.instances.map(inst => ({ ...inst, isSelected: false }));
-        return { ...pattern, instances: newInstances };
-    }
-
+    // Enforce that at least one instance remains selected at all times
     const newInstances = pattern.instances.map(inst => 
         ({ ...inst, isSelected: inst.id === instanceId })
     );
@@ -420,10 +411,16 @@ export function drawPatternBlock(pattern, startTime, duration, isEraser = false)
 export function resolvePattern(pattern, isGlobal, chordBeats) {
     if (!isGlobal) return pattern; // Local patterns scale to fit natively
 
-    const GLOBAL_BEATS = pattern.lengthBeats || 4;
+    const GLOBAL_BEATS = pattern.lengthBeats || (pattern.hits ? 4 : 2);
+    const globalMode = pattern.globalMode || 'loop'; // 'loop', 'empty', 'stretch'
+
+    if (globalMode === 'stretch') {
+        return pattern; 
+    }
+
     const resolvedInstances = [];
     const resolvedHits = [];
-    const loops = Math.ceil(chordBeats / GLOBAL_BEATS);
+    const loops = globalMode === 'empty' ? 1 : Math.ceil(chordBeats / GLOBAL_BEATS);
 
     for (let loop = 0; loop < loops; loop++) {
         if (pattern.instances) {

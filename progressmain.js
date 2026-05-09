@@ -24,7 +24,7 @@ import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoSta
         function addChord(numeral, targetKey = state.baseKey) {
             saveHistoryState();
             const isAtEnd = state.loopEnd === state.currentProgression.length;
-            state.currentProgression.push({ symbol: numeral, key: targetKey, ...initPatternSet(), duration: 4 });
+            state.currentProgression.push({ symbol: numeral, key: targetKey, ...initPatternSet(), duration: 2 });
             
             if (isAtEnd) state.loopEnd = state.currentProgression.length;
             
@@ -170,7 +170,7 @@ import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoSta
                 saveHistoryState();
                 const insertIndex = index + 1;
                 state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
-                state.currentProgression.splice(insertIndex, 0, { symbol: altSymbol, key: key, ...initPatternSet(), duration: 4 });
+                state.currentProgression.splice(insertIndex, 0, { symbol: altSymbol, key: key, ...initPatternSet(), duration: 2 });
                 if (insertIndex <= state.loopEnd) state.loopEnd++;
                 state.selectedChordIndex = insertIndex;
                 auditionChord(altSymbol, key);
@@ -690,7 +690,7 @@ function _setupDragAndDrop(display) {
             const isAtEnd = state.loopEnd === state.currentProgression.length;
             state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
             state.selectedChordIndex = insertIndex;
-            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, ...initPatternSet(), duration: 4 });
+            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, ...initPatternSet(), duration: 2 });
             
             if (newLoopStart !== null && newLoopEnd !== null) {
                 state.loopStart = newLoopStart;

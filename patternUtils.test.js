@@ -44,8 +44,8 @@ describe('Pattern Utils - Rhythm Pattern Editor', () => {
         expect(pattern.instances[0].isSelected).toBe(true);
         expect(pattern.instances[1].isSelected).toBe(false); // Was true, now false
         
-        pattern = exclusiveSelect(pattern, id1); // Toggle off if only one selected
-        expect(pattern.instances[0].isSelected).toBe(false);
+        pattern = exclusiveSelect(pattern, id1); // Should remain selected to guarantee at least one active slice
+        expect(pattern.instances[0].isSelected).toBe(true);
     });
 
     it('should apply arp settings to selected instances', () => {

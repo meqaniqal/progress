@@ -609,7 +609,6 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
     downBtn.dataset.direction = '-1';
 
     // 4. Duration Update
-    const currentDuration = Number(displayChord.duration) || 4;
     const durLabel = toolsRow.querySelector('.dur-label');
     durLabel.id = 'dur-label-' + index;
     durLabel.innerHTML = `<strong>Beats:</strong> ${currentDuration}`;
