@@ -341,10 +341,17 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
 }
 
 function _renderDrumGrid(container, pattern) {
-    container.innerHTML = ''; // Clear previous state
-    
-    const gridEl = document.createElement('div');
-    gridEl.className = 'drum-grid';
+    // Remove leftover slice timeline elements when switching to Drums
+    container.querySelectorAll('.rhythm-instance').forEach(el => el.remove());
+    const leftoverPianoGrid = container.querySelector('.piano-roll-grid');
+    if (leftoverPianoGrid) leftoverPianoGrid.remove();
+
+    let gridEl = container.querySelector('.drum-grid');
+    if (!gridEl) {
+        gridEl = document.createElement('div');
+        gridEl.className = 'drum-grid';
+        container.appendChild(gridEl);
+    }
     
     // 1. Render Grid Lines
     const beats = getDurationBeats();
@@ -360,97 +367,145 @@ function _renderDrumGrid(container, pattern) {
     container.style.overflowX = editorState.isGlobal ? 'auto' : 'hidden';
     container.style.touchAction = editorState.isGlobal ? 'pan-x pinch-zoom' : 'none';
 
-    const gridLinesInner = document.createElement('div');
-    gridLinesInner.className = 'drum-grid-lines';
-    gridLinesInner.style.position = 'absolute';
-    gridLinesInner.style.left = '48px';
-    gridLinesInner.style.right = '16px';
-    gridLinesInner.style.top = '0';
-    gridLinesInner.style.bottom = '0';
-    gridLinesInner.style.pointerEvents = 'none';
-    gridLinesInner.style.zIndex = '1';
-    gridEl.appendChild(gridLinesInner);
+    let gridLinesInner = gridEl.querySelector('.drum-grid-lines');
+    if (!gridLinesInner) {
+        gridLinesInner = document.createElement('div');
+        gridLinesInner.className = 'drum-grid-lines';
+        gridLinesInner.style.position = 'absolute';
+        gridLinesInner.style.left = '48px';
+        gridLinesInner.style.right = '16px';
+        gridLinesInner.style.top = '0';
+        gridLinesInner.style.bottom = '0';
+        gridLinesInner.style.pointerEvents = 'none';
+        gridLinesInner.style.zIndex = '1';
+        gridEl.appendChild(gridLinesInner);
+    }
 
     const normalizedGridStep = editorState.isGridEnabled ? (GRID_STEPS[editorState.gridStepIndex].value * (4 / beats)) : 0;
 
+    const requiredLines = [];
     if (normalizedGridStep > 0) {
         for (let i = 0; i < 1.0; i += normalizedGridStep) {
-            const line = document.createElement('div');
-            line.className = 'drum-grid-line';
-            line.style.left = `${i * 100}%`;
-            // Emphasize quarter notes (0.25, 0.5, 0.75 in a 4-beat context)
-            const beatPos = i * beats / 4;
+            requiredLines.push(i);
+        }
+    }
+
+    const existingLines = Array.from(gridLinesInner.querySelectorAll('.drum-grid-line:not(.smart-dup-line)'));
+    const lineCount = Math.max(requiredLines.length, existingLines.length);
+    for (let i = 0; i < lineCount; i++) {
+        if (i < requiredLines.length) {
+            let line = existingLines[i];
+            if (!line) {
+                line = document.createElement('div');
+                line.className = 'drum-grid-line';
+                gridLinesInner.appendChild(line);
+            }
+            const pos = requiredLines[i];
+            line.style.left = `${pos * 100}%`;
+            const beatPos = pos * beats / 4;
             
-            if (i === 0) {
-                line.style.opacity = '0.15'; // Make the first line faint so hits don't look like vertical sliders
-            } else if (Math.abs(beatPos - Math.round(beatPos)) < 0.001) { // Beat lines
+            line.style.opacity = '0.15';
+            line.style.width = '';
+            line.style.backgroundColor = '';
+            line.style.transform = '';
+            
+            if (pos === 0) {
+                line.style.opacity = '0.15';
+            } else if (Math.abs(beatPos - Math.round(beatPos)) < 0.001) {
                 line.style.opacity = '0.8';
                 line.style.width = '2px';
                 line.style.backgroundColor = 'var(--text-main)';
-                line.style.transform = 'translateX(-1px)'; // Center the 2px line
-            } else if (Math.abs((beatPos * 2) - Math.round(beatPos * 2)) < 0.001) { // 8th note lines
+                line.style.transform = 'translateX(-1px)';
+            } else if (Math.abs((beatPos * 2) - Math.round(beatPos * 2)) < 0.001) {
                 line.style.opacity = '0.4';
-            } else { // 16th note lines
-                line.style.opacity = '0.15';
             }
-            gridLinesInner.appendChild(line);
+        } else {
+            existingLines[i].remove();
         }
     }
 
     // 2. Render Rows and Hits
     const rowElements = {};
     DRUM_ROWS.forEach(rowType => {
-        const rowEl = document.createElement('div');
-        rowEl.className = 'drum-row';
-        rowEl.dataset.rowType = rowType;
-        rowEl.style.backgroundColor = DRUM_ROW_BG_COLORS[rowType];
+        let rowEl = gridEl.querySelector(`.drum-row[data-row-type="${rowType}"]`);
+        if (!rowEl) {
+            rowEl = document.createElement('div');
+            rowEl.className = 'drum-row';
+            rowEl.dataset.rowType = rowType;
+            rowEl.style.backgroundColor = DRUM_ROW_BG_COLORS[rowType];
 
-        const label = document.createElement('span');
-        label.className = 'drum-row-label';
-        label.textContent = DRUM_LABELS[rowType];
-        rowEl.appendChild(label);
-        
-        const rowInner = document.createElement('div');
-        rowInner.className = 'drum-row-inner';
-        rowInner.style.position = 'absolute';
-        rowInner.style.left = '48px';
-        rowInner.style.right = '16px';
-        rowInner.style.top = '0';
-        rowInner.style.bottom = '0';
-        rowEl.appendChild(rowInner);
-        
-        gridEl.appendChild(rowEl);
-        rowElements[rowType] = rowInner;
+            const label = document.createElement('span');
+            label.className = 'drum-row-label';
+            label.textContent = DRUM_LABELS[rowType];
+            rowEl.appendChild(label);
+            
+            const rowInner = document.createElement('div');
+            rowInner.className = 'drum-row-inner';
+            rowInner.style.position = 'absolute';
+            rowInner.style.left = '48px';
+            rowInner.style.right = '16px';
+            rowInner.style.top = '0';
+            rowInner.style.bottom = '0';
+            rowEl.appendChild(rowInner);
+            
+            gridEl.appendChild(rowEl);
+        }
+        rowElements[rowType] = rowEl.querySelector('.drum-row-inner');
     });
 
+    const hitIds = new Set();
     if (pattern && pattern.hits) {
         pattern.hits.forEach(hit => {
+            hitIds.add(hit.id);
             const parentRow = rowElements[hit.row];
             if (!parentRow) return;
 
-            const hitEl = document.createElement('div');
+            let hitEl = gridEl.querySelector(`.drum-hit[data-id="${hit.id}"]`);
+            if (hitEl && hitEl.parentElement !== parentRow) {
+                parentRow.appendChild(hitEl);
+            }
+
+            if (!hitEl) {
+                hitEl = document.createElement('div');
+                hitEl.dataset.id = hit.id;
+                parentRow.appendChild(hitEl);
+            }
+
             hitEl.className = `drum-hit ${hit.row}-hit`;
-            hitEl.dataset.id = hit.id;
             hitEl.style.left = `${hit.time * 100}%`;
             
             if (hit.id === editorState.draggedHitId) {
                 hitEl.classList.add('grabbing');
+            } else {
+                hitEl.classList.remove('grabbing');
             }
+            
             if (hit.id === editorState.selectedHitId) {
                 hitEl.classList.add('selected');
+            } else {
+                hitEl.classList.remove('selected');
             }
+            
             if (hit.time >= 1.0) {
-                if (hit.time > 1.25) return; // Hard limit out-of-bounds scrolling to 25% past the boundary
-                hitEl.style.opacity = '0.2';
+                hitEl.style.opacity = hit.time > 1.25 ? '0' : '0.2';
                 hitEl.style.pointerEvents = 'none'; // Prevent interaction with truncated data
             } else {
                 hitEl.style.opacity = 0.3 + (hit.velocity !== undefined ? hit.velocity : 1.0) * 0.7;
+                hitEl.style.pointerEvents = '';
             }
-            parentRow.appendChild(hitEl);
         });
     }
 
+    gridEl.querySelectorAll('.drum-hit').forEach(hitEl => {
+        if (!hitIds.has(hitEl.dataset.id)) {
+            hitEl.remove();
+        }
+    });
+
     // --- Smart Duplication Button ---
+    let dupLine = gridLinesInner.querySelector('.smart-dup-line');
+    let duplicateBtn = gridLinesInner.querySelector('.smart-dup-btn');
+
     if (editorState.isGlobal && pattern && pattern.hits && pattern.hits.length > 0) {
         const lengthBeats = pattern.lengthBeats || 4;
         if (lengthBeats > 4) {

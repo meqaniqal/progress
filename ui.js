@@ -316,7 +316,6 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
         content.addEventListener('change', handleInspectorChange);
         content.addEventListener('input', handleInspectorInput);
     }
-    content.innerHTML = '';
 
     const index = selectedChordIndex;
     const originalChord = state.currentProgression[index];
@@ -325,79 +324,218 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
 
     document.getElementById('inspector-title').textContent = `Selected Chord: ${displayChord.symbol}`;
 
-    const altsRow = document.createElement('div');
-    altsRow.className = 'inspector-row';
-    altsRow.innerHTML = `<strong class="inspector-label">Swap Chord:</strong>`;
-    const altsBtnContainer = document.createElement('div');
-    altsBtnContainer.className = 'inspector-btn-group';
-    
+    // --- Swap Chord (Alts) Row ---
+    let altsRow = content.querySelector('.inspector-row-alts');
+    let altsBtnContainer;
+    if (!altsRow) {
+        altsRow = document.createElement('div');
+        altsRow.className = 'inspector-row inspector-row-alts';
+        altsRow.innerHTML = `<strong class="inspector-label">Swap Chord:</strong>`;
+        altsBtnContainer = document.createElement('div');
+        altsBtnContainer.className = 'inspector-btn-group alts-btn-group';
+        altsRow.appendChild(altsBtnContainer);
+        content.appendChild(altsRow);
+    } else {
+        altsBtnContainer = altsRow.querySelector('.alts-btn-group');
+    }
+
     const alts = getAlternatives(displayChord.symbol, displayChord.key, state.mode);
     if (isTemp) alts.unshift(originalChord.symbol);
     
     if (alts.length === 0) {
         altsBtnContainer.innerHTML = `<span style="opacity: 0.5; font-size: 13px;">No close matches</span>`;
     } else {
+        const noMatchSpan = altsBtnContainer.querySelector('span');
+        if (noMatchSpan) noMatchSpan.remove();
+
+        const existingBtns = altsBtnContainer.querySelectorAll('button');
         alts.forEach((alt, i) => {
-            const btn = document.createElement('button');
-            btn.className = 'chord-btn';
+            let btn = existingBtns[i];
+            if (!btn) {
+                btn = document.createElement('button');
+                btn.className = 'chord-btn';
+                // Style as a flat tinted tag instead of a heavy block to differentiate from palette "Add" buttons
+                btn.style.background = 'rgba(74, 222, 128, 0.15)';
+                btn.style.border = '1px solid rgba(74, 222, 128, 0.3)';
+                btn.style.boxShadow = 'none';
+                altsBtnContainer.appendChild(btn);
+            }
             btn.textContent = alt;
-            if (isTemp && i === 0) btn.classList.add('original-swap-option');
-            
-            // Style as a flat tinted tag instead of a heavy block to differentiate from palette "Add" buttons
-            btn.style.background = 'rgba(74, 222, 128, 0.15)';
-            btn.style.border = '1px solid rgba(74, 222, 128, 0.3)';
-            btn.style.boxShadow = 'none';
-            
             btn.dataset.action = 'swap';
             btn.dataset.index = index;
             btn.dataset.alt = alt;
 
-            altsBtnContainer.appendChild(btn);
+            if (isTemp && i === 0) btn.classList.add('original-swap-option');
+            else btn.classList.remove('original-swap-option');
         });
+
+        for (let i = alts.length; i < existingBtns.length; i++) {
+            existingBtns[i].remove();
+        }
     }
-    altsRow.appendChild(altsBtnContainer);
-    content.appendChild(altsRow);
 
     // --- Unified Tools Row (Transpose, Duration, Delete) ---
-    const toolsRow = document.createElement('div');
-    toolsRow.className = 'inspector-row';
-    toolsRow.style.display = 'flex';
-    toolsRow.style.flexWrap = 'wrap';
-    toolsRow.style.gap = '20px';
-    toolsRow.style.alignItems = 'center';
-    toolsRow.style.marginTop = '4px';
+    let toolsRow = content.querySelector('.inspector-row-tools');
+    if (!toolsRow) {
+        toolsRow = document.createElement('div');
+        toolsRow.className = 'inspector-row inspector-row-tools';
+        toolsRow.style.display = 'flex';
+        toolsRow.style.flexWrap = 'wrap';
+        toolsRow.style.gap = '20px';
+        toolsRow.style.alignItems = 'center';
+        toolsRow.style.marginTop = '4px';
 
-    // 1. Transpose
-    const modBlock = document.createElement('div');
-    modBlock.style.display = 'flex';
-    modBlock.style.alignItems = 'center';
-    modBlock.style.gap = '8px';
-    modBlock.innerHTML = `<strong class="inspector-label">Transpose:</strong>`;
-    const modSelect = document.createElement('select');
-    modSelect.className = 'rhythm-select';
-    modSelect.style.padding = '4px 8px';
-    Object.entries(KEY_NAMES).forEach(([val, name]) => {
-        const opt = document.createElement('option');
-        opt.value = val;
-        opt.textContent = name;
-        if (parseInt(val, 10) === displayChord.key) opt.selected = true;
-        modSelect.appendChild(opt);
-    });
+        // 1. Transpose
+        const modBlock = document.createElement('div');
+        modBlock.className = 'mod-block';
+        modBlock.style.display = 'flex';
+        modBlock.style.alignItems = 'center';
+        modBlock.style.gap = '8px';
+        modBlock.innerHTML = `<strong class="inspector-label">Transpose:</strong>`;
+        const modSelect = document.createElement('select');
+        modSelect.className = 'rhythm-select mod-select';
+        modSelect.style.padding = '4px 8px';
+        Object.entries(KEY_NAMES).forEach(([val, name]) => {
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = name;
+            modSelect.appendChild(opt);
+        });
+        modBlock.appendChild(modSelect);
+        toolsRow.appendChild(modBlock);
+
+        // --- Voicing Type Slider ---
+        const voicingBlock = document.createElement('div');
+        voicingBlock.className = 'voicing-block';
+        voicingBlock.style.display = 'flex';
+        voicingBlock.style.alignItems = 'center';
+        voicingBlock.style.flexWrap = 'wrap';
+        voicingBlock.style.gap = '12px';
+
+        const vLabel = document.createElement('span');
+        vLabel.className = 'inspector-label voicing-label';
+        vLabel.style.display = 'inline-block';
+        vLabel.style.width = '140px'; // Prevent horizontal layout shift when text changes
+        voicingBlock.appendChild(vLabel);
+
+        const vSlider = document.createElement('input');
+        vSlider.type = 'range';
+        vSlider.className = 'voicing-slider';
+        vSlider.min = 0;
+        vSlider.max = 4;
+        vSlider.step = 0.01;
+        vSlider.title = "Equivalent voicings share the same color track";
+        voicingBlock.appendChild(vSlider);
+
+        // Buttons: Set as Global
+        const vBtnGroup = document.createElement('div');
+        vBtnGroup.style.display = 'flex';
+        vBtnGroup.style.gap = '6px';
+        
+        const setGlobalBtn = document.createElement('button');
+        setGlobalBtn.className = 'control-btn secondary set-global-btn';
+        setGlobalBtn.style.padding = '2px 8px';
+        setGlobalBtn.style.fontSize = '12px';
+        setGlobalBtn.textContent = 'Set as Global';
+        vBtnGroup.appendChild(setGlobalBtn);
+        
+        voicingBlock.appendChild(vBtnGroup);
+        toolsRow.appendChild(voicingBlock);
+
+        // --- Inversion Stepper ---
+        const invBlock = document.createElement('div');
+        invBlock.className = 'inv-block';
+        invBlock.style.display = 'flex';
+        invBlock.style.alignItems = 'center';
+        invBlock.style.gap = '8px';
+        invBlock.innerHTML = `<strong class="inspector-label">Inversion:</strong>`;
+
+        const stepperContainer = document.createElement('div');
+        stepperContainer.style.display = 'flex';
+        stepperContainer.style.alignItems = 'center';
+        stepperContainer.style.gap = '4px';
+
+        const displaySpan = document.createElement('span');
+        displaySpan.className = 'inv-display';
+        displaySpan.style.minWidth = '30px';
+        displaySpan.style.textAlign = 'center';
+        displaySpan.style.fontWeight = '600';
+        displaySpan.style.fontSize = '16px';
+
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.flexDirection = 'column';
+        buttonContainer.style.gap = '2px';
+
+        const upBtn = document.createElement('button');
+        upBtn.className = 'chord-btn inv-up-btn';
+        upBtn.textContent = '▲';
+        upBtn.style.cssText = 'padding: 0px 6px; line-height: 1; font-size: 10px; margin: 0;';
+
+        const downBtn = document.createElement('button');
+        downBtn.className = 'chord-btn inv-down-btn';
+        downBtn.textContent = '▼';
+        downBtn.style.cssText = 'padding: 0px 6px; line-height: 1; font-size: 10px; margin: 0;';
+
+        buttonContainer.appendChild(upBtn);
+        buttonContainer.appendChild(downBtn);
+
+        stepperContainer.appendChild(displaySpan);
+        stepperContainer.appendChild(buttonContainer);
+        invBlock.appendChild(stepperContainer);
+
+        toolsRow.appendChild(invBlock);
+
+        // 2. Duration
+        const durBlock = document.createElement('div');
+        durBlock.className = 'dur-block';
+        durBlock.style.display = 'flex';
+        durBlock.style.alignItems = 'center';
+        durBlock.style.gap = '12px';
+        
+        const durLabel = document.createElement('span');
+        durLabel.className = 'inspector-label dur-label';
+        durLabel.style.display = 'inline-block';
+        durLabel.style.width = '90px'; // Prevent horizontal layout shift
+        
+        const durSlider = document.createElement('input');
+        durSlider.type = 'range';
+        durSlider.className = 'dur-slider';
+        durSlider.min = 1;
+        durSlider.max = 8;
+        durSlider.step = 1;
+        durSlider.setAttribute('list', 'beat-snaps');
+        durSlider.style.width = '120px';
+        durSlider.style.margin = '0';
+        durSlider.style.cursor = 'pointer';
+        
+        durBlock.appendChild(durLabel);
+        durBlock.appendChild(durSlider);
+        toolsRow.appendChild(durBlock);
+
+        // 3. Delete
+        const delBtn = document.createElement('button');
+        delBtn.className = 'chord-btn del-btn';
+        delBtn.style.color = '#ef4444';
+        delBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+        delBtn.style.marginLeft = 'auto';
+        delBtn.style.padding = '4px 12px';
+        delBtn.innerHTML = '🗑 Delete';
+        toolsRow.appendChild(delBtn);
+
+        content.appendChild(toolsRow);
+    }
+
+    // --- Update Tools Properties ---
+    
+    // 1. Transpose Update
+    const modSelect = toolsRow.querySelector('.mod-select');
     modSelect.dataset.action = 'changeChordKey';
     modSelect.dataset.index = index;
-    modBlock.appendChild(modSelect);
-    toolsRow.appendChild(modBlock);
+    modSelect.value = displayChord.key;
 
-    // --- Voicing Type Slider ---
-    const voicingBlock = document.createElement('div');
-    voicingBlock.style.display = 'flex';
-    voicingBlock.style.alignItems = 'center';
-    voicingBlock.style.flexWrap = 'wrap';
-    voicingBlock.style.gap = '12px';
-
+    // 2. Voicing Type Slider Update
     const currentType = displayChord.voicingType || 'global';
-
-    // Calculate identical results for highlighting
     const mockProg = state.currentProgression.map((c, i) => {
         const swap = state.temporarySwaps[i];
         return swap ? { ...c, ...swap } : c;
@@ -411,14 +549,10 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
         { val: 'spread', label: 'Spread' }
     ];
     
-    const vLabel = document.createElement('span');
+    const vLabel = toolsRow.querySelector('.voicing-label');
     vLabel.id = 'voicing-label-' + index;
-    vLabel.className = 'inspector-label';
-    vLabel.style.display = 'inline-block';
-    vLabel.style.width = '140px'; // Prevent horizontal layout shift when text changes
     const activeLabel = types.find(t => t.val === currentType).label;
     vLabel.innerHTML = `<strong>Voicing:</strong> ${activeLabel}`;
-    voicingBlock.appendChild(vLabel);
 
     const resultsMap = {};
     const uniqueResults = [];
@@ -432,208 +566,157 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
         }
     });
 
-    // Distinct visual indicator colors for matching chord note outputs
-    const colorPalette = [
-        '#3b82f6', // Blue
-        '#10b981', // Green
-        '#f59e0b', // Amber
-        '#8b5cf6', // Purple
-        '#ec4899'  // Pink
-    ];
-
+    const colorPalette = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
     const gradientStops = types.map((t, i) => {
         const resultIndex = uniqueResults.indexOf(resultsMap[t.val]);
         const matchColor = colorPalette[resultIndex % colorPalette.length];
         return `${matchColor} ${i * 20}%, ${matchColor} ${(i + 1) * 20}%`;
     }).join(', ');
 
-    const vSlider = document.createElement('input');
-    vSlider.type = 'range';
-    vSlider.className = 'voicing-slider';
-    vSlider.min = 0;
-    vSlider.max = 4;
-    vSlider.step = 0.01;
+    const vSlider = toolsRow.querySelector('.voicing-slider');
     vSlider.value = types.findIndex(t => t.val === currentType);
     vSlider.dataset.action = 'voicing-slider';
     vSlider.dataset.index = index;
     vSlider.style.background = `linear-gradient(to right, ${gradientStops})`;
-    vSlider.title = "Equivalent voicings share the same color track";
     
-    voicingBlock.appendChild(vSlider);
-
-    // Buttons: Set as Global
-    const vBtnGroup = document.createElement('div');
-    vBtnGroup.style.display = 'flex';
-    vBtnGroup.style.gap = '6px';
-    
-    const setGlobalBtn = document.createElement('button');
-    setGlobalBtn.className = 'control-btn secondary set-global-btn';
-    setGlobalBtn.style.padding = '2px 8px';
-    setGlobalBtn.style.fontSize = '12px';
-    setGlobalBtn.textContent = 'Set as Global';
+    const setGlobalBtn = toolsRow.querySelector('.set-global-btn');
     setGlobalBtn.title = `Set '${activeLabel}' as the new master default`;
     setGlobalBtn.dataset.action = 'set-global-voicing';
     setGlobalBtn.dataset.index = index;
     setGlobalBtn.dataset.val = currentType;
     setGlobalBtn.style.display = currentType === 'global' ? 'none' : 'inline-block';
-    
-    vBtnGroup.appendChild(setGlobalBtn);
-    
-    voicingBlock.appendChild(vBtnGroup);
-    toolsRow.appendChild(voicingBlock);
 
-    // --- Inversion Stepper ---
-    const invBlock = document.createElement('div');
-    invBlock.style.display = 'flex';
-    invBlock.style.alignItems = 'center';
-    invBlock.style.gap = '8px';
-    invBlock.innerHTML = `<strong class="inspector-label">Inversion:</strong>`;
-
+    // 3. Inversion Update
     const invOffset = displayChord.inversionOffset ?? 0;
-
-    const stepperContainer = document.createElement('div');
-    stepperContainer.style.display = 'flex';
-    stepperContainer.style.alignItems = 'center';
-    stepperContainer.style.gap = '4px';
-
-    const displaySpan = document.createElement('span');
-    displaySpan.style.minWidth = '30px';
-    displaySpan.style.textAlign = 'center';
-    displaySpan.style.fontWeight = '600';
-    displaySpan.style.fontSize = '16px';
-    displaySpan.textContent = invOffset > 0 ? `+${invOffset}` : invOffset;
+    const invDisplay = toolsRow.querySelector('.inv-display');
+    invDisplay.textContent = invOffset > 0 ? `+${invOffset}` : invOffset;
     if (invOffset === 0) {
-        displaySpan.style.opacity = '0.7';
-        displaySpan.title = 'Auto';
+        invDisplay.style.opacity = '0.7';
+        invDisplay.title = 'Auto';
+    } else {
+        invDisplay.style.opacity = '1';
+        invDisplay.title = '';
     }
 
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.flexDirection = 'column';
-    buttonContainer.style.gap = '2px';
-
-    const upBtn = document.createElement('button');
-    upBtn.className = 'chord-btn';
-    upBtn.textContent = '▲';
+    const upBtn = toolsRow.querySelector('.inv-up-btn');
     upBtn.dataset.action = 'step-inversion';
     upBtn.dataset.index = index;
     upBtn.dataset.direction = '1';
-    upBtn.style.cssText = 'padding: 0px 6px; line-height: 1; font-size: 10px; margin: 0;';
 
-    const downBtn = document.createElement('button');
-    downBtn.className = 'chord-btn';
-    downBtn.textContent = '▼';
+    const downBtn = toolsRow.querySelector('.inv-down-btn');
     downBtn.dataset.action = 'step-inversion';
     downBtn.dataset.index = index;
     downBtn.dataset.direction = '-1';
-    downBtn.style.cssText = 'padding: 0px 6px; line-height: 1; font-size: 10px; margin: 0;';
 
-    buttonContainer.appendChild(upBtn);
-    buttonContainer.appendChild(downBtn);
-
-    stepperContainer.appendChild(displaySpan);
-    stepperContainer.appendChild(buttonContainer);
-    invBlock.appendChild(stepperContainer);
-
-    toolsRow.appendChild(invBlock);
-
-    // 2. Duration
-    const durBlock = document.createElement('div');
-    durBlock.style.display = 'flex';
-    durBlock.style.alignItems = 'center';
-    durBlock.style.gap = '12px';
-    
+    // 4. Duration Update
     const currentDuration = Number(displayChord.duration) || 4;
-    const durLabel = document.createElement('span');
+    const durLabel = toolsRow.querySelector('.dur-label');
     durLabel.id = 'dur-label-' + index;
-    durLabel.className = 'inspector-label';
-    durLabel.style.display = 'inline-block';
-    durLabel.style.width = '90px'; // Prevent horizontal layout shift
     durLabel.innerHTML = `<strong>Beats:</strong> ${currentDuration}`;
     
-    const durSlider = document.createElement('input');
-    durSlider.type = 'range';
-    durSlider.min = 1;
-    durSlider.max = 8;
-    durSlider.step = 1;
+    const durSlider = toolsRow.querySelector('.dur-slider');
     durSlider.value = currentDuration;
     durSlider.dataset.action = 'duration-slider';
     durSlider.dataset.index = index;
-    durSlider.setAttribute('list', 'beat-snaps');
-    durSlider.style.width = '120px';
-    durSlider.style.margin = '0';
-    durSlider.style.cursor = 'pointer';
-    
-    durBlock.appendChild(durLabel);
-    durBlock.appendChild(durSlider);
-    toolsRow.appendChild(durBlock);
 
-    // 3. Delete
-    const delBtn = document.createElement('button');
-    delBtn.className = 'chord-btn';
-    delBtn.style.color = '#ef4444';
-    delBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-    delBtn.style.marginLeft = 'auto';
-    delBtn.style.padding = '4px 12px';
-    delBtn.innerHTML = '🗑 Delete';
+    // 5. Delete Update
+    const delBtn = toolsRow.querySelector('.del-btn');
     delBtn.dataset.action = 'delete';
     delBtn.dataset.index = index;
-    toolsRow.appendChild(delBtn);
-
-    content.appendChild(toolsRow);
 
     // --- Conditional Rows (Out of Key & Turnaround) ---
+    let transRow = content.querySelector('.inspector-row-trans');
     if (displayChord.key !== state.baseKey) {
-        const transRow = document.createElement('div');
-        transRow.className = 'inspector-row';
-        transRow.style.marginTop = '4px';
-        transRow.innerHTML = `<strong class="inspector-label" style="margin-right: 8px;">Out of Key:</strong>`;
-        const transBtn = document.createElement('button');
-        transBtn.className = 'chord-btn';
-        transBtn.style.padding = '4px 10px';
+        if (!transRow) {
+            transRow = document.createElement('div');
+            transRow.className = 'inspector-row inspector-row-trans';
+            transRow.style.marginTop = '4px';
+            transRow.innerHTML = `<strong class="inspector-label" style="margin-right: 8px;">Out of Key:</strong>`;
+            const transBtn = document.createElement('button');
+            transBtn.className = 'chord-btn trans-btn';
+            transBtn.style.padding = '4px 10px';
+            transRow.appendChild(transBtn);
+            
+            const turnRow = content.querySelector('.inspector-row-turn');
+            if (turnRow) {
+                content.insertBefore(transRow, turnRow);
+            } else {
+                content.appendChild(transRow);
+            }
+        }
+        const transBtn = transRow.querySelector('.trans-btn');
         const modeStr = state.mode.charAt(0).toUpperCase() + state.mode.slice(1).replace(/([A-Z])/g, ' $1').trim();
         transBtn.textContent = `Transpose to ${KEY_NAMES[state.baseKey]} ${modeStr}`;
         transBtn.dataset.action = 'transpose';
         transBtn.dataset.index = index;
-        transRow.appendChild(transBtn);
-        content.appendChild(transRow);
+    } else if (transRow) {
+        transRow.remove();
     }
 
     const firstChordIndex = state.isLooping ? state.loopStart : 0;
     const lastChordIndex = state.isLooping ? Math.max(0, state.loopEnd - 1) : Math.max(0, state.currentProgression.length - 1);
     
+    let turnRow = content.querySelector('.inspector-row-turn');
     if (index === lastChordIndex && state.currentProgression.length > 0) {
         const firstChordOriginal = state.currentProgression[firstChordIndex];
         const firstChord = state.temporarySwaps[firstChordIndex] ? { ...firstChordOriginal, ...state.temporarySwaps[firstChordIndex] } : firstChordOriginal;
         if (firstChord) {
-            const turnRow = document.createElement('div');
-            turnRow.className = 'inspector-row';
-            turnRow.style.display = 'flex';
-            turnRow.style.flexWrap = 'wrap';
-            turnRow.style.gap = '8px';
-            turnRow.style.alignItems = 'center';
-            turnRow.style.marginTop = '4px';
+            let turnBtnsContainer;
+            if (!turnRow) {
+                turnRow = document.createElement('div');
+                turnRow.className = 'inspector-row inspector-row-turn';
+                turnRow.style.display = 'flex';
+                turnRow.style.flexWrap = 'wrap';
+                turnRow.style.gap = '8px';
+                turnRow.style.alignItems = 'center';
+                turnRow.style.marginTop = '4px';
 
-            const turnLabel = document.createElement('span');
-            turnLabel.className = 'inspector-label';
-            turnLabel.style.color = 'var(--ctrl-primary-bg)';
-            turnLabel.style.fontWeight = 'bold';
+                const turnLabel = document.createElement('span');
+                turnLabel.className = 'inspector-label turn-label';
+                turnLabel.style.color = 'var(--ctrl-primary-bg)';
+                turnLabel.style.fontWeight = 'bold';
+                turnRow.appendChild(turnLabel);
+
+                turnBtnsContainer = document.createElement('div');
+                turnBtnsContainer.className = 'turn-btns-container';
+                turnBtnsContainer.style.display = 'flex';
+                turnBtnsContainer.style.flexWrap = 'wrap';
+                turnBtnsContainer.style.gap = '8px';
+                turnRow.appendChild(turnBtnsContainer);
+
+                content.appendChild(turnRow);
+            } else {
+                turnBtnsContainer = turnRow.querySelector('.turn-btns-container');
+            }
+
+            const turnLabel = turnRow.querySelector('.turn-label');
             turnLabel.textContent = `Turnaround to ${firstChord.symbol}:`;
-            turnRow.appendChild(turnLabel);
 
             const turnarounds = getTurnaroundSuggestions(firstChord.symbol, state.mode, state.baseKey);
-            turnarounds.forEach(alt => {
-                const btn = document.createElement('button');
-                btn.className = 'chord-btn';
-                btn.style.padding = '4px 10px';
+            const existingBtns = turnBtnsContainer.querySelectorAll('button');
+            
+            turnarounds.forEach((alt, i) => {
+                let btn = existingBtns[i];
+                if (!btn) {
+                    btn = document.createElement('button');
+                    btn.className = 'chord-btn';
+                    btn.style.padding = '4px 10px';
+                    turnBtnsContainer.appendChild(btn);
+                }
                 btn.textContent = `+ ${alt}`;
                 btn.dataset.action = 'turnaround';
                 btn.dataset.index = index;
                 btn.dataset.alt = alt;
                 btn.dataset.key = firstChord.key;
-                turnRow.appendChild(btn);
             });
-            content.appendChild(turnRow);
+
+            for (let i = turnarounds.length; i < existingBtns.length; i++) {
+                existingBtns[i].remove();
+            }
+        } else if (turnRow) {
+            turnRow.remove();
         }
+    } else if (turnRow) {
+        turnRow.remove();
     }
 }

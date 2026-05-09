@@ -471,10 +471,7 @@ function _setupToolbarButtons() {
         btnReset.addEventListener('click', () => {
             if (editorState.isGlobal || editorState.activeIndex === null) return;
             app.saveHistoryState();
-            const chord = app.state.currentProgression[editorState.activeIndex];
-            if (chord && chord[editorState.activeTab]) {
-                chord[editorState.activeTab].isLocalOverride = false;
-            }
+            app.resetPatternToGlobal(editorState.activeTab, editorState.activeIndex);
             editorState.activeOverlayId = null;
             app.persistAppState();
             renderRhythmTimeline();
@@ -527,14 +524,7 @@ function _setupToolbarButtons() {
             if (!pattern) return;
             app.saveHistoryState();
             
-            const globalCopy = JSON.parse(JSON.stringify(pattern));
-            globalCopy.isLocalOverride = false;
-            app.state.globalPatterns[editorState.activeTab] = globalCopy;
-            
-            const chord = app.state.currentProgression[editorState.activeIndex];
-            if (chord && chord[editorState.activeTab]) {
-                chord[editorState.activeTab].isLocalOverride = false;
-            }
+            app.pushPatternToGlobal(editorState.activeTab, pattern, editorState.activeIndex);
             
             app.persistAppState();
             renderRhythmTimeline();
@@ -545,10 +535,7 @@ function _setupToolbarButtons() {
         btnPullGlobal.addEventListener('click', () => {
             if (editorState.activeIndex === null) return;
             app.saveHistoryState();
-            const chord = app.state.currentProgression[editorState.activeIndex];
-            if (chord && chord[editorState.activeTab]) {
-                chord[editorState.activeTab].isLocalOverride = false;
-            }
+            app.resetPatternToGlobal(editorState.activeTab, editorState.activeIndex);
             editorState.activeOverlayId = null;
             app.persistAppState();
             renderRhythmTimeline();

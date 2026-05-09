@@ -20,7 +20,29 @@ export const state = {
     selectedChordIndex: null,
     globalPatterns: initPatternSet(),
     showManualOnStartup: true,
-    enableExperimentalDrawMode: true
+    enableExperimentalDrawMode: true,
+    editorState: {
+        activeIndex: null,
+        activeOverlayId: null,
+        isDragging: false,
+        isResizing: null,
+        isDrawModeEnabled: false,
+        isDrawing: false,
+        isPitchModeEnabled: false,
+        drawStartRatio: null,
+        drawModeAction: null,
+        drawStartPattern: null,
+        draggedInstanceId: null,
+        draggedHitId: null,
+        selectedHitId: null,
+        clipboardPattern: null,
+        gridStepIndex: 4,
+        isGridEnabled: true,
+        zoomLevel: 1.0,
+        isPanning: false,
+        activeTab: 'chordPattern',
+        isGlobal: false
+    }
 };
 
 // Resolves the progression with any active temporary swaps applied
@@ -37,6 +59,39 @@ export function getActiveProgression() {
         }
         return chord;
     });
+}
+
+export function updateEditorState(updates) {
+    state.editorState = { ...state.editorState, ...updates };
+}
+
+export function updatePattern(tab, pattern, activeIndex, isGlobal, markAsOverride = true) {
+    if (isGlobal) {
+        state.globalPatterns[tab] = pattern;
+    } else {
+        if (activeIndex === null) return;
+        const chord = state.currentProgression[activeIndex];
+        if (chord) {
+            if (markAsOverride) pattern.isLocalOverride = true;
+            chord[tab] = pattern;
+        }
+    }
+}
+
+export function pushPatternToGlobal(tab, pattern, activeIndex) {
+    const globalCopy = JSON.parse(JSON.stringify(pattern));
+    globalCopy.isLocalOverride = false;
+    state.globalPatterns[tab] = globalCopy;
+    resetPatternToGlobal(tab, activeIndex);
+}
+
+export function resetPatternToGlobal(tab, activeIndex) {
+    if (activeIndex !== null) {
+        const chord = state.currentProgression[activeIndex];
+        if (chord && chord[tab]) {
+            chord[tab].isLocalOverride = false;
+        }
+    }
 }
 
 export function applyLoopBounds() {
@@ -94,6 +149,28 @@ export function resetSession() {
     state.globalPatterns = initPatternSet();
     state.showManualOnStartup = true;
     state.enableExperimentalDrawMode = true;
+    state.editorState = {
+        activeIndex: null,
+        activeOverlayId: null,
+        isDragging: false,
+        isResizing: null,
+        isDrawModeEnabled: false,
+        isDrawing: false,
+        isPitchModeEnabled: false,
+        drawStartRatio: null,
+        drawModeAction: null,
+        drawStartPattern: null,
+        draggedInstanceId: null,
+        draggedHitId: null,
+        selectedHitId: null,
+        clipboardPattern: null,
+        gridStepIndex: 4,
+        isGridEnabled: true,
+        zoomLevel: 1.0,
+        isPanning: false,
+        activeTab: 'chordPattern',
+        isGlobal: false
+    };
 }
 
 export function loadAndApplyInitialState() {
@@ -122,7 +199,7 @@ export function loadAndApplyInitialState() {
         }
         
         state.showManualOnStartup = savedState.showManualOnStartup !== undefined ? Boolean(savedState.showManualOnStartup) : true;
-        state.enableExperimentalDrawMode = savedState.enableExperimentalDrawMode !== undefined ? Boolean(savedState.enableExperimentalDrawMode) : true;
+        state.enableExperimentalDrawMode = Boolean(savedState.enableExperimentalDrawMode);
         
         if (savedState.volumes) {
             state.volumes = {

@@ -8,30 +8,17 @@ import { renderRhythmTimeline } from './rhythmRenderer.js';
 
 export { renderRhythmTimeline };
 
-export const editorState = {
-    activeIndex: null,
-    activeOverlayId: null,
-    isDragging: false,
-    isResizing: null,
-    isDrawModeEnabled: false,
-    isDrawing: false,
-    isPitchModeEnabled: false,
-    drawStartRatio: null,
-    drawModeAction: null,
-    drawStartPattern: null,
-    draggedInstanceId: null, // For slices
-    draggedHitId: null,      // For drum hits
-    selectedHitId: null,     // For drum hit velocity editing
-    clipboardPattern: null,
-    gridStepIndex: 4, // Default to 1/16th note
-    isGridEnabled: true,
-    zoomLevel: 1.0,
-    isPanning: false,
-    activeTab: 'chordPattern', // 'chordPattern', 'bassPattern', 'drumPattern'
-    isGlobal: false // false = Local Override, true = Global Pattern
-};
-
 export let app = {}; // Stores references to global state and injected callbacks
+
+export const editorState = new Proxy({}, {
+    get(target, prop) {
+        return app.state?.editorState ? app.state.editorState[prop] : undefined;
+    },
+    set(target, prop, value) {
+        if (app.updateEditorState) app.updateEditorState({ [prop]: value });
+        return true;
+    }
+});
 
 function hasValidContext() {
     if (editorState.isGlobal) return true;
@@ -76,15 +63,8 @@ export function auditionSlicePitch(pitchOffset = 0) {
 }
 
 export function setCurrentPattern(newPattern, markAsOverride = true) {
-    if (editorState.isGlobal) {
-        app.state.globalPatterns[editorState.activeTab] = newPattern;
-    } else {
-        if (editorState.activeIndex === null) return;
-        const chord = app.state.currentProgression[editorState.activeIndex];
-        if (chord) {
-            if (markAsOverride) newPattern.isLocalOverride = true;
-            chord[editorState.activeTab] = newPattern;
-        }
+    if (app.updatePattern) {
+        app.updatePattern(editorState.activeTab, newPattern, editorState.activeIndex, editorState.isGlobal, markAsOverride);
     }
 }
 
@@ -167,6 +147,7 @@ function _setupTimelinePointerEvents() {
     let lastTapCoords = { x: 0, y: 0 }; // For double-tap position check
     let panStartX = 0;
     let panStartScrollLeft = 0;
+    let cachedTimelineRect = null;
     
     // Hard block standard right-click context menus inside the timeline
     timeline.addEventListener('contextmenu', e => e.preventDefault());
@@ -189,7 +170,8 @@ function _setupTimelinePointerEvents() {
             if (labelElement) return; // Prevent adding hits when clicking labels
             timeline.setPointerCapture(e.pointerId);
 
-            const rect = getTimelineRect();
+            cachedTimelineRect = getTimelineRect();
+            const rect = cachedTimelineRect;
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             const timeRatio = Math.max(0, Math.min(1, x / rect.width));
@@ -261,7 +243,8 @@ function _setupTimelinePointerEvents() {
         // Handle Pencil Draw Interaction
         if (isExperimental && isChordOrBass && editorState.isDrawModeEnabled) {
             if (!hasValidContext()) return;
-            const rect = getTimelineRect();
+            cachedTimelineRect = getTimelineRect();
+            const rect = cachedTimelineRect;
             const clickRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
             const pattern = getCurrentPattern();
             const clickedInst = pattern.instances.find(i => clickRatio >= i.startTime && clickRatio <= i.startTime + i.duration);
@@ -286,6 +269,7 @@ function _setupTimelinePointerEvents() {
             e.stopPropagation();
             if (!hasValidContext()) return;
             
+            cachedTimelineRect = getTimelineRect();
             const instanceEl = resizeHandle.closest('.rhythm-instance');
             const instId = instanceEl.dataset.id;
             
@@ -317,7 +301,8 @@ function _setupTimelinePointerEvents() {
                 const pattern = getCurrentPattern();
                 if (!pattern) return;
 
-                const rect = getTimelineRect();
+                cachedTimelineRect = getTimelineRect();
+                const rect = cachedTimelineRect;
                 const clickRatio = (e.clientX - rect.left) / rect.width;
 
                 app.saveHistoryState();
@@ -356,6 +341,7 @@ function _setupTimelinePointerEvents() {
         const pattern = getCurrentPattern();
         if (!pattern) return;
 
+        cachedTimelineRect = getTimelineRect();
         dragStartX = e.clientX;
         dragStartY = e.clientY;
         editorState.draggedInstanceId = instId;
@@ -423,7 +409,7 @@ function _setupTimelinePointerEvents() {
             }
             if (!editorState.draggedHitId) return;
 
-            const rect = getTimelineRect();
+            const rect = cachedTimelineRect || getTimelineRect();
             
             // Y-axis (Row)
             const y = e.clientY - rect.top;
@@ -455,7 +441,7 @@ function _setupTimelinePointerEvents() {
         if (editorState.activeTab === 'drumPattern') return;
 
         if (editorState.isDrawing && editorState.drawStartPattern) {
-            const rect = getTimelineRect();
+            const rect = cachedTimelineRect || getTimelineRect();
             const currentRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
             applyDrawMath(editorState.drawStartRatio, currentRatio);
             return;
@@ -463,7 +449,7 @@ function _setupTimelinePointerEvents() {
 
         if (editorState.isResizing && editorState.draggedInstanceId) {
             if (!hasValidContext()) return;
-            const rect = getTimelineRect();
+            const rect = cachedTimelineRect || getTimelineRect();
             let newTime = (e.clientX - rect.left) / rect.width;
 
             // Grid Snapping Math
@@ -517,7 +503,7 @@ function _setupTimelinePointerEvents() {
         // Handle Pitch Dragging (Lock X-axis)
         if (editorState.isPitchModeEnabled && editorState.activeTab === 'bassPattern') {
             const deltaY = e.clientY - dragStartY;
-            const rect = getTimelineRect();
+            const rect = cachedTimelineRect || getTimelineRect();
             // 3% per semitone -> semitone height in pixels = rect.height * 0.03
             const semitonePx = rect.height * 0.03;
             const deltaPitch = -Math.round(deltaY / semitonePx);
@@ -534,7 +520,7 @@ function _setupTimelinePointerEvents() {
         }
 
         const deltaX = e.clientX - dragStartX;
-        const rect = getTimelineRect();
+        const rect = cachedTimelineRect || getTimelineRect();
         const deltaRatio = deltaX / rect.width;
         
         let newStartTime = originalStartTime + deltaRatio;
@@ -559,6 +545,8 @@ function _setupTimelinePointerEvents() {
     });
 
     timeline.addEventListener('pointerup', (e) => {
+        cachedTimelineRect = null;
+        
         if (editorState.activeTab === 'drumPattern') {
             if (editorState.isPanning) {
                 editorState.isPanning = false;
@@ -620,6 +608,8 @@ function _setupTimelinePointerEvents() {
     });
 
     timeline.addEventListener('pointercancel', (e) => {
+        cachedTimelineRect = null;
+        
         if (editorState.activeTab === 'drumPattern') {
             if (editorState.isPanning) {
                 editorState.isPanning = false;

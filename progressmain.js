@@ -10,7 +10,7 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
 import { initPatternSet } from './patternUtils.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
 import { KEY_NAMES, highlightChordInUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
-import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, resetSession } from './store.js';
+import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, resetSession, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal } from './store.js';
 
         let isPlaying = false;
         let currentPlaybackStopFunction = null; // Stores the stop function returned by audio.playProgression
@@ -845,7 +845,11 @@ function initApp() {
         state, 
         saveHistoryState, 
         persistAppState, 
-        renderProgression
+        renderProgression,
+        updateEditorState,
+        updatePattern,
+        pushPatternToGlobal,
+        resetPatternToGlobal
     });
     _setupKeyAndModeSelectors();
     _setupControlButtons();
