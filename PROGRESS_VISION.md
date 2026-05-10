@@ -140,6 +140,7 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - [x] **Mobile Viewport & Double-Tap:** Disable native browser double-tap-to-zoom to ensure global background double-taps reliably trigger play/pause on touch devices. Removed vertical scroll-snapping for precise manual scrolling.
 - [x] **Floating Transport:** Convert the bottom transport bar into a bottom-corner Floating Action Button (FAB) to maximize vertical real estate while keeping playback accessible.
 - [x] **Smart Drag-and-Drop:** Dynamically collapse inactive chord palettes during drag operations to instantly bring the chord tray drop-zone into the mobile viewport.
+- [x] **Experimental Draw Mode & Workflow Refactor:** Implemented an "Edit-in-Place" Push/Pull workflow, replacing the abstract Global/Local toggle. Added a DAW-style Pencil Draw tool with Boolean carving math for rapid rhythmic gating.
 
 ### 6. Advanced Modular Synthesis & Sound Design (Future Goal)
 - **Editable AI-Targeted Synths:** The default sine/sawtooth engines will become options among multiple modular synths. Planned are highly customizable synths specifically geared toward producing maximum clarity for AI audio recognition or direct integration into professional DAW projects via WAV export.

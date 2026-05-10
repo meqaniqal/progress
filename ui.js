@@ -321,6 +321,7 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
     const originalChord = state.currentProgression[index];
     const isTemp = state.temporarySwaps[index] !== undefined;
     const displayChord = isTemp ? { ...originalChord, ...state.temporarySwaps[index] } : originalChord;
+    const currentDuration = displayChord.duration || 2;
 
     document.getElementById('inspector-title').textContent = `Selected Chord: ${displayChord.symbol}`;
 
@@ -353,11 +354,7 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
             let btn = existingBtns[i];
             if (!btn) {
                 btn = document.createElement('button');
-                btn.className = 'chord-btn';
-                // Style as a flat tinted tag instead of a heavy block to differentiate from palette "Add" buttons
-                btn.style.background = 'rgba(74, 222, 128, 0.15)';
-                btn.style.border = '1px solid rgba(74, 222, 128, 0.3)';
-                btn.style.boxShadow = 'none';
+                btn.className = 'chord-btn inspector-alt-btn';
                 altsBtnContainer.appendChild(btn);
             }
             btn.textContent = alt;
@@ -379,18 +376,10 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
     if (!toolsRow) {
         toolsRow = document.createElement('div');
         toolsRow.className = 'inspector-row inspector-row-tools';
-        toolsRow.style.display = 'flex';
-        toolsRow.style.flexWrap = 'wrap';
-        toolsRow.style.gap = '20px';
-        toolsRow.style.alignItems = 'center';
-        toolsRow.style.marginTop = '4px';
 
         // 1. Transpose
         const modBlock = document.createElement('div');
         modBlock.className = 'mod-block';
-        modBlock.style.display = 'flex';
-        modBlock.style.alignItems = 'center';
-        modBlock.style.gap = '8px';
         modBlock.innerHTML = `<strong class="inspector-label">Transpose:</strong>`;
         const modSelect = document.createElement('select');
         modSelect.className = 'rhythm-select mod-select';
@@ -407,15 +396,9 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
         // --- Voicing Type Slider ---
         const voicingBlock = document.createElement('div');
         voicingBlock.className = 'voicing-block';
-        voicingBlock.style.display = 'flex';
-        voicingBlock.style.alignItems = 'center';
-        voicingBlock.style.flexWrap = 'wrap';
-        voicingBlock.style.gap = '12px';
 
         const vLabel = document.createElement('span');
         vLabel.className = 'inspector-label voicing-label';
-        vLabel.style.display = 'inline-block';
-        vLabel.style.width = '140px'; // Prevent horizontal layout shift when text changes
         voicingBlock.appendChild(vLabel);
 
         const vSlider = document.createElement('input');
@@ -429,13 +412,10 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
 
         // Buttons: Set as Global
         const vBtnGroup = document.createElement('div');
-        vBtnGroup.style.display = 'flex';
-        vBtnGroup.style.gap = '6px';
+        vBtnGroup.className = 'v-btn-group';
         
         const setGlobalBtn = document.createElement('button');
         setGlobalBtn.className = 'control-btn secondary set-global-btn';
-        setGlobalBtn.style.padding = '2px 8px';
-        setGlobalBtn.style.fontSize = '12px';
         setGlobalBtn.textContent = 'Set as Global';
         vBtnGroup.appendChild(setGlobalBtn);
         
@@ -445,37 +425,24 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
         // --- Inversion Stepper ---
         const invBlock = document.createElement('div');
         invBlock.className = 'inv-block';
-        invBlock.style.display = 'flex';
-        invBlock.style.alignItems = 'center';
-        invBlock.style.gap = '8px';
         invBlock.innerHTML = `<strong class="inspector-label">Inversion:</strong>`;
 
         const stepperContainer = document.createElement('div');
-        stepperContainer.style.display = 'flex';
-        stepperContainer.style.alignItems = 'center';
-        stepperContainer.style.gap = '4px';
+        stepperContainer.className = 'stepper-container';
 
         const displaySpan = document.createElement('span');
         displaySpan.className = 'inv-display';
-        displaySpan.style.minWidth = '30px';
-        displaySpan.style.textAlign = 'center';
-        displaySpan.style.fontWeight = '600';
-        displaySpan.style.fontSize = '16px';
 
         const buttonContainer = document.createElement('div');
-        buttonContainer.style.display = 'flex';
-        buttonContainer.style.flexDirection = 'column';
-        buttonContainer.style.gap = '2px';
+        buttonContainer.className = 'inv-btn-container';
 
         const upBtn = document.createElement('button');
         upBtn.className = 'chord-btn inv-up-btn';
         upBtn.textContent = '▲';
-        upBtn.style.cssText = 'padding: 0px 6px; line-height: 1; font-size: 10px; margin: 0;';
 
         const downBtn = document.createElement('button');
         downBtn.className = 'chord-btn inv-down-btn';
         downBtn.textContent = '▼';
-        downBtn.style.cssText = 'padding: 0px 6px; line-height: 1; font-size: 10px; margin: 0;';
 
         buttonContainer.appendChild(upBtn);
         buttonContainer.appendChild(downBtn);
@@ -489,14 +456,9 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
         // 2. Duration
         const durBlock = document.createElement('div');
         durBlock.className = 'dur-block';
-        durBlock.style.display = 'flex';
-        durBlock.style.alignItems = 'center';
-        durBlock.style.gap = '12px';
         
         const durLabel = document.createElement('span');
         durLabel.className = 'inspector-label dur-label';
-        durLabel.style.display = 'inline-block';
-        durLabel.style.width = '90px'; // Prevent horizontal layout shift
         
         const durSlider = document.createElement('input');
         durSlider.type = 'range';
@@ -505,9 +467,6 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
         durSlider.max = 8;
         durSlider.step = 1;
         durSlider.setAttribute('list', 'beat-snaps');
-        durSlider.style.width = '120px';
-        durSlider.style.margin = '0';
-        durSlider.style.cursor = 'pointer';
         
         durBlock.appendChild(durLabel);
         durBlock.appendChild(durSlider);
@@ -516,10 +475,6 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
         // 3. Delete
         const delBtn = document.createElement('button');
         delBtn.className = 'chord-btn del-btn';
-        delBtn.style.color = '#ef4444';
-        delBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-        delBtn.style.marginLeft = 'auto';
-        delBtn.style.padding = '4px 12px';
         delBtn.innerHTML = '🗑 Delete';
         toolsRow.appendChild(delBtn);
 
@@ -629,11 +584,9 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
         if (!transRow) {
             transRow = document.createElement('div');
             transRow.className = 'inspector-row inspector-row-trans';
-            transRow.style.marginTop = '4px';
             transRow.innerHTML = `<strong class="inspector-label" style="margin-right: 8px;">Out of Key:</strong>`;
             const transBtn = document.createElement('button');
             transBtn.className = 'chord-btn trans-btn';
-            transBtn.style.padding = '4px 10px';
             transRow.appendChild(transBtn);
             
             const turnRow = content.querySelector('.inspector-row-turn');
@@ -664,23 +617,13 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
             if (!turnRow) {
                 turnRow = document.createElement('div');
                 turnRow.className = 'inspector-row inspector-row-turn';
-                turnRow.style.display = 'flex';
-                turnRow.style.flexWrap = 'wrap';
-                turnRow.style.gap = '8px';
-                turnRow.style.alignItems = 'center';
-                turnRow.style.marginTop = '4px';
 
                 const turnLabel = document.createElement('span');
                 turnLabel.className = 'inspector-label turn-label';
-                turnLabel.style.color = 'var(--ctrl-primary-bg)';
-                turnLabel.style.fontWeight = 'bold';
                 turnRow.appendChild(turnLabel);
 
                 turnBtnsContainer = document.createElement('div');
                 turnBtnsContainer.className = 'turn-btns-container';
-                turnBtnsContainer.style.display = 'flex';
-                turnBtnsContainer.style.flexWrap = 'wrap';
-                turnBtnsContainer.style.gap = '8px';
                 turnRow.appendChild(turnBtnsContainer);
 
                 content.appendChild(turnRow);
@@ -698,8 +641,7 @@ function renderChordInspector(state, selectedChordIndex, callbacks) {
                 let btn = existingBtns[i];
                 if (!btn) {
                     btn = document.createElement('button');
-                    btn.className = 'chord-btn';
-                    btn.style.padding = '4px 10px';
+                    btn.className = 'chord-btn turn-btn';
                     turnBtnsContainer.appendChild(btn);
                 }
                 btn.textContent = `+ ${alt}`;

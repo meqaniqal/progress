@@ -39,7 +39,8 @@ export function initDrumInteractions(timeline) {
         if (editorState.activeTab === 'drumPattern' && editorState.isGlobal && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
             const zoomDelta = e.deltaY > 0 ? -0.2 : 0.2;
-            editorState.zoomLevel = Math.max(0.8, Math.min(4.0, editorState.zoomLevel + zoomDelta));
+            const currentZoom = editorState.zoomLevel || 1.0;
+            editorState.zoomLevel = Math.max(0.8, Math.min(4.0, currentZoom + zoomDelta));
             renderRhythmTimeline();
         }
     }, { passive: false });

@@ -8,7 +8,6 @@
     <!-- 1. CSS loaded first to block render until styles are ready -->
     <link rel="stylesheet" href="theme.css?v=1.0">
     <link rel="stylesheet" href="style.css?v=1.0">
-    <link rel="stylesheet" href="rhythm-editor.css?v=1.0">
     <link rel="stylesheet" href="drum-grid.css?v=1.0">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
     
@@ -37,16 +36,16 @@
 </head>
 <body>
     <div id="top-header">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-main); padding-bottom: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; gap: 15px;">
-            <h1 style="border-bottom: none; padding-bottom: 0; margin: 0;">Progress: <span style="font-size: 1rem; font-weight: 400; opacity: 0.8;">Build neuroharmonic chord progressions</span></h1>
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <label style="font-size: 13px; display: flex; align-items: center; gap: 6px;">
+        <div class="top-header-bar">
+            <h1 class="top-header-title">Progress: <span class="top-header-subtitle">Build neuroharmonic chord progressions</span></h1>
+            <div class="top-header-controls">
+                <label class="export-passes-label">
                     <strong>Export Passes:</strong>
-                    <input type="number" id="multipass-input" min="1" max="32" value="1" style="width: 50px; padding: 4px;" title="Number of loopthroughs to export">
+                    <input type="number" id="multipass-input" min="1" max="32" value="1" class="export-passes-input" title="Number of loopthroughs to export">
                 </label>
                 <button class="control-btn primary" id="btn-export" style="padding: 6px 12px; font-size: 13px;">💾 MIDI</button>
-                <div id="export-wav-container" style="display: flex; align-items: center; background: var(--display-bg); border: 1px solid var(--border-main); border-radius: 20px; padding: 2px; width: 115px; flex-shrink: 0; box-sizing: border-box; touch-action: none; cursor: ew-resize; box-shadow: inset 0 2px 4px var(--shadow-panel); transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;" title="Drag left/right to toggle mode, Click to export">
-                    <button class="control-btn primary" id="btn-export-wav-switch" style="padding: 5px 0; font-size: 13px; width: 75px; border-radius: 16px; margin-left: 0px; touch-action: none; text-align: center; transition: margin-left 0.1s cubic-bezier(0.4, 0.0, 0.2, 1), background-color 0.2s ease, transform 0.1s ease, border-radius 0.3s ease; display: block; white-space: nowrap;">💾 WAV</button>
+                <div id="export-wav-container" title="Drag left/right to toggle mode, Click to export">
+                    <button class="control-btn primary" id="btn-export-wav-switch">💾 WAV</button>
                 </div>
                 <button class="control-btn secondary" id="btn-ai-prompt" style="padding: 6px 12px; font-size: 13px;">🤖 AI Prompt</button>
                 <button class="control-btn secondary" id="btn-settings" title="Settings" style="padding: 6px 10px; font-size: 16px;">⚙️</button>
@@ -55,7 +54,7 @@
     </div>
 
     <div class="panel" id="builder-panel">
-        <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+        <div class="builder-controls">
             <button class="control-btn secondary" id="btn-undo" title="Undo" disabled style="padding: 4px 8px; font-size: 13px;">↩ Undo</button>
             <button class="control-btn secondary" id="btn-clear" title="Clear Progression" style="padding: 4px 8px; font-size: 13px;">🗑 Clear</button>
             <strong style="font-size: 16px; padding-left: 5px;">Key: <span id="key-display">C Major</span></strong>
@@ -117,17 +116,17 @@
             <button class="chord-btn borrowed" data-chord="V7b13" title="Dominant 7 Flat 13">V7♭13</button>
         </div>
 
-        <div id="modulation-panel" style="display: none; margin-top: 15px; padding: 12px; border-radius: 6px; background: var(--placeholder-bg); border: 1px dashed var(--placeholder-border);">
-            <strong style="color: var(--placeholder-border);">🚀 Modulation Detected!</strong>
-            <p style="font-size: 14px; margin: 6px 0;">Smooth the transition from <strong id="mod-from-key"></strong> to <strong id="mod-to-key"></strong> using these suggested Pivot chords:</p>
-            <div id="mod-buttons" style="display: flex; flex-wrap: wrap;"></div>
+        <div id="modulation-panel" style="display: none;">
+            <strong>🚀 Modulation Detected!</strong>
+            <p>Smooth the transition from <strong id="mod-from-key"></strong> to <strong id="mod-to-key"></strong> using these suggested Pivot chords:</p>
+            <div id="mod-buttons"></div>
         </div>
 
         <div id="progression-display"></div>
 
-        <div id="inspector-section" style="display: none; margin-top: 8px; padding: 15px; border-top: 2px solid var(--original-chord-highlight, #4ade80); background: rgba(74, 222, 128, 0.05); border-radius: 0 0 8px 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
-            <h3 style="margin: 0 0 12px 0; color: var(--original-chord-highlight); font-size: 16px;" id="inspector-title">Selected Chord</h3>
-            <div id="inspector-content" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        <div id="inspector-section" style="display: none;">
+            <h3 id="inspector-title">Selected Chord</h3>
+            <div id="inspector-content"></div>
         </div>
     </div>
 
@@ -138,16 +137,16 @@
 
     <!-- Per-Chord Rhythm Editor Panel (Anchored) -->
     <div class="panel" id="rhythm-editor-panel" style="display: none; margin-bottom: 1.5rem;">
-        <div id="rhythm-header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid var(--border-main); padding-bottom: 10px; margin-bottom: 12px;">
-            <h3 style="margin: 0; border: none; padding: 0; font-size: 16px; display: flex; align-items: center;">
+        <div id="rhythm-header">
+            <h3>
                 <span id="rhythm-editor-title">Pattern Editor</span>
             </h3>
-            <div id="pattern-mode-controls" style="display: flex; gap: 8px;">
+            <div id="pattern-mode-controls">
                 <div class="global-local-toggle" id="legacy-mode-toggle">
                     <button class="toggle-btn" data-mode="global">Global Pattern</button>
                     <button class="toggle-btn active" data-mode="local">Local Override</button>
                 </div>
-                <div id="experimental-push-pull" style="display: none; gap: 8px;">
+                <div id="experimental-push-pull" class="experimental-push-pull">
                     <button class="control-btn secondary" id="btn-pull-global" style="padding: 4px 10px; font-size: 11px;" title="Revert to inheriting the Global Pattern">↺ From Global</button>
                     <button class="control-btn secondary" id="btn-push-global" style="padding: 4px 10px; font-size: 11px;" title="Push this pattern to update the Global Master">⇡ Set Global</button>
                 </div>
@@ -160,7 +159,7 @@
             <button class="pattern-tab" data-tab="bassPattern">Bass</button>
             <button class="pattern-tab" data-tab="drumPattern">Drums</button>
         </div>
-        <div class="rhythm-toolbar" style="border-bottom: none; padding-bottom: 0; padding-top: 10px;">
+        <div class="rhythm-toolbar tabs-active">
             <div class="tool-group">
                 <button class="control-btn secondary" id="btn-rhythm-reset" style="padding: 6px 12px; font-size: 13px;" title="Revert to inheriting the Global Pattern">↺ Reset to Global</button>
                 <button class="control-btn secondary" id="btn-rhythm-clear" style="padding: 6px 12px; font-size: 13px;" title="Override with a single, un-sliced basic block">⊘ Clear</button>
@@ -168,19 +167,19 @@
                 <button class="control-btn secondary" id="btn-rhythm-paste" style="padding: 6px 12px; font-size: 13px;" title="Paste rhythm pattern" disabled>📋 Paste</button>
                 <button class="control-btn secondary" id="btn-rhythm-delete" style="padding: 6px 12px; font-size: 13px;" title="Delete selected slices">🗑 Delete</button>
                 <button class="control-btn primary" id="btn-apply-arp" style="padding: 6px 12px; font-size: 13px;">✨ Apply Arp</button>
-                <div id="zoom-controls-group" style="display: none; align-items: center; gap: 4px; margin-left: 8px; background: var(--bg-body); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main);">
-                    <button class="control-btn secondary" id="btn-zoom-out" style="padding: 2px 6px; font-size: 13px; border: none; background: transparent;" title="Zoom Out">🔍-</button>
-                    <button class="control-btn secondary" id="btn-zoom-in" style="padding: 2px 6px; font-size: 13px; border: none; background: transparent;" title="Zoom In">🔍+</button>
+                <div id="zoom-controls-group" class="toolbar-group-panel" style="display: none; gap: 4px;">
+                    <button class="control-btn secondary icon-btn" id="btn-zoom-out" title="Zoom Out">🔍-</button>
+                    <button class="control-btn secondary icon-btn" id="btn-zoom-in" title="Zoom In">🔍+</button>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px; margin-left: 8px; background: var(--bg-body); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main);">
+                <div class="toolbar-group-panel">
                     <button id="btn-grid-toggle" class="tool-btn active" style="padding: 4px 8px; font-size: 12px; min-width: 75px; text-align: center; border-radius: 4px; margin: 0;" title="Toggle Grid Snapping">Grid: <span id="grid-display-value">1/16</span></button>
                     <input type="range" id="rhythm-grid-slider" min="0" max="4" value="4" style="width: 75px; margin: 0; cursor: pointer;">
                 </div>
-                <div id="item-properties-group" style="display: none; align-items: center; gap: 10px; margin-left: 8px; background: var(--display-bg); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main);">
-                    <div id="prop-pitch-wrapper" style="display: none; align-items: center; gap: 4px; background: var(--bg-body); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-main);">
-                        <button class="control-btn secondary" id="btn-pitch-down" style="padding: 2px 6px; font-size: 12px; border: none; background: transparent;">-</button>
+                <div id="item-properties-group" class="toolbar-group-panel" style="display: none; gap: 10px;">
+                    <div id="prop-pitch-wrapper" class="toolbar-group-panel" style="display: none; gap: 4px; margin-left: 0; padding: 2px 6px; border-radius: 4px;">
+                        <button class="control-btn secondary icon-btn" id="btn-pitch-down" style="font-size: 12px;">-</button>
                         <span id="prop-pitch-display" style="font-size: 11px; font-weight: bold; width: 32px; text-align: center; color: var(--text-main);">Root</span>
-                        <button class="control-btn secondary" id="btn-pitch-up" style="padding: 2px 6px; font-size: 12px; border: none; background: transparent;">+</button>
+                        <button class="control-btn secondary icon-btn" id="btn-pitch-up" style="font-size: 12px;">+</button>
                     </div>
                     <div id="prop-velocity-wrapper" style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 11px; font-weight: bold; opacity: 0.8;" title="Velocity">VEL:</span>
@@ -194,9 +193,9 @@
             </div>
         </div>
         
-        <div id="editor-mode-toggles" style="display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 0px; transform: translateY(1px); position: relative; z-index: 2; padding-right: 15px;">
-            <button id="btn-draw-toggle" class="tool-btn" style="display: none; padding: 6px 14px; font-size: 11px; border-radius: 6px 6px 0 0; margin: 0; border-bottom: hidden; box-shadow: 0 -2px 5px rgba(0,0,0,0.03);" title="Toggle Pencil Draw Tool">✏️ Draw Mode</button>
-            <button id="btn-pitch-toggle" class="tool-btn" style="display: none; padding: 6px 14px; font-size: 11px; border-radius: 6px 6px 0 0; margin: 0; border-bottom: hidden; box-shadow: 0 -2px 5px rgba(0,0,0,0.03);" title="Toggle Pitch Mode (Piano Roll)">🎹 Pitch Mode</button>
+        <div id="editor-mode-toggles" class="editor-mode-toggles">
+            <button id="btn-draw-toggle" class="tool-btn draw-pitch-btn" style="display: none;" title="Toggle Pencil Draw Tool">✏️ Draw Mode</button>
+            <button id="btn-pitch-toggle" class="tool-btn draw-pitch-btn" style="display: none;" title="Toggle Pitch Mode (Piano Roll)">🎹 Pitch Mode</button>
         </div>
         <div class="rhythm-timeline-container" id="rhythm-timeline">
             <!-- Instances rendered here dynamically -->
@@ -221,59 +220,59 @@
     <div id="settings-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
             <h3>⚙️ Settings</h3>
-            <div style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px;">
+            <div class="settings-group">
                 <!-- Theme -->
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <strong style="font-size: 14px;">Theme</strong>
+                <div class="settings-row">
+                    <strong class="settings-label">Theme</strong>
                     <select id="theme-selector" class="rhythm-select" style="width: 120px;">
                         <option value="light">Light Mode</option>
                         <option value="dark">Dark Mode</option>
                     </select>
                 </div>
                 <!-- BPM -->
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <strong style="font-size: 14px;">Tempo (BPM)</strong>
+                <div class="settings-row">
+                    <strong class="settings-label">Tempo (BPM)</strong>
                     <input type="number" id="bpm-slider" class="rhythm-select" value="120" min="40" max="240" style="width: 120px; box-sizing: border-box;">
                 </div>
                 <!-- Voice Leading -->
-                <div style="display: flex; justify-content: space-between; align-items: center;" title="Calculates the shortest melodic distance between chords for smooth transitions">
-                    <strong style="font-size: 14px; border-bottom: 1px dotted var(--text-main); cursor: help;">Voice Leading ℹ️</strong>
+                <div class="settings-row" title="Calculates the shortest melodic distance between chords for smooth transitions">
+                    <strong class="settings-label info">Voice Leading ℹ️</strong>
                     <input type="checkbox" id="voice-leading" checked style="transform: scale(1.2); margin-right: 5px;">
                 </div>
                 <!-- Experimental Draw Mode -->
-                <div style="display: flex; justify-content: space-between; align-items: center;" title="Enable the new edit-in-place workflow and pencil draw tool">
-                    <strong style="font-size: 14px; border-bottom: 1px dotted var(--text-main); cursor: help;">Experimental Draw Mode ℹ️</strong>
+                <div class="settings-row" title="Enable the new edit-in-place workflow and pencil draw tool">
+                    <strong class="settings-label info">Experimental Draw Mode ℹ️</strong>
                     <input type="checkbox" id="experimental-draw-mode" style="transform: scale(1.2); margin-right: 5px;">
                 </div>
                 <!-- Mixer -->
                 <div style="margin-top: 5px;">
-                    <strong style="font-size: 14px; display: block; margin-bottom: 10px;">Mixer</strong>
-                    <div style="display: flex; flex-direction: column; gap: 12px; background: var(--display-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-main);">
-                        <label style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong class="settings-label" style="display: block; margin-bottom: 10px;">Mixer</strong>
+                    <div class="mixer-panel">
+                        <label class="mixer-row">
                             <span style="font-size: 14px; font-weight: bold;">🔊 Master</span>
                             <input type="range" id="vol-master" min="0" max="1.5" step="0.05" value="1.0" style="width: 60%; margin: 0;">
                         </label>
-                        <div style="height: 1px; background: var(--border-main); margin: 2px 0;"></div>
-                        <label style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="mixer-divider"></div>
+                        <label class="mixer-row">
                             <span style="font-size: 14px;">🎹 Chords</span>
                             <input type="range" id="vol-chords" min="0" max="1.5" step="0.05" value="0.8" style="width: 60%; margin: 0;">
                         </label>
-                        <label style="display: flex; justify-content: space-between; align-items: center;">
+                        <label class="mixer-row">
                             <span style="font-size: 14px;">🎸 Bass</span>
                             <input type="range" id="vol-bass" min="0" max="1.5" step="0.05" value="0.8" style="width: 60%; margin: 0;">
                         </label>
-                        <label style="display: flex; justify-content: space-between; align-items: center;">
+                        <label class="mixer-row">
                             <span style="font-size: 14px;">〰️ Bass Enhance</span>
                             <input type="range" id="vol-bassHarmonic" min="0" max="1.5" step="0.05" value="0.0" style="width: 60%; margin: 0;">
                         </label>
-                        <label style="display: flex; justify-content: space-between; align-items: center;">
+                        <label class="mixer-row">
                             <span style="font-size: 14px;">🥁 Drums</span>
                             <input type="range" id="vol-drums" min="0" max="1.5" step="0.05" value="0.8" style="width: 60%; margin: 0;">
                         </label>
                     </div>
                 </div>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <div class="settings-row" style="margin-top: 10px;">
                 <button class="control-btn" id="btn-reset-session" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.5); font-size: 13px;" title="Clear all data and reset to defaults">⚠️ Factory Reset</button>
                 <button class="control-btn primary" id="btn-close-settings">Done</button>
             </div>

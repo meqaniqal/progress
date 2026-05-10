@@ -75,7 +75,8 @@ function _setupGridSlider() {
 
     const handleZoom = (delta) => {
         if (editorState.activeTab !== 'drumPattern' || !editorState.isGlobal) return;
-        editorState.zoomLevel = Math.max(0.8, Math.min(4.0, editorState.zoomLevel + delta));
+        const currentZoom = editorState.zoomLevel || 1.0;
+        editorState.zoomLevel = Math.max(0.8, Math.min(4.0, currentZoom + delta));
         renderRhythmTimeline();
     };
 

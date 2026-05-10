@@ -50,21 +50,16 @@ export function renderRhythmTimeline() {
         if (legacyToggle) legacyToggle.style.display = 'none';
         if (experimentalPushPull) {
             const chord = app.state.currentProgression[editorState.activeIndex];
-            const isOverride = chord && chord[editorState.activeTab] && chord[editorState.activeTab].isLocalOverride;
+            const localPat = chord && chord[editorState.activeTab];
+            const isOverride = localPat && localPat.isLocalOverride;
             
-            const justPushed = editorState.justPushedToGlobalIndex === editorState.activeIndex;
-            
-            experimentalPushPull.style.display = (isOverride || justPushed) ? 'flex' : 'none';
-            experimentalPushPull.style.flexDirection = 'column';
-            experimentalPushPull.style.alignItems = 'center';
-            experimentalPushPull.style.gap = '8px';
+            experimentalPushPull.classList.add('active');
             
             let btnContainer = document.getElementById('push-pull-btn-container');
             if (!btnContainer) {
                 btnContainer = document.createElement('div');
                 btnContainer.id = 'push-pull-btn-container';
-                btnContainer.style.display = 'flex';
-                btnContainer.style.gap = '8px';
+                btnContainer.className = 'push-pull-btn-container';
                 while (experimentalPushPull.firstChild) {
                     btnContainer.appendChild(experimentalPushPull.firstChild);
                 }
@@ -75,56 +70,78 @@ export function renderRhythmTimeline() {
             if (!globalModeContainer) {
                 globalModeContainer = document.createElement('div');
                 globalModeContainer.id = 'global-mode-container';
-                globalModeContainer.style.display = 'flex';
-                globalModeContainer.style.alignItems = 'center';
-                globalModeContainer.style.gap = '8px';
-                globalModeContainer.style.fontSize = '12px';
-                globalModeContainer.style.background = 'rgba(0,0,0,0.05)';
-                globalModeContainer.style.padding = '4px 8px';
-                globalModeContainer.style.borderRadius = '4px';
+                globalModeContainer.className = 'global-mode-container';
                 globalModeContainer.innerHTML = `
-                    <label style="color: var(--text-muted); margin:0;">Apply to longer chords:</label>
-                    <select id="global-mode-select" class="rhythm-select" style="padding: 2px 4px; font-size: 11px; margin:0; min-width: 100px;">
+                    <label>Inherit Mode:</label>
+                    <select id="global-mode-select" class="rhythm-select">
                         <option value="loop">Loop Pattern</option>
                         <option value="empty">Leave Empty</option>
                         <option value="stretch">Stretch to Fit</option>
                     </select>
+                    <button id="btn-apply-inherit-all" class="control-btn secondary" title="Apply this inherit mode to all other chords that are using the Global Pattern">Apply to All</button>
                 `;
-                experimentalPushPull.appendChild(globalModeContainer);
+                btnContainer.parentNode.insertBefore(globalModeContainer, btnContainer);
                 
                 const selectEl = globalModeContainer.querySelector('#global-mode-select');
                 selectEl.addEventListener('change', (e) => {
-                    const globalPat = app.state.globalPatterns[editorState.activeTab];
-                    if (globalPat) {
+                    const chordToUpdate = app.state.currentProgression[editorState.activeIndex];
+                    if (chordToUpdate) {
                         app.saveHistoryState();
-                        globalPat.globalMode = e.target.value;
+                        if (!chordToUpdate[editorState.activeTab]) {
+                            chordToUpdate[editorState.activeTab] = { isLocalOverride: false };
+                        }
+                        chordToUpdate[editorState.activeTab].inheritMode = e.target.value;
                         app.persistAppState();
                         renderRhythmTimeline();
                     }
+                });
+
+                const applyAllBtn = globalModeContainer.querySelector('#btn-apply-inherit-all');
+                applyAllBtn.addEventListener('click', (e) => {
+                    const mode = selectEl.value;
+                    app.saveHistoryState();
+                    
+                    const globalPat = app.state.globalPatterns[editorState.activeTab];
+                    if (globalPat) globalPat.globalMode = mode;
+
+                    app.state.currentProgression.forEach(c => {
+                        const pat = c[editorState.activeTab];
+                        if (!pat || !pat.isLocalOverride) {
+                            if (!c[editorState.activeTab]) c[editorState.activeTab] = { isLocalOverride: false };
+                            c[editorState.activeTab].inheritMode = mode;
+                        }
+                    });
+                    
+                    app.persistAppState();
+                    renderRhythmTimeline();
+                    
+                    const origText = e.target.textContent;
+                    e.target.textContent = '✓ Applied';
+                    setTimeout(() => e.target.textContent = origText, 1500);
                 });
             }
             
             const btnPush = btnContainer.querySelector('#btn-push-global');
             const btnPull = btnContainer.querySelector('#btn-pull-global');
 
-            if (justPushed && !isOverride) {
-                globalModeContainer.style.display = 'flex';
-                const selectEl = globalModeContainer.querySelector('#global-mode-select');
-                const globalPat = app.state.globalPatterns[editorState.activeTab];
-                if (globalPat) selectEl.value = globalPat.globalMode || 'loop';
-                
-                if (btnPush) btnPush.style.display = 'none';
-                if (btnPull) btnPull.style.display = 'inline-block';
-            } else if (isOverride) {
+            if (isOverride) {
                 globalModeContainer.style.display = 'none';
                 if (btnPush) btnPush.style.display = 'inline-block';
                 if (btnPull) btnPull.style.display = 'inline-block';
+            } else {
+                globalModeContainer.style.display = 'flex';
+                if (btnPush) btnPush.style.display = 'none';
+                if (btnPull) btnPull.style.display = 'none';
+                
+                const selectEl = globalModeContainer.querySelector('#global-mode-select');
+                const globalPat = app.state.globalPatterns[editorState.activeTab];
+                selectEl.value = (localPat && localPat.inheritMode) ? localPat.inheritMode : (globalPat && globalPat.globalMode ? globalPat.globalMode : 'loop');
             }
         }
         if (btnLegacyReset) btnLegacyReset.style.display = 'none'; // Hide legacy reset button in toolbar
     } else {
         if (legacyToggle) legacyToggle.style.display = 'flex';
-        if (experimentalPushPull) experimentalPushPull.style.display = 'none';
+        if (experimentalPushPull) experimentalPushPull.classList.remove('active');
         
         // Restore legacy reset button visibility
         if (btnLegacyReset) {
@@ -428,7 +445,7 @@ function _renderDrumGrid(container, pattern) {
     if (editorState.isGlobal) {
         baseWidth = (beats / 4) * 100;
     }
-    const finalWidth = editorState.isGlobal ? baseWidth * editorState.zoomLevel : baseWidth;
+    const finalWidth = editorState.isGlobal ? baseWidth * (editorState.zoomLevel || 1.0) : baseWidth;
     gridEl.style.width = `${finalWidth}%`;
 
     // Always allow scrolling in global mode so out-of-bounds hits are reachable

@@ -158,7 +158,16 @@ export function exclusiveSelect(pattern, instanceId) {
     const target = pattern.instances.find(inst => inst.id === instanceId);
     if (!target) return pattern;
 
-    // Enforce that at least one instance remains selected at all times
+    // Check if target is currently the ONLY selected instance
+    const selectedInstances = pattern.instances.filter(inst => inst.isSelected);
+    const isOnlyTargetSelected = selectedInstances.length === 1 && selectedInstances[0].id === instanceId;
+
+    if (isOnlyTargetSelected) {
+        // Toggle it off
+        const newInstances = pattern.instances.map(inst => ({ ...inst, isSelected: false }));
+        return { ...pattern, instances: newInstances };
+    }
+
     const newInstances = pattern.instances.map(inst => 
         ({ ...inst, isSelected: inst.id === instanceId })
     );
@@ -408,21 +417,40 @@ export function drawPatternBlock(pattern, startTime, duration, isEraser = false)
  * If isGlobal is true, the pattern is treated as a 4-beat master loop.
  * It will be truncated if the chord is shorter, or looped if the chord is longer.
  */
-export function resolvePattern(pattern, isGlobal, chordBeats) {
+export function resolvePattern(pattern, isGlobal, chordBeats, inheritMode = null) {
     if (!isGlobal) return pattern; // Local patterns scale to fit natively
 
-    const GLOBAL_BEATS = pattern.lengthBeats || (pattern.hits ? 4 : 2);
-    const globalMode = pattern.globalMode || 'loop'; // 'loop', 'empty', 'stretch'
-
-    if (globalMode === 'stretch') {
-        return pattern; 
-    }
-
+    const GLOBAL_BEATS = pattern.lengthBeats || 4;
+    const mode = inheritMode || pattern.globalMode || 'loop';
+    
     const resolvedInstances = [];
     const resolvedHits = [];
-    const loops = globalMode === 'empty' ? 1 : Math.ceil(chordBeats / GLOBAL_BEATS);
 
-    for (let loop = 0; loop < loops; loop++) {
+    if (mode === 'stretch') {
+        if (pattern.instances) {
+            for (const inst of pattern.instances) {
+                resolvedInstances.push({
+                    ...inst,
+                    id: inst.id + '_stretch',
+                    startTime: inst.startTime, // Relative 0.0-1.0 is preserved naturally
+                    duration: inst.duration
+                });
+            }
+        }
+        if (pattern.hits) {
+            for (const hit of pattern.hits) {
+                resolvedHits.push({
+                    ...hit,
+                    id: hit.id + '_stretch',
+                    time: hit.time
+                });
+            }
+        }
+    } else {
+        // Loop or Empty
+        const loops = mode === 'empty' ? 1 : Math.ceil(chordBeats / GLOBAL_BEATS);
+
+        for (let loop = 0; loop < loops; loop++) {
         if (pattern.instances) {
             for (const inst of pattern.instances) {
                 const absStart = (loop * GLOBAL_BEATS) + (inst.startTime * GLOBAL_BEATS);
@@ -453,6 +481,7 @@ export function resolvePattern(pattern, isGlobal, chordBeats) {
                     time: absTime / chordBeats
                 });
             }
+        }
         }
     }
 

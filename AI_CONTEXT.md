@@ -56,26 +56,27 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] **Architectural Refactoring - DOM:** Optimize `rhythmEditor.js` timeline rendering to update existing DOM nodes instead of using `innerHTML = ''` to prevent dropped frames.
 - [x] **Architectural Refactoring - State:** Clean up module-scoped mutable state variables in `rhythmEditor.js`.
 - [x] **Architectural Refactoring - Events:** Implement Event Delegation for the Chord Inspector in `ui.js` to prevent memory leaks from orphaned listeners.
+- [x] **Architectural Refactoring - CSS:** Purged massive inline styles from JS and HTML into strict, semantic CSS classes.
 - [x] Generative Multi-Pass Export (UI and multi-pass looping engine fully integrated for both MIDI and WAV).
 - [x] **UI Decluttering:** Moved Theme, BPM, Mixer, and Voice Leading settings into a dedicated Settings Modal via the top bar gear icon. Added independent Master volume control.
 - [x] Probabilistic Pattern Sequencing (Per-slice and per-hit probability sliders for generative, organically evolving rhythms).
 - [x] Unified Pattern Architecture: Global/Local cascading state (Reset inherits Global, Clear forces 1-block local override).
 - [x] Drum Machine Synthesis & Grid Editor: 4-piece kit (Kick, Snare, CHH, OHH). Includes a dual-view workflow: a scrollable, independent-length Global pattern that loops continuously across the entire progression (featuring non-destructive truncation, smart duplication, panning, and DAW-style page-flipping), and a zoomed-in Local override view featuring "ghost notes" for precise drum fills.
-- [ ] Intelligent Bassline Generation (Shares rhythm editor tech, single note focus).
+- [ ] **Intelligent Bassline Generation (Current Focus):** Shares rhythm editor tech, single note focus, contextual pitch suggestions, and rhythmic locking.
 - [x] **True Minor Key & Omni-Scale Theory Framework:**
   - [x] Decouple global key state to support modes (Major/Minor).
   - [x] Dynamic UI palettes that render correct diatonic chords for the active scale.
   - [x] Context-aware tension analysis based on the active scale's tonic.
   - [x] Mode-aware modulation and turnaround suggestions.
   - [x] Omni-scale support (Dorian, Lydian, Harmonic/Melodic Minor, etc.).
-- [ ] **Experimental Draw Mode & Global/Local UX Refactor (Current Focus):**
-  - Shift from Global/Local toggle to an "Edit-in-Place" Push/Pull workflow (`Set Global` / `From Global` buttons).
-  - Change default Global pattern to a single, continuous chord block.
-  - Introduce a "Pencil" Draw tool.
-  - Implement grid-aware sequence painting (Grid ON) vs. continuous block extension (Grid OFF).
-  - Implement Boolean "Carving/Erasing" math for drawing over existing slices.
-  - *Protocol requirement:* The Boolean overlap/carving math must be isolated in a pure, Jest-testable module before integration.
-  - *Protocol requirement:* Hide this new editor behind a persistent Settings toggle (`enableExperimentalDrawMode`) during development to preserve legacy stability.
+- [x] **Experimental Draw Mode & Global/Local UX Refactor (Complete):**
+  - [x] Shift from Global/Local toggle to an "Edit-in-Place" Push/Pull workflow (`Set Global` / `From Global` buttons).
+  - [x] Change default Global pattern to a single, continuous chord block.
+  - [x] Introduce a "Pencil" Draw tool.
+  - [x] Implement grid-aware sequence painting (Grid ON) vs. continuous block extension (Grid OFF).
+  - [x] Implement Boolean "Carving/Erasing" math for drawing over existing slices.
+  - [x] *Protocol requirement:* The Boolean overlap/carving math must be isolated in a pure, Jest-testable module before integration.
+  - [x] *Protocol requirement:* Hide this new editor behind a persistent Settings toggle (`enableExperimentalDrawMode`) during development to preserve legacy stability.
 
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.
