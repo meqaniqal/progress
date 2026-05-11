@@ -7,8 +7,8 @@ const version = new Date().getTime();
 
 // Generate an Import Map to apply cache-busting to all internal ES Module imports automatically
 const jsFiles = [
-    'arp', 'chordDictionary', 'config', 'dragdrop', 'exportController', 'midi', 'modalController', 'patternUtils',
-    'progressmain', 'promptGenerator', 'rhythmEditor', 'sequencer', 'stateUtils', 
+    'arp', 'bassGenerator', 'chordDictionary', 'config', 'dragdrop', 'exportController', 'midi', 'modalController', 'patternUtils',
+    'progressmain', 'promptGenerator', 'rhythmConfig', 'rhythmControls', 'rhythmEditor', 'rhythmRenderer', 'sequencer', 'stateUtils', 
     'storage', 'store', 'synth', 'theory', 'ui', 'wavEncoder', 'wavExport'
 ];
 

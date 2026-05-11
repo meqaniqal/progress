@@ -1,5 +1,6 @@
 import { GRID_STEPS } from './rhythmConfig.js';
 import { applyArpSettings, updateDrumHit, updateInstance, generateId, initChordPattern, initDrumPattern } from './patternUtils.js';
+import { generateIntelligentBassline } from './bassGenerator.js';
 import { playDrum, getAudioCurrentTime } from './synth.js';
 import { 
     editorState, 
@@ -545,6 +546,48 @@ function _setupToolbarButtons() {
     }
 }
 
+/** Sets up the intelligent Bass generation tools. */
+function _setupBassControls() {
+    let bassGenGroup = document.getElementById('bass-gen-group');
+    
+    if (!bassGenGroup) {
+        bassGenGroup = document.createElement('div');
+        bassGenGroup.id = 'bass-gen-group';
+        bassGenGroup.className = 'tool-group';
+        bassGenGroup.innerHTML = `
+            <select id="bass-style-select" class="rhythm-select" title="Bassline Pitch Pattern">
+                <option value="root">Root Driving</option>
+                <option value="octaves">Octave Bounce</option>
+                <option value="fifths">Root-Fifth</option>
+            </select>
+            <label style="font-size:12px; display:flex; align-items:center; gap:6px; cursor:pointer;" title="Syncopates the bass to the off-beats to prevent frequency clashing with the kick drum.">
+                <input type="checkbox" id="bass-avoid-kick"> Avoid Kick Clash
+            </label>
+            <button id="btn-generate-bass" class="control-btn primary" style="padding: 4px 10px; font-size: 12px; margin-left: 4px;">🪄 Generate</button>
+        `;
+        const toolbar = document.querySelector('.rhythm-toolbar');
+        if (toolbar) toolbar.appendChild(bassGenGroup);
+    }
+
+    const btnGen = document.getElementById('btn-generate-bass');
+    if (btnGen) {
+        btnGen.addEventListener('click', () => {
+            if (editorState.activeTab !== 'bassPattern') return;
+            
+            const drumPat = editorState.isGlobal ? app.state.globalPatterns.drumPattern : (app.state.currentProgression[editorState.activeIndex]?.drumPattern || app.state.globalPatterns.drumPattern);
+            const chordTabPat = editorState.isGlobal ? app.state.globalPatterns.chordPattern : (app.state.currentProgression[editorState.activeIndex]?.chordPattern || app.state.globalPatterns.chordPattern);
+            const style = document.getElementById('bass-style-select').value;
+            const avoidKick = document.getElementById('bass-avoid-kick').checked;
+
+            app.saveHistoryState();
+            const newBass = generateIntelligentBassline(drumPat, chordTabPat, { avoidKick, pitchStyle: style, lengthBeats: getDurationBeats() });
+            setCurrentPattern(newBass, !editorState.isGlobal);
+            app.persistAppState();
+            renderRhythmTimeline();
+        });
+    }
+}
+
 export function initRhythmControls() {
     _setupTabsAndToggles();
     _setupGridSlider();
@@ -552,4 +595,5 @@ export function initRhythmControls() {
     _setupDrumControls();
     _setupPropertiesControls();
     _setupToolbarButtons();
+    _setupBassControls();
 }

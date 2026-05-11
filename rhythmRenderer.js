@@ -158,7 +158,12 @@ export function renderRhythmTimeline() {
     const isBassTab = editorState.activeTab === 'bassPattern';
     const btnPitchToggle = document.getElementById('btn-pitch-toggle');
     const btnDrawToggle = document.getElementById('btn-draw-toggle');
+    const bassGenGroup = document.getElementById('bass-gen-group');
     
+    if (bassGenGroup) {
+        bassGenGroup.style.display = isBassTab ? 'flex' : 'none';
+    }
+
     if (btnPitchToggle) {
         btnPitchToggle.style.display = isBassTab ? 'inline-block' : 'none';
         btnPitchToggle.classList.toggle('active', editorState.isPitchModeEnabled);
