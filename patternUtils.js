@@ -152,7 +152,7 @@ export function toggleSelection(pattern, instanceIds, isSelected) {
 
 /**
  * Selects a single instance and deselects all others. 
- * Toggles the selection off if it is already the only selected instance.
+ * If it is already the only selected instance, it remains selected to guarantee at least one active slice.
  */
 export function exclusiveSelect(pattern, instanceId) {
     const target = pattern.instances.find(inst => inst.id === instanceId);
@@ -163,9 +163,8 @@ export function exclusiveSelect(pattern, instanceId) {
     const isOnlyTargetSelected = selectedInstances.length === 1 && selectedInstances[0].id === instanceId;
 
     if (isOnlyTargetSelected) {
-        // Toggle it off
-        const newInstances = pattern.instances.map(inst => ({ ...inst, isSelected: false }));
-        return { ...pattern, instances: newInstances };
+        // Guarantee at least one active slice
+        return pattern;
     }
 
     const newInstances = pattern.instances.map(inst => 

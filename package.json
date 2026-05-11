@@ -5,13 +5,14 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "jest": "^30.3.0"
   }
 }

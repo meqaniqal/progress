@@ -1,16 +1,16 @@
-import { generateAIPrompt } from './promptGenerator.js';
 import { CONFIG } from './config.js';
 import { getChordNotes, getPlayableNotes } from './theory.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, setTrackVolume } from './synth.js';
 import { auditionChord, playProgression, stopAllAudio } from './sequencer.js';
 import { initDragAndDrop } from './dragdrop.js';
 import { exportToMidi } from './midi.js';
-import { exportToWav } from './wavExport.js';
 import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder } from './stateUtils.js';
 import { initPatternSet } from './patternUtils.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
 import { KEY_NAMES, highlightChordInUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
 import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, resetSession, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal } from './store.js';
+import { initExportUI } from './exportController.js';
+import { initModals } from './modalController.js';
 
         let isPlaying = false;
         let currentPlaybackStopFunction = null; // Stores the stop function returned by audio.playProgression
@@ -249,243 +249,19 @@ function _setupTopBarEvents() {
         });
     }
     
-    const settingsBtn = document.getElementById('btn-settings');
-    const settingsModal = document.getElementById('settings-modal');
-    const closeSettingsBtn = document.getElementById('btn-close-settings');
-    
-    if (settingsBtn && settingsModal && closeSettingsBtn) {
-        settingsBtn.addEventListener('click', () => {
-            settingsModal.style.display = 'flex';
-            settingsModal.offsetHeight; // trigger reflow
-            settingsModal.classList.add('visible');
-        });
-        
-        closeSettingsBtn.addEventListener('click', () => {
-            settingsModal.classList.remove('visible');
-            setTimeout(() => settingsModal.style.display = 'none', 200);
-        });
-        
-        const resetSessionBtn = document.getElementById('btn-reset-session');
-        if (resetSessionBtn) {
-            resetSessionBtn.addEventListener('click', () => {
-                if (confirm("Are you sure you want to factory reset the app? All progress and settings will be permanently lost.")) {
-                    if (currentPlaybackStopFunction) currentPlaybackStopFunction();
-                stopAllAudio();
-                    isPlaying = false;
-                    const playToggleBtn = document.getElementById('btn-play-toggle');
-                    if (playToggleBtn) playToggleBtn.textContent = '▶';
-                    
-                    resetSession();
-                    
-                    // Sync UI with fresh state
-                    document.getElementById('key-selector').value = state.baseKey;
-                    updateKeyAndModeDisplay(state);
-                    document.getElementById('bpm-slider').value = state.bpm;
-                    
-                    ['master', 'chords', 'bass', 'bassHarmonic', 'drums'].forEach(track => {
-                        const el = document.getElementById(`vol-${track}`);
-                        if (el) {
-                            el.value = state.volumes[track];
-                            try { setTrackVolume(track, state.volumes[track]); } catch (err) {}
-                        }
-                    });
-                    
-                    const multipassInput = document.getElementById('multipass-input');
-                    if (multipassInput) multipassInput.value = state.exportPasses;
-                    document.getElementById('voice-leading').checked = state.useVoiceLeading;
-                    
-                    const expDrawInput = document.getElementById('experimental-draw-mode');
-                    if (expDrawInput) expDrawInput.checked = state.enableExperimentalDrawMode;
-                    
-                    const themeSelector = document.getElementById('theme-selector');
-                    if (themeSelector) themeSelector.value = state.theme;
-                    document.documentElement.setAttribute('data-theme', state.theme);
-                    
-                    renderProgression();
-                    
-                    settingsModal.classList.remove('visible');
-                    setTimeout(() => settingsModal.style.display = 'none', 200);
-                }
-            });
-        }
-    }
 
-    const exportWavSwitch = document.getElementById('btn-export-wav-switch');
-    const exportWavContainer = document.getElementById('export-wav-container');
-    if (exportWavSwitch && exportWavContainer) {
-        let isPointerDown = false;
-        let hasDragged = false;
-        let exportStartX = 0;
-        let exportMode = 'wav'; // 'wav' or 'stems'
-
-        const performStemsExport = () => {
-            const tracks = ['chords', 'bass', 'bassHarmonic', 'drums'];
-            let delay = 0;
-
-            tracks.forEach((track) => {
-                if (state.volumes[track] > 0.01) {
-                    const exportState = { 
-                        ...state, 
-                        currentProgression: getActiveProgression(),
-                        volumes: { ...state.volumes }
-                    };
-                    
-                    // Solo the current track by muting everything else
-                    tracks.forEach(t => {
-                        if (t !== track) {
-                            exportState.volumes[t] = 0;
-                        }
-                    });
-
-                    setTimeout(() => {
-                        // Use a dummy element so the internal export engine doesn't mess with our button's label
-                        const dummyBtn = document.createElement('button');
-                        exportToWav(exportState, dummyBtn);
-                    }, delay);
-                    
-                    delay += 1000; // Stagger downloads by 1s to prevent browser blockage
-                }
-            });
-
-            return new Promise(resolve => setTimeout(resolve, delay + 500));
-        };
-
-        exportWavSwitch.addEventListener('pointerdown', (e) => {
-            isPointerDown = true;
-            hasDragged = false;
-            exportStartX = e.clientX;
-            exportWavSwitch.dataset.dragStartMode = exportMode; // Store initial mode
-            exportWavSwitch.setPointerCapture(e.pointerId);
-            exportWavSwitch.style.transform = 'scale(0.95)';
-            exportWavSwitch.style.transition = 'margin-left 0.1s cubic-bezier(0.4, 0.0, 0.2, 1), background-color 0.2s ease, transform 0.1s ease';
-            exportWavContainer.classList.remove('button-mode');
-        });
-
-        exportWavSwitch.addEventListener('pointermove', (e) => {
-            if (!isPointerDown) return;
-            const deltaX = e.clientX - exportStartX;
-            
-            if (Math.abs(deltaX) > 10) {
-                hasDragged = true;
-            }
-            
-            const startMode = exportWavSwitch.dataset.dragStartMode || 'wav';
-            let targetMode = startMode;
-
-            // Only act if the threshold is strictly crossed, creating a hard physical snap
-            if (startMode === 'wav' && deltaX > 25) {
-                targetMode = 'stems';
-            } else if (startMode === 'stems' && deltaX < -25) {
-                targetMode = 'wav';
-            }
-
-            if (exportMode !== targetMode) {
-                exportMode = targetMode;
-                if (exportMode === 'stems') {
-                    exportWavSwitch.textContent = '💾 Stems';
-                    exportWavSwitch.style.backgroundColor = 'var(--ctrl-primary-hover)';
-                    exportWavSwitch.style.marginLeft = '34px';
-                } else {
-                    exportWavSwitch.textContent = '💾 WAV';
-                    exportWavSwitch.style.backgroundColor = '';
-                    exportWavSwitch.style.marginLeft = '0px';
-                }
-            }
-        });
-
-        exportWavSwitch.addEventListener('pointerup', (e) => {
-            if (!isPointerDown) return;
-            isPointerDown = false;
-            exportWavSwitch.releasePointerCapture(e.pointerId);
-            exportWavSwitch.style.transform = '';
-            exportWavContainer.classList.add('button-mode');
-            
-            if (hasDragged) {
-                return; // User was just changing modes, abort export
-            }
-            
-            const finalMode = exportMode;
-            const originalText = exportWavSwitch.textContent;
-            const originalBg = exportWavSwitch.style.backgroundColor;
-            const originalMargin = exportWavSwitch.style.marginLeft;
-
-            exportWavSwitch.textContent = finalMode === 'wav' ? '⏳ WAV...' : '⏳ Stems...';
-            exportWavSwitch.disabled = true;
-            
-            // Give UI time to update before blocking main thread
-            setTimeout(async () => {
-                try {
-                    if (finalMode === 'wav') {
-                        const exportState = { ...state, currentProgression: getActiveProgression() };
-                        const dummyBtn = document.createElement('button');
-                        await exportToWav(exportState, dummyBtn);
-                    } else {
-                        await performStemsExport();
-                    }
-                } catch (err) {
-                    console.error("Export failed:", err);
-                } finally {
-                    exportWavSwitch.textContent = originalText;
-                    exportWavSwitch.style.backgroundColor = originalBg;
-                    exportWavSwitch.style.marginLeft = originalMargin;
-                    exportWavSwitch.disabled = false;
-                }
-            }, 50);
-        });
-
-        exportWavSwitch.addEventListener('pointercancel', (e) => {
-            isPointerDown = false;
-            exportWavSwitch.releasePointerCapture(e.pointerId);
-            exportWavSwitch.style.transform = '';
-            exportWavContainer.classList.add('button-mode');
-        });
-
-        // Restore switch look when interacting elsewhere
-        document.addEventListener('pointerdown', (e) => {
-            if (!e.target.closest('#export-wav-container')) {
-                exportWavContainer.classList.remove('button-mode');
-            }
-        });
-    }
-
-    document.getElementById('btn-ai-prompt').addEventListener('click', () => {
-        const activeProgression = getActiveProgression();
-        if (activeProgression.length === 0) {
-            alert("Please build a progression first.");
-            return;
-        }
-        const promptText = generateAIPrompt(activeProgression, state.bpm, KEY_NAMES[state.baseKey], state.mode);
-        const modal = document.getElementById('ai-prompt-modal');
-        const textArea = document.getElementById('ai-prompt-text');
-        textArea.value = promptText;
-        
-        modal.style.display = 'flex';
-        // Trigger reflow for transition
-        modal.offsetHeight;
-        modal.classList.add('visible');
+    initModals({
+        onResetPlayback: () => {
+            if (currentPlaybackStopFunction) currentPlaybackStopFunction();
+            stopAllAudio();
+            isPlaying = false;
+            const playToggleBtn = document.getElementById('btn-play-toggle');
+            if (playToggleBtn) playToggleBtn.textContent = '▶';
+        },
+        onRenderProgression: renderProgression
     });
 
-    document.getElementById('btn-close-prompt').addEventListener('click', () => {
-        const modal = document.getElementById('ai-prompt-modal');
-        modal.classList.remove('visible');
-        setTimeout(() => modal.style.display = 'none', 200);
-    });
-
-    document.getElementById('btn-copy-prompt').addEventListener('click', (e) => {
-        const textArea = document.getElementById('ai-prompt-text');
-        textArea.select();
-        const copyBtn = e.target;
-        const originalText = copyBtn.textContent;
-        
-        navigator.clipboard.writeText(textArea.value).then(() => {
-            copyBtn.textContent = 'Copied!';
-            setTimeout(() => copyBtn.textContent = originalText, 2000);
-        }).catch(() => {
-            document.execCommand('copy');
-            copyBtn.textContent = 'Copied!';
-            setTimeout(() => copyBtn.textContent = originalText, 2000);
-        });
-    });
+    initExportUI();
 }
 
 function _setupKeyAndModeSelectors() {
@@ -768,74 +544,6 @@ function _setupGlobalDoubleTap() {
     });
 }
 
-function _setupManual() {
-    const settingsBtn = document.getElementById('btn-settings');
-    if (!document.getElementById('btn-manual') && settingsBtn) {
-        const manualBtn = document.createElement('button');
-        manualBtn.id = 'btn-manual';
-        manualBtn.className = settingsBtn.className;
-        manualBtn.title = 'App Manual';
-        manualBtn.innerHTML = '📖';
-        settingsBtn.parentNode.insertBefore(manualBtn, settingsBtn.nextSibling);
-    }
-
-    if (!document.getElementById('manual-modal')) {
-        const modal = document.createElement('div');
-        modal.id = 'manual-modal';
-        modal.className = 'modal-overlay';
-        modal.style.display = 'none';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <h2>Progress Basics</h2>
-                <p style="margin-bottom: 20px; line-height: 1.6;">
-                    There are 3 main vertical sections: the chord selector, the chord tray where the chord progression lives, and the chord swap section. You can add chords from the chord selector to the chord tray via drag/drop, or double tap to add to the end of the progression. Chords can be dragged around in the tray to reorder them. Tapping a chord to select it gives it a green border and the chord swap panel below lets you click to swap out that chord for other candidates. There is a play button to start/stop playback...you can also doubletap on empty parts of the app to start/stop playback. There are loop brackets embedded in the chord tray that can be dragged to select the area of the chord progression you want to loop. Thats the basics. I will make a youtube walkthrough pretty soon and have a link in the app to it.
-                </p>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="checkbox" id="cb-show-manual"> Show this on startup
-                    </label>
-                    <button id="btn-close-manual" class="control-btn primary">Got it</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    }
-
-    const manualBtn = document.getElementById('btn-manual');
-    const manualModal = document.getElementById('manual-modal');
-    const closeBtn = document.getElementById('btn-close-manual');
-    const cbShowManual = document.getElementById('cb-show-manual');
-
-    if (manualBtn && manualModal && closeBtn && cbShowManual) {
-        cbShowManual.checked = state.showManualOnStartup;
-        
-        cbShowManual.addEventListener('change', (e) => {
-            state.showManualOnStartup = e.target.checked;
-            persistAppState();
-        });
-
-        manualBtn.addEventListener('click', () => {
-            cbShowManual.checked = state.showManualOnStartup;
-            manualModal.style.display = 'flex';
-            manualModal.offsetHeight;
-            manualModal.classList.add('visible');
-        });
-
-        closeBtn.addEventListener('click', () => {
-            manualModal.classList.remove('visible');
-            setTimeout(() => manualModal.style.display = 'none', 200);
-        });
-
-        if (state.showManualOnStartup) {
-            setTimeout(() => {
-                manualModal.style.display = 'flex';
-                manualModal.offsetHeight;
-                manualModal.classList.add('visible');
-            }, 500);
-        }
-    }
-}
-
 // --- Main Entry Point ---
 function initApp() {
     const display = document.getElementById('progression-display');
@@ -858,7 +566,6 @@ function initApp() {
     _setupDragAndDrop(display);
     _setupSmartDragCollapse();
     _setupGlobalDoubleTap();
-    _setupManual();
     renderProgression();
 
     // Reveal the UI smoothly now that everything is styled and loaded
