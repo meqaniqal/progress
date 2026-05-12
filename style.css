@@ -1,7 +1,7 @@
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 2rem; padding-bottom: 40px; max-width: 950px; margin: 0 auto; background: var(--bg-body); color: var(--text-main); transition: background-color 0.3s ease, color 0.3s ease; }
 h1 { padding-bottom: 0.5rem; margin: 0; }
 .panel { background: var(--bg-panel); padding: 1.5rem; border-radius: 8px; box-shadow: 0 4px 6px var(--shadow-panel); margin-bottom: 1.5rem; transition: background-color 0.3s ease; }
-.chord-btn { padding: 10px 15px; margin: 5px; border: 1px solid var(--btn-border); border-radius: 4px; background: var(--btn-bg); color: var(--text-main); cursor: pointer; font-weight: bold; transition: 0.2s; }
+.chord-btn { padding: 10px 15px; margin: 5px; border: 1px solid var(--btn-border); border-radius: 4px; background: var(--btn-bg); color: var(--text-main); cursor: pointer; font-weight: bold; transition: 0.2s; touch-action: none; }
 .chord-btn:hover { background: var(--btn-hover-bg); border-color: var(--btn-hover-border); color: var(--btn-hover-text); }
 .borrowed { border-style: dashed; border-color: var(--borrowed-border); color: var(--borrowed-text); }
 .borrowed:hover { background: var(--borrowed-hover-bg); border-color: var(--borrowed-border); }
@@ -14,6 +14,7 @@ h1 { padding-bottom: 0.5rem; margin: 0; }
     background-color: hsl(var(--dyn-hue), var(--dyn-sat), calc(var(--item-base-lum) + var(--dyn-lum-offset))); 
     color: var(--item-text); padding: 8px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.15s ease-in-out;
     overflow: visible; /* Allow connector to draw outside the bounds */
+    touch-action: none;
 }
 .progression-item.playing { 
     background-color: hsl(var(--dyn-hue), 90%, calc(var(--item-base-lum) + 15%)); 
@@ -93,6 +94,7 @@ h1 { padding-bottom: 0.5rem; margin: 0; }
     vertical-align: top;
     line-height: 40px;
     font-family: monospace;
+    touch-action: none;
 }
 
 .custom-drag-image {

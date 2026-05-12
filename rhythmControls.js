@@ -548,6 +548,29 @@ function _setupToolbarButtons() {
 
 /** Sets up the intelligent Bass generation tools. */
 function _setupBassControls() {
+    let patternFxGroup = document.getElementById('pattern-fx-group');
+    if (!patternFxGroup) {
+        patternFxGroup = document.createElement('div');
+        patternFxGroup.id = 'pattern-fx-group';
+        patternFxGroup.className = 'toolbar-group-panel';
+        patternFxGroup.innerHTML = `
+            <label style="font-size:12px; display:flex; align-items:center; gap:6px; cursor:pointer;" title="Dynamically shifts slices off the kick drum during playback.">
+                <input type="checkbox" id="pattern-avoid-kick"> Avoid Kick
+            </label>
+        `;
+        const toolbar = document.querySelector('.rhythm-toolbar');
+        if (toolbar) toolbar.appendChild(patternFxGroup);
+        
+        document.getElementById('pattern-avoid-kick').addEventListener('change', (e) => {
+            const pattern = getCurrentPattern();
+            if (pattern) {
+                app.saveHistoryState();
+                setCurrentPattern({ ...pattern, avoidKick: e.target.checked });
+                app.persistAppState();
+            }
+        });
+    }
+
     let bassGenGroup = document.getElementById('bass-gen-group');
     
     if (!bassGenGroup) {
@@ -560,10 +583,7 @@ function _setupBassControls() {
                 <option value="octaves">Octave Bounce</option>
                 <option value="fifths">Root-Fifth</option>
             </select>
-            <label style="font-size:12px; display:flex; align-items:center; gap:6px; cursor:pointer;" title="Syncopates the bass to the off-beats to prevent frequency clashing with the kick drum.">
-                <input type="checkbox" id="bass-avoid-kick"> Avoid Kick Clash
-            </label>
-            <button id="btn-generate-bass" class="control-btn primary" style="padding: 4px 10px; font-size: 12px; margin-left: 4px;">🪄 Generate</button>
+            <button id="btn-generate-bass" class="control-btn primary" style="padding: 4px 10px; font-size: 12px;">🪄 Generate</button>
         `;
         const toolbar = document.querySelector('.rhythm-toolbar');
         if (toolbar) toolbar.appendChild(bassGenGroup);
@@ -577,7 +597,7 @@ function _setupBassControls() {
             const drumPat = editorState.isGlobal ? app.state.globalPatterns.drumPattern : (app.state.currentProgression[editorState.activeIndex]?.drumPattern || app.state.globalPatterns.drumPattern);
             const chordTabPat = editorState.isGlobal ? app.state.globalPatterns.chordPattern : (app.state.currentProgression[editorState.activeIndex]?.chordPattern || app.state.globalPatterns.chordPattern);
             const style = document.getElementById('bass-style-select').value;
-            const avoidKick = document.getElementById('bass-avoid-kick').checked;
+            const avoidKick = document.getElementById('pattern-avoid-kick').checked;
 
             app.saveHistoryState();
             const newBass = generateIntelligentBassline(drumPat, chordTabPat, { avoidKick, pitchStyle: style, lengthBeats: getDurationBeats() });

@@ -29,8 +29,15 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                 pattern = globalOptions.globalPatterns.chordPattern;
                 isGlobalChord = true;
             }
+        
+        let isGlobalDrum = false;
+        let drumPatForDucking = chord.drumPattern;
+        if (drumPatForDucking && !drumPatForDucking.isLocalOverride && globalOptions.globalPatterns && globalOptions.globalPatterns.drumPattern) {
+            drumPatForDucking = globalOptions.globalPatterns.drumPattern;
+            isGlobalDrum = true;
+        }
             pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-            pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 2);
+        pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 2, null, drumPatForDucking, isGlobalDrum);
             
             const beats = Number(chord.duration) || 2;
             const duration = (60.0 / Number(bpm)) * beats;
@@ -86,7 +93,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     isGlobalBass = true;
                 }
                 bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-                bPattern = resolvePattern(bPattern, isGlobalBass, Number(chord.duration) || 2);
+            bPattern = resolvePattern(bPattern, isGlobalBass, Number(chord.duration) || 2, null, drumPatForDucking, isGlobalDrum);
 
                 bPattern.instances.forEach(instance => {
                     if (instance.probability !== undefined && Math.random() > instance.probability) return;

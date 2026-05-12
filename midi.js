@@ -41,8 +41,15 @@ export function exportToMidi(state) {
                 pattern = state.globalPatterns.chordPattern;
                 isGlobalChord = true;
             }
+        
+        let isGlobalDrum = false;
+        let drumPatForDucking = chord.drumPattern;
+        if (drumPatForDucking && !drumPatForDucking.isLocalOverride && state.globalPatterns && state.globalPatterns.drumPattern) {
+            drumPatForDucking = state.globalPatterns.drumPattern;
+            isGlobalDrum = true;
+        }
             pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-            pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 2);
+        pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 2, null, drumPatForDucking, isGlobalDrum);
             
             const beats = Number(chord.duration) || 2;
             const slotTicks = beats * 128;
@@ -114,7 +121,7 @@ export function exportToMidi(state) {
                 isGlobalBass = true;
             }
             bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-            bPattern = resolvePattern(bPattern, isGlobalBass, beats);
+            bPattern = resolvePattern(bPattern, isGlobalBass, beats, null, drumPatForDucking, isGlobalDrum);
 
             const instances = [...bPattern.instances].sort((a, b) => a.startTime - b.startTime);
             

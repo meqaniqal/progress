@@ -8,6 +8,12 @@ import {
     getDurationBeats 
 } from './rhythmEditor.js';
 
+const PITCH_LABELS = {
+    '-12': '-8ve', '-11': '-M7', '-10': '-m7', '-9': '-M6', '-8': '-m6', '-7': '-P5', '-6': '-TT', '-5': '-P4', '-4': '-M3', '-3': '-m3', '-2': '-M2', '-1': '-m2',
+    '0': 'Root',
+    '1': 'm2', '2': 'M2', '3': 'm3', '4': 'M3', '5': 'P4', '6': 'TT', '7': 'P5', '8': 'm6', '9': 'M6', '10': 'm7', '11': 'M7', '12': '+8ve'
+};
+
 export function renderRhythmTimeline() {
     const container = document.getElementById('rhythm-timeline');
     if (!editorState.isGlobal && editorState.activeIndex === null) {
@@ -160,6 +166,13 @@ export function renderRhythmTimeline() {
     const btnDrawToggle = document.getElementById('btn-draw-toggle');
     const bassGenGroup = document.getElementById('bass-gen-group');
     
+    const patternFxGroup = document.getElementById('pattern-fx-group');
+    if (patternFxGroup) {
+        patternFxGroup.style.display = isChordOrBass ? 'flex' : 'none';
+        const akCheck = document.getElementById('pattern-avoid-kick');
+        if (akCheck && pattern) akCheck.checked = !!pattern.avoidKick;
+    }
+
     if (bassGenGroup) {
         bassGenGroup.style.display = isBassTab ? 'flex' : 'none';
     }
@@ -237,11 +250,6 @@ export function renderRhythmTimeline() {
     const propsGroup = document.getElementById('item-properties-group');
     const pitchWrapper = document.getElementById('prop-pitch-wrapper');
     const pitchDisplay = document.getElementById('prop-pitch-display');
-    const PITCH_LABELS = {
-        '-12': '-8ve', '-11': '-M7', '-10': '-m7', '-9': '-M6', '-8': '-m6', '-7': '-P5', '-6': '-TT', '-5': '-P4', '-4': '-M3', '-3': '-m3', '-2': '-M2', '-1': '-m2',
-        '0': 'Root',
-        '1': 'm2', '2': 'M2', '3': 'm3', '4': 'M3', '5': 'P4', '6': 'TT', '7': 'P5', '8': 'm6', '9': 'M6', '10': 'm7', '11': 'M7', '12': '+8ve'
-    };
 
     const velWrapper = document.getElementById('prop-velocity-wrapper');
     const probWrapper = document.getElementById('prop-probability-wrapper');
@@ -377,14 +385,34 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             const topPercent = 50 - (pOffset * 3) - (blockHeight / 2);
             el.style.top = `${topPercent}%`;
             el.style.height = `${blockHeight}%`;
+
+            // Auto-updating pitch indicator directly on the block
+            let pitchLabel = el.querySelector('.pitch-label');
+            if (!pitchLabel) {
+                pitchLabel = document.createElement('span');
+                pitchLabel.className = 'pitch-label';
+                pitchLabel.style.position = 'absolute';
+                pitchLabel.style.left = '50%';
+                pitchLabel.style.top = '50%';
+                pitchLabel.style.transform = 'translate(-50%, -50%)';
+                pitchLabel.style.fontSize = '10px';
+                pitchLabel.style.fontWeight = 'bold';
+                pitchLabel.style.color = '#fff';
+                pitchLabel.style.pointerEvents = 'none';
+                pitchLabel.style.textShadow = '0 1px 2px rgba(0,0,0,0.8)';
+                el.appendChild(pitchLabel);
+            }
+            pitchLabel.textContent = PITCH_LABELS[pOffset] || pOffset;
         } else {
             el.style.top = '10%';
             el.style.height = '80%';
+            const pitchLabel = el.querySelector('.pitch-label');
+            if (pitchLabel) pitchLabel.remove();
         }
 
         let overlay = el.querySelector('.slice-overlay');
 
-        if (editorState.activeOverlayId === inst.id && !isPitchMode) {
+        if (editorState.activeOverlayId === inst.id) {
             const others = pattern.instances.filter(i => i.id !== inst.id);
             let leftBound = 0.0;
             let rightBound = 1.0;
@@ -408,6 +436,15 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
                 overlay = document.createElement('div');
                 overlay.className = 'slice-overlay';
                 el.appendChild(overlay);
+            }
+            
+            // If in pitch mode, dynamically expand the overlay bounds over the shrunken block
+            if (isPitchMode) {
+                overlay.style.height = '500%';
+                overlay.style.top = '-200%';
+            } else {
+                overlay.style.height = '100%';
+                overlay.style.top = '0';
             }
 
             // Only update innerHTML if structural conditions changed to preserve native slider drag state

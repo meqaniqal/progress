@@ -18,14 +18,12 @@ describe('Intelligent Bassline Generator', () => {
         expect(result.instances[2].startTime).toBe(0.75);
     });
 
-    it('should push the bass off-beat when avoidKick is true', () => {
+    it('should flag the pattern for nondestructive ducking when avoidKick is true', () => {
         const result = generateIntelligentBassline(mockDrumPattern, null, { lengthBeats: 4, avoidKick: true });
+        expect(result.avoidKick).toBe(true);
         expect(result.instances.length).toBe(3);
         
-        // In 4 beats, an 8th note shift is 0.125
-        expect(result.instances[0].startTime).toBe(0.125);
-        expect(result.instances[1].startTime).toBe(0.375);
-        expect(result.instances[2].startTime).toBe(0.875);
+        expect(result.instances[0].startTime).toBe(0.0);
     });
 
     it('should apply walking pitch styles', () => {

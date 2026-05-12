@@ -39,7 +39,7 @@ function getBounds(state) {
 function getAbsoluteBeatPos(progression, index) {
     let beats = 0;
     for (let i = 0; i < index; i++) {
-        beats += Number(progression[i].duration) || 2;
+        beats += Number(progression[i].duration) || 4;
     }
     return beats;
 }
@@ -98,7 +98,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         if (!notesToPlay) return;
 
         const chordObj = state.currentProgression[absIndex];
-        const beats = Number(chordObj.duration) || 2;
+        const beats = Number(chordObj.duration) || 4;
         const chordSlotDuration = (60.0 / Number(state.bpm)) * beats;
         
         let pattern = chordObj.chordPattern;
@@ -107,8 +107,15 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             pattern = state.globalPatterns.chordPattern;
             isGlobalChord = true;
         }
+
+        let isGlobalDrum = false;
+        let drumPatForDucking = chordObj.drumPattern;
+        if (drumPatForDucking && !drumPatForDucking.isLocalOverride && state.globalPatterns && state.globalPatterns.drumPattern) {
+            drumPatForDucking = state.globalPatterns.drumPattern;
+            isGlobalDrum = true;
+        }
         pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-        pattern = resolvePattern(pattern, isGlobalChord, beats);
+        pattern = resolvePattern(pattern, isGlobalChord, beats, null, drumPatForDucking, isGlobalDrum);
 
         // Render each rhythmic slice instance inside the chord slot
         pattern.instances.forEach(instance => {
@@ -147,7 +154,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                 isGlobalBass = true;
             }
             bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-            bPattern = resolvePattern(bPattern, isGlobalBass, beats);
+            bPattern = resolvePattern(bPattern, isGlobalBass, beats, null, drumPatForDucking, isGlobalDrum);
             
             bPattern.instances.forEach(instance => {
                 if (instance.probability !== undefined && Math.random() > instance.probability) return;
@@ -235,7 +242,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         const sliceLength = bounds.end - bounds.start;
 
         const chordObj = state.currentProgression[bounds.start + currentChordIndexRel];
-        const beats = chordObj ? (Number(chordObj.duration) || 2) : 2;
+        const beats = chordObj ? (Number(chordObj.duration) || 4) : 4;
         const chordDuration = (60.0 / Number(state.bpm)) * beats;
         nextNoteTime += chordDuration;
 

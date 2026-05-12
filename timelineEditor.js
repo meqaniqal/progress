@@ -11,6 +11,9 @@ export function initTimelineInteractions(timeline) {
     let lastTapId = null; 
     let cachedTimelineRect = null;
     let selectionChangedOnDown = false;
+    
+    // Prevent context menu (right-click) which interferes with dragging interactions
+    timeline.addEventListener('contextmenu', e => e.preventDefault());
 
     function applyDrawMath(startRatio, endRatio) {
         let start = Math.min(startRatio, endRatio);
@@ -141,15 +144,11 @@ export function initTimelineInteractions(timeline) {
         
         const instId = instanceEl.dataset.id;
         if (now - lastTapTime < 300 && lastTapId === instId) {
-            if (editorState.activeTab === 'bassPattern' && editorState.isPitchModeEnabled) {
-                lastTapTime = 0;
-            } else {
-                e.stopPropagation();
-                editorState.activeOverlayId = instId;
-                renderRhythmTimeline();
-                lastTapTime = 0;
-                return;
-            }
+            e.stopPropagation();
+            editorState.activeOverlayId = instId;
+            renderRhythmTimeline();
+            lastTapTime = 0;
+            return;
         }
         
         lastTapTime = now;
