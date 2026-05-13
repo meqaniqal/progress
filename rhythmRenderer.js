@@ -245,9 +245,11 @@ export function renderRhythmTimeline() {
 
     const drumLengthSelect = document.getElementById('drum-length-select');
     const drumCropBtn = document.getElementById('btn-drum-crop');
+    const drumPresetSelect = document.getElementById('drum-preset-select');
     if (drumLengthSelect) {
         drumLengthSelect.style.display = isGlobalDrums ? 'inline-block' : 'none';
         if (drumCropBtn) drumCropBtn.style.display = isGlobalDrums ? 'inline-block' : 'none';
+        if (drumPresetSelect) drumPresetSelect.style.display = editorState.activeTab === 'drumPattern' ? 'inline-block' : 'none';
         if (isGlobalDrums) {
             drumLengthSelect.value = pattern.lengthBeats || 4;
         }

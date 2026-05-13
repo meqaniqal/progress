@@ -62,7 +62,11 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] Probabilistic Pattern Sequencing (Per-slice and per-hit probability sliders for generative, organically evolving rhythms).
 - [x] Unified Pattern Architecture: Global/Local cascading state (Reset inherits Global, Clear forces 1-block local override).
 - [x] Drum Machine Synthesis & Grid Editor: 4-piece kit (Kick, Snare, CHH, OHH). Includes a dual-view workflow: a scrollable, independent-length Global pattern that loops continuously across the entire progression (featuring non-destructive truncation, smart duplication, panning, and DAW-style page-flipping), and a zoomed-in Local override view featuring "ghost notes" for precise drum fills.
-- [ ] **Intelligent Bassline Generation (Current Focus):** Shares rhythm editor tech, single note focus, contextual pitch suggestions, and rhythmic locking.
+- [x] **Intelligent Bassline Generation:** Generates dynamic, syncopated basslines that algorithmically duck around kick drum hits. Includes multiple stylistic modes (Root, Octaves, Fifths) and a driving 1/8th note fallback.
+- [x] **Drum Presets & UX:** Drum tab defaults to global mode to prevent confusion. Added a curated library of complex generative drum presets (DnB, Bossa Nova, Lo-Fi, etc.).
+- [x] **Strict Modularization:** Extracted specialized tools (`arpControls.js`, `bassControls.js`, `clipboardUtils.js`, `transportController.js`) out of the main monolitic controllers.
+- [x] **3D Transport & Folder UX:** Styled the editor as an OS-level file folder with dynamic gradients, and added a 3D neumorphic playback transport with a hidden "Super Volume" overdrive slider.
+- [ ] **Advanced Modular Synthesis & Sound Design (Current Focus):** Pluggable synths, enhanced AI target audio profiling, and professional drum sampling logic.
 - [x] **True Minor Key & Omni-Scale Theory Framework:**
   - [x] Decouple global key state to support modes (Major/Minor).
   - [x] Dynamic UI palettes that render correct diatonic chords for the active scale.

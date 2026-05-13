@@ -1,6 +1,8 @@
-import { GRID_STEPS } from './rhythmConfig.js';
-import { applyArpSettings, updateDrumHit, updateInstance, generateId, initChordPattern, initDrumPattern } from './patternUtils.js';
-import { generateIntelligentBassline } from './bassGenerator.js';
+import { GRID_STEPS, DRUM_PRESETS } from './rhythmConfig.js';
+import { updateDrumHit, updateInstance, initChordPattern, initDrumPattern } from './patternUtils.js';
+import { copyPattern, pastePattern } from './clipboardUtils.js';
+import { initArpControls } from './arpControls.js';
+import { initBassControls } from './bassControls.js';
 import { playDrum, getAudioCurrentTime } from './synth.js';
 import { 
     editorState, 
@@ -21,6 +23,14 @@ function _setupTabsAndToggles() {
             editorState.activeTab = e.target.dataset.tab;
             editorState.activeOverlayId = null; // Clear overlay when switching tabs
             editorState.justPushedToGlobalIndex = null;
+            
+            if (editorState.activeTab === 'drumPattern') {
+                const chord = app.state.currentProgression[editorState.activeIndex];
+                if (!chord || !chord.drumPattern || !chord.drumPattern.isLocalOverride) {
+                    editorState.isGlobal = true;
+                }
+            }
+
             app.persistAppState();
             renderRhythmTimeline();
         });
@@ -84,91 +94,6 @@ function _setupGridSlider() {
     if (btnZoomOut) btnZoomOut.addEventListener('click', () => handleZoom(-0.5));
 }
 
-/** Sets up the arpeggiator controls and apply button. */
-function _setupArpControls() {
-    // --- Arp Controls Setup ---
-    const applyArpBtn = document.getElementById('btn-apply-arp');
-    
-    let styleSelect = document.getElementById('arp-style-select');
-    if (!styleSelect) {
-        styleSelect = document.createElement('select');
-        styleSelect.id = 'arp-style-select';
-        styleSelect.className = 'rhythm-select';
-        styleSelect.title = 'Arpeggiator Style';
-        styleSelect.innerHTML = `
-            <option value="up">Up</option>
-            <option value="down">Down</option>
-            <option value="upDown">Up/Down</option>
-            <option value="downUp">Down/Up</option>
-            <option value="random">Random</option>
-        `;
-        applyArpBtn.parentNode.insertBefore(styleSelect, applyArpBtn.nextSibling);
-    }
-
-    let rateSelect = document.getElementById('arp-rate-select');
-    if (!rateSelect) {
-        rateSelect = document.createElement('select');
-        rateSelect.id = 'arp-rate-select';
-        rateSelect.className = 'rhythm-select';
-        rateSelect.title = 'Arpeggiator Rate';
-        rateSelect.innerHTML = `
-            <option value="segment">Segment</option>
-            <option value="1/4">1/4</option>
-            <option value="1/8">1/8</option>
-            <option value="1/8t">1/8t (Triplet)</option>
-            <option value="1/16">1/16</option>
-            <option value="1/16t">1/16t (Triplet)</option>
-            <option value="1/32">1/32</option>
-        `;
-        styleSelect.parentNode.insertBefore(rateSelect, styleSelect.nextSibling);
-    }
-
-    function handleArpDropdownChange() {
-        if (editorState.activeTab !== 'chordPattern') return;
-        const pattern = getCurrentPattern();
-        if (!pattern) return;
-
-        const selectedInsts = pattern.instances.filter(i => i.isSelected);
-        // Update settings in real-time if an arp is already active on the selection
-        if (selectedInsts.length > 0 && selectedInsts[0].arpSettings !== null) {
-            const newSettings = {
-                style: styleSelect.value,
-                rate: rateSelect.value,
-                gate: 0.9 
-            };
-            app.saveHistoryState();
-            setCurrentPattern(applyArpSettings(pattern, selectedInsts.map(i => i.id), newSettings));
-            app.persistAppState();
-            renderRhythmTimeline();
-        }
-    }
-
-    styleSelect.addEventListener('change', handleArpDropdownChange);
-    rateSelect.addEventListener('change', handleArpDropdownChange);
-
-    // --- Apply / Toggle Arp Button ---
-    applyArpBtn.addEventListener('click', () => {
-        if (editorState.activeTab !== 'chordPattern') return;
-        const pattern = getCurrentPattern();
-        if (!pattern) return;
-
-        const selectedInsts = pattern.instances.filter(i => i.isSelected);
-        if (selectedInsts.length === 0) {
-            alert("Please select at least one instance using the Select tool.");
-            return;
-        }
-
-        // Toggle logic: If the first selected block has an arp, remove it. Otherwise, add a default arp.
-        const hasArp = selectedInsts[0].arpSettings !== null;
-        const newSettings = hasArp ? null : { style: styleSelect.value, rate: rateSelect.value, gate: 0.9 };
-
-        app.saveHistoryState();
-        setCurrentPattern(applyArpSettings(pattern, selectedInsts.map(i => i.id), newSettings));
-        app.persistAppState();
-        renderRhythmTimeline();
-    });
-}
-
 /** Sets up the drum specific controls (e.g., Global Length). */
 function _setupDrumControls() {
     const btnApplyArp = document.getElementById('btn-apply-arp');
@@ -225,6 +150,45 @@ function _setupDrumControls() {
                 renderRhythmTimeline();
             }
         });
+
+        let drumPresetSelect = document.getElementById('drum-preset-select');
+        if (!drumPresetSelect) {
+            drumPresetSelect = document.createElement('select');
+            drumPresetSelect.id = 'drum-preset-select';
+            drumPresetSelect.className = 'rhythm-select';
+            drumPresetSelect.title = 'Drum Presets';
+            drumPresetSelect.innerHTML = `
+                <option value="" disabled selected>Preset...</option>
+                <option value="blank">Blank</option>
+                <option value="house">House (4-to-the-floor)</option>
+                <option value="hiphop">Hip Hop (Boom Bap)</option>
+                <option value="breakbeat">Breakbeat</option>
+                <option value="dnb">Drum & Bass</option>
+                <option value="bossanova">Bossa Nova</option>
+                <option value="lofi">Lo-Fi / Chillhop</option>
+            `;
+            drumLengthSelect.parentNode.insertBefore(drumPresetSelect, drumLengthSelect);
+
+            drumPresetSelect.addEventListener('change', (e) => {
+                if (editorState.activeTab !== 'drumPattern') return;
+                const pattern = getCurrentPattern();
+                if (pattern) {
+                    const presetName = e.target.value;
+                    const presetHits = DRUM_PRESETS[presetName] || [];
+                    app.saveHistoryState();
+                    const newHits = presetHits.map(hit => ({
+                        ...hit,
+                        id: Math.random().toString(36).substring(2, 10),
+                        velocity: hit.velocity !== undefined ? hit.velocity : 1.0,
+                        probability: 1.0
+                    }));
+                    setCurrentPattern({ ...pattern, hits: newHits });
+                    app.persistAppState();
+                    renderRhythmTimeline();
+                }
+                e.target.value = ""; 
+            });
+        }
     }
 }
 
@@ -344,126 +308,8 @@ function _setupToolbarButtons() {
     const btnCopy = document.getElementById('btn-rhythm-copy');
     const btnPaste = document.getElementById('btn-rhythm-paste');
 
-    btnCopy.addEventListener('click', () => {
-        const pattern = getCurrentPattern();
-        if (!pattern) return;
-        
-        // Deep copy the pattern to the clipboard
-        const sourceBeats = getDurationBeats();
-        const patternToCopy = JSON.parse(JSON.stringify(pattern));
-        patternToCopy.sourceBeats = sourceBeats;
-        editorState.clipboardPattern = patternToCopy;
-        btnPaste.disabled = false;
-        
-        // UX Feedback
-        const originalText = btnCopy.innerHTML;
-        btnCopy.innerHTML = '✓ Copied!';
-        setTimeout(() => btnCopy.innerHTML = originalText, 1500);
-    });
-
-    btnPaste.addEventListener('click', () => {
-        if (!editorState.clipboardPattern) return;
-        const pattern = getCurrentPattern();
-        if (!pattern) return;
-        
-        const isClipboardDrums = Array.isArray(editorState.clipboardPattern.hits);
-        const isTargetDrums = editorState.activeTab === 'drumPattern';
-        
-        if (isClipboardDrums !== isTargetDrums) {
-            alert("Cannot paste patterns between instrument slices and drum grids.");
-            return;
-        }
-
-        app.saveHistoryState();
-        
-        // Deep copy from clipboard and regenerate IDs to prevent cross-chord collisions
-        const pastedPattern = JSON.parse(JSON.stringify(editorState.clipboardPattern));
-        const targetBeats = getDurationBeats();
-        const sourceBeats = pastedPattern.sourceBeats || targetBeats;
-        
-        let initialPattern = { ...pastedPattern };
-        let finalPattern = { ...pastedPattern };
-        
-        // Shield against copying chord slices into drum hits
-        if (pastedPattern.instances) {
-            const initialInstances = [];
-            const finalInstances = [];
-            
-            pastedPattern.instances.forEach(inst => {
-                const newId = generateId();
-                
-                // Initial state: Scaled to fit exactly as it looked in the source
-                initialInstances.push({
-                    ...inst,
-                    id: newId,
-                    arpSettings: editorState.activeTab !== 'chordPattern' ? null : inst.arpSettings,
-                    isAnimating: true
-                });
-
-                const absStart = inst.startTime * sourceBeats;
-                const absDuration = inst.duration * sourceBeats;
-
-                if (absStart >= targetBeats) return; // Drop instances completely outside the new chord
-
-                const newStartTime = absStart / targetBeats;
-                const newDuration = Math.min(absDuration, targetBeats - absStart) / targetBeats;
-
-                if (newDuration > 0.001) { // Avoid creating zero-width instances
-                    // Final state: Absolute time, truncated
-                    finalInstances.push({
-                        ...inst,
-                        id: newId,
-                        arpSettings: editorState.activeTab !== 'chordPattern' ? null : inst.arpSettings,
-                        startTime: newStartTime,
-                        duration: newDuration,
-                        isAnimating: true
-                    });
-                }
-            });
-            initialPattern.instances = initialInstances;
-            finalPattern.instances = finalInstances;
-        }
-        
-        if (pastedPattern.hits) {
-            const initialHits = [];
-            const finalHits = [];
-            
-            pastedPattern.hits.forEach(hit => {
-                const newId = generateId();
-                
-                // Initial state
-                initialHits.push({
-                    ...hit,
-                    id: newId
-                });
-
-                const absBeat = hit.time * sourceBeats;
-                if (absBeat < targetBeats) {
-                    // Final state: Absolute time
-                    finalHits.push({
-                        ...hit,
-                        id: newId,
-                        time: absBeat / targetBeats
-                    });
-                }
-            });
-            initialPattern.hits = initialHits;
-            finalPattern.hits = finalHits;
-        }
-        delete initialPattern.sourceBeats;
-        delete finalPattern.sourceBeats;
-        
-        // 1. Render the superimposed (original layout) immediately
-        setCurrentPattern(initialPattern, true);
-        renderRhythmTimeline();
-        
-        // 2. Animate to the final absolute/truncated positions
-        setTimeout(() => {
-            setCurrentPattern(finalPattern, true);
-            app.persistAppState();
-            renderRhythmTimeline();
-        }, 50); // slight delay ensures DOM registers the initial state for CSS transition
-    });
+    if (btnCopy) btnCopy.addEventListener('click', () => copyPattern(btnCopy, btnPaste));
+    if (btnPaste) btnPaste.addEventListener('click', pastePattern);
 
     // --- Reset & Clear Buttons ---
     const btnReset = document.getElementById('btn-rhythm-reset');
@@ -545,74 +391,12 @@ function _setupToolbarButtons() {
     }
 }
 
-/** Sets up the intelligent Bass generation tools. */
-function _setupBassControls() {
-    let patternFxGroup = document.getElementById('pattern-fx-group');
-    if (!patternFxGroup) {
-        patternFxGroup = document.createElement('div');
-        patternFxGroup.id = 'pattern-fx-group';
-        patternFxGroup.className = 'toolbar-group-panel';
-        patternFxGroup.innerHTML = `
-            <label style="font-size:12px; display:flex; align-items:center; gap:6px; cursor:pointer;" title="Dynamically shifts slices off the kick drum during playback.">
-                <input type="checkbox" id="pattern-avoid-kick"> Avoid Kick
-            </label>
-        `;
-        const toolbar = document.querySelector('.rhythm-toolbar');
-        if (toolbar) toolbar.appendChild(patternFxGroup);
-        
-        document.getElementById('pattern-avoid-kick').addEventListener('change', (e) => {
-            const pattern = getCurrentPattern();
-            if (pattern) {
-                app.saveHistoryState();
-                setCurrentPattern({ ...pattern, avoidKick: e.target.checked });
-                app.persistAppState();
-            }
-        });
-    }
-
-    let bassGenGroup = document.getElementById('bass-gen-group');
-    
-    if (!bassGenGroup) {
-        bassGenGroup = document.createElement('div');
-        bassGenGroup.id = 'bass-gen-group';
-        bassGenGroup.className = 'tool-group';
-        bassGenGroup.innerHTML = `
-            <select id="bass-style-select" class="rhythm-select" title="Bassline Pitch Pattern">
-                <option value="root">Root Driving</option>
-                <option value="octaves">Octave Bounce</option>
-                <option value="fifths">Root-Fifth</option>
-            </select>
-            <button id="btn-generate-bass" class="control-btn primary" style="padding: 4px 10px; font-size: 12px;">🪄 Generate</button>
-        `;
-        const toolbar = document.querySelector('.rhythm-toolbar');
-        if (toolbar) toolbar.appendChild(bassGenGroup);
-    }
-
-    const btnGen = document.getElementById('btn-generate-bass');
-    if (btnGen) {
-        btnGen.addEventListener('click', () => {
-            if (editorState.activeTab !== 'bassPattern') return;
-            
-            const drumPat = editorState.isGlobal ? app.state.globalPatterns.drumPattern : (app.state.currentProgression[editorState.activeIndex]?.drumPattern || app.state.globalPatterns.drumPattern);
-            const chordTabPat = editorState.isGlobal ? app.state.globalPatterns.chordPattern : (app.state.currentProgression[editorState.activeIndex]?.chordPattern || app.state.globalPatterns.chordPattern);
-            const style = document.getElementById('bass-style-select').value;
-            const avoidKick = document.getElementById('pattern-avoid-kick').checked;
-
-            app.saveHistoryState();
-            const newBass = generateIntelligentBassline(drumPat, chordTabPat, { avoidKick, pitchStyle: style, lengthBeats: getDurationBeats() });
-            setCurrentPattern(newBass, !editorState.isGlobal);
-            app.persistAppState();
-            renderRhythmTimeline();
-        });
-    }
-}
-
 export function initRhythmControls() {
     _setupTabsAndToggles();
     _setupGridSlider();
-    _setupArpControls();
     _setupDrumControls();
     _setupPropertiesControls();
     _setupToolbarButtons();
-    _setupBassControls();
+    initArpControls();
+    initBassControls();
 }

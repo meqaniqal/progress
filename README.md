@@ -62,9 +62,9 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Unified Tabbed Pattern Editor:** Consolidating Chords, Bass, and Drums into a single tabbed UI. Features a Global/Local cascade system where local changes detach from the global pattern, "Reset to Global" re-inherits the global pattern, and "Clear" explicitly overrides to a single un-sliced block. (Complete ✅)
 - **Mobile UX & Transport Overhaul:** Replaced the bottom transport with a Floating Action Button (FAB), removed magnetic scrolling, fixed background double-tap-to-play, and added smart drag-and-drop palette collapsing to save vertical space. (Complete ✅)
 - **Experimental Draw Mode & Workflow Refactor:** Shifted to an "Edit-in-Place" Push/Pull workflow. Added a new Pencil Draw tool with Boolean overlap math for rapid sequence painting and gating. (Complete ✅)
-- **Intelligent Bassline Editor:** Timeline-based slash chords, walking basslines, and rhythm-informed generation.
+- **Intelligent Bassline Generation (Complete ✅):** Generates dynamic basslines that algorithmically lock to the drum pattern. Features a non-destructive "Avoid Kick" sidechain effect for a clean low-end.
 - **Advanced Modular Synthesis:** Pluggable, editable synths for Chords and Basslines, optimized for AI audio recognition and professional WAV export.
-- **Integrated Drum Machine (Complete ✅):** Built-in synthesized 4-piece kit with a multi-row grid editor. Features a dual-view workflow: a horizontally scrollable **Global Mode** for crafting independent main grooves that loop continuously across the entire progression (featuring smart loop duplication, DAW-style playhead page-flipping, and sticky lane labels), and a zoomed-in **Local Mode** with "ghost notes" for high-precision fills over specific chords. Supports full MIDI/WAV export.
+- **Integrated Drum Machine (Complete ✅):** Built-in synthesized 4-piece kit with a multi-row grid editor. Features a dual-view workflow (Global/Local) and comes with a library of generative presets (House, Hip Hop, DnB, Bossa Nova, Lo-Fi) utilizing hit probabilities and velocity dynamics. Supports full MIDI/WAV export.
 - **True Minor Key & Omni-Scale Framework:**
   - Decouple global key state to support modes (Major/Minor). (Complete ✅)
   - Dynamic UI palettes that render correct diatonic chords for the active scale. (Complete ✅)

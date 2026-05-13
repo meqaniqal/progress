@@ -116,6 +116,10 @@ export function openRhythmEditor(index) {
     const chord = app.state.currentProgression[index];
     if (!chord) { closeRhythmEditor(); return; }
 
+    if (editorState.activeTab === 'drumPattern' && (!chord.drumPattern || !chord.drumPattern.isLocalOverride)) {
+        editorState.isGlobal = true;
+    }
+
     renderRhythmTimeline();
     
     const panel = document.getElementById('rhythm-editor-panel');

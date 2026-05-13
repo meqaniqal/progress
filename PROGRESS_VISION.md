@@ -43,11 +43,14 @@
 - **Loop-Aware Resolution:** The voice-leading and suggestion engines analyze the progression as a continuous cycle, ensuring the transition from the *last* chord back to the *first* chord is as smooth and emotionally satisfying as any internal internal transition.
 *(Note: A Melody editor is planned for the future, but current scope strictly targets Chords, Drums, and Bass.)*
 
-### 5. Intelligent Bassline Generation (Future Goal)
+### 5. Intelligent Bassline Generation (Complete ✅)
 - **Unified Editor Technology:** The Bassline editor will utilize the exact same underlying technology and timeline logic as the Per-Chord Rhythm Editor, but restricted to a single note focus.
 - **Rhythm-Informed Generation:** Utilize the constructed drum and chord rhythms to generate intelligent, genre-appropriate basslines.
-- **Contextual Suggestions:** The engine acts as a safety net, suggesting the best locations and pitches for bass notes based on the current harmonic progression.
+- **Non-Destructive Ducking:** The engine automatically extracts kicks and applies a non-destructive sidechain "ducking" effect to bass slices to keep low-end frequencies clean.
 - **Symbiotic Editing:** If the user manually edits the chord pattern or the bassline, the system dynamically informs changes across the board. The bassline notes, chord pattern elements, and master rhythm continually cross-reference each other to ensure everything locks together musically from moment to moment.
+- **Bassline Engine & Slash Chords:** Implement the `Bass` tab, allowing users to detach bass slices from the chord rhythm and assign explicit pitches to create slash chords and walking lines.
+- **Drum Sequencer Engine (Complete ✅):** Implement the `Drums` tab and audio scheduler for integrated beats. Includes intelligent defaulting to Global Mode and a curated library of generative groove presets.
+- **Probabilistic Pattern Sequencing (Completed):** Allow assigning percent-based probabilities to specific rhythm/arp patterns and drum hits per loop cycle to create generative variation.
 
 ---
 
@@ -134,13 +137,10 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - **Rhythm Pattern Copy/Paste (Completed):** Ability to copy a sliced/arpeggiated rhythm pattern from one chord and paste it to another.
 - **Functional Transposition (Completed):** Added a context-aware button in the Swap Menu to instantly transpose any out-of-key chord to the currently selected global key.
 - **Unified Tabbed Pattern Editor:** Transform the current Rhythm Editor into a multi-tabbed interface (`Chords` | `Bass` | `Drums`) with a `Global / Local` toggle for sequence-wide vs per-chord pattern building.
-- **Bassline Engine & Slash Chords:** Implement the `Bass` tab, allowing users to detach bass slices from the chord rhythm and assign explicit pitches to create slash chords and walking lines.
-- **Drum Sequencer Engine:** Implement the `Drums` tab and audio scheduler for integrated beats.
-- **Probabilistic Pattern Sequencing (Completed):** Allow assigning percent-based probabilities to specific rhythm/arp patterns and drum hits per loop cycle to create generative variation.
 - [x] **Mobile Viewport & Double-Tap:** Disable native browser double-tap-to-zoom to ensure global background double-taps reliably trigger play/pause on touch devices. Removed vertical scroll-snapping for precise manual scrolling.
 - [x] **Floating Transport:** Convert the bottom transport bar into a bottom-corner Floating Action Button (FAB) to maximize vertical real estate while keeping playback accessible.
 - [x] **Smart Drag-and-Drop:** Dynamically collapse inactive chord palettes during drag operations to instantly bring the chord tray drop-zone into the mobile viewport.
-- [x] **Experimental Draw Mode & Workflow Refactor:** Implemented an "Edit-in-Place" Push/Pull workflow, replacing the abstract Global/Local toggle. Added a DAW-style Pencil Draw tool with Boolean carving math for rapid rhythmic gating.
+- **Experimental Draw Mode & Workflow Refactor (Complete ✅):** Shifted to an "Edit-in-Place" Push/Pull workflow. Added a new Pencil Draw tool with Boolean overlap math for rapid sequence painting and gating.
 
 ### 6. Advanced Modular Synthesis & Sound Design (Future Goal)
 - **Editable AI-Targeted Synths:** The default sine/sawtooth engines will become options among multiple modular synths. Planned are highly customizable synths specifically geared toward producing maximum clarity for AI audio recognition or direct integration into professional DAW projects via WAV export.
