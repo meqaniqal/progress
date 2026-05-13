@@ -120,6 +120,14 @@ export function exportToMidi(state) {
                 bPattern = state.globalPatterns.bassPattern;
                 isGlobalBass = true;
             }
+            
+            let isGlobalDrum = false;
+            let drumPatForDucking = chord.drumPattern;
+            if (drumPatForDucking && !drumPatForDucking.isLocalOverride && state.globalPatterns && state.globalPatterns.drumPattern) {
+                drumPatForDucking = state.globalPatterns.drumPattern;
+                isGlobalDrum = true;
+            }
+            
             bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
             bPattern = resolvePattern(bPattern, isGlobalBass, beats, null, drumPatForDucking, isGlobalDrum);
 

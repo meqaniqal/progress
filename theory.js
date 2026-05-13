@@ -242,7 +242,9 @@ export function getSynestheticColorProfile(currentChord, prevChord, nextChord, m
         const rootMidi = chordNotes[0];
         const pitchClass = rootMidi % 12;
         const circlePos = (pitchClass * 7) % 12; 
-        hue = (240 + (circlePos * 30)) % 360;
+        // Map 12 circle positions across 260 degrees to strictly avoid the 100-180 green range.
+        // This ensures the green selection highlight always contrasts perfectly against any chord.
+        hue = Math.round(180 + (circlePos * (260 / 11))) % 360;
     }
 
     let backwardTensionDelta = 0;

@@ -13,7 +13,7 @@ export const state = {
     globalVoicing: 'auto', // 'auto', 'close', 'spread', 'quartal'
     loopStart: 0,
     loopEnd: 0,
-    theme: 'light',
+    theme: 'dark',
     mode: 'major',
     exportPasses: 1,
     volumes: { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 }, // 0.8 provides headroom for mixing
@@ -200,7 +200,7 @@ export function resetSession() {
     state.globalVoicing = 'auto';
     state.loopStart = 0;
     state.loopEnd = 0;
-    state.theme = 'light';
+    state.theme = 'dark';
     state.mode = 'major';
     state.exportPasses = 1;
     state.volumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 };
@@ -247,7 +247,7 @@ export function loadAndApplyInitialState() {
         state.isLooping = true; // Hardcoded to always loop
         state.useVoiceLeading = Boolean(savedState.useVoiceLeading ?? savedState.voiceLeading ?? state.useVoiceLeading);
         state.globalVoicing = savedState.globalVoicing || 'auto';
-        state.theme = savedState.theme === 'dark' ? 'dark' : 'light';
+        state.theme = savedState.theme === 'light' ? 'light' : 'dark';
         state.mode = savedState.mode === 'minor' ? 'minor' : 'major';
         
         if (typeof savedState.loopStart === 'number') state.loopStart = Math.max(0, savedState.loopStart);
@@ -379,6 +379,10 @@ export function loadAndApplyInitialState() {
                 bassPattern: sanitizePat(savedState.globalPatterns.bassPattern, false) || initChordPattern(),
                 drumPattern: sanitizePat(savedState.globalPatterns.drumPattern, true) || initDrumPattern()
             };
+        }
+        
+        if (savedState.editorState && savedState.editorState.activeTab) {
+            state.editorState.activeTab = savedState.editorState.activeTab;
         }
     }
     applyLoopBounds();

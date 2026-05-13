@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="theme.css?v=1.0">
     <link rel="stylesheet" href="style.css?v=1.0">
     <link rel="stylesheet" href="drum-grid.css?v=1.0">
+    <link rel="stylesheet" href="rhythm-editor.css?v=1.0">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
     
     <!-- Hide body and show spinner to prevent Flash of Unstyled Content (FOUC) while scripts load -->
@@ -132,7 +133,10 @@
 
     <!-- Global Transport Controls -->
     <div id="transport-bar">
-        <button class="control-btn primary" id="btn-play-toggle" title="Play/Stop">▶</button>
+        <div id="super-volume-popup" style="display: none; position: absolute; bottom: 55px; left: 50%; transform: translateX(-50%); width: 40px; height: 120px; background: var(--bg-panel); border: 1px solid var(--border-main); border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); flex-direction: column; align-items: center; justify-content: flex-end; padding: 10px 0; z-index: 999; box-sizing: border-box;">
+            <div id="super-volume-fill" style="width: 20px; height: 25%; background: var(--ctrl-primary-bg); border-radius: 10px; pointer-events: none; transition: height 0.05s linear, background-color 0.2s ease;"></div>
+        </div>
+        <button class="control-btn primary" id="btn-play-toggle" title="Play/Stop (Drag up for volume)">▶</button>
     </div>
 
     <!-- Per-Chord Rhythm Editor Panel (Anchored) -->
@@ -159,6 +163,7 @@
             <button class="pattern-tab" data-tab="bassPattern">Bass</button>
             <button class="pattern-tab" data-tab="drumPattern">Drums</button>
         </div>
+        <div class="tab-content-wrapper">
         <div class="rhythm-toolbar tabs-active">
             <div class="tool-group">
                 <button class="control-btn secondary" id="btn-rhythm-reset" style="padding: 6px 12px; font-size: 13px;" title="Revert to inheriting the Global Pattern">↺ Reset to Global</button>
@@ -199,6 +204,7 @@
         </div>
         <div class="rhythm-timeline-container" id="rhythm-timeline">
             <!-- Instances rendered here dynamically -->
+        </div>
         </div>
         </div>
     </div>
@@ -250,7 +256,7 @@
                     <div class="mixer-panel">
                         <label class="mixer-row">
                             <span style="font-size: 14px; font-weight: bold;">🔊 Master</span>
-                            <input type="range" id="vol-master" min="0" max="1.5" step="0.05" value="1.0" style="width: 60%; margin: 0;">
+                            <input type="range" id="vol-master" min="0" max="2.0" step="0.05" value="1.0" style="width: 60%; margin: 0;">
                         </label>
                         <div class="mixer-divider"></div>
                         <label class="mixer-row">

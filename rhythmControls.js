@@ -18,11 +18,10 @@ function _setupTabsAndToggles() {
     const tabs = document.querySelectorAll('.pattern-tab');
     tabs.forEach(tab => {
         tab.addEventListener('click', (e) => {
-            tabs.forEach(t => t.classList.remove('active'));
-            e.target.classList.add('active');
             editorState.activeTab = e.target.dataset.tab;
             editorState.activeOverlayId = null; // Clear overlay when switching tabs
             editorState.justPushedToGlobalIndex = null;
+            app.persistAppState();
             renderRhythmTimeline();
         });
     });

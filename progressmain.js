@@ -342,7 +342,89 @@ function _setupChordButtons() {
 
 function _setupControlButtons() {
     const playToggleBtn = document.getElementById('btn-play-toggle');
-    playToggleBtn.addEventListener('click', () => {
+    const volPopup = document.getElementById('super-volume-popup');
+    const volFill = document.getElementById('super-volume-fill');
+    
+    let playDragStartY = 0;
+    let isPlayDragging = false;
+    let playDragStartedAsClick = false;
+    let initialVol = 1.0;
+    let wasDragging = false;
+
+    playToggleBtn.addEventListener('pointerdown', (e) => {
+        playDragStartY = e.clientY;
+        isPlayDragging = false;
+        wasDragging = false;
+        playDragStartedAsClick = true;
+        initialVol = state.volumes.master || 1.0;
+        
+        if (volFill) {
+            volFill.style.height = `${(initialVol / 4.0) * 100}%`;
+            if (initialVol > 1.0) {
+                volFill.style.backgroundColor = '#ef4444';
+                volFill.style.boxShadow = '0 0 10px #ef4444';
+            } else {
+                volFill.style.backgroundColor = 'var(--ctrl-primary-bg)';
+                volFill.style.boxShadow = 'none';
+            }
+        }
+        playToggleBtn.setPointerCapture(e.pointerId);
+    });
+
+    playToggleBtn.addEventListener('pointermove', (e) => {
+        if (!playDragStartedAsClick) return;
+        const deltaY = playDragStartY - e.clientY; // Positive when dragging UP
+        
+        if (!isPlayDragging && Math.abs(deltaY) > 10) {
+            isPlayDragging = true;
+            wasDragging = true;
+            if (volPopup) volPopup.style.display = 'flex';
+        }
+        
+        if (isPlayDragging) {
+            let newVol = initialVol + (deltaY / 40);
+            newVol = Math.max(0.0, Math.min(4.0, newVol));
+            
+            state.volumes.master = newVol;
+            try { setTrackVolume('master', newVol); } catch (err) {}
+            
+            if (volFill) {
+                volFill.style.height = `${(newVol / 4.0) * 100}%`;
+                // Turn red to indicate "overdrive"
+                if (newVol > 1.0) {
+                    volFill.style.backgroundColor = '#ef4444';
+                    volFill.style.boxShadow = '0 0 10px #ef4444';
+                } else {
+                    volFill.style.backgroundColor = 'var(--ctrl-primary-bg)';
+                    volFill.style.boxShadow = 'none';
+                }
+            }
+        }
+    });
+
+    const handlePlayPointerUp = (e) => {
+        if (!playDragStartedAsClick) return;
+        playDragStartedAsClick = false;
+        playToggleBtn.releasePointerCapture(e.pointerId);
+        
+        if (volPopup) volPopup.style.display = 'none';
+
+        if (isPlayDragging) {
+            persistAppState();
+            const masterSlider = document.getElementById('vol-master');
+            if (masterSlider) masterSlider.value = state.volumes.master;
+        }
+        isPlayDragging = false;
+    };
+
+    playToggleBtn.addEventListener('pointerup', handlePlayPointerUp);
+    playToggleBtn.addEventListener('pointercancel', handlePlayPointerUp);
+
+    playToggleBtn.addEventListener('click', (e) => {
+        if (wasDragging) {
+            wasDragging = false;
+            return;
+        }
         if (isPlaying) {
             if (currentPlaybackStopFunction) currentPlaybackStopFunction();
             stopAllAudio();
