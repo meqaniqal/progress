@@ -1,4 +1,4 @@
-import { resolvePattern } from './patternUtils.js';
+import { resolvePattern } from './patternResolver.js';
 import { getAudioCurrentTime, playTone, initAudio, midiToFreq } from './synth.js';
 import { getChordNotes } from './theory.js';
 import { CONFIG } from './config.js';

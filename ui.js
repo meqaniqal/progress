@@ -1,4 +1,4 @@
-import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getDiatonicChords, SCALE_PREFIXES, getSynestheticColorProfile } from './theory.js';
+import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getDiatonicChords, SCALE_PREFIXES } from './theory.js';
 import { renderChordInspector } from './inspectorController.js';
 
 export const KEY_NAMES = {
@@ -12,6 +12,43 @@ export function highlightChordInUI(index) {
     if (items[index]) {
         items[index].classList.add('playing');
     }
+}
+
+// --- Synesthetic UI Engine ---
+// Evaluates a chord's color profile based on its harmonic relationship to surrounding chords
+export function getSynestheticColorProfile(currentChord, prevChord, nextChord, mode = 'major') {
+    const profile = getHarmonicProfile(currentChord.symbol, mode, currentChord.key);
+    const chordNotes = getChordNotes(currentChord.symbol, currentChord.key);
+    
+    let hue = 240; 
+    if (chordNotes) {
+        const rootMidi = chordNotes[0];
+        const pitchClass = rootMidi % 12;
+        const circlePos = (pitchClass * 7) % 12; 
+        // Map 12 circle positions across 260 degrees to strictly avoid the 100-180 green range.
+        // This ensures the green selection highlight always contrasts perfectly against any chord.
+        hue = Math.round(180 + (circlePos * (260 / 11))) % 360;
+    }
+
+    let backwardTensionDelta = 0;
+    let forwardTensionDelta = 0;
+    
+    if (prevChord) {
+        const prevProfile = getHarmonicProfile(prevChord.symbol, mode, prevChord.key);
+        backwardTensionDelta = profile.tension - prevProfile.tension;
+    }
+    if (nextChord) {
+        const nextProfile = getHarmonicProfile(nextChord.symbol, mode, nextChord.key);
+        forwardTensionDelta = nextProfile.tension - profile.tension;
+    }
+
+    return {
+        hue,
+        saturation: Math.min(100, profile.isBorrowed ? 85 : 50 + Math.max(0, backwardTensionDelta * 15) + Math.max(0, forwardTensionDelta * 10)),
+        luminosityOffset: (profile.tension * 8) + (backwardTensionDelta * 4) + (forwardTensionDelta * 2),
+        tension: profile.tension,
+        nextTension: nextChord ? getHarmonicProfile(nextChord.symbol, mode, nextChord.key).tension : profile.tension
+    };
 }
 
 export function updateKeyAndModeDisplay(state) {

@@ -490,7 +490,7 @@ function _setupGlobalDoubleTap() {
         }
         
         const now = Date.now();
-        if (now - lastTapTime < 300) {
+        if (now - lastTapTime < CONFIG.DOUBLE_TAP_DELAY_MS) {
             e.preventDefault(); // Attempt to prevent double-tap zoom on mobile
             const playToggleBtn = document.getElementById('btn-play-toggle');
             if (playToggleBtn) playToggleBtn.click();

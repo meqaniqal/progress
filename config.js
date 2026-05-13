@@ -17,5 +17,20 @@ export const CONFIG = {
     DRAG_OFFSET_Y: 20,
     SYNTH_LPF_CUTOFF: 800,
     SYNTH_LPF_RESONANCE: 1.0,
-    EXPORT_TAIL_PADDING: 0.5
+    EXPORT_TAIL_PADDING: 0.5,
+    DOUBLE_TAP_DELAY_MS: 300,
+    LOOKAHEAD_MS: 25,
+    SCHEDULE_AHEAD_SEC: 0.1,
+    MIN_SLICE_DURATION: 0.02,
+    MIN_DRAW_DURATION: 0.01,
+    MIDI_TICKS_PER_BEAT: 128,
+    MIDI_DRUM_CHANNEL: 10,
+    MIDI_INSTRUMENT_PIANO: 1,
+    MIDI_DRUM_DURATION_TICKS: 16,
+    DRUM_MIDI_MAP: {
+        'kick': 36,
+        'snare': 38,
+        'chh': 42,
+        'ohh': 46
+    }
 };

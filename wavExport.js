@@ -2,7 +2,7 @@ import { getChordNotes, getPlayableNotes } from './theory.js';
 import { CONFIG } from './config.js';
 import { audioBufferToWav } from './wavEncoder.js';
 import { generateArpNotes } from './arp.js';
-import { resolvePattern } from './patternUtils.js';
+import { resolvePattern } from './patternResolver.js';
 import { playDrum, initAudio } from './synth.js';
 
 // --- Layer 1: Pure Timeline Calculator (Testable) ---

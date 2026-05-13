@@ -2,12 +2,9 @@ import { getChordNotes, getPlayableNotes } from './theory.js';
 import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators, playDrum } from './synth.js';
-import { resolvePattern } from './patternUtils.js';
+import { resolvePattern } from './patternResolver.js';
 
 let uiTimeouts = [];
-
-const LOOKAHEAD_MS = 25;
-const SCHEDULE_AHEAD_SEC = 0.1;
 
 export function auditionChord(chordSymbol, baseKey, specificNotes = null) {
     initAudio();
@@ -267,7 +264,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             return;
         }
 
-        while (nextNoteTime < getAudioCurrentTime() + SCHEDULE_AHEAD_SEC) {
+        while (nextNoteTime < getAudioCurrentTime() + CONFIG.SCHEDULE_AHEAD_SEC) {
             scheduleNote(currentChordIndexRel, nextNoteTime);
             const keepGoing = advanceNote();
             
@@ -281,7 +278,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             }
         }
 
-        schedulerTimerId = setTimeout(scheduler, LOOKAHEAD_MS);
+        schedulerTimerId = setTimeout(scheduler, CONFIG.LOOKAHEAD_MS);
     }
 
     function stopThisPlayback() {

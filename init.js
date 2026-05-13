@@ -26,7 +26,7 @@ const version = new Date().getTime();
 const jsFiles = [
     'arp', 'arpControls', 'bassControls', 'bassGenerator', 'chordDictionary', 'clipboardUtils', 
     'config', 'dragdrop', 'drumEditor', 'drumRenderer', 'exportController', 'inspectorController', 
-    'midi', 'modalController', 'patternUtils', 'progressmain', 'promptGenerator', 'rhythmConfig', 
+    'midi', 'modalController', 'patternDrawMath', 'patternResolver', 'patternUtils', 'progressmain', 'promptGenerator', 'rhythmConfig', 
     'rhythmControls', 'rhythmEditor', 'rhythmRenderer', 'sequencer', 'stateUtils', 'storage', 
     'store', 'synth', 'theory', 'timelineEditor', 'transportController', 'ui', 'wavEncoder', 'wavExport'
 ];
