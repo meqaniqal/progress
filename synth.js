@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
 import { SYNTH_REGISTRY } from './synthEngines.js';
 import { DRUM_REGISTRY } from './drumEngines.js';
-import { saveDrumSample, loadDrumSample, clearAllDrumSamples } from './db.js';
+import { saveDrumSample, loadDrumSample, clearAllDrumSamples, deleteDrumSample } from './db.js';
 
 let audioCtx;
 let decodeCtx; // Used to decode audio on page load without triggering Autoplay warnings
@@ -25,6 +25,33 @@ export function setTrackVolume(track, vol) {
 
 export let noiseBuffer = null; // Pre-allocated for drum synthesis
 export const customDrumBuffers = { kick: null, snare: null, chh: null, ohh: null };
+export const customDrumPeaks = { kick: null, snare: null, chh: null, ohh: null };
+
+// Helper to calculate waveform peaks once upon decoding, saving the UI from doing heavy math
+function extractWaveformPeaks(buffer, resolution = 50) {
+    const channelData = buffer.getChannelData(0);
+    const blockSize = Math.floor(channelData.length / resolution);
+    const peaks = [];
+    let globalMax = 0;
+    for (let i = 0; i < resolution; i++) {
+        let max = 0;
+        const start = i * blockSize;
+        const end = Math.min(start + blockSize, channelData.length);
+        for (let j = start; j < end; j++) {
+            const val = Math.abs(channelData[j]);
+            if (val > max) max = val;
+        }
+        peaks.push(max);
+        if (max > globalMax) globalMax = max;
+    }
+    
+    if (globalMax > 0) {
+        for (let i = 0; i < peaks.length; i++) {
+            peaks[i] = peaks[i] / globalMax;
+        }
+    }
+    return peaks;
+}
 
 export function initAudio() {
     if (!audioCtx) {
@@ -90,6 +117,7 @@ export async function decodeCustomDrumSample(type, arrayBuffer, saveToDb = true)
             await saveDrumSample(type, arrayBuffer.slice(0)); 
         }
         customDrumBuffers[type] = await decodeCtx.decodeAudioData(arrayBuffer);
+        customDrumPeaks[type] = extractWaveformPeaks(customDrumBuffers[type]);
     } catch (e) {
         console.error("Failed to decode custom drum sample:", e);
     }
@@ -114,7 +142,17 @@ export async function clearCustomDrumSamples() {
     customDrumBuffers.snare = null;
     customDrumBuffers.chh = null;
     customDrumBuffers.ohh = null;
+    customDrumPeaks.kick = null;
+    customDrumPeaks.snare = null;
+    customDrumPeaks.chh = null;
+    customDrumPeaks.ohh = null;
     await clearAllDrumSamples();
+}
+
+export async function clearCustomDrumSample(type) {
+    customDrumBuffers[type] = null;
+    customDrumPeaks[type] = null;
+    await deleteDrumSample(type);
 }
 
 export function getAudioCurrentTime() {

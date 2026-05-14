@@ -1,6 +1,93 @@
 import { GRID_STEPS, DRUM_ROWS, DRUM_ROW_BG_COLORS, DRUM_LABELS } from './rhythmConfig.js';
 import { generateId } from './patternUtils.js';
 import { editorState, app, setCurrentPattern, getDurationBeats, renderRhythmTimeline } from './rhythmEditor.js';
+import { customDrumPeaks, decodeCustomDrumSample, clearCustomDrumSample } from './synth.js';
+
+function showDrumLabelMenu(rowType, rowEl) {
+    document.querySelectorAll('.drum-label-menu').forEach(el => el.remove());
+
+    const menu = document.createElement('div');
+    menu.className = 'drum-label-menu';
+    menu.style.position = 'absolute';
+    menu.style.left = '40px';
+    menu.style.top = '2px';
+    menu.style.backgroundColor = 'var(--bg-panel)';
+    menu.style.border = '1px solid var(--border-main)';
+    menu.style.borderRadius = '4px';
+    menu.style.padding = '6px';
+    menu.style.zIndex = '1000';
+    menu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+    menu.style.display = 'flex';
+    menu.style.flexDirection = 'column';
+    menu.style.gap = '6px';
+    menu.style.minWidth = '120px';
+
+    const title = document.createElement('div');
+    title.textContent = `Sound: ${DRUM_LABELS[rowType]}`;
+    title.style.fontSize = '12px';
+    title.style.fontWeight = 'bold';
+    title.style.marginBottom = '4px';
+    title.style.color = 'var(--text-main)';
+    title.style.textAlign = 'center';
+    menu.appendChild(title);
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'audio/*';
+    fileInput.style.display = 'none';
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            const arrayBuffer = ev.target.result;
+            await decodeCustomDrumSample(rowType, arrayBuffer);
+            if (app.state.instruments.drums !== 'custom') {
+                app.state.instruments.drums = 'custom';
+                app.persistAppState();
+            }
+            menu.remove();
+            renderRhythmTimeline(); 
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'control-btn primary';
+    loadBtn.innerHTML = '📂 Load Sample';
+    loadBtn.style.fontSize = '12px';
+    loadBtn.style.padding = '4px 8px';
+    loadBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fileInput.click();
+    });
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'control-btn secondary';
+    clearBtn.innerHTML = '↺ Use Synth';
+    clearBtn.style.fontSize = '12px';
+    clearBtn.style.padding = '4px 8px';
+    clearBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await clearCustomDrumSample(rowType);
+        menu.remove();
+        renderRhythmTimeline(); 
+    });
+
+    menu.appendChild(fileInput);
+    menu.appendChild(loadBtn);
+    menu.appendChild(clearBtn);
+
+    const closeHandler = (e) => {
+        if (!menu.contains(e.target)) {
+            menu.remove();
+            document.removeEventListener('pointerdown', closeHandler);
+        }
+    };
+    setTimeout(() => document.addEventListener('pointerdown', closeHandler), 10);
+
+    rowEl.appendChild(menu);
+}
 
 export function renderDrumGrid(container, pattern) {
     // Remove leftover slice timeline elements when switching to Drums
@@ -66,20 +153,20 @@ export function renderDrumGrid(container, pattern) {
             line.style.left = `${pos * 100}%`;
             const beatPos = pos * beats / 4;
             
-            line.style.opacity = '0.15';
+            line.style.opacity = '0.3';
             line.style.width = '';
             line.style.backgroundColor = '';
             line.style.transform = '';
             
             if (pos === 0) {
-                line.style.opacity = '0.15';
+                line.style.opacity = '0.3';
             } else if (Math.abs(beatPos - Math.round(beatPos)) < 0.001) {
-                line.style.opacity = '0.8';
+                line.style.opacity = '1.0';
                 line.style.width = '2px';
                 line.style.backgroundColor = 'var(--text-main)';
                 line.style.transform = 'translateX(-1px)';
             } else if (Math.abs((beatPos * 2) - Math.round(beatPos * 2)) < 0.001) {
-                line.style.opacity = '0.4';
+                line.style.opacity = '0.6';
             }
         } else {
             existingLines[i].remove();
@@ -99,6 +186,12 @@ export function renderDrumGrid(container, pattern) {
             const label = document.createElement('span');
             label.className = 'drum-row-label';
             label.textContent = DRUM_LABELS[rowType];
+            label.style.cursor = 'pointer';
+            label.title = 'Click to change sound';
+            label.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showDrumLabelMenu(rowType, rowEl);
+            });
             rowEl.appendChild(label);
             
             const rowInner = document.createElement('div');
@@ -154,6 +247,55 @@ export function renderDrumGrid(container, pattern) {
             } else {
                 hitEl.style.opacity = 0.3 + (hit.velocity !== undefined ? hit.velocity : 1.0) * 0.7;
                 hitEl.style.pointerEvents = '';
+            }
+            
+            // --- Waveform Rendering Engine ---
+            const isCustom = app.state.instruments && app.state.instruments.drums === 'custom';
+            const peaks = isCustom ? customDrumPeaks[hit.row] : null;
+
+            if (peaks && peaks.length > 0) {
+                hitEl.style.background = 'transparent';
+                hitEl.style.border = 'none';
+                hitEl.style.width = '45px'; // Expand hit area slightly to make room for waveform
+                
+                let svg = hitEl.querySelector('svg.waveform');
+                if (!svg) {
+                    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.setAttribute('class', 'waveform');
+                    svg.setAttribute('viewBox', '0 0 100 100');
+                    svg.setAttribute('preserveAspectRatio', 'none');
+                    svg.style.width = '100%';
+                    svg.style.height = '100%';
+                    svg.style.position = 'absolute';
+                    svg.style.top = '0';
+                    svg.style.left = '0';
+                    svg.style.pointerEvents = 'none';
+                    
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const solidColor = (DRUM_ROW_BG_COLORS[hit.row] || 'var(--text-main)').replace('0.05', '0.9');
+                    path.setAttribute('fill', solidColor);
+                    svg.appendChild(path);
+                    hitEl.appendChild(svg);
+                }
+                
+                // Re-draw the path using mirrored top and bottom coordinates to create a balanced wave
+                const path = svg.querySelector('path');
+                let pathDataTop = '';
+                let pathDataBottom = '';
+                const step = 100 / (peaks.length - 1 || 1);
+                for (let i = 0; i < peaks.length; i++) {
+                    const x = i * step;
+                    const yOffset = peaks[i] * 50; 
+                    pathDataTop += `${i===0?'M':'L'} ${x} ${50 - yOffset} `;
+                    pathDataBottom = `L ${x} ${50 + yOffset} ` + pathDataBottom; // Prepend to reverse drawing order
+                }
+                path.setAttribute('d', pathDataTop + pathDataBottom + 'Z');
+            } else {
+                const svg = hitEl.querySelector('svg.waveform');
+                if (svg) svg.remove();
+                hitEl.style.background = '';
+                hitEl.style.border = '';
+                hitEl.style.width = '';
             }
         });
     }
