@@ -66,7 +66,8 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] **Drum Presets & UX:** Drum tab defaults to global mode to prevent confusion. Added a curated library of complex generative drum presets (DnB, Bossa Nova, Lo-Fi, etc.).
 - [x] **Strict Modularization:** Extracted specialized tools (`arpControls.js`, `bassControls.js`, `clipboardUtils.js`, `transportController.js`) out of the main monolitic controllers.
 - [x] **3D Transport & Folder UX:** Styled the editor as an OS-level file folder with dynamic gradients, and added a 3D neumorphic playback transport with a hidden "Super Volume" overdrive slider.
-- [ ] **Advanced Modular Synthesis & Sound Design (Current Focus):** Pluggable synths, enhanced AI target audio profiling, and professional drum sampling logic.
+- [x] **Advanced Modular Synthesis & Sound Design (Complete):** Pluggable synths (FM, Plucked Square), custom drum sampling via IndexedDB, and SVG waveform generation.
+- [x] **Visual Polish & Contextual UI:** Arp visualizations on timeline blocks, contextual drum labels, and streamlined inspector layouts.
 - [x] **True Minor Key & Omni-Scale Theory Framework:**
   - [x] Decouple global key state to support modes (Major/Minor).
   - [x] Dynamic UI palettes that render correct diatonic chords for the active scale.

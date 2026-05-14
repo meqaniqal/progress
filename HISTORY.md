@@ -66,3 +66,7 @@
 - **Folder Tabs UI & Synesthetic Contrast:** Redesigned the Rhythm Editor tabs into a cohesive file folder layout with a 135-degree diagonal gradient border. Compressed the Circle-of-Fifths color mapping to guarantee the selection highlight always remains highly visible.
 - **Drum Workflow & Presets:** The Drum tab now intelligently defaults to Global Mode when empty. Added a curated dropdown of advanced drum presets (House, Hip Hop, Breakbeat, DnB, Bossa Nova, Lo-Fi) utilizing velocity and probability dynamics.
 - **Strict Component Modularization:** Drastically reduced monolithic files by extracting `inspectorController.js`, `drumRenderer.js`, `clipboardUtils.js`, `transportController.js`, `arpControls.js`, and `bassControls.js` into pure, focused ES6 modules.
+- **Modular Synth Engines:** Extracted sound generation into `synthEngines.js` and `drumEngines.js`. Added FM Synthesis and Plucked Square modules.
+- **Custom Drum Samples:** Implemented `.wav` uploads via `FileReader`, background decoding via `OfflineAudioContext`, and persistent storage via IndexedDB (`db.js`).
+- **Advanced Timeline Rendering:** Added pre-computed SVG waveform rendering for custom drum hits and real-time polyrhythmic Arpeggiator visualization on chord slices.
+- **Contextual UI & Layout:** Grouped timeline properties (Velocity, Probability, Pitch, Avoid Kick) into attached tabs. Compacted Inspector tools and added contextual popup menus for drum labels to manage custom samples.
