@@ -167,6 +167,10 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         // 1. Transpose
         const modBlock = document.createElement('div');
         modBlock.className = 'mod-block';
+        modBlock.style.display = 'flex';
+        modBlock.style.flexDirection = 'column';
+        modBlock.style.alignItems = 'center';
+        modBlock.style.gap = '2px';
         modBlock.innerHTML = `<strong class="inspector-label">Transpose:</strong>`;
         const modSelect = document.createElement('select');
         modSelect.className = 'rhythm-select mod-select';
@@ -183,6 +187,10 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         // --- Voicing Type Slider ---
         const voicingBlock = document.createElement('div');
         voicingBlock.className = 'voicing-block';
+        voicingBlock.style.display = 'flex';
+        voicingBlock.style.flexDirection = 'column';
+        voicingBlock.style.alignItems = 'center';
+        voicingBlock.style.gap = '2px';
 
         const vLabel = document.createElement('span');
         vLabel.className = 'inspector-label voicing-label';
@@ -191,6 +199,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         const vSlider = document.createElement('input');
         vSlider.type = 'range';
         vSlider.className = 'voicing-slider';
+        vSlider.style.margin = '0';
         vSlider.min = 0;
         vSlider.max = 4;
         vSlider.step = 0.01;
@@ -200,6 +209,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         // Buttons: Set as Global
         const vBtnGroup = document.createElement('div');
         vBtnGroup.className = 'v-btn-group';
+        vBtnGroup.style.marginTop = '2px';
         
         const setGlobalBtn = document.createElement('button');
         setGlobalBtn.className = 'control-btn secondary set-global-btn';
@@ -212,6 +222,10 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         // --- Inversion Stepper ---
         const invBlock = document.createElement('div');
         invBlock.className = 'inv-block';
+        invBlock.style.display = 'flex';
+        invBlock.style.flexDirection = 'column';
+        invBlock.style.alignItems = 'center';
+        invBlock.style.gap = '2px';
         invBlock.innerHTML = `<strong class="inspector-label">Inversion:</strong>`;
 
         const stepperContainer = document.createElement('div');
@@ -243,6 +257,10 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         // 2. Duration
         const durBlock = document.createElement('div');
         durBlock.className = 'dur-block';
+        durBlock.style.display = 'flex';
+        durBlock.style.flexDirection = 'column';
+        durBlock.style.alignItems = 'center';
+        durBlock.style.gap = '2px';
         
         const durLabel = document.createElement('span');
         durLabel.className = 'inspector-label dur-label';
@@ -250,6 +268,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         const durSlider = document.createElement('input');
         durSlider.type = 'range';
         durSlider.className = 'dur-slider';
+        durSlider.style.margin = '0';
         durSlider.min = 1;
         durSlider.max = 8;
         durSlider.step = 1;

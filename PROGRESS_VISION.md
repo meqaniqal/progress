@@ -151,3 +151,37 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 ### 7. Progressive Disclosure & Simple Mode (Future Goal)
 - **Beginner-Friendly Defaults:** A default "Simple Mode" upon app load that hides advanced theory configurations, the timeline editor, and complex voicings.
 - **Progressive Interface:** A settings gear that allows users to progressively turn on "Advanced Mode" features (like the Rhythm Editor, Borrowed/Extended chords palettes, and specific sound design tools) as they gain familiarity with the workflow.
+
+### 8. Song Mode & Macro-Arrangement (Phase 6)
+Transform the app from a single-loop sketchpad into a full song structure arranger, allowing users to build, sequence, and export multi-section tracks (Intro, Verse, Chorus, etc.).
+
+**1. Data Architecture & Migration**
+- **Nested State:** The `currentProgression` array evolves into a library of `sections` (e.g., `{ id, name, progression: [], globalPatterns: {} }`).
+- **The Macro-Sequence:** A new `songSequence` array stores references to these sections (e.g., `['intro', 'verse_1', 'chorus_1', 'verse_1']`).
+- **Linked Sections:** If the same section name appears more than once in the song sequencer, they are linked references. Editing one edits all instances. For independent copies, users create a numbered duplicate (e.g., "Chorus 2"), inherit the original's data, and edit independently.
+
+**2. UI Layout: The Section Tabs & Song Tray**
+- **Section Tabs:** Situated directly above the chord tray. Displays the active section being edited.
+- **Section Creation:** A `[+ Section]` button allows adding new parts via a dropdown (Intro, Verse, Chorus, Bridge, Outro).
+- **Smart Naming & Renaming:** Clicking an existing tab opens the naming dropdown. If a name already exists, the app auto-appends a number (e.g., "Chorus 2").
+- **First-Time Flow:** If the user has a sequence built and clicks `[+ Section]` for the first time, the app intercepts, prompts the user to name their *existing* work (creating the first tab), then prompts the user to choose the section type for the *new* tab, and finally creates the new empty tab.
+- **The Song Sequencer Tray:** An unfoldable tray that sits at the very top of the progression area. It remains completely hidden if the app only has one section or no sections have been created.
+
+**3. "Empty State" Inheritance & Global Patterns**
+- **Section-Specific Global Patterns:** Each section (Verse, Chorus) maintains its own "Global Pattern" for drums, chords, and bass.
+- **Inherit From Dropdown:** When a new section is created and is empty, an "Inherit From" dropdown appears. This allows the user to populate the section with the chords, loop brackets, and global patterns from another chosen section. 
+- **Smart Default Inheritance:** By default, the first new section inherits global patterns from the original section. If a numbered duplicate (e.g., "Chorus 2") is created, it defaults to inheriting from "Chorus". If multiple similar sections exist, the user chooses which to inherit from via the dropdown.
+- **Disappearance/Reappearance:** The "Inherit From" dropdown disappears as soon as the user drags in chords or makes edits. It reappears if the user deletes all chords from that section.
+
+**4. "Song Mode" Interactions**
+- **Macro Drag & Drop:** The Song Tray acts just like the Chord Tray. Users can drag a section button directly into the Song Tray to insert it at a specific desired location, double-tap buttons to append them to the end, and drag-and-drop to reorder sections within the tray. Code reuse of `dragdrop.js` will handle both block types natively.
+- **Focus Shifting:** When the Song Tray is unfolded, "Song Mode" is active. The Chord Chooser, Inspector, and Pattern Editor panels automatically fold away to reduce visual clutter.
+- **Auto-Folding:** Clicking anywhere in the underlying Chord Tray (except the tabs) folds the Song Tray away and exits Song Mode, returning focus to local editing tools.
+
+**5. Playback & Export in Song Mode**
+- **Single Source of Truth Playback:** Playback evaluates the `songSequence` array directly. The audio engine traverses the sections seamlessly.
+- **Auto-Tab Tracking & State Sync:** During Song Mode playback, the UI automatically switches the active Section Tab to match the currently playing section. If the user stops playback, the chord tray retains focus on that section for immediate editing.
+- **Playback Start Position:** Playback starts from the currently *selected* section in the song tray, rather than restarting from the beginning of the song every time playback is stopped and started. Manual selection during playback gracefully cues the next section.
+- **Empty Sections:** If playback hits an empty section, the engine pauses for the duration of the gap and displays a message indicating there is no song data for that section yet, ensuring the user realizes something is missing.
+- **Macro-Looping:** Loop brackets (`[` and `]`) in the Song Tray allow auditioning macro-transitions (e.g., looping the end of the Bridge into the Chorus).
+- **Contextual Export & Capping:** If the Song Tray is open, Export handles the entire macro-sequence. Because `exportPasses` multiplied by a full song could result in massive files (e.g., 15+ minutes), the app will detect if an export will exceed 1 minute and prompt the user, offering to cap the export to a 3-minute limit, with a dropdown to increase or bypass the cap if deliberately desired.

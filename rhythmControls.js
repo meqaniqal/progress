@@ -54,8 +54,7 @@ function _setupGridSlider() {
     const gridSlider = document.getElementById('rhythm-grid-slider');
     const gridDisplay = document.getElementById('grid-display-value');
     const btnGridToggle = document.getElementById('btn-grid-toggle');
-    const btnZoomIn = document.getElementById('btn-zoom-in');
-    const btnZoomOut = document.getElementById('btn-zoom-out');
+    const zoomSlider = document.getElementById('zoom-slider');
     
     if (gridSlider) editorState.gridStepIndex = parseInt(gridSlider.value, 10);
     
@@ -83,15 +82,13 @@ function _setupGridSlider() {
         });
     }
 
-    const handleZoom = (delta) => {
-        if (editorState.activeTab !== 'drumPattern' || !editorState.isGlobal) return;
-        const currentZoom = editorState.zoomLevel || 1.0;
-        editorState.zoomLevel = Math.max(0.8, Math.min(4.0, currentZoom + delta));
-        renderRhythmTimeline();
-    };
-
-    if (btnZoomIn) btnZoomIn.addEventListener('click', () => handleZoom(0.5));
-    if (btnZoomOut) btnZoomOut.addEventListener('click', () => handleZoom(-0.5));
+    if (zoomSlider) {
+        zoomSlider.addEventListener('input', (e) => {
+            if (editorState.activeTab !== 'drumPattern' || !editorState.isGlobal) return;
+            editorState.zoomLevel = parseFloat(e.target.value);
+            renderRhythmTimeline();
+        });
+    }
 }
 
 /** Sets up the drum specific controls (e.g., Global Length). */
@@ -270,6 +267,19 @@ function _setupPropertiesControls() {
 
         probSlider.addEventListener('change', (e) => {
             app.saveHistoryState();
+        });
+    }
+
+    const akCheck = document.getElementById('pattern-avoid-kick');
+    if (akCheck) {
+        akCheck.addEventListener('change', (e) => {
+            const pattern = getCurrentPattern();
+            if (pattern) {
+                app.saveHistoryState();
+                setCurrentPattern({ ...pattern, avoidKick: e.target.checked });
+                app.persistAppState();
+                renderRhythmTimeline();
+            }
         });
     }
 }

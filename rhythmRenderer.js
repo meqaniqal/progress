@@ -6,6 +6,8 @@ import {
     setCurrentPattern, 
     getDurationBeats 
 } from './rhythmEditor.js';
+import { generateArpNotes } from './arp.js';
+import { getChordNotes } from './theory.js';
 
 const PITCH_LABELS = {
     '-12': '-8ve', '-11': '-M7', '-10': '-m7', '-9': '-M6', '-8': '-m6', '-7': '-P5', '-6': '-TT', '-5': '-P4', '-4': '-M3', '-3': '-m3', '-2': '-M2', '-1': '-m2',
@@ -241,7 +243,11 @@ export function renderRhythmTimeline() {
     if (btnPaste) btnPaste.style.display = isGlobalDrums ? 'none' : 'inline-block';
 
     const zoomGroup = document.getElementById('zoom-controls-group');
+    const zoomSlider = document.getElementById('zoom-slider');
     if (zoomGroup) zoomGroup.style.display = isGlobalDrums ? 'flex' : 'none';
+    if (zoomSlider && isGlobalDrums) {
+        zoomSlider.value = editorState.zoomLevel || 1.0;
+    }
 
     const drumLengthSelect = document.getElementById('drum-length-select');
     const drumCropBtn = document.getElementById('btn-drum-crop');
@@ -249,7 +255,7 @@ export function renderRhythmTimeline() {
     if (drumLengthSelect) {
         drumLengthSelect.style.display = isGlobalDrums ? 'inline-block' : 'none';
         if (drumCropBtn) drumCropBtn.style.display = isGlobalDrums ? 'inline-block' : 'none';
-        if (drumPresetSelect) drumPresetSelect.style.display = editorState.activeTab === 'drumPattern' ? 'inline-block' : 'none';
+        if (drumPresetSelect) drumPresetSelect.style.display = isGlobalDrums ? 'inline-block' : 'none';
         if (isGlobalDrums) {
             drumLengthSelect.value = pattern.lengthBeats || 4;
         }
@@ -345,6 +351,17 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
     } else if (prGrid) {
         prGrid.remove();
     }
+        
+    let chordNotes = [60, 64, 67, 71]; // Default dummy sequence for the Global Editor
+    if (!editorState.isGlobal && editorState.activeIndex !== null) {
+        const chord = app.state.currentProgression[editorState.activeIndex];
+        if (chord) {
+            const notes = getChordNotes(chord.symbol, chord.key);
+            if (notes) chordNotes = notes;
+        }
+    }
+    const bpm = app.state.bpm || 120;
+    const totalDurationSec = (60 / bpm) * getDurationBeats();
 
     // 1. Remove obsolete nodes to prevent memory leaks and ghost elements
     const existingNodes = Array.from(container.querySelectorAll('.rhythm-instance'));
@@ -386,6 +403,46 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
         
         el.style.left = `${inst.startTime * 100}%`;
         el.style.width = `${inst.duration * 100}%`;
+        
+        // --- Arpeggiator Visualization Engine ---
+        if (inst.arpSettings && isChordTab) {
+            let arpVisContainer = el.querySelector('.arp-vis-container');
+            if (!arpVisContainer) {
+                arpVisContainer = document.createElement('div');
+                arpVisContainer.className = 'arp-vis-container';
+                arpVisContainer.style.position = 'absolute';
+                arpVisContainer.style.top = '0';
+                arpVisContainer.style.left = '0';
+                arpVisContainer.style.width = '100%';
+                arpVisContainer.style.height = '100%';
+                arpVisContainer.style.pointerEvents = 'none'; // Ensure user can still drag the block underneath
+                arpVisContainer.style.overflow = 'hidden';
+                arpVisContainer.style.borderRadius = '3px';
+                el.appendChild(arpVisContainer);
+            }
+            
+            const instanceDurationSec = inst.duration * totalDurationSec;
+            const arpEvents = generateArpNotes({ notesToPlay: chordNotes, arpSettings: inst.arpSettings, instanceDuration: instanceDurationSec, bpm });
+            
+            const uniqueNotes = [...new Set(chordNotes)].sort((a, b) => a - b);
+            const noteRange = uniqueNotes.length || 1;
+            const heightPct = 100 / noteRange;
+            
+            let visHtml = '';
+            arpEvents.forEach(event => {
+                const leftPct = (event.startTime / instanceDurationSec) * 100;
+                const widthPct = (event.duration / instanceDurationSec) * 100;
+                const noteIndex = uniqueNotes.indexOf(event.note);
+                const topPct = 100 - ((noteIndex + 1) * heightPct); // Render highest pitches at the top
+                visHtml += `<div style="position: absolute; left: ${leftPct}%; top: ${topPct}%; width: ${widthPct}%; height: ${heightPct}%; background: rgba(255, 255, 255, 0.85); box-sizing: border-box; border: 1px solid rgba(0,0,0,0.2); border-radius: 1px;"></div>`;
+            });
+            arpVisContainer.innerHTML = visHtml;
+            el.style.background = 'rgba(74, 222, 128, 0.2)'; // Dim the green background so the white notes pop
+        } else {
+            const arpVisContainer = el.querySelector('.arp-vis-container');
+            if (arpVisContainer) arpVisContainer.remove();
+            el.style.background = ''; // Restore default background
+        }
 
         if (isPitchMode) {
             const pOffset = inst.pitchOffset || 0;

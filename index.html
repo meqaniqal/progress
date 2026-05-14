@@ -165,45 +165,64 @@
         </div>
         <div class="tab-content-wrapper">
         <div class="rhythm-toolbar tabs-active">
-            <div class="tool-group">
-                <button class="control-btn secondary" id="btn-rhythm-reset" style="padding: 6px 12px; font-size: 13px;" title="Revert to inheriting the Global Pattern">↺ Reset to Global</button>
-                <button class="control-btn secondary" id="btn-rhythm-clear" style="padding: 6px 12px; font-size: 13px;" title="Override with a single, un-sliced basic block">⊘ Clear</button>
-                <button class="control-btn secondary" id="btn-rhythm-copy" style="padding: 6px 12px; font-size: 13px;" title="Copy rhythm pattern">📋 Copy</button>
-                <button class="control-btn secondary" id="btn-rhythm-paste" style="padding: 6px 12px; font-size: 13px;" title="Paste rhythm pattern" disabled>📋 Paste</button>
-                <button class="control-btn secondary" id="btn-rhythm-delete" style="padding: 6px 12px; font-size: 13px;" title="Delete selected slices">🗑 Delete</button>
-                <button class="control-btn primary" id="btn-apply-arp" style="padding: 6px 12px; font-size: 13px;">✨ Apply Arp</button>
-                <div id="zoom-controls-group" class="toolbar-group-panel" style="display: none; gap: 4px;">
-                    <button class="control-btn secondary icon-btn" id="btn-zoom-out" title="Zoom Out">🔍-</button>
-                    <button class="control-btn secondary icon-btn" id="btn-zoom-in" title="Zoom In">🔍+</button>
+            <div class="tool-group" style="flex-wrap: wrap; gap: 6px;">
+                <!-- Main Tools Row -->
+                <div class="toolbar-row" style="display: flex; flex-wrap: nowrap; gap: 4px; width: 100%; align-items: center; overflow-x: auto;">
+                    <button class="control-btn secondary" id="btn-rhythm-reset" style="padding: 6px 12px; font-size: 13px;" title="Revert to inheriting the Global Pattern">↺ Reset</button>
+                    <button class="control-btn secondary" id="btn-rhythm-clear" style="padding: 6px 12px; font-size: 13px;" title="Override with a single, un-sliced basic block">⊘ Clear</button>
+                    <button class="control-btn secondary" id="btn-rhythm-copy" style="padding: 6px 12px; font-size: 13px;" title="Copy rhythm pattern">📋 Copy</button>
+                    <button class="control-btn secondary" id="btn-rhythm-paste" style="padding: 6px 12px; font-size: 13px;" title="Paste rhythm pattern" disabled>📋 Paste</button>
+                    <button class="control-btn secondary" id="btn-rhythm-delete" style="padding: 6px 12px; font-size: 13px;" title="Delete selected slices">🗑 Delete</button>
+                    <div id="zoom-controls-group" class="toolbar-group-panel" style="display: none; align-items: center; gap: 4px; margin-left: auto;">
+                        <span style="font-size: 11px; font-weight: bold; opacity: 0.8;" title="Zoom">🔍</span>
+                        <input type="range" id="zoom-slider" min="0.8" max="4.0" step="0.1" value="1.0" style="width: 50px; margin: 0; cursor: pointer;">
+                    </div>
+                    <div class="toolbar-group-panel" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap;">
+                        <button id="btn-grid-toggle" class="tool-btn active" style="padding: 4px 6px; font-size: 11px; min-width: 65px; text-align: center; border-radius: 4px; margin: 0; white-space: nowrap;" title="Toggle Grid Snapping">Grid: <span id="grid-display-value">1/16</span></button>
+                        <input type="range" id="rhythm-grid-slider" min="0" max="4" value="4" style="width: 50px; margin: 0; cursor: pointer;">
+                    </div>
                 </div>
-                <div class="toolbar-group-panel">
-                    <button id="btn-grid-toggle" class="tool-btn active" style="padding: 4px 8px; font-size: 12px; min-width: 75px; text-align: center; border-radius: 4px; margin: 0;" title="Toggle Grid Snapping">Grid: <span id="grid-display-value">1/16</span></button>
-                    <input type="range" id="rhythm-grid-slider" min="0" max="4" value="4" style="width: 75px; margin: 0; cursor: pointer;">
-                </div>
-                <div id="item-properties-group" class="toolbar-group-panel" style="display: none; gap: 10px;">
-                    <div id="prop-pitch-wrapper" class="toolbar-group-panel" style="display: none; gap: 4px; margin-left: 0; padding: 2px 6px; border-radius: 4px;">
-                        <button class="control-btn secondary icon-btn" id="btn-pitch-down" style="font-size: 12px;">-</button>
-                        <span id="prop-pitch-display" style="font-size: 11px; font-weight: bold; width: 32px; text-align: center; color: var(--text-main);">Root</span>
-                        <button class="control-btn secondary icon-btn" id="btn-pitch-up" style="font-size: 12px;">+</button>
-                    </div>
-                    <div id="prop-velocity-wrapper" style="display: flex; align-items: center; gap: 4px;">
-                        <span style="font-size: 11px; font-weight: bold; opacity: 0.8;" title="Velocity">VEL:</span>
-                        <input type="range" id="prop-velocity-slider" min="0.1" max="1.0" step="0.05" value="1.0" style="width: 60px; margin: 0; cursor: pointer;">
-                    </div>
-                    <div id="prop-probability-wrapper" style="display: flex; align-items: center; gap: 4px;">
-                        <span style="font-size: 11px; font-weight: bold; opacity: 0.8;" title="Probability">PROB:</span>
-                        <input type="range" id="prop-probability-slider" min="0.0" max="1.0" step="0.05" value="1.0" style="width: 60px; margin: 0; cursor: pointer;">
-                    </div>
+                <!-- Arp & Properties Row -->
+                <div class="toolbar-row" id="arp-toolbar-row" style="display: flex; flex-wrap: wrap; gap: 8px; width: 100%; align-items: center;">
+                    <button class="control-btn primary" id="btn-apply-arp" style="padding: 4px 10px; font-size: 12px;">✨ Apply Arp</button>
                 </div>
             </div>
         </div>
         
-        <div id="editor-mode-toggles" class="editor-mode-toggles">
-            <button id="btn-draw-toggle" class="tool-btn draw-pitch-btn" style="display: none;" title="Toggle Pencil Draw Tool">✏️ Draw Mode</button>
-            <button id="btn-pitch-toggle" class="tool-btn draw-pitch-btn" style="display: none;" title="Toggle Pitch Mode (Piano Roll)">🎹 Pitch Mode</button>
-        </div>
-        <div class="rhythm-timeline-container" id="rhythm-timeline">
-            <!-- Instances rendered here dynamically -->
+        <div style="position: relative; width: 100%; display: flex; flex-direction: column; flex-grow: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; width: 100%; padding: 0 12px; position: relative; z-index: 10; margin-bottom: -1px;">
+                <div style="display: flex; gap: 8px; align-items: flex-end;">
+                    <div id="pattern-fx-group" style="display: none; align-items: center; background: rgba(0,0,0,0.4); padding: 0 10px; border-radius: 6px 6px 0 0; border: 1px solid rgba(255,255,255,0.1); border-bottom: none; height: 26px;">
+                        <input type="checkbox" id="pattern-avoid-kick" style="margin: 0 6px 0 0; cursor: pointer;">
+                        <label for="pattern-avoid-kick" style="font-size: 11px; font-weight: bold; color: #fff; cursor: pointer; user-select: none;">Avoid Kick</label>
+                    </div>
+                    
+                    <div id="item-properties-group" style="display: none; align-items: center; background: rgba(0,0,0,0.4); padding: 0 10px; border-radius: 6px 6px 0 0; border: 1px solid rgba(255,255,255,0.1); border-bottom: none; gap: 10px; height: 26px;">
+                        <div id="prop-pitch-wrapper" style="display: none; gap: 4px; align-items: center;">
+                            <button class="control-btn secondary icon-btn" id="btn-pitch-down" style="font-size: 10px; padding: 2px 6px; line-height: 1;">-</button>
+                            <span id="prop-pitch-display" style="font-size: 11px; font-weight: bold; width: 32px; text-align: center; color: var(--text-main);">Root</span>
+                            <button class="control-btn secondary icon-btn" id="btn-pitch-up" style="font-size: 10px; padding: 2px 6px; line-height: 1;">+</button>
+                        </div>
+                        <div id="prop-velocity-wrapper" style="display: flex; align-items: center; gap: 4px;">
+                            <span style="font-size: 11px; font-weight: bold; color: #fff; opacity: 0.8;" title="Velocity">VEL:</span>
+                            <input type="range" id="prop-velocity-slider" min="0.1" max="1.0" step="0.05" value="1.0" style="width: 50px; margin: 0; cursor: pointer;">
+                        </div>
+                        <div id="prop-probability-wrapper" style="display: flex; align-items: center; gap: 4px;">
+                            <span style="font-size: 11px; font-weight: bold; color: #fff; opacity: 0.8;" title="Probability">PROB:</span>
+                            <!-- Step 0.25 forces snapping to 0, 25, 50, 75, 100% -->
+                            <input type="range" id="prop-probability-slider" min="0.0" max="1.0" step="0.25" value="1.0" style="width: 50px; margin: 0; cursor: pointer;" title="0%, 25%, 50%, 75%, 100%">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="editor-mode-toggles" class="editor-mode-toggles" style="display: flex; gap: 4px;">
+                    <button id="btn-draw-toggle" class="tool-btn draw-pitch-btn" style="display: none; border-radius: 6px 6px 0 0; border-bottom: none; padding: 0 10px; height: 26px;" title="Toggle Pencil Draw Tool">✏️ Draw Mode</button>
+                    <button id="btn-pitch-toggle" class="tool-btn draw-pitch-btn" style="display: none; border-radius: 6px 6px 0 0; border-bottom: none; padding: 0 10px; height: 26px;" title="Toggle Pitch Mode (Piano Roll)">🎹 Pitch Mode</button>
+                </div>
+            </div>
+            <div class="rhythm-timeline-container" id="rhythm-timeline">
+                <!-- Instances rendered here dynamically -->
+            </div>
         </div>
         </div>
         </div>
