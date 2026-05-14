@@ -1,6 +1,10 @@
 import { CONFIG } from './config.js';
+import { SYNTH_REGISTRY } from './synthEngines.js';
+import { DRUM_REGISTRY } from './drumEngines.js';
+import { saveDrumSample, loadDrumSample, clearAllDrumSamples } from './db.js';
 
 let audioCtx;
+let decodeCtx; // Used to decode audio on page load without triggering Autoplay warnings
 let activeOscillators = [];
 let masterCompressor; // Module-scoped, but only initialized once
 
@@ -20,6 +24,7 @@ export function setTrackVolume(track, vol) {
 }
 
 export let noiseBuffer = null; // Pre-allocated for drum synthesis
+export const customDrumBuffers = { kick: null, snare: null, chh: null, ohh: null };
 
 export function initAudio() {
     if (!audioCtx) {
@@ -65,8 +70,51 @@ export function initAudio() {
         }
     }
     if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
+        const resumePromise = audioCtx.resume();
+        if (resumePromise !== undefined) {
+            resumePromise.catch(() => { /* Silently ignore autoplay warnings */ });
+        }
     }
+}
+
+export async function decodeCustomDrumSample(type, arrayBuffer, saveToDb = true) {
+    if (!decodeCtx) {
+        // Use OfflineAudioContext to decode. This bypasses the browser's Autoplay Policy
+        // which blocks the standard AudioContext from starting without a user gesture.
+        const sampleRate = audioCtx ? audioCtx.sampleRate : 44100;
+        decodeCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, sampleRate);
+    }
+    try {
+        if (saveToDb) {
+            // Clone the buffer before decoding, as decodeAudioData detaches the original ArrayBuffer
+            await saveDrumSample(type, arrayBuffer.slice(0)); 
+        }
+        customDrumBuffers[type] = await decodeCtx.decodeAudioData(arrayBuffer);
+    } catch (e) {
+        console.error("Failed to decode custom drum sample:", e);
+    }
+}
+
+export async function loadPersistedDrumSamples() {
+    const types = ['kick', 'snare', 'chh', 'ohh'];
+    for (const type of types) {
+        try {
+            const buffer = await loadDrumSample(type);
+            if (buffer) {
+                await decodeCustomDrumSample(type, buffer, false); // Pass false to prevent infinite re-saving
+            }
+        } catch (e) {
+            console.warn(`Could not load ${type} from IndexedDB`, e);
+        }
+    }
+}
+
+export async function clearCustomDrumSamples() {
+    customDrumBuffers.kick = null;
+    customDrumBuffers.snare = null;
+    customDrumBuffers.chh = null;
+    customDrumBuffers.ohh = null;
+    await clearAllDrumSamples();
 }
 
 export function getAudioCurrentTime() {
@@ -77,215 +125,51 @@ export function midiToFreq(m) {
     return Math.pow(2, (m - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ;
 }
 
-export function playTone(freq, startTime, duration, type = 'sine') {
-    const osc = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    let filterNode = null;
+export function playTone(freq, startTime, duration, type = 'sine', destBus = null) {
+    const engine = SYNTH_REGISTRY[type];
+    if (!engine) return;
 
-    osc.type = type;
-    osc.frequency.value = freq;
-
-    // Protect envelopes from breaking on very short chopped/arp notes
-    const safeAttack = Math.min(CONFIG.ATTACK_TIME, duration * 0.3);
-    const safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
-
-    // Envelope to avoid clicks: Attack -> Sustain -> Release
-    gainNode.gain.setValueAtTime(0, startTime);
-    gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + safeAttack); // Attack
-    gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + duration - safeRelease); // Explicit sustain hold
-    gainNode.gain.linearRampToValueAtTime(0, startTime + duration); // Release
-
-    const targetGainNode = type === 'sawtooth' ? chordsGain : bassGain;
-
-    // Apply Low-Pass Filter specifically for sawtooth pad chords
-    if (type === 'sawtooth') {
-        filterNode = audioCtx.createBiquadFilter();
-        filterNode.type = 'lowpass';
-        filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 1.5, startTime);
-        filterNode.frequency.exponentialRampToValueAtTime(CONFIG.SYNTH_LPF_CUTOFF, startTime + safeAttack);
-        filterNode.Q.value = CONFIG.SYNTH_LPF_RESONANCE;
-
-        osc.connect(filterNode);
-        filterNode.connect(gainNode);
-    } else {
-        osc.connect(gainNode);
+    let targetGainNode = bassGain;
+    if (destBus === 'chords') targetGainNode = chordsGain;
+    else if (destBus === 'bass') targetGainNode = bassGain;
+    else if (destBus === 'bassHarmonic') targetGainNode = bassHarmonicGain;
+    else {
+        // Legacy fallback
+        if (type === 'sawtooth') targetGainNode = chordsGain;
+        if (type === 'sawtooth-bass') targetGainNode = bassHarmonicGain;
     }
-    gainNode.connect(targetGainNode);
 
-    osc.start(startTime);
-    osc.stop(startTime + duration + 0.1); // Add 100ms safety padding so it dies silently
-
-    // Prevent memory leaks by letting the oscillator clean itself up when finished
-    osc.onended = () => {
-        osc.disconnect();
-        gainNode.disconnect();
-        if (filterNode) filterNode.disconnect();
-        activeOscillators = activeOscillators.filter(o => o !== osc);
-    };
-
-    activeOscillators.push(osc);
-
-    // --- Bass Harmonic Layer (Sawtooth Enhance) ---
-    if (type === 'sine') {
-        const harmOsc = audioCtx.createOscillator();
-        const harmGain = audioCtx.createGain();
-        const harmFilter = audioCtx.createBiquadFilter();
-
-        harmOsc.type = 'sawtooth';
-        harmOsc.frequency.value = freq;
-
-        // Match the sub bass envelope, scaled to a good mixing volume
-        harmGain.gain.setValueAtTime(0, startTime);
-        harmGain.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL * 0.8, startTime + safeAttack);
-        harmGain.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL * 0.8, startTime + duration - safeRelease);
-        harmGain.gain.linearRampToValueAtTime(0, startTime + duration);
-
-        // Filter the sawtooth slightly higher than the chords so it provides warm mid-presence
-        harmFilter.type = 'lowpass';
-        harmFilter.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 2.5, startTime);
-        
-        harmOsc.connect(harmFilter);
-        harmFilter.connect(harmGain);
-        harmGain.connect(bassHarmonicGain); // Route to the dedicated Enhance bus
-
-        harmOsc.start(startTime);
-        harmOsc.stop(startTime + duration + 0.1);
-
-        harmOsc.onended = () => {
-            harmOsc.disconnect();
-            harmGain.disconnect();
-            harmFilter.disconnect();
-            activeOscillators = activeOscillators.filter(o => o !== harmOsc);
-        };
-
-        activeOscillators.push(harmOsc);
-    }
-}
-
-function _playKick(time, velocity, ctx, dest) {
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'sine';
-    // Pitch envelope for the "thump"
-    osc.frequency.setValueAtTime(150, time);
-    osc.frequency.exponentialRampToValueAtTime(50, time + 0.1);
-
-    // Volume envelope
-    gain.gain.setValueAtTime(velocity * 0.5, time); // Balanced against synth headroom
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
-
-    osc.connect(gain);
-    gain.connect(dest);
-
-    osc.start(time);
-    osc.stop(time + 0.4);
-
-    osc.onended = () => {
-        osc.disconnect();
-        gain.disconnect();
-        activeOscillators = activeOscillators.filter(o => o !== osc);
-    };
-    activeOscillators.push(osc);
-}
-
-function _playSnare(time, velocity, ctx, dest) {
-    if (!ctx || !noiseBuffer) return;
-    // Noise component for the "snap"
-    const noise = ctx.createBufferSource();
-    noise.buffer = noiseBuffer;
-    const noiseFilter = ctx.createBiquadFilter();
-    noiseFilter.type = 'highpass';
-    noiseFilter.frequency.value = 1000;
-    const noiseGain = ctx.createGain();
-
-    noiseGain.gain.setValueAtTime(velocity * 0.4, time); // Balanced against synth headroom
-    noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+    const osc = engine(audioCtx, freq, startTime, duration, targetGainNode, (deadOsc) => {
+        activeOscillators = activeOscillators.filter(o => o !== deadOsc);
+    });
     
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(dest);
-
-    // Body component for the "thwack"
-    const body = ctx.createOscillator();
-    body.type = 'triangle';
-    const bodyGain = ctx.createGain();
-    
-    body.frequency.setValueAtTime(100, time);
-    bodyGain.gain.setValueAtTime(velocity * 0.35, time); // Balanced against synth headroom
-    bodyGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
-
-    body.connect(bodyGain);
-    bodyGain.connect(dest);
-
-    noise.start(time);
-    noise.stop(time + 0.2);
-    body.start(time);
-    body.stop(time + 0.1);
-
-    noise.onended = () => {
-        noise.disconnect();
-        noiseFilter.disconnect();
-        noiseGain.disconnect();
-        activeOscillators = activeOscillators.filter(o => o !== noise);
-    };
-    body.onended = () => {
-        body.disconnect();
-        bodyGain.disconnect();
-        activeOscillators = activeOscillators.filter(o => o !== body);
-    };
-    activeOscillators.push(noise, body);
+    if (osc) activeOscillators.push(osc);
 }
 
-function _playHat(time, velocity, duration, ctx, dest) {
-    if (!ctx || !noiseBuffer) return;
-    const noise = ctx.createBufferSource();
-    noise.buffer = noiseBuffer;
-    const noiseFilter = ctx.createBiquadFilter();
-    noiseFilter.type = 'highpass';
-    noiseFilter.frequency.value = 7000;
-    const noiseGain = ctx.createGain();
-
-    noiseGain.gain.setValueAtTime(velocity * 0.2, time); // Balanced against synth headroom
-    noiseGain.gain.exponentialRampToValueAtTime(0.01, time + duration);
-
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(dest);
-
-    noise.start(time);
-    noise.stop(time + duration);
-
-    noise.onended = () => {
-        noise.disconnect();
-        noiseFilter.disconnect();
-        noiseGain.disconnect();
-        activeOscillators = activeOscillators.filter(o => o !== noise);
-    };
-    activeOscillators.push(noise);
-}
-
-export function playDrum(type, startTime, velocity = 1.0, customCtx = null, customDest = null) {
+export function playDrum(type, startTime, velocity = 1.0, customCtx = null, customDest = null, drumKit = 'synth') {
     if (!audioCtx && !customCtx) initAudio();
     
     const ctx = customCtx || audioCtx;
     const dest = customDest || drumsGain;
     if (!ctx) return;
 
-    switch (type) {
-        case 'kick':
-            _playKick(startTime, velocity, ctx, dest);
-            break;
-        case 'snare':
-            _playSnare(startTime, velocity, ctx, dest);
-            break;
-        case 'chh': // Closed Hi-Hat
-            _playHat(startTime, velocity, 0.05, ctx, dest);
-            break;
-        case 'ohh': // Open Hi-Hat
-            _playHat(startTime, velocity, 0.3, ctx, dest);
-            break;
+    if (drumKit === 'custom' && customDrumBuffers[type]) {
+        const engine = DRUM_REGISTRY['sample'];
+        if (engine) {
+            const nodes = engine(ctx, startTime, velocity, dest, customDrumBuffers[type], (deadNode) => {
+                activeOscillators = activeOscillators.filter(o => o !== deadNode);
+            });
+            if (nodes) activeOscillators.push(...nodes);
+        }
+        return;
+    }
+
+    const engine = DRUM_REGISTRY[type];
+    if (engine) {
+        const nodes = engine(ctx, startTime, velocity, dest, noiseBuffer, (deadNode) => {
+            activeOscillators = activeOscillators.filter(o => o !== deadNode);
+        });
+        if (nodes) activeOscillators.push(...nodes);
     }
 }
 

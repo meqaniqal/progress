@@ -1,6 +1,6 @@
 import { CONFIG } from './config.js';
 import { getChordNotes, getPlayableNotes } from './theory.js';
-import { initAudio, getAudioCurrentTime, midiToFreq, playTone, setTrackVolume } from './synth.js';
+import { initAudio, getAudioCurrentTime, midiToFreq, playTone, setTrackVolume, decodeCustomDrumSample, loadPersistedDrumSamples, clearCustomDrumSamples } from './synth.js';
 import { auditionChord, playProgression, stopAllAudio } from './sequencer.js';
 import { initDragAndDrop } from './dragdrop.js';
 import { exportToMidi } from './midi.js';
@@ -223,6 +223,18 @@ function _loadAndApplyInitialState() {
         }
     });
     
+    ['chords', 'bass'].forEach(track => {
+        const el = document.getElementById(`inst-${track}`);
+        if (el) el.value = state.instruments[track] || 'sawtooth';
+    });
+    
+    const instDrums = document.getElementById('inst-drums');
+    const customDrumsPanel = document.getElementById('custom-drums-panel');
+    if (instDrums) {
+        instDrums.value = state.instruments.drums || 'synth';
+        if (customDrumsPanel) customDrumsPanel.style.display = instDrums.value === 'custom' ? 'block' : 'none';
+    }
+    
     const multipassInput = document.getElementById('multipass-input');
     if (multipassInput) multipassInput.value = state.exportPasses || 1;
     document.getElementById('voice-leading').checked = state.useVoiceLeading;
@@ -353,6 +365,57 @@ function _setupControlButtons() {
             });
         }
     });
+    
+    ['chords', 'bass'].forEach(track => {
+        const el = document.getElementById(`inst-${track}`);
+        if (el) {
+            el.addEventListener('change', (e) => {
+                state.instruments[track] = e.target.value;
+                persistAppState();
+            });
+        }
+    });
+    
+    const instDrums = document.getElementById('inst-drums');
+    const customDrumsPanel = document.getElementById('custom-drums-panel');
+    if (instDrums) {
+        instDrums.addEventListener('change', (e) => {
+            state.instruments.drums = e.target.value;
+            if (customDrumsPanel) customDrumsPanel.style.display = e.target.value === 'custom' ? 'block' : 'none';
+            persistAppState();
+        });
+    }
+
+    ['kick', 'snare', 'chh', 'ohh'].forEach(type => {
+        const fileInput = document.getElementById(`upload-${type}`);
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (ev) => {
+                    const arrayBuffer = ev.target.result;
+                    await decodeCustomDrumSample(type, arrayBuffer);
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+    });
+    
+    const btnClearDrums = document.getElementById('btn-clear-custom-drums');
+    if (btnClearDrums) {
+        btnClearDrums.addEventListener('click', async () => {
+            await clearCustomDrumSamples();
+            ['kick', 'snare', 'chh', 'ohh'].forEach(type => {
+                const fileInput = document.getElementById(`upload-${type}`);
+                if (fileInput) fileInput.value = ''; // Reset the file inputs in the UI
+            });
+            if (instDrums) {
+                instDrums.value = 'synth';
+                instDrums.dispatchEvent(new Event('change')); // Trigger state update and hide panel
+            }
+        });
+    }
 
     document.getElementById('voice-leading').addEventListener('change', (e) => {
         state.useVoiceLeading = e.target.checked;
@@ -525,6 +588,7 @@ function initApp() {
     _setupSmartDragCollapse();
     _setupGlobalDoubleTap();
     renderProgression();
+    loadPersistedDrumSamples(); // Fetch user's custom drum kit from IndexedDB
 
     // Reveal the UI smoothly now that everything is styled and loaded
     document.documentElement.classList.add('loaded');

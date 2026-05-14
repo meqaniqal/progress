@@ -223,7 +223,7 @@ export async function exportToWav(state, buttonElement) {
 
         timeline.forEach(ev => {
             if (ev.type === 'drum') {
-                playDrum(ev.drumType, ev.startTime, ev.velocity, offlineCtx, drumsGain);
+                playDrum(ev.drumType, ev.startTime, ev.velocity, offlineCtx, drumsGain, state.instruments.drums || 'synth');
                 return;
             }
 

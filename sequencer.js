@@ -6,7 +6,7 @@ import { resolvePattern } from './patternResolver.js';
 
 let uiTimeouts = [];
 
-export function auditionChord(chordSymbol, baseKey, specificNotes = null) {
+export function auditionChord(chordSymbol, baseKey, specificNotes = null, stateObj = null) {
     initAudio();
 
     const chordNotes = getChordNotes(chordSymbol, baseKey);
@@ -15,10 +15,13 @@ export function auditionChord(chordSymbol, baseKey, specificNotes = null) {
     const rootNoteMidi = chordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
     const now = getAudioCurrentTime();
     const notesToPlay = specificNotes || chordNotes.map(n => n - 12);
+    const chordEngine = stateObj && stateObj.instruments ? stateObj.instruments.chords : 'sawtooth';
+    const bassEngine = stateObj && stateObj.instruments ? stateObj.instruments.bass : 'sine';
 
     // Play chord and bass note without interrupting main playback loop
-    notesToPlay.forEach(note => playTone(midiToFreq(note), now, CONFIG.AUDITION_DURATION_SEC, 'sawtooth'));
-    playTone(midiToFreq(rootNoteMidi), now, CONFIG.AUDITION_DURATION_SEC, 'sine');
+    notesToPlay.forEach(note => playTone(midiToFreq(note), now, CONFIG.AUDITION_DURATION_SEC, chordEngine, 'chords'));
+    playTone(midiToFreq(rootNoteMidi), now, CONFIG.AUDITION_DURATION_SEC, bassEngine, 'bass');
+    playTone(midiToFreq(rootNoteMidi), now, CONFIG.AUDITION_DURATION_SEC, 'sawtooth-bass', 'bassHarmonic');
 }
 
 function getBounds(state) {
@@ -130,11 +133,11 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                 });
 
                 arpEvents.forEach(event => {
-                    playTone(midiToFreq(event.note), instanceStartTime + event.startTime, event.duration, 'sawtooth');
+                    playTone(midiToFreq(event.note), instanceStartTime + event.startTime, event.duration, state.instruments.chords || 'sawtooth', 'chords');
                 });
             } else {
                 const gateDuration = instanceDuration * 0.95; // Slight gate so contiguous chops are distinctly audible
-                notesToPlay.forEach(note => playTone(midiToFreq(note), instanceStartTime, gateDuration, 'sawtooth'));
+                notesToPlay.forEach(note => playTone(midiToFreq(note), instanceStartTime, gateDuration, state.instruments.chords || 'sawtooth', 'chords'));
             }
         });
         
@@ -160,7 +163,8 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                 const instanceDuration = instance.duration * chordSlotDuration;
                 const gateDuration = instanceDuration * 0.95;
                 const finalBassNote = rootNoteMidi + (instance.pitchOffset || 0);
-                playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, 'sine');
+                playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, state.instruments.bass || 'sine', 'bass');
+                playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, 'sawtooth-bass', 'bassHarmonic');
             });
         }
         
@@ -175,7 +179,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                     if (hit.probability !== undefined && Math.random() > hit.probability) continue;
 
                     const hitTimeSec = time + (hit.time * beats * (60.0 / Number(state.bpm)));
-                    playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
+                    playDrum(hit.row, hitTimeSec, hit.velocity || 1.0, null, null, state.instruments.drums || 'synth');
                     if (onDrumPlay && hit.id) {
                         const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
                         const tId = setTimeout(() => {
@@ -207,7 +211,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                         const beatWithinChord = absoluteHitBeat - absBeatStartRounded;
                         const hitTimeSec = time + (beatWithinChord * (60.0 / Number(state.bpm)));
                         if (hit.probability === undefined || Math.random() <= hit.probability) {
-                            playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
+                            playDrum(hit.row, hitTimeSec, hit.velocity || 1.0, null, null, state.instruments.drums || 'synth');
                             if (onDrumPlay && hit.id) {
                                 const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
                                 const tId = setTimeout(() => {

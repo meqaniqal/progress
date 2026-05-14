@@ -62,6 +62,7 @@ export function auditionSlicePitch(pitchOffset = 0) {
     notes.forEach(n => playTone(midiToFreq(n - 12), now, duration, 'sawtooth'));
     const finalBassNote = notes[0] + CONFIG.BASS_OCTAVE_DROP + pitchOffset;
     playTone(midiToFreq(finalBassNote), now, duration, 'sine');
+    playTone(midiToFreq(finalBassNote), now, duration, 'sawtooth-bass');
 }
 
 export function setCurrentPattern(newPattern, markAsOverride = true) {
