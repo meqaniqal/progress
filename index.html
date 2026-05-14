@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="style.css?v=1.0">
     <link rel="stylesheet" href="drum-grid.css?v=1.0">
     <link rel="stylesheet" href="rhythm-editor.css?v=1.0">
+    <link rel="stylesheet" href="song-mode.css?v=1.0">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
     
     <!-- Hide body and show spinner to prevent Flash of Unstyled Content (FOUC) while scripts load -->
@@ -121,6 +122,30 @@
             <strong>🚀 Modulation Detected!</strong>
             <p>Smooth the transition from <strong id="mod-from-key"></strong> to <strong id="mod-to-key"></strong> using these suggested Pivot chords:</p>
             <div id="mod-buttons"></div>
+        </div>
+
+        <!-- Phase 6: Song Sequencer Tray -->
+        <div id="song-sequencer-tray" class="song-sequencer-tray" style="display: none;">
+            <div class="song-tray-header">
+                <h3 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">📖 Song Sequencer</h3>
+                <button class="control-btn secondary" id="btn-close-song-tray" style="padding: 4px 10px; font-size: 12px;">Close</button>
+            </div>
+            <div id="song-sequence-display" class="song-sequence-display">
+                <!-- Macro blocks will go here -->
+            </div>
+        </div>
+
+        <!-- Phase 6: Section Tabs -->
+        <div id="section-tabs-container" class="section-tabs-container">
+            <div id="section-tabs" class="section-tabs">
+                <!-- Rendered tabs go here -->
+            </div>
+            <div class="section-add-wrapper">
+                <button id="btn-add-section" class="control-btn secondary icon-btn" style="font-size: 18px; line-height: 1; padding: 0 8px; height: 32px;" title="Add Section">+</button>
+            </div>
+            <button id="btn-toggle-song-tray" class="control-btn secondary" style="margin-left: auto; padding: 4px 10px; font-size: 12px; display: none;" title="Open Song Macro-Arrangement">
+                📖 Song View
+            </button>
         </div>
 
         <div id="progression-display"></div>

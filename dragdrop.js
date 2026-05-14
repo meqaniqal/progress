@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
 
-export function getDragAfterElement(container, x, y) {
-    const draggableElements = [...container.querySelectorAll('.progression-item:not(.dragging), #bracket-start:not(.dragging), #bracket-end:not(.dragging)')];
+export function getDragAfterElement(container, x, y, itemClass) {
+    const draggableElements = [...container.querySelectorAll(`.${itemClass}:not(.dragging), #bracket-start:not(.dragging), #bracket-end:not(.dragging)`)];
 
     for (const child of draggableElements) {
         const box = child.getBoundingClientRect();
@@ -17,25 +17,28 @@ export function getDragAfterElement(container, x, y) {
 
 export function initDragAndDrop({
     display,
-    sourceButtons,
+    itemClass = 'progression-item',
+    placeholderClass = 'progression-placeholder',
+    sourceClass = 'chord-btn',
+    sourceDataAttribute = 'chord',
     onReorder,
     onAddFromSource,
     onBracketDrop,
     onDragCancel,
-    getProgressionItemText,
-    getBaseKey
+    getItemText,
+    getBaseKey = () => 60
 }) {
     let draggedIndex = null;
     let draggedBracket = null;
     let currentAfterElement = undefined;
-    let draggedSourceChord = null;
+    let draggedSourceItem = null;
     let draggedSourceKey = null;
 
     // Safely initialize DOM elements (protects against Jest Node.js environment)
     const dragPlaceholder = typeof document !== 'undefined' ? document.createElement('div') : null;
 
     if (dragPlaceholder) {
-        dragPlaceholder.className = 'progression-placeholder';
+        dragPlaceholder.className = placeholderClass;
     }
 
     function createCustomDragImage(text) {
@@ -47,17 +50,17 @@ export function initDragAndDrop({
     }
 
     display.addEventListener('dragstart', (e) => {
-        if (e.target.classList.contains('progression-item')) {
+        if (e.target.classList.contains(itemClass)) {
             draggedIndex = parseInt(e.target.dataset.index, 10);
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', 'reorder'); // polyfill safety
             
-            dragPlaceholder.className = 'progression-placeholder';
+            dragPlaceholder.className = placeholderClass;
             dragPlaceholder.textContent = '';
             dragPlaceholder.style.cssText = '';
 
-            const chordText = getProgressionItemText(draggedIndex);
-            const dragImg = createCustomDragImage(chordText);
+            const itemText = getItemText(draggedIndex);
+            const dragImg = createCustomDragImage(itemText);
             e.dataTransfer.setDragImage(dragImg, CONFIG.DRAG_OFFSET_X, CONFIG.DRAG_OFFSET_Y);
             
             setTimeout(() => {
@@ -102,7 +105,7 @@ export function initDragAndDrop({
         const resetIndex = draggedIndex;
         draggedIndex = null;
         draggedBracket = null;
-        draggedSourceChord = null;
+        draggedSourceItem = null;
         draggedSourceKey = null;
         
         if (resetIndex !== null) {
@@ -117,8 +120,9 @@ export function initDragAndDrop({
     });
 
     display.addEventListener('dragover', (e) => {
+        if (draggedIndex === null && draggedBracket === null && draggedSourceItem === null) return;
         e.preventDefault(); 
-        const afterElement = getDragAfterElement(display, e.clientX, e.clientY);
+        const afterElement = getDragAfterElement(display, e.clientX, e.clientY, itemClass);
         
         if (afterElement !== currentAfterElement) {
             currentAfterElement = afterElement;
@@ -151,10 +155,11 @@ export function initDragAndDrop({
     });
 
     display.addEventListener('drop', (e) => {
+        if (draggedIndex === null && draggedBracket === null && draggedSourceItem === null) return;
         e.preventDefault();
         currentAfterElement = undefined;
 
-        const allItems = [...display.querySelectorAll('.progression-item:not(.dragging), .progression-placeholder, .bracket-placeholder, #bracket-start:not(.dragging), #bracket-end:not(.dragging)')];
+        const allItems = [...display.querySelectorAll(`.${itemClass}:not(.dragging), .${placeholderClass}, .bracket-placeholder, #bracket-start:not(.dragging), #bracket-end:not(.dragging)`)];
         
         let insertIndex = null;
         let newLoopStart = null;
@@ -163,7 +168,7 @@ export function initDragAndDrop({
 
         // Calculate exact state intents purely by looking at the resulting visual DOM order
         for (const el of allItems) {
-            if (el.classList.contains('progression-placeholder')) {
+            if (el.classList.contains(placeholderClass)) {
                 insertIndex = currentItemCount;
             } else if (el.id === 'bracket-start' || (el.classList.contains('bracket-placeholder') && draggedBracket === 'bracket-start')) {
                 newLoopStart = currentItemCount;
@@ -171,20 +176,20 @@ export function initDragAndDrop({
                 newLoopEnd = currentItemCount;
             }
             
-            if (el.classList.contains('progression-item') || el.classList.contains('progression-placeholder')) {
+            if (el.classList.contains(itemClass) || el.classList.contains(placeholderClass)) {
                 currentItemCount++;
             }
         }
 
         if (dragPlaceholder.parentNode) dragPlaceholder.parentNode.removeChild(dragPlaceholder);
 
-        if (draggedSourceChord) {
-            const sourceKey = draggedSourceKey !== null ? draggedSourceKey : 60;
-            onAddFromSource(draggedSourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd);
-            draggedSourceChord = null;
+        if (draggedSourceItem) {
+            const sourceKey = draggedSourceKey !== null ? draggedSourceKey : getBaseKey();
+            onAddFromSource(draggedSourceItem, sourceKey, insertIndex, newLoopStart, newLoopEnd);
+            draggedSourceItem = null;
             draggedSourceKey = null;
         } else if (draggedBracket) {
-            onBracketDrop(draggedBracket, insertIndex, newLoopStart, newLoopEnd);
+            if (onBracketDrop) onBracketDrop(draggedBracket, insertIndex, newLoopStart, newLoopEnd);
             draggedBracket = null;
         } else if (draggedIndex !== null) {
             onReorder(draggedIndex, insertIndex, newLoopStart, newLoopEnd);
@@ -192,17 +197,11 @@ export function initDragAndDrop({
         }
     });
 
-    if (sourceButtons) {
-        sourceButtons.forEach(btn => {
-            btn.draggable = true;
-        });
-    }
-
     // Use event delegation to support dynamically added source buttons (like modulation suggestions)
     document.body.addEventListener('dragstart', (e) => {
-        const btn = e.target.closest('.chord-btn');
-        if (btn && btn.dataset.chord && !btn.closest('.swap-menu')) {
-            draggedSourceChord = btn.dataset.chord;
+        const btn = e.target.closest(`.${sourceClass}`);
+        if (btn && btn.dataset[sourceDataAttribute] && !btn.closest('.swap-menu')) {
+            draggedSourceItem = btn.dataset[sourceDataAttribute];
             // Capture the specific target key if it exists, otherwise fall back to global baseKey
             draggedSourceKey = btn.hasAttribute('data-key') ? parseInt(btn.dataset.key, 10) : getBaseKey();
             e.dataTransfer.effectAllowed = 'copy';
@@ -212,20 +211,24 @@ export function initDragAndDrop({
             
             draggedIndex = null;
             
-            dragPlaceholder.className = 'progression-placeholder';
+            dragPlaceholder.className = placeholderClass;
             dragPlaceholder.textContent = '';
             dragPlaceholder.style.cssText = '';
 
-            const dragImg = createCustomDragImage(btn.dataset.chord);
+            // Use the explicit tab text if we are dragging a tab, rather than its raw ID
+            let dragText = btn.dataset[sourceDataAttribute];
+            if (sourceClass === 'section-tab') dragText = btn.textContent.trim();
+
+            const dragImg = createCustomDragImage(dragText);
             e.dataTransfer.setDragImage(dragImg, CONFIG.DRAG_OFFSET_X, CONFIG.DRAG_OFFSET_Y);
             setTimeout(() => document.body.removeChild(dragImg), 0);
         }
     });
 
     document.body.addEventListener('dragend', (e) => {
-        const btn = e.target.closest('.chord-btn');
-        if (btn && btn.dataset.chord && !btn.closest('.swap-menu')) {
-            draggedSourceChord = null;
+        const btn = e.target.closest(`.${sourceClass}`);
+        if (btn && btn.dataset[sourceDataAttribute] && !btn.closest('.swap-menu')) {
+            draggedSourceItem = null;
             draggedSourceKey = null;
             if (dragPlaceholder && dragPlaceholder.parentNode) {
                 dragPlaceholder.parentNode.removeChild(dragPlaceholder);

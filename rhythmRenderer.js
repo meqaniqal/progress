@@ -233,7 +233,8 @@ export function renderRhythmTimeline() {
     if (rateSelect) rateSelect.style.display = isChordTab ? 'inline-block' : 'none';
     
     const btnDelete = document.getElementById('btn-rhythm-delete');
-    if (btnDelete) btnDelete.style.display = editorState.activeTab === 'drumPattern' ? 'none' : 'inline-block';
+    const isDrumTab = editorState.activeTab === 'drumPattern';
+    if (btnDelete) btnDelete.style.display = (isDrumTab && !editorState.selectedHitId) ? 'none' : 'inline-block';
 
     const btnCopy = document.getElementById('btn-rhythm-copy');
     const btnPaste = document.getElementById('btn-rhythm-paste');

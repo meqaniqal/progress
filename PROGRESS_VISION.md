@@ -201,7 +201,7 @@ Transform the app from a single-loop sketchpad into a full song structure arrang
 **2. UI Layout: The Section Tabs & Song Tray**
 - **Section Tabs:** Situated directly above the chord tray. Displays the active section being edited.
 - **Section Creation:** A `[+ Section]` button allows adding new parts via a dropdown (Intro, Verse, Chorus, Bridge, Outro).
-- **Smart Naming & Renaming:** Clicking an existing tab opens the naming dropdown. If a name already exists, the app auto-appends a number (e.g., "Chorus 2").
+- **Smart Naming & Renaming:** Clicking an active tab opens a custom inline dropdown populated with common section names (Intro, Verse, Chorus) and a text input with a blinking cursor for custom names. Hitting return applies the name. The dropdown is smart—it automatically closes if the cursor moves a certain distance away, saving the user an extra click.
 - **First-Time Flow:** If the user has a sequence built and clicks `[+ Section]` for the first time, the app intercepts, prompts the user to name their *existing* work (creating the first tab), then prompts the user to choose the section type for the *new* tab, and finally creates the new empty tab.
 - **The Song Sequencer Tray:** An unfoldable tray that sits at the very top of the progression area. It remains completely hidden if the app only has one section or no sections have been created.
 

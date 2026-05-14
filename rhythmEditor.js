@@ -56,7 +56,7 @@ export function auditionSlicePitch(pitchOffset = 0) {
     if (!notes) return;
     
     const now = getAudioCurrentTime();
-    const duration = 0.4; // Short, punchy audition
+    const duration = CONFIG.AUDITION_SLICE_DURATION || 0.4; // Short, punchy audition
     
     // Play chord pad and bass note together
     notes.forEach(n => playTone(midiToFreq(n - 12), now, duration, 'sawtooth'));

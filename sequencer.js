@@ -69,7 +69,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
     }
 
     currentChordIndexRel = 0; // Start from the beginning of the slice
-    nextNoteTime = getAudioCurrentTime() + 0.05; // Buffer 50ms ahead for clean start
+    nextNoteTime = getAudioCurrentTime() + (CONFIG.PLAYBACK_START_DELAY || 0.05); // Buffer 50ms ahead for clean start
 
     function scheduleNote(chordIndexRel, time) {
         const state = getState(); // Always get the latest state
@@ -136,7 +136,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                     playTone(midiToFreq(event.note), instanceStartTime + event.startTime, event.duration, state.instruments.chords || 'sawtooth', 'chords');
                 });
             } else {
-                const gateDuration = instanceDuration * 0.95; // Slight gate so contiguous chops are distinctly audible
+                const gateDuration = instanceDuration * (CONFIG.GATE_RATIO || 0.95); // Slight gate so contiguous chops are distinctly audible
                 notesToPlay.forEach(note => playTone(midiToFreq(note), instanceStartTime, gateDuration, state.instruments.chords || 'sawtooth', 'chords'));
             }
         });
@@ -161,7 +161,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
 
                 const instanceStartTime = time + (instance.startTime * chordSlotDuration);
                 const instanceDuration = instance.duration * chordSlotDuration;
-                const gateDuration = instanceDuration * 0.95;
+                const gateDuration = instanceDuration * (CONFIG.GATE_RATIO || 0.95);
                 const finalBassNote = rootNoteMidi + (instance.pitchOffset || 0);
                 playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, state.instruments.bass || 'sine', 'bass');
                 playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, 'sawtooth-bass', 'bassHarmonic');

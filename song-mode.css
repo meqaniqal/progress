@@ -1,0 +1,205 @@
+/* --- Phase 6: Song Mode & Macro-Arrangement --- */
+
+.section-tabs-container {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    margin-top: 20px;
+    margin-bottom: 0;
+    border-bottom: 2px solid var(--border-main);
+    padding-bottom: 0;
+    position: relative;
+    z-index: 10;
+}
+
+.section-tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none; /* Hide scrollbar for clean look */
+    -ms-overflow-style: none;
+}
+.section-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.section-tab {
+    padding: 8px 16px;
+    background: var(--bg-body);
+    border: 2px solid var(--border-main);
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    color: var(--text-main);
+    cursor: pointer;
+    font-weight: 600;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    margin-bottom: -2px; /* Pull down to cover border */
+}
+
+.section-tab:hover {
+    opacity: 0.9;
+    background: var(--ctrl-secondary-hover);
+}
+
+.section-tab.active {
+    opacity: 1;
+    background: var(--bg-panel);
+    border-color: var(--ctrl-primary-bg);
+    color: var(--ctrl-primary-bg);
+    z-index: 2;
+}
+
+.section-add-wrapper {
+    position: relative;
+    margin-bottom: 6px; /* Align with tabs horizontally */
+}
+
+/* Song Sequencer Tray */
+.song-sequencer-tray {
+    background: rgba(0, 0, 0, 0.03);
+    border: 2px dashed var(--border-main);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 15px;
+    transition: all 0.3s ease;
+}
+
+[data-theme="dark"] .song-sequencer-tray {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.song-tray-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-main);
+    padding-bottom: 8px;
+}
+
+.song-sequence-display {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-height: 60px;
+    padding: 12px;
+    background: var(--display-bg);
+    border-radius: 4px;
+    border: 1px solid var(--border-main);
+    align-items: center;
+}
+
+.song-section-block {
+    background: var(--ctrl-secondary-bg);
+    color: var(--text-main);
+    border: 1px solid var(--border-main);
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px var(--shadow-panel);
+    transition: all 0.15s ease;
+    user-select: none;
+    touch-action: none;
+}
+
+.song-section-block:hover {
+    background: var(--ctrl-secondary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px var(--shadow-panel);
+}
+
+.song-section-block.playing {
+    border-color: var(--original-chord-highlight);
+    box-shadow: 0 0 0 2px var(--original-chord-highlight);
+    background: rgba(16, 185, 129, 0.1);
+}
+
+[data-theme="dark"] .song-section-block.playing {
+    background: rgba(5, 150, 105, 0.15);
+}
+
+.song-placeholder {
+    width: 100px;
+    height: 36px;
+    background: var(--placeholder-bg);
+    border: 2px dashed var(--placeholder-border);
+    border-radius: 4px;
+    margin: 0 4px;
+    display: inline-block;
+    vertical-align: middle;
+    pointer-events: none;
+    transition: width 0.2s ease-out, margin 0.2s ease-out, opacity 0.2s ease-out;
+}
+
+/* Inherit / Empty State message */
+.section-empty-state {
+    width: 100%;
+    text-align: center;
+    padding: 20px;
+    color: var(--text-main);
+    opacity: 0.7;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Section Rename Dropdown */
+.section-rename-dropdown {
+    position: fixed;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-main);
+    border-radius: 6px;
+    box-shadow: 0 4px 15px var(--shadow-panel);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    min-width: 150px;
+    padding: 6px;
+}
+
+.rename-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-main);
+    transition: background 0.15s ease;
+}
+
+.rename-option:hover {
+    background: var(--ctrl-secondary-hover);
+}
+
+.rename-option.input-option {
+    padding: 6px 4px;
+}
+
+.rename-option.input-option:hover {
+    background: transparent;
+}
+
+#rename-custom-input {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 13px;
+    background: var(--bg-body);
+    color: var(--text-main);
+    border: 1px solid var(--border-main);
+    border-radius: 4px;
+    box-sizing: border-box;
+    outline: none;
+    font-weight: 600;
+}
+
+#rename-custom-input:focus {
+    border-color: var(--ctrl-primary-bg);
+}

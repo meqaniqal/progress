@@ -3,6 +3,9 @@ import { calculateLoopBounds } from './stateUtils.js';
 import { initChordPattern, initDrumPattern, initPatternSet } from './patternUtils.js';
 
 export const state = {
+    sections: {}, // Map of sectionId -> { id, name, progression, globalPatterns }
+    songSequence: [], // Array of sectionIds
+    activeSectionId: null,
     currentProgression: [],
     temporarySwaps: {}, // Map of index -> temporary chord string (e.g. { 1: 'vi' })
     history: [], // Stores progression snapshots for Undo
@@ -46,6 +49,20 @@ export const state = {
         justPushedToGlobalIndex: null
     }
 };
+
+// Initialize default section pointers to prevent circular dependency on load
+const initialSectionId = 'sec-' + Math.random().toString(36).substring(2, 10);
+const initialPatterns = initPatternSet();
+state.sections[initialSectionId] = {
+    id: initialSectionId,
+    name: 'Section 1',
+    progression: [],
+    globalPatterns: initialPatterns
+};
+state.songSequence = [initialSectionId];
+state.activeSectionId = initialSectionId;
+state.currentProgression = state.sections[initialSectionId].progression;
+state.globalPatterns = state.sections[initialSectionId].globalPatterns;
 
 // Resolves the progression with any active temporary swaps applied
 export function getActiveProgression() {
@@ -163,9 +180,10 @@ export function applyLoopBounds() {
 // --- History & Undo ---
 export function saveHistoryState() {
     state.history.push({
-        currentProgression: JSON.parse(JSON.stringify(state.currentProgression)),
+        sections: JSON.parse(JSON.stringify(state.sections)),
+        songSequence: JSON.parse(JSON.stringify(state.songSequence)),
+        activeSectionId: state.activeSectionId,
         temporarySwaps: JSON.parse(JSON.stringify(state.temporarySwaps)),
-        globalPatterns: JSON.parse(JSON.stringify(state.globalPatterns)),
         loopStart: state.loopStart,
         loopEnd: state.loopEnd
     });
@@ -175,9 +193,18 @@ export function saveHistoryState() {
 export function undoState() {
     if (state.history.length === 0) return false;
     const previousState = state.history.pop();
-    state.currentProgression = previousState.currentProgression;
+    
+    if (previousState.sections) {
+        state.sections = previousState.sections;
+        state.songSequence = previousState.songSequence;
+        state.activeSectionId = previousState.activeSectionId;
+        if (state.sections[state.activeSectionId]) {
+            state.currentProgression = state.sections[state.activeSectionId].progression;
+            state.globalPatterns = state.sections[state.activeSectionId].globalPatterns;
+        }
+    }
+
     state.temporarySwaps = previousState.temporarySwaps;
-    if (previousState.globalPatterns) state.globalPatterns = previousState.globalPatterns;
     state.loopStart = previousState.loopStart;
     state.loopEnd = previousState.loopEnd;
     applyLoopBounds();
@@ -191,7 +218,21 @@ export function persistAppState() {
 
 export function resetSession() {
     clearState();
-    state.currentProgression = [];
+    
+    const defaultId = 'sec-' + Math.random().toString(36).substring(2, 10);
+    state.sections = {
+        [defaultId]: {
+            id: defaultId,
+            name: 'Section 1',
+            progression: [],
+            globalPatterns: initPatternSet()
+        }
+    };
+    state.songSequence = [defaultId];
+    state.activeSectionId = defaultId;
+    state.currentProgression = state.sections[defaultId].progression;
+    state.globalPatterns = state.sections[defaultId].globalPatterns;
+    
     state.temporarySwaps = {};
     state.history = [];
     state.baseKey = 60;
@@ -207,7 +248,6 @@ export function resetSession() {
     state.volumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 };
     state.instruments = { chords: 'sawtooth', bass: 'sine', drums: 'synth' };
     state.selectedChordIndex = null;
-    state.globalPatterns = initPatternSet();
     state.showManualOnStartup = true;
     state.enableExperimentalDrawMode = true;
     state.editorState = {
@@ -318,9 +358,10 @@ export function loadAndApplyInitialState() {
             }
         };
 
-        // 2. Sanitize Progression Array (Prevent XSS and malformed structures)
-        if (Array.isArray(savedState.currentProgression)) {
-            state.currentProgression = savedState.currentProgression.map(item => {
+        // NEW Phase 6 Helper: Sanitize Progression Array
+        const sanitizeProgression = (progArr) => {
+            if (!Array.isArray(progArr)) return [];
+            return progArr.map(item => {
                 const chordObj = typeof item === 'string' ? { symbol: item, key: state.baseKey } : { ...item };
                 
                 // Escape HTML/quotes in symbol to prevent DOM injection
@@ -353,6 +394,46 @@ export function loadAndApplyInitialState() {
 
                 return chordObj;
             });
+        };
+
+        // 2. Phase 6 Architecture Loading
+        if (savedState.sections && typeof savedState.sections === 'object' && Array.isArray(savedState.songSequence)) {
+            state.sections = {};
+            Object.entries(savedState.sections).forEach(([id, sec]) => {
+                state.sections[id] = {
+                    id: sec.id || id,
+                    name: sec.name || 'Section',
+                    progression: sanitizeProgression(sec.progression),
+                    globalPatterns: {
+                        chordPattern: sanitizePat(sec.globalPatterns?.chordPattern, false) || initChordPattern(),
+                        bassPattern: sanitizePat(sec.globalPatterns?.bassPattern, false) || initChordPattern(),
+                        drumPattern: sanitizePat(sec.globalPatterns?.drumPattern, true) || initDrumPattern()
+                    }
+                };
+            });
+            state.songSequence = savedState.songSequence;
+            state.activeSectionId = savedState.activeSectionId && state.sections[savedState.activeSectionId] ? savedState.activeSectionId : state.songSequence[0];
+        } else if (Array.isArray(savedState.currentProgression)) {
+            // Legacy Migration: Wrap old progression in a new Section
+            const legacyProg = sanitizeProgression(savedState.currentProgression);
+            const legacyGP = savedState.globalPatterns ? {
+                chordPattern: sanitizePat(savedState.globalPatterns.chordPattern, false) || initChordPattern(),
+                bassPattern: sanitizePat(savedState.globalPatterns.bassPattern, false) || initChordPattern(),
+                drumPattern: sanitizePat(savedState.globalPatterns.drumPattern, true) || initDrumPattern()
+            } : initPatternSet();
+            
+            const defaultId = 'sec-' + Math.random().toString(36).substring(2, 10);
+            state.sections = {
+                [defaultId]: { id: defaultId, name: 'Section 1', progression: legacyProg, globalPatterns: legacyGP }
+            };
+            state.songSequence = [defaultId];
+            state.activeSectionId = defaultId;
+        }
+
+        // Establish active pointers
+        if (state.sections[state.activeSectionId]) {
+            state.currentProgression = state.sections[state.activeSectionId].progression;
+            state.globalPatterns = state.sections[state.activeSectionId].globalPatterns;
         }
 
         // 3. Sanitize Temporary Swaps
@@ -377,19 +458,26 @@ export function loadAndApplyInitialState() {
                 }
             });
         }
-
-        // 4. Sanitize Global Patterns Array
-        if (savedState.globalPatterns) {
-            state.globalPatterns = {
-                chordPattern: sanitizePat(savedState.globalPatterns.chordPattern, false) || initChordPattern(),
-                bassPattern: sanitizePat(savedState.globalPatterns.bassPattern, false) || initChordPattern(),
-                drumPattern: sanitizePat(savedState.globalPatterns.drumPattern, true) || initDrumPattern()
-            };
-        }
         
         if (savedState.editorState && savedState.editorState.activeTab) {
             state.editorState.activeTab = savedState.editorState.activeTab;
         }
     }
     applyLoopBounds();
+}
+
+export function switchActiveSection(sectionId) {
+    if (!state.sections[sectionId]) return false;
+    
+    saveHistoryState();
+    state.activeSectionId = sectionId;
+    state.currentProgression = state.sections[sectionId].progression;
+    state.globalPatterns = state.sections[sectionId].globalPatterns;
+    
+    state.selectedChordIndex = null;
+    state.temporarySwaps = {};
+    
+    applyLoopBounds();
+    persistAppState();
+    return true;
 }

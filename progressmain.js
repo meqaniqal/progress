@@ -12,6 +12,7 @@ import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoSta
 import { initExportUI } from './exportController.js';
 import { initModals } from './modalController.js';
 import { initTransport, resetTransport, isPlaybackActive } from './transportController.js';
+import { initSongController, updateSongUI, exitSongMode } from './songController.js';
 
         function undo() {
             if (undoState()) {
@@ -185,6 +186,7 @@ import { initTransport, resetTransport, isPlaybackActive } from './transportCont
             }
 
             renderProgressionUI(state, state.selectedChordIndex, uiCallbacks);
+            updateSongUI();
             
             // Keep Rhythm Editor synced with active selection
             if (state.selectedChordIndex === null) {
@@ -301,6 +303,8 @@ function _setupProgressionDisplayEvents(display) {
     });
 
     display.addEventListener('click', (e) => {
+        exitSongMode(); // Auto-fold the song tray if user clicks down to edit chords locally
+        
         const item = e.target.closest('.progression-item');
         if (!item) return;
         
@@ -332,6 +336,7 @@ function _setupProgressionDisplayEvents(display) {
 function _setupChordButtons() {
     const chordBtns = document.querySelectorAll('.chord-btn');
     chordBtns.forEach(btn => {
+        btn.draggable = true;
         btn.addEventListener('click', () => {
             auditionChord(btn.dataset.chord, state.baseKey);
         });
@@ -446,7 +451,10 @@ function _setupControlButtons() {
 function _setupDragAndDrop(display) {
     initDragAndDrop({
         display,
-        sourceButtons: document.querySelectorAll('.chord-btn'),
+        itemClass: 'progression-item',
+        placeholderClass: 'progression-placeholder',
+        sourceClass: 'chord-btn',
+        sourceDataAttribute: 'chord',
         onReorder: (oldIndex, newIndex, newLoopStart, newLoopEnd) => {
             if (oldIndex === null || newIndex === null) {
                 renderProgression(); 
@@ -518,7 +526,7 @@ function _setupDragAndDrop(display) {
             renderProgression();
         },
         onDragCancel: () => renderProgression(),
-        getProgressionItemText: (index) => state.currentProgression[index].symbol,
+        getItemText: (index) => state.currentProgression[index].symbol,
         getBaseKey: () => state.baseKey
     });
 }
@@ -580,6 +588,7 @@ function initApp() {
         resetPatternToGlobal
     });
     _setupKeyAndModeSelectors();
+    initSongController({ onRenderProgression: renderProgression });
     _setupControlButtons();
     _setupChordButtons();
     initTransport();

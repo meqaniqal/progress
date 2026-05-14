@@ -358,17 +358,33 @@ function _setupToolbarButtons() {
     document.getElementById('btn-rhythm-delete').addEventListener('click', () => {
         const pattern = getCurrentPattern();
         if (!pattern) return;
-        app.saveHistoryState();
-        if (pattern.instances) {
+        
+        let hasChanges = false;
+        let newPattern = pattern;
+
+        if (editorState.activeTab === 'drumPattern') {
+            if (editorState.selectedHitId && pattern.hits) {
+                const newHits = pattern.hits.filter(h => h.id !== editorState.selectedHitId);
+                newPattern = { ...pattern, hits: newHits };
+                editorState.selectedHitId = null;
+                hasChanges = true;
+            }
+        } else if (pattern.instances) {
             let remaining = pattern.instances.filter(i => !i.isSelected);
             if (remaining.length > 0 && !remaining.some(i => i.isSelected)) {
                 remaining[remaining.length - 1].isSelected = true;
             }
-            setCurrentPattern({ ...pattern, instances: remaining });
+            newPattern = { ...pattern, instances: remaining };
+            editorState.activeOverlayId = null;
+            hasChanges = true;
         }
-        editorState.activeOverlayId = null;
-        app.persistAppState();
-        renderRhythmTimeline();
+
+        if (hasChanges) {
+            app.saveHistoryState();
+            setCurrentPattern(newPattern);
+            app.persistAppState();
+            renderRhythmTimeline();
+        }
     });
 
     // --- Experimental Push/Pull Buttons ---
@@ -401,12 +417,59 @@ function _setupToolbarButtons() {
     }
 }
 
+/** Sets up global keyboard shortcuts when the Rhythm Editor is active. */
+function _setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Ignore if focus is inside an input, textarea, or select
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+            const panel = document.getElementById('rhythm-editor-panel');
+            if (panel && panel.style.display !== 'none') {
+                const pattern = getCurrentPattern();
+                if (!pattern) return;
+
+                let hasChanges = false;
+                let newPattern = pattern;
+
+                if (editorState.activeTab === 'drumPattern') {
+                    if (editorState.selectedHitId && pattern.hits) {
+                        const newHits = pattern.hits.filter(h => h.id !== editorState.selectedHitId);
+                        newPattern = { ...pattern, hits: newHits };
+                        editorState.selectedHitId = null;
+                        hasChanges = true;
+                    }
+                } else if (pattern.instances) {
+                    const selected = pattern.instances.filter(i => i.isSelected);
+                    if (selected.length > 0) {
+                        let remaining = pattern.instances.filter(i => !i.isSelected);
+                        if (remaining.length > 0 && !remaining.some(i => i.isSelected)) {
+                            remaining[remaining.length - 1].isSelected = true;
+                        }
+                        newPattern = { ...pattern, instances: remaining };
+                        editorState.activeOverlayId = null;
+                        hasChanges = true;
+                    }
+                }
+
+                if (hasChanges) {
+                    app.saveHistoryState();
+                    setCurrentPattern(newPattern);
+                    app.persistAppState();
+                    renderRhythmTimeline();
+                }
+            }
+        }
+    });
+}
+
 export function initRhythmControls() {
     _setupTabsAndToggles();
     _setupGridSlider();
     _setupDrumControls();
     _setupPropertiesControls();
     _setupToolbarButtons();
+    _setupKeyboardShortcuts();
     initArpControls();
     initBassControls();
 }
