@@ -25,6 +25,7 @@ export const state = {
     globalPatterns: initPatternSet(),
     showManualOnStartup: true,
     enableExperimentalDrawMode: true,
+    isAdvancedMode: true,
     editorState: {
         activeIndex: null,
         activeOverlayId: null,
@@ -274,6 +275,7 @@ export function resetSession() {
     state.selectedChordIndex = null;
     state.showManualOnStartup = true;
     state.enableExperimentalDrawMode = true;
+    state.isAdvancedMode = true;
     state.editorState = {
         activeIndex: null,
         activeOverlayId: null,
@@ -330,6 +332,7 @@ export function loadAndApplyInitialState() {
         
         state.showManualOnStartup = savedState.showManualOnStartup !== undefined ? Boolean(savedState.showManualOnStartup) : true;
         state.enableExperimentalDrawMode = Boolean(savedState.enableExperimentalDrawMode);
+        state.isAdvancedMode = savedState.isAdvancedMode !== undefined ? Boolean(savedState.isAdvancedMode) : true;
         
         if (savedState.volumes) {
             state.volumes = {

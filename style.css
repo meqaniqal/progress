@@ -345,3 +345,10 @@ button.control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 body:not(.show-helpers) .beginner-helper {
     display: none !important;
 }
+
+/* --- Beginner / Advanced Mode --- */
+body.beginner-mode #rhythm-editor-panel,
+body.beginner-mode #section-tabs-container,
+body.beginner-mode #song-sequencer-tray {
+    display: none !important;
+}

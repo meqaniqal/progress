@@ -345,6 +345,7 @@ export function toggleSongTray() {
         btnToggleTray.classList.remove('active');
         Array.from(document.querySelectorAll('.chord-palette')).forEach(p => p.style.display = 'block');
     }
+    updateSongUI();
 }
 
 export function exitSongMode() {
@@ -379,7 +380,13 @@ export function updateSongUI() {
         `).join('');
     }
 
-    if (btnToggleTray) btnToggleTray.style.display = orderedSections.length > 1 ? 'inline-block' : 'none';
+    if (btnToggleTray) {
+        if (isSongTrayOpen) {
+            btnToggleTray.style.display = 'none';
+        } else {
+            btnToggleTray.style.display = orderedSections.length > 1 ? 'inline-block' : 'none';
+        }
+    }
 
     // 2. Render Macro Sequencer Tray Blocks
     if (state.songSequence.length === 0) {

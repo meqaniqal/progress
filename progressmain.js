@@ -245,6 +245,12 @@ function _loadAndApplyInitialState() {
     
     const expDrawInput = document.getElementById('experimental-draw-mode');
     if (expDrawInput) expDrawInput.checked = state.enableExperimentalDrawMode;
+
+    document.body.classList.toggle('beginner-mode', !state.isAdvancedMode);
+    const btnModeToggle = document.getElementById('btn-mode-toggle');
+    if (btnModeToggle) {
+        btnModeToggle.textContent = state.isAdvancedMode ? '🎓 Advanced' : '🌱 Beginner';
+    }
 }
 
 function _setupTopBarEvents() {
@@ -355,6 +361,21 @@ function _setupControlButtons() {
         const exportState = { ...state, currentProgression: getActiveProgression() };
         exportToMidi(exportState);
     });
+
+    const btnModeToggle = document.getElementById('btn-mode-toggle');
+    if (btnModeToggle) {
+        btnModeToggle.addEventListener('click', () => {
+            state.isAdvancedMode = !state.isAdvancedMode;
+            document.body.classList.toggle('beginner-mode', !state.isAdvancedMode);
+            btnModeToggle.textContent = state.isAdvancedMode ? '🎓 Advanced' : '🌱 Beginner';
+            persistAppState();
+            
+            // Ensure Song Mode exits if switching to beginner to clean up the UI
+            if (!state.isAdvancedMode) {
+                exitSongMode();
+            }
+        });
+    }
     
     document.getElementById('bpm-slider').addEventListener('input', (e) => {
         state.bpm = parseInt(e.target.value, 10);

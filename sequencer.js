@@ -37,6 +37,15 @@ function getBounds(state) {
     return { start, end };
 }
 
+function getSectionBounds(state, sectionId) {
+    if (sectionId === state.activeSectionId) {
+        return { start: state.loopStart, end: state.loopEnd };
+    }
+    const section = state.sections[sectionId];
+    if (!section) return { start: 0, end: 0 };
+    return { start: section.loopStart ?? 0, end: section.loopEnd ?? section.progression.length };
+}
+
 function getAbsoluteBeatPos(progression, index) {
     let beats = 0;
     for (let i = 0; i < index; i++) {
@@ -85,8 +94,8 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         }
         
         const activeSecId = initialState.songSequence[playhead.macroIndex];
-        const activeSec = initialState.sections[activeSecId];
-        playhead.chordIndex = activeSec ? (activeSec.loopStart ?? 0) : 0;
+        const initialBounds = getSectionBounds(initialState, activeSecId);
+        playhead.chordIndex = initialBounds.start;
     } else {
         if (initialState.currentProgression.length === 0) return () => {};
         playhead.chordIndexRel = 0;
@@ -317,16 +326,15 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             
             nextNoteTime += (60.0 / Number(state.bpm)) * beats;
 
-            const loopEnd = section.loopEnd ?? section.progression.length;
-            if (playhead.chordIndex >= loopEnd || section.progression.length === 0) {
+            const bounds = getSectionBounds(state, sectionId);
+            if (playhead.chordIndex >= bounds.end || section.progression.length === 0) {
                 playhead.macroIndex++;
                 if (playhead.macroIndex >= state.songSequence.length) {
                     if (state.isLooping) playhead.macroIndex = 0;
                     else return false;
                 }
                 const nextSectionId = state.songSequence[playhead.macroIndex];
-                const nextSection = state.sections[nextSectionId];
-                playhead.chordIndex = nextSection ? (nextSection.loopStart ?? 0) : 0;
+                playhead.chordIndex = getSectionBounds(state, nextSectionId).start;
             }
             return true;
         } else {
