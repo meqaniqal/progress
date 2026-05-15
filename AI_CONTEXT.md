@@ -24,7 +24,7 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 7. CORRECTION PROTOCOL: If a mistake is pointed out, acknowledge the correct pattern and do not repeat the error. The user may provide a `// CORRECT_PATTERN: <description>` comment to reinforce a rule.
 
 ## CURRENT STATE & ROADMAP
-**Current State:** Phase 6 Complete. Transitioning to a comprehensive Code Optimization & Refactoring pass before starting Phase 7.
+**Current State:** Phase 6 Complete. Song Mode macro-arrangement, intelligent basslines, and generative rhythms are fully integrated.
 
 **Phase 2: Contextual Auditioning & Looping (Complete)**
 - [x] Section looping (UI slice selection for seamless playback).
@@ -54,6 +54,7 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] **Always-Visible Transport:** Move transport controls (Play, Loop, BPM, Export) above the foldaway panels so they are never pushed off-screen.
 - [x] **Architectural Refactoring - State:** Extract global state and history management from `progressmain.js` into a dedicated `store.js` module.
 - [x] **Architectural Refactoring - DOM:** Optimize `rhythmEditor.js` timeline rendering to update existing DOM nodes instead of using `innerHTML = ''` to prevent dropped frames.
+- [x] **Progressive Disclosure:** Beginner/Advanced mode toggle to streamline the UI for new users.
 - [x] **Architectural Refactoring - State:** Clean up module-scoped mutable state variables in `rhythmEditor.js`.
 - [x] **Architectural Refactoring - Events:** Implement Event Delegation for the Chord Inspector in `ui.js` to prevent memory leaks from orphaned listeners.
 - [x] **Architectural Refactoring - CSS:** Purged massive inline styles from JS and HTML into strict, semantic CSS classes.
@@ -62,12 +63,7 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] Probabilistic Pattern Sequencing (Per-slice and per-hit probability sliders for generative, organically evolving rhythms).
 - [x] Unified Pattern Architecture: Global/Local cascading state (Reset inherits Global, Clear forces 1-block local override).
 - [x] Drum Machine Synthesis & Grid Editor: 4-piece kit (Kick, Snare, CHH, OHH). Includes a dual-view workflow: a scrollable, independent-length Global pattern that loops continuously across the entire progression (featuring non-destructive truncation, smart duplication, panning, and DAW-style page-flipping), and a zoomed-in Local override view featuring "ghost notes" for precise drum fills.
-- [x] **Intelligent Bassline Generation:** Generates dynamic, syncopated basslines that algorithmically duck around kick drum hits. Includes multiple stylistic modes (Root, Octaves, Fifths) and a driving 1/8th note fallback.
-- [x] **Drum Presets & UX:** Drum tab defaults to global mode to prevent confusion. Added a curated library of complex generative drum presets (DnB, Bossa Nova, Lo-Fi, etc.).
-- [x] **Strict Modularization:** Extracted specialized tools (`arpControls.js`, `bassControls.js`, `clipboardUtils.js`, `transportController.js`) out of the main monolitic controllers.
-- [x] **3D Transport & Folder UX:** Styled the editor as an OS-level file folder with dynamic gradients, and added a 3D neumorphic playback transport with a hidden "Super Volume" overdrive slider.
-- [x] **Advanced Modular Synthesis & Sound Design (Complete):** Pluggable synths (FM, Plucked Square), custom drum sampling via IndexedDB, and SVG waveform generation.
-- [x] **Visual Polish & Contextual UI:** Arp visualizations on timeline blocks, contextual drum labels, and streamlined inspector layouts.
+- [x] **Intelligent Bassline Generation:** Shares rhythm editor tech, single note focus, contextual pitch suggestions, and rhythmic locking.
 - [x] **True Minor Key & Omni-Scale Theory Framework:**
   - [x] Decouple global key state to support modes (Major/Minor).
   - [x] Dynamic UI palettes that render correct diatonic chords for the active scale.
@@ -84,21 +80,9 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
   - [x] *Protocol requirement:* Hide this new editor behind a persistent Settings toggle (`enableExperimentalDrawMode`) during development to preserve legacy stability.
 
 **Phase 6: Song Mode & Macro-Arrangement (Complete)**
-- [x] Nested State Architecture & UI Data Pointers.
-- [x] Smart Dropdown First-Time Flow & Naming logic.
-- [x] "Inherit From" Empty State population.
-- [x] Song Tray Drag-and-Drop Sequencing & Double-Tap Appending.
-- [x] Macro Playback Engine (Cross-section audio/UI sync).
-- [x] Fix Macro Playback sequence wrapping bug.
-- [x] Add Macro Loop Brackets to the Song Tray.
-- [x] Hide "Song View" button when Song Tray is open.
-- [x] Implement Beginner/Advanced global toggle button next to the Manual button.
-- [x] Multi-pass Macro MIDI & WAV Export context mapping.
-
-**Phase 6.5: Code Optimization & Refactoring (Next Steps)**
-- [ ] Step 1: UI Rendering De-Cluttering (Break down monolithic renderers in `ui.js` and `songController.js`).
-- [ ] Step 2: Extract Macro-Baking Logic (Move complex export compilation out of `store.js` into pure utility modules).
-- [ ] Step 3: Event & Memory Audit (Ensure safe cleanup of dynamic UI listeners, specifically in inspectors and modals).
+- [x] Nested section state architecture allowing multiple independent progressions.
+- [x] Dedicated UI Song Tray for sequencing parts (Verse, Chorus) via drag-and-drop.
+- [x] Global playback and export evaluation wrapping seamlessly across sections.
 
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.

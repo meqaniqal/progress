@@ -1,4 +1,4 @@
-import { applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension } from './theory.js';
+import { getChordNotes, applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension } from './theory.js';
 
 describe('Theory & Voice Leading Module', () => {
     
@@ -117,6 +117,36 @@ describe('Theory & Voice Leading Module', () => {
             
             expect(borrowedProfile.isBorrowed).toBe(true);
             expect(diatonicProfile.isBorrowed).toBe(false);
+        });
+    });
+
+    describe('Mathematical Omni-Scale Parser (getChordNotes)', () => {
+        it('should correctly build sus4 chords not in the hardcoded dictionary (e.g., Isus4)', () => {
+            // I = C (60). sus4 intervals: root(0), perfect 4th(5), perfect 5th(7)
+            // Notes: 60, 65, 67
+            const notes = getChordNotes('Isus4', 60);
+            expect(notes).toEqual([60, 65, 67]);
+        });
+
+        it('should correctly build sus2 chords (e.g., iisus2)', () => {
+            // ii = D (62). sus2 intervals: root(0), major 2nd(2), perfect 5th(7)
+            // Notes: 62, 64, 69
+            const notes = getChordNotes('iisus2', 60);
+            expect(notes).toEqual([62, 64, 69]);
+        });
+
+        it('should correctly build 13th chords (e.g., V13)', () => {
+            // V = G (67). 13th chord implies major triad, minor 7th, and major 13th.
+            // Notes: G(67), B(71), D(74), F(77), E(88 - an octave up)
+            const notes = getChordNotes('V13', 60);
+            expect(notes).toEqual([67, 71, 74, 77, 88]);
+        });
+
+        it('should correctly build minor 11th chords (e.g., vi11)', () => {
+            // vi = A (69). 11th implies minor triad, minor 7th, and perfect 11th.
+            // Notes: A(69), C(72), E(76), G(79), D(86 - an octave up)
+            const notes = getChordNotes('vi11', 60);
+            expect(notes).toEqual([69, 72, 76, 79, 86]);
         });
     });
 });

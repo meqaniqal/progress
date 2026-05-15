@@ -344,13 +344,15 @@ function _setupProgressionDisplayEvents(display) {
 function _setupChordButtons() {
     const chordBtns = document.querySelectorAll('.chord-btn');
     chordBtns.forEach(btn => {
-        btn.draggable = true;
-        btn.addEventListener('click', () => {
-            auditionChord(btn.dataset.chord, state.baseKey);
-        });
-        btn.addEventListener('dblclick', () => {
-            addChord(btn.dataset.chord);
-        });
+        if (btn.hasAttribute('data-chord')) {
+            btn.draggable = true;
+            btn.addEventListener('click', () => {
+                auditionChord(btn.dataset.chord, state.baseKey);
+            });
+            btn.addEventListener('dblclick', () => {
+                addChord(btn.dataset.chord);
+            });
+        }
     });
 }
 

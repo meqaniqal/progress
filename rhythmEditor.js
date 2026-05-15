@@ -37,12 +37,7 @@ export function getCurrentPattern() {
     if (localPat && !localPat.isLocalOverride) {
         const globalPat = app.state.globalPatterns[editorState.activeTab];
         const beats = Number(chord.duration) || 4;
-        
-        let absBeatStart = 0;
-        for (let i = 0; i < editorState.activeIndex; i++) {
-            absBeatStart += Number(app.state.currentProgression[i].duration) || 2;
-        }
-        return resolvePattern(globalPat, true, beats, localPat.inheritMode, null, false, absBeatStart);
+        return resolvePattern(globalPat, true, beats, localPat.inheritMode);
     }
     return localPat;
 }
@@ -61,13 +56,12 @@ export function auditionSlicePitch(pitchOffset = 0) {
     if (!notes) return;
     
     const now = getAudioCurrentTime();
-    const duration = CONFIG.AUDITION_SLICE_DURATION || 0.4; // Short, punchy audition
+    const duration = 0.4; // Short, punchy audition
     
     // Play chord pad and bass note together
     notes.forEach(n => playTone(midiToFreq(n - 12), now, duration, 'sawtooth'));
     const finalBassNote = notes[0] + CONFIG.BASS_OCTAVE_DROP + pitchOffset;
     playTone(midiToFreq(finalBassNote), now, duration, 'sine');
-    playTone(midiToFreq(finalBassNote), now, duration, 'sawtooth-bass');
 }
 
 export function setCurrentPattern(newPattern, markAsOverride = true) {
@@ -121,10 +115,6 @@ export function openRhythmEditor(index) {
     
     const chord = app.state.currentProgression[index];
     if (!chord) { closeRhythmEditor(); return; }
-
-    if (editorState.activeTab === 'drumPattern' && (!chord.drumPattern || !chord.drumPattern.isLocalOverride)) {
-        editorState.isGlobal = true;
-    }
 
     renderRhythmTimeline();
     

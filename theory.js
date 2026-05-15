@@ -30,6 +30,8 @@ export const INTERVAL_WEIGHTS = {
 };
 
 export function getChordNotes(symbol, baseKey) {
+    if (!symbol || typeof symbol !== 'string') return null;
+
     let intervals = CHORD_INTERVALS[symbol];
     
     // Fallback: Mathematical Roman Numeral Parser for omni-scale generated chords
@@ -51,19 +53,38 @@ export function getChordNotes(symbol, baseKey) {
             };
             
             const rootOffset = scaleOffsets[numeral] + accidental;
-            const thirdOffset = numeral === numeral.toLowerCase() ? 3 : 4;
+            let thirdOffset = numeral === numeral.toLowerCase() ? 3 : 4;
             let fifthOffset = 7;
             
+            if (remainder.includes('sus4')) thirdOffset = 5;
+            else if (remainder.includes('sus2')) thirdOffset = 2;
+
             if (remainder.includes('+') || remainder.includes('aug')) fifthOffset = 8;
             if (remainder.includes('°') || remainder.includes('dim')) fifthOffset = 6;
             
             intervals = [rootOffset, rootOffset + thirdOffset, rootOffset + fifthOffset];
             
-            if (remainder.includes('maj7')) intervals.push(rootOffset + 11);
-            else if (remainder.includes('7')) {
+            let has7 = remainder.includes('7') || remainder.includes('9') || remainder.includes('11') || remainder.includes('13');
+
+            if (remainder.includes('maj7') || remainder.includes('maj9')) intervals.push(rootOffset + 11);
+            else if (has7) {
                 if (fifthOffset === 6 && !remainder.includes('°7')) intervals.push(rootOffset + 10);
                 else if (remainder.includes('°7')) intervals.push(rootOffset + 9);
                 else intervals.push(rootOffset + 10);
+            }
+            
+            if (remainder.includes('9')) {
+                if (remainder.includes('b9')) intervals.push(rootOffset + 13);
+                else if (remainder.includes('#9')) intervals.push(rootOffset + 15);
+                else intervals.push(rootOffset + 14); // Major 9th
+            }
+            if (remainder.includes('11')) {
+                if (remainder.includes('#11')) intervals.push(rootOffset + 18);
+                else intervals.push(rootOffset + 17); // Perfect 11th
+            }
+            if (remainder.includes('13')) {
+                if (remainder.includes('b13')) intervals.push(rootOffset + 20);
+                else intervals.push(rootOffset + 21); // Major 13th
             }
         }
         

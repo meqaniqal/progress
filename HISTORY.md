@@ -59,22 +59,12 @@
 - Replaced hardcoded chord dictionaries with a generative mathematical Roman Numeral parser, unlocking full Omni-Scale support for exotic modes (Dorian, Lydian, Harmonic Minor, etc.).
 - **Mobile UX Overhaul:** Disabled native double-tap-to-zoom to enable reliable global play/pause via touch. Removed vertical magnetic scroll-snapping for precision manual scrolling.
 - **Smart Drag-and-Drop & Transport:** Converted the fixed bottom transport into a Floating Action Button (FAB) to maximize vertical real estate. Added dynamic CSS transitions to collapse inactive chord palettes during drag operations, instantly bringing the drop tray into the mobile viewport. Fixed HTML5 bracket-drag ghosting glitches.
+- **Progressive Disclosure:** Added a "Beginner/Advanced" UI toggle to safely hide complex routing, theory, and arrangement tools, making the app instantly approachable for novices.
 - **Audio Engine & UI Polish:** Fixed lingering drum lookahead playback by comprehensively tracking and terminating all scheduled Web Audio API nodes on stop. Refined the mobile FAB transport button with a professional 'squircle' design, inner ring, and dark mode glow.
 - **Experimental Draw Mode & Workflow Refactor:** Replaced the rigid Global/Local mode toggle with an intuitive "Edit-in-Place" Push/Pull workflow. Introduced a grid-aware Pencil Draw tool featuring Boolean "carving" mathematics for rapid, DAW-style sequence painting and gating.
-- **Intelligent Bassline Generation:** Shipped the generative bassline engine that automatically extracts drum kick timings and chord slice timings to generate locked, genre-appropriate grooves. Added non-destructive "Avoid Kick Clash" (sidechain ducking) to the core playback engine.
-- **3D Transport & Super Volume:** Moved the global play button to the bottom center, styled as a tactile 3D semi-circle hardware control. Added a hidden "Super Volume" overdrive slider (up to 400%) triggered by dragging upward.
-- **Folder Tabs UI & Synesthetic Contrast:** Redesigned the Rhythm Editor tabs into a cohesive file folder layout with a 135-degree diagonal gradient border. Compressed the Circle-of-Fifths color mapping to guarantee the selection highlight always remains highly visible.
-- **Drum Workflow & Presets:** The Drum tab now intelligently defaults to Global Mode when empty. Added a curated dropdown of advanced drum presets (House, Hip Hop, Breakbeat, DnB, Bossa Nova, Lo-Fi) utilizing velocity and probability dynamics.
-- **Strict Component Modularization:** Drastically reduced monolithic files by extracting `inspectorController.js`, `drumRenderer.js`, `clipboardUtils.js`, `transportController.js`, `arpControls.js`, and `bassControls.js` into pure, focused ES6 modules.
-- **Modular Synth Engines:** Extracted sound generation into `synthEngines.js` and `drumEngines.js`. Added FM Synthesis and Plucked Square modules.
-- **Custom Drum Samples:** Implemented `.wav` uploads via `FileReader`, background decoding via `OfflineAudioContext`, and persistent storage via IndexedDB (`db.js`).
-- **Advanced Timeline Rendering:** Added pre-computed SVG waveform rendering for custom drum hits and real-time polyrhythmic Arpeggiator visualization on chord slices.
-- **Contextual UI & Layout:** Grouped timeline properties (Velocity, Probability, Pitch, Avoid Kick) into attached tabs. Compacted Inspector tools and added contextual popup menus for drum labels to manage custom samples.
+- **Intelligent Bassline Generation:** Added algorithm to generate rhythm-informed basslines that dynamically syncopate and sidechain duck against kick drum placements.
 
 ## Phase 6: Song Mode & Macro-Arrangement (Complete)
-- **Nested State Architecture:** Evolved single progression array into a library of multi-section pointers (`Intro`, `Verse`, `Chorus`).
-- **Song Tray Sequencer:** Added a macro-level sequence tray with native drag-and-drop section building, double-tap appending, and dedicated macro loop brackets.
-- **Audio Engine Context Switching:** Sequencer now seamlessly wraps between sections and dynamically restarts/syncs when contexts or loop bounds are dragged during playback.
-- **Multi-pass Export Context Mapping:** MIDI, WAV, and AI Text Prompt generators dynamically flatten and bake multi-section arrangements, maintaining perfect absolute phase-tracking for polyrhythms and kick ducking.
-- **Beginner Mode:** Added a global toggle to strip away advanced sequencers (Pattern Editor, Section Tabs, Song Tray) to provide an unintimidating sketching interface for new users.
-- **Voice Leading Chunking:** Export engines now strictly respect section boundaries when calculating voice leading arrays, ensuring 1:1 playback parity with the live app.
+- Transformed the single-loop workflow into a multi-section track arranger.
+- Implemented a foldaway Song Tray for macro-sequencing (Intro, Verse, Chorus, etc.) via drag-and-drop.
+- Added intelligent state handling where sections maintain independent progressions, boundaries, and drum grooves, seamlessly unified during continuous playback and MIDI/WAV export.

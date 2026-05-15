@@ -12,17 +12,7 @@ export function exportToMidi(state) {
     let midiNotesToWrite = [];
 
     if (state.useVoiceLeading) {
-        let currentChunk = [];
-        state.currentProgression.forEach(chord => {
-            if (chord._isSectionStart && currentChunk.length > 0) {
-                midiNotesToWrite.push(...getPlayableNotes(currentChunk, state));
-                currentChunk = [];
-            }
-            currentChunk.push(chord);
-        });
-        if (currentChunk.length > 0) {
-            midiNotesToWrite.push(...getPlayableNotes(currentChunk, state));
-        }
+        midiNotesToWrite = getPlayableNotes(state.currentProgression, state);
     } else {
         // Just use block root position chords
         // Drop by 1 octave (-12) to match the pad register warmth used in audio playback
@@ -31,7 +21,7 @@ export function exportToMidi(state) {
 
     // Initialize MidiWriterJS (assumes MidiWriter is available globally)
     const track = new MidiWriter.Track();
-    track.addEvent(new MidiWriter.ProgramChangeEvent({instrument: CONFIG.MIDI_INSTRUMENT_PIANO})); 
+    track.addEvent(new MidiWriter.ProgramChangeEvent({instrument: 1})); // Acoustic Grand Piano
 
     let currentTick = 0;
     let slotStartTick = 0;
@@ -45,29 +35,17 @@ export function exportToMidi(state) {
         state.currentProgression.forEach((chord, index) => {
             const chordNotes = midiNotesToWrite[index];
             
-            let absBeatStart = 0;
-            for (let i = 0; i < index; i++) {
-                absBeatStart += Number(state.currentProgression[i].duration) || 2;
-            }
-            
             let pattern = chord.chordPattern;
             let isGlobalChord = false;
             if (pattern && !pattern.isLocalOverride && state.globalPatterns && state.globalPatterns.chordPattern) {
                 pattern = state.globalPatterns.chordPattern;
                 isGlobalChord = true;
             }
-        
-        let isGlobalDrum = false;
-        let drumPatForDucking = chord.drumPattern;
-        if (drumPatForDucking && !drumPatForDucking.isLocalOverride && state.globalPatterns && state.globalPatterns.drumPattern) {
-            drumPatForDucking = state.globalPatterns.drumPattern;
-            isGlobalDrum = true;
-        }
             pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-        pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 2, null, drumPatForDucking, isGlobalDrum, absBeatStart);
+            pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 2);
             
             const beats = Number(chord.duration) || 2;
-            const slotTicks = beats * CONFIG.MIDI_TICKS_PER_BEAT;
+            const slotTicks = beats * 128;
             const chordDurationSec = (60.0 / Number(state.bpm)) * beats;
 
             // Sort instances by startTime to ensure sequential MIDI rendering
@@ -87,8 +65,8 @@ export function exportToMidi(state) {
                     });
 
                     arpEvents.forEach(event => {
-                        const noteStartTick = instanceStartTick + Math.round(event.startTime * (state.bpm / 60) * CONFIG.MIDI_TICKS_PER_BEAT);
-                        const noteDurationTicks = Math.max(1, Math.round(event.duration * (state.bpm / 60) * CONFIG.MIDI_TICKS_PER_BEAT));
+                        const noteStartTick = instanceStartTick + Math.round(event.startTime * (state.bpm / 60) * 128);
+                        const noteDurationTicks = Math.max(1, Math.round(event.duration * (state.bpm / 60) * 128));
                         const waitTicks = Math.max(0, noteStartTick - currentTick);
                         
                         track.addEvent(new MidiWriter.NoteEvent({
@@ -124,15 +102,10 @@ export function exportToMidi(state) {
     let bassSlotStartTick = 0;
 
     for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
-        state.currentProgression.forEach((chord, index) => {
+        state.currentProgression.forEach(chord => {
             const rootNote = getChordNotes(chord.symbol, chord.key)[0] + CONFIG.BASS_OCTAVE_DROP; 
             const beats = Number(chord.duration) || 2;
-            const slotTicks = beats * CONFIG.MIDI_TICKS_PER_BEAT;
-            
-            let absBeatStart = 0;
-            for (let i = 0; i < index; i++) {
-                absBeatStart += Number(state.currentProgression[i].duration) || 2;
-            }
+            const slotTicks = beats * 128;
             
             let bPattern = chord.bassPattern;
             let isGlobalBass = false;
@@ -140,16 +113,8 @@ export function exportToMidi(state) {
                 bPattern = state.globalPatterns.bassPattern;
                 isGlobalBass = true;
             }
-            
-            let isGlobalDrum = false;
-            let drumPatForDucking = chord.drumPattern;
-            if (drumPatForDucking && !drumPatForDucking.isLocalOverride && state.globalPatterns && state.globalPatterns.drumPattern) {
-                drumPatForDucking = state.globalPatterns.drumPattern;
-                isGlobalDrum = true;
-            }
-            
             bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-            bPattern = resolvePattern(bPattern, isGlobalBass, beats, null, drumPatForDucking, isGlobalDrum, absBeatStart);
+            bPattern = resolvePattern(bPattern, isGlobalBass, beats);
 
             const instances = [...bPattern.instances].sort((a, b) => a.startTime - b.startTime);
             
@@ -175,15 +140,22 @@ export function exportToMidi(state) {
 
     // --- Add Drum Track (Channel 10) ---
     const drumTrack = new MidiWriter.Track();
-    // MIDI Channel 10 is reserved for Percussion
+    // MIDI Channel 10 is reserved for Percussion (MidiWriter uses 1-based indexing, so channel: 10)
     let currentDrumGlobalTick = 0;
     let drumSlotStartTick = 0;
     let currentDrumBeat = 0;
+    
+    const DRUM_MIDI_MAP = {
+        'kick': 36, // C1 (General MIDI Bass Drum 1)
+        'snare': 38, // D1 (General MIDI Acoustic Snare)
+        'chh': 42,  // F#1 (General MIDI Closed Hi-Hat)
+        'ohh': 46   // A#1 (General MIDI Open Hi-Hat)
+    };
 
     for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
         state.currentProgression.forEach(chord => {
             const beats = Number(chord.duration) || 2;
-            const slotTicks = beats * CONFIG.MIDI_TICKS_PER_BEAT;
+            const slotTicks = beats * 128;
             const drumPat = chord.drumPattern;
             
             let hitsToPlay = [];
@@ -222,9 +194,9 @@ export function exportToMidi(state) {
             // Group simultaneous hits to avoid sequential offset issues in MidiWriterJS
             const groupedHits = {};
             hitsToPlay.forEach(hit => {
-                const tick = drumSlotStartTick + Math.round(hit.absBeat * CONFIG.MIDI_TICKS_PER_BEAT);
+                const tick = drumSlotStartTick + Math.round(hit.absBeat * 128);
                 if (!groupedHits[tick]) groupedHits[tick] = { pitches: [], velocity: 0 };
-                groupedHits[tick].pitches.push(CONFIG.DRUM_MIDI_MAP[hit.row] || 36);
+                groupedHits[tick].pitches.push(DRUM_MIDI_MAP[hit.row] || 36);
                 groupedHits[tick].velocity = Math.min(127, Math.max(groupedHits[tick].velocity, Math.round((hit.velocity || 1.0) * 100 * (drumsVol / 0.8))));
             });
 
@@ -232,14 +204,14 @@ export function exportToMidi(state) {
 
             sortedTicks.forEach(tick => {
                 const waitTicks = Math.max(0, tick - currentDrumGlobalTick);
-                const noteDurationTicks = CONFIG.MIDI_DRUM_DURATION_TICKS;
+                const noteDurationTicks = 16; // Short crisp hit duration (1/32 note)
                 
                 drumTrack.addEvent(new MidiWriter.NoteEvent({
                     pitch: groupedHits[tick].pitches,
                     duration: `T${noteDurationTicks}`,
                     wait: `T${waitTicks}`,
                     velocity: groupedHits[tick].velocity,
-                    channel: CONFIG.MIDI_DRUM_CHANNEL
+                    channel: 10
                 }));
                 currentDrumGlobalTick += waitTicks + noteDurationTicks;
             });

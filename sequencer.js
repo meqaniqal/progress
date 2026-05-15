@@ -3,11 +3,15 @@ import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators, playDrum } from './synth.js';
 import { resolvePattern } from './patternResolver.js';
-import { isSongTrayOpen, getActiveSequenceIndex } from './songController.js';
 
 let uiTimeouts = [];
 
-export function auditionChord(chordSymbol, baseKey, specificNotes = null, stateObj = null) {
+const LOOKAHEAD_MS = 25;
+const SCHEDULE_AHEAD_SEC = 0.1;
+
+export function auditionChord(chordSymbol, baseKey, specificNotes = null) {
+    if (!chordSymbol) return;
+    
     initAudio();
 
     const chordNotes = getChordNotes(chordSymbol, baseKey);
@@ -16,13 +20,10 @@ export function auditionChord(chordSymbol, baseKey, specificNotes = null, stateO
     const rootNoteMidi = chordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
     const now = getAudioCurrentTime();
     const notesToPlay = specificNotes || chordNotes.map(n => n - 12);
-    const chordEngine = stateObj && stateObj.instruments ? stateObj.instruments.chords : 'sawtooth';
-    const bassEngine = stateObj && stateObj.instruments ? stateObj.instruments.bass : 'sine';
 
     // Play chord and bass note without interrupting main playback loop
-    notesToPlay.forEach(note => playTone(midiToFreq(note), now, CONFIG.AUDITION_DURATION_SEC, chordEngine, 'chords'));
-    playTone(midiToFreq(rootNoteMidi), now, CONFIG.AUDITION_DURATION_SEC, bassEngine, 'bass');
-    playTone(midiToFreq(rootNoteMidi), now, CONFIG.AUDITION_DURATION_SEC, 'sawtooth-bass', 'bassHarmonic');
+    notesToPlay.forEach(note => playTone(midiToFreq(note), now, CONFIG.AUDITION_DURATION_SEC, 'sawtooth'));
+    playTone(midiToFreq(rootNoteMidi), now, CONFIG.AUDITION_DURATION_SEC, 'sine');
 }
 
 function getBounds(state) {
@@ -37,21 +38,22 @@ function getBounds(state) {
     return { start, end };
 }
 
-function getSectionBounds(state, sectionId) {
-    if (sectionId === state.activeSectionId) {
-        return { start: state.loopStart, end: state.loopEnd };
-    }
-    const section = state.sections[sectionId];
-    if (!section) return { start: 0, end: 0 };
-    return { start: section.loopStart ?? 0, end: section.loopEnd ?? section.progression.length };
-}
-
 function getAbsoluteBeatPos(progression, index) {
     let beats = 0;
     for (let i = 0; i < index; i++) {
         beats += Number(progression[i].duration) || 2;
     }
     return beats;
+}
+
+function getActive(state) {
+    if (!state.temporarySwaps) return state.currentProgression;
+    return state.currentProgression.map((chord, index) => {
+        if (state.temporarySwaps[index] !== undefined) {
+            return { ...chord, ...state.temporarySwaps[index] };
+        }
+        return chord;
+    });
 }
 
 /**
@@ -69,129 +71,57 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
     let schedulerTimerId = null;
     let isPlaying = true; // Local state for this playback instance
 
-    let playhead = {
-        isMacro: false,
-        macroIndex: 0,
-        chordIndex: 0,
-        chordIndexRel: 0
-    };
-
     // Immediately stop any currently playing audio from this module
     // This ensures only one progression plays at a time from this module's API.
     stopAllAudio(onHighlight);
 
     const initialState = getState();
-    
-    playhead.isMacro = isSongTrayOpen;
-    if (playhead.isMacro) {
-        if (initialState.songSequence.length === 0) return () => {};
-        
-        const activeMacroIndex = getActiveSequenceIndex();
-        if (activeMacroIndex !== null && activeMacroIndex < initialState.songSequence.length) {
-            playhead.macroIndex = activeMacroIndex;
-        } else {
-            playhead.macroIndex = Math.max(0, initialState.songSequence.indexOf(initialState.activeSectionId));
-        }
-        
-        const activeSecId = initialState.songSequence[playhead.macroIndex];
-        const initialBounds = getSectionBounds(initialState, activeSecId);
-        playhead.chordIndex = initialBounds.start;
-    } else {
-        if (initialState.currentProgression.length === 0) return () => {};
-        playhead.chordIndexRel = 0;
+    if (initialState.currentProgression.length === 0) {
+        return () => {}; // Return a no-op stop function if nothing to play
     }
 
-    nextNoteTime = getAudioCurrentTime() + (CONFIG.PLAYBACK_START_DELAY || 0.05); // Buffer 50ms ahead for clean start
+    currentChordIndexRel = 0; // Start from the beginning of the slice
+    nextNoteTime = getAudioCurrentTime() + 0.05; // Buffer 50ms ahead for clean start
 
-    function scheduleNote(time) {
+    function scheduleNote(chordIndexRel, time) {
         const state = getState(); // Always get the latest state
-        let chordObj, globalPatterns, sectionId, absIndex, progressionToUse;
-        let currentMacroIndex = playhead.macroIndex; // Capture exact index at schedule time to prevent lookahead desync
-
-        if (playhead.isMacro) {
-            if (state.songSequence.length === 0) return;
-            
-            let macStart = state.macroLoopStart ?? 0;
-            let macEnd = state.macroLoopEnd > 0 ? state.macroLoopEnd : state.songSequence.length;
-            if (macEnd > state.songSequence.length) macEnd = state.songSequence.length;
-            
-            if (playhead.macroIndex >= macEnd || playhead.macroIndex < macStart) playhead.macroIndex = macStart;
-            sectionId = state.songSequence[playhead.macroIndex];
-            const section = state.sections[sectionId];
-            if (!section) return;
-            
-            progressionToUse = section.progression.map((chord, i) => {
-                if (section.temporarySwaps && section.temporarySwaps[i]) return { ...chord, ...section.temporarySwaps[i] };
-                // Check global swaps if rendering the actively edited section
-                if (sectionId === state.activeSectionId && state.temporarySwaps && state.temporarySwaps[i]) return { ...chord, ...state.temporarySwaps[i] };
-                return chord;
-            });
-            
-            absIndex = playhead.chordIndex;
-            chordObj = progressionToUse[absIndex];
-            globalPatterns = section.globalPatterns;
-
-            // Empty section handling (Pauses playback natively by scheduling no notes)
-            if (progressionToUse.length === 0) {
-                const delayMs = (time - getAudioCurrentTime()) * 1000;
-                const highlightId = setTimeout(() => {
-                    if (onHighlight) onHighlight(-1, sectionId, currentMacroIndex);
-                    uiTimeouts = uiTimeouts.filter(id => id !== highlightId);
-                }, Math.max(0, delayMs));
-                uiTimeouts.push(highlightId);
-                return;
-            }
-        } else {
-            const bounds = getBounds(state);
-            const sliceLength = bounds.end - bounds.start;
-            if (sliceLength === 0) return;
-            
-            let rel = playhead.chordIndexRel;
-            if (rel >= sliceLength) rel %= sliceLength;
-            absIndex = bounds.start + rel;
-            
-            progressionToUse = state.currentProgression.map((chord, i) => {
-                 if (state.temporarySwaps && state.temporarySwaps[i]) return { ...chord, ...state.temporarySwaps[i] };
-                 return chord;
-            });
-            chordObj = progressionToUse[absIndex];
-            globalPatterns = state.globalPatterns;
-            sectionId = null;
-        }
+        const activeProg = getActive(state);
+        const bounds = getBounds(state);
+        const sliceLength = bounds.end - bounds.start;
         
-        if (!chordObj) return;
+        if (sliceLength === 0) return;
+        
+        // Safety bound: if user deleted a chord while playing and shrunk the array
+        if (chordIndexRel >= sliceLength) {
+            chordIndexRel %= sliceLength;
+        }
+
+        const absIndex = bounds.start + chordIndexRel;
         
         let notesToPlay = [];
         if (state.useVoiceLeading) {
-            const allPlayableNotes = getPlayableNotes(progressionToUse, state);
+            // Must calculate from the full progression to get proper voice leading context
+            const allPlayableNotes = getPlayableNotes(activeProg, state);
             notesToPlay = allPlayableNotes[absIndex];
         } else {
-            notesToPlay = getChordNotes(chordObj.symbol, chordObj.key).map(n => n - 12);
+            // Drop by 1 octave (-12) to match standard audition and pad register warmth
+            notesToPlay = getChordNotes(activeProg[absIndex].symbol, activeProg[absIndex].key).map(n => n - 12);
         }
         
         if (!notesToPlay) return;
 
+        const chordObj = activeProg[absIndex];
         const beats = Number(chordObj.duration) || 2;
         const chordSlotDuration = (60.0 / Number(state.bpm)) * beats;
         
         let pattern = chordObj.chordPattern;
         let isGlobalChord = false;
-        if (pattern && !pattern.isLocalOverride && globalPatterns && globalPatterns.chordPattern) {
-            pattern = globalPatterns.chordPattern;
+        if (pattern && !pattern.isLocalOverride && state.globalPatterns && state.globalPatterns.chordPattern) {
+            pattern = state.globalPatterns.chordPattern;
             isGlobalChord = true;
         }
-
-        let isGlobalDrum = false;
-        let drumPatForDucking = chordObj.drumPattern;
-        if (drumPatForDucking && !drumPatForDucking.isLocalOverride && globalPatterns && globalPatterns.drumPattern) {
-            drumPatForDucking = globalPatterns.drumPattern;
-            isGlobalDrum = true;
-        }
-        
-        const absBeatStart = getAbsoluteBeatPos(progressionToUse, absIndex);
-        
         pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-        pattern = resolvePattern(pattern, isGlobalChord, beats, null, drumPatForDucking, isGlobalDrum, absBeatStart);
+        pattern = resolvePattern(pattern, isGlobalChord, beats);
 
         // Render each rhythmic slice instance inside the chord slot
         pattern.instances.forEach(instance => {
@@ -209,11 +139,11 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                 });
 
                 arpEvents.forEach(event => {
-                    playTone(midiToFreq(event.note), instanceStartTime + event.startTime, event.duration, state.instruments.chords || 'sawtooth', 'chords');
+                    playTone(midiToFreq(event.note), instanceStartTime + event.startTime, event.duration, 'sawtooth');
                 });
             } else {
-                const gateDuration = instanceDuration * (CONFIG.GATE_RATIO || 0.95); // Slight gate so contiguous chops are distinctly audible
-                notesToPlay.forEach(note => playTone(midiToFreq(note), instanceStartTime, gateDuration, state.instruments.chords || 'sawtooth', 'chords'));
+                const gateDuration = instanceDuration * 0.95; // Slight gate so contiguous chops are distinctly audible
+                notesToPlay.forEach(note => playTone(midiToFreq(note), instanceStartTime, gateDuration, 'sawtooth'));
             }
         });
         
@@ -225,26 +155,26 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             
             let bPattern = chordObj.bassPattern;
             let isGlobalBass = false;
-            if (bPattern && !bPattern.isLocalOverride && globalPatterns && globalPatterns.bassPattern) {
-                bPattern = globalPatterns.bassPattern;
+            if (bPattern && !bPattern.isLocalOverride && state.globalPatterns && state.globalPatterns.bassPattern) {
+                bPattern = state.globalPatterns.bassPattern;
                 isGlobalBass = true;
             }
             bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-            bPattern = resolvePattern(bPattern, isGlobalBass, beats, null, drumPatForDucking, isGlobalDrum, absBeatStart);
+            bPattern = resolvePattern(bPattern, isGlobalBass, beats);
             
             bPattern.instances.forEach(instance => {
                 if (instance.probability !== undefined && Math.random() > instance.probability) return;
 
                 const instanceStartTime = time + (instance.startTime * chordSlotDuration);
                 const instanceDuration = instance.duration * chordSlotDuration;
-                const gateDuration = instanceDuration * (CONFIG.GATE_RATIO || 0.95);
+                const gateDuration = instanceDuration * 0.95;
                 const finalBassNote = rootNoteMidi + (instance.pitchOffset || 0);
-                playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, state.instruments.bass || 'sine', 'bass');
-                playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, 'sawtooth-bass', 'bassHarmonic');
+                playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, 'sine');
             });
         }
         
         // --- Schedule Drums ---
+        const absBeatStart = getAbsoluteBeatPos(activeProg, absIndex);
         const drumPat = chordObj.drumPattern;
         
         if (drumPat && drumPat.isLocalOverride) {
@@ -254,7 +184,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                     if (hit.probability !== undefined && Math.random() > hit.probability) continue;
 
                     const hitTimeSec = time + (hit.time * beats * (60.0 / Number(state.bpm)));
-                    playDrum(hit.row, hitTimeSec, hit.velocity || 1.0, null, null, state.instruments.drums || 'synth');
+                    playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
                     if (onDrumPlay && hit.id) {
                         const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
                         const tId = setTimeout(() => {
@@ -265,9 +195,9 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                     }
                 }
             }
-        } else if (globalPatterns && globalPatterns.drumPattern) {
+        } else if (state.globalPatterns && state.globalPatterns.drumPattern) {
             // Global Continuous Loop
-            const globalDrumPat = globalPatterns.drumPattern;
+            const globalDrumPat = state.globalPatterns.drumPattern;
             const gLength = globalDrumPat.lengthBeats || 4;
             
             if (globalDrumPat.hits) {
@@ -286,7 +216,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                         const beatWithinChord = absoluteHitBeat - absBeatStartRounded;
                         const hitTimeSec = time + (beatWithinChord * (60.0 / Number(state.bpm)));
                         if (hit.probability === undefined || Math.random() <= hit.probability) {
-                            playDrum(hit.row, hitTimeSec, hit.velocity || 1.0, null, null, state.instruments.drums || 'synth');
+                            playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
                             if (onDrumPlay && hit.id) {
                                 const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
                                 const tId = setTimeout(() => {
@@ -305,7 +235,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
 
         const delayMs = (time - getAudioCurrentTime()) * 1000;
         const highlightId = setTimeout(() => {
-            if (onHighlight) onHighlight(absIndex, sectionId, currentMacroIndex);
+            if (onHighlight) onHighlight(absIndex);
             uiTimeouts = uiTimeouts.filter(id => id !== highlightId);
         }, Math.max(0, delayMs));
         
@@ -314,82 +244,38 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
 
     function advanceNote() {
         const state = getState();
-        let beats = 4;
-        
-        if (playhead.isMacro) {
-            if (state.songSequence.length === 0) return false;
-            const sectionId = state.songSequence[playhead.macroIndex];
-            const section = state.sections[sectionId];
-            if (!section) return false;
+        const activeProg = getActive(state);
+        const bounds = getBounds(state);
+        const sliceLength = bounds.end - bounds.start;
 
-            if (section.progression.length === 0) {
-                beats = 2; // Default pause for empty sections
-                playhead.chordIndex = 9999;
+        const chordObj = activeProg[bounds.start + currentChordIndexRel];
+        const beats = chordObj ? (Number(chordObj.duration) || 2) : 2;
+        const chordDuration = (60.0 / Number(state.bpm)) * beats;
+        nextNoteTime += chordDuration;
+
+        currentChordIndexRel++;
+        if (currentChordIndexRel >= sliceLength) {
+            if (state.isLooping) {
+                currentChordIndexRel = 0; // Wrap around for looping
             } else {
-                const chordObj = section.progression[playhead.chordIndex];
-                beats = chordObj ? (Number(chordObj.duration) || 2) : 2;
-                playhead.chordIndex++;
+                return false; // Reached end of unlooped progression
             }
-            
-            nextNoteTime += (60.0 / Number(state.bpm)) * beats;
-
-            const bounds = getSectionBounds(state, sectionId);
-            if (playhead.chordIndex >= bounds.end || section.progression.length === 0) {
-                playhead.macroIndex++;
-                
-                let macStart = state.macroLoopStart ?? 0;
-                let macEnd = state.macroLoopEnd > 0 ? state.macroLoopEnd : state.songSequence.length;
-                if (macEnd > state.songSequence.length) macEnd = state.songSequence.length;
-                
-                if (playhead.macroIndex >= macEnd) {
-                    if (state.isLooping) playhead.macroIndex = macStart;
-                    else return false;
-                }
-                const nextSectionId = state.songSequence[playhead.macroIndex];
-                playhead.chordIndex = getSectionBounds(state, nextSectionId).start;
-            }
-            return true;
-        } else {
-            const bounds = getBounds(state);
-            const sliceLength = bounds.end - bounds.start;
-
-            const chordObj = state.currentProgression[bounds.start + playhead.chordIndexRel];
-            beats = chordObj ? (Number(chordObj.duration) || 2) : 2;
-            nextNoteTime += (60.0 / Number(state.bpm)) * beats;
-
-            playhead.chordIndexRel++;
-            if (playhead.chordIndexRel >= sliceLength) {
-                if (state.isLooping) playhead.chordIndexRel = 0;
-                else return false;
-            }
-            return true;
         }
+        return true;
     }
 
     function scheduler() {
         if (!isPlaying) return;
         
         const state = getState();
-
-        // Prevent playback from permanently dying if an empty section is loaded in macro mode
-        if (!playhead.isMacro && state.currentProgression.length === 0) {
-            stopThisPlayback();
-            if (onComplete) onComplete();
-            return;
-        }
-        if (playhead.isMacro && state.songSequence.length === 0) {
-            stopThisPlayback();
+        if (state.currentProgression.length === 0) {
+            stopThisPlayback(); // Use local stop function
             if (onComplete) onComplete();
             return;
         }
 
-        // Workaround for native Drag & Drop suspending JavaScript timers on desktop browsers:
-        // Pre-schedule a larger buffer of audio if a drag operation is active to prevent dropouts.
-        const isDragging = document.querySelector('.dragging') !== null || document.body.classList.contains('is-dragging-palette');
-        const scheduleAheadSec = isDragging ? 3.0 : (CONFIG.SCHEDULE_AHEAD_SEC || 0.1);
-
-        while (nextNoteTime < getAudioCurrentTime() + scheduleAheadSec) {
-            scheduleNote(nextNoteTime);
+        while (nextNoteTime < getAudioCurrentTime() + SCHEDULE_AHEAD_SEC) {
+            scheduleNote(currentChordIndexRel, nextNoteTime);
             const keepGoing = advanceNote();
             
             if (!keepGoing) {
@@ -402,7 +288,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             }
         }
 
-        schedulerTimerId = setTimeout(scheduler, CONFIG.LOOKAHEAD_MS);
+        schedulerTimerId = setTimeout(scheduler, LOOKAHEAD_MS);
     }
 
     function stopThisPlayback() {
