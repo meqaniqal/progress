@@ -83,6 +83,18 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
   - [x] *Protocol requirement:* The Boolean overlap/carving math must be isolated in a pure, Jest-testable module before integration.
   - [x] *Protocol requirement:* Hide this new editor behind a persistent Settings toggle (`enableExperimentalDrawMode`) during development to preserve legacy stability.
 
+**Phase 6: Song Mode & Macro-Arrangement (Current Focus)**
+- [x] Nested State Architecture & UI Data Pointers.
+- [x] Smart Dropdown First-Time Flow & Naming logic.
+- [x] "Inherit From" Empty State population.
+- [x] Song Tray Drag-and-Drop Sequencing & Double-Tap Appending.
+- [x] Macro Playback Engine (Cross-section audio/UI sync).
+- [ ] Fix Macro Playback sequence wrapping bug.
+- [ ] Add Macro Loop Brackets to the Song Tray.
+- [ ] Hide "Song View" button when Song Tray is open.
+- [ ] Implement Beginner/Advanced global toggle button next to the Manual button.
+- [ ] Multi-pass Macro MIDI & WAV Export context mapping.
+
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.
 - `move_protocol`: Relocate via 1) Delete diff 2) Insert diff. Never combine.

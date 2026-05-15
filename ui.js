@@ -25,9 +25,9 @@ export function getSynestheticColorProfile(currentChord, prevChord, nextChord, m
         const rootMidi = chordNotes[0];
         const pitchClass = rootMidi % 12;
         const circlePos = (pitchClass * 7) % 12; 
-        // Map 12 circle positions across 260 degrees to strictly avoid the 100-180 green range.
-        // This ensures the green selection highlight always contrasts perfectly against any chord.
-        hue = Math.round(180 + (circlePos * (260 / 11))) % 360;
+        // Map the 12 circle positions evenly across the full 360-degree color wheel.
+        // The new double-ring selection outline ensures contrast against any color!
+        hue = (circlePos * 30) % 360;
     }
 
     let backwardTensionDelta = 0;
@@ -165,8 +165,8 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         const isSelected = selectedChordIndex !== null && Number(selectedChordIndex) === index;
         if (isSelected) {
             el.classList.add('selected-chord', 'selected', 'active');
-            // Ensure robust visual highlight via inline styles to bypass any missing CSS
-            el.style.boxShadow = '0 0 0 3px var(--original-chord-highlight, #4ade80)';
+            // Ensure robust visual highlight using a double-ring to separate the green from the chord color
+            el.style.boxShadow = '0 0 0 2px var(--bg-body), 0 0 0 5px var(--original-chord-highlight, #4ade80)';
             el.style.transform = 'translateY(-2px)';
             el.style.zIndex = '2';
         } else {

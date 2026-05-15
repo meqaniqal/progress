@@ -1,11 +1,13 @@
-import { state, getActiveProgression, persistAppState } from './store.js';
+import { state, getActiveProgression, persistAppState, switchActiveSection } from './store.js';
 import { playProgression, stopAllAudio } from './sequencer.js';
 import { highlightChordInUI } from './ui.js';
 import { highlightDrumHit } from './rhythmEditor.js';
 import { setTrackVolume } from './synth.js';
+import { updateSongUI, setActiveSequenceIndex } from './songController.js';
 
 let isPlaying = false;
 let currentPlaybackStopFunction = null;
+let _onRenderProgression = null;
 
 export function isPlaybackActive() {
     return isPlaying;
@@ -20,7 +22,9 @@ export function resetTransport() {
     currentPlaybackStopFunction = null;
 }
 
-export function initTransport() {
+export function initTransport(callbacks) {
+    if (callbacks) _onRenderProgression = callbacks.onRenderProgression;
+
     const playToggleBtn = document.getElementById('btn-play-toggle');
     const volPopup = document.getElementById('super-volume-popup');
     const volFill = document.getElementById('super-volume-fill');
@@ -108,8 +112,18 @@ export function initTransport() {
             resetTransport();
         } else {
             currentPlaybackStopFunction = playProgression(
-                () => ({ ...state, currentProgression: getActiveProgression() }),
-                highlightChordInUI,
+                () => state, // Pass raw state, the new macro engine handles active swaps dynamically
+                (index, sectionId, macroIndex) => {
+                    if (macroIndex !== undefined) setActiveSequenceIndex(macroIndex);
+                    if (sectionId && sectionId !== state.activeSectionId) {
+                        switchActiveSection(sectionId);
+                        updateSongUI();
+                        if (_onRenderProgression) _onRenderProgression();
+                    } else if (macroIndex !== undefined) {
+                        updateSongUI(); // Update macro sequencer tray highlights
+                    }
+                    highlightChordInUI(index);
+                },
                 () => {
                     playToggleBtn.textContent = '▶';
                     isPlaying = false;

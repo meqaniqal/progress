@@ -57,7 +57,10 @@ state.sections[initialSectionId] = {
     id: initialSectionId,
     name: 'Section 1',
     progression: [],
-    globalPatterns: initialPatterns
+    globalPatterns: initialPatterns,
+    loopStart: 0,
+    loopEnd: 0,
+    temporarySwaps: {}
 };
 state.songSequence = [initialSectionId];
 state.activeSectionId = initialSectionId;
@@ -179,6 +182,13 @@ export function applyLoopBounds() {
 
 // --- History & Undo ---
 export function saveHistoryState() {
+    // Force a sync of active primitive pointers into the section before capturing history
+    if (state.activeSectionId && state.sections[state.activeSectionId]) {
+        state.sections[state.activeSectionId].loopStart = state.loopStart;
+        state.sections[state.activeSectionId].loopEnd = state.loopEnd;
+        state.sections[state.activeSectionId].temporarySwaps = JSON.parse(JSON.stringify(state.temporarySwaps));
+    }
+
     state.history.push({
         sections: JSON.parse(JSON.stringify(state.sections)),
         songSequence: JSON.parse(JSON.stringify(state.songSequence)),
@@ -199,20 +209,31 @@ export function undoState() {
         state.songSequence = previousState.songSequence;
         state.activeSectionId = previousState.activeSectionId;
         if (state.sections[state.activeSectionId]) {
-            state.currentProgression = state.sections[state.activeSectionId].progression;
-            state.globalPatterns = state.sections[state.activeSectionId].globalPatterns;
+            const activeSec = state.sections[state.activeSectionId];
+            state.currentProgression = activeSec.progression;
+            state.globalPatterns = activeSec.globalPatterns;
+            state.loopStart = activeSec.loopStart ?? previousState.loopStart;
+            state.loopEnd = activeSec.loopEnd ?? previousState.loopEnd;
+            state.temporarySwaps = activeSec.temporarySwaps ?? previousState.temporarySwaps;
         }
+    } else {
+        state.temporarySwaps = previousState.temporarySwaps;
+        state.loopStart = previousState.loopStart;
+        state.loopEnd = previousState.loopEnd;
     }
 
-    state.temporarySwaps = previousState.temporarySwaps;
-    state.loopStart = previousState.loopStart;
-    state.loopEnd = previousState.loopEnd;
     applyLoopBounds();
     persistAppState();
     return true;
 }
 
 export function persistAppState() {
+    // Ensure the active section is perfectly updated before saving
+    if (state.activeSectionId && state.sections[state.activeSectionId]) {
+        state.sections[state.activeSectionId].loopStart = state.loopStart;
+        state.sections[state.activeSectionId].loopEnd = state.loopEnd;
+        state.sections[state.activeSectionId].temporarySwaps = state.temporarySwaps;
+    }
     saveState(state);
 }
 
@@ -225,7 +246,10 @@ export function resetSession() {
             id: defaultId,
             name: 'Section 1',
             progression: [],
-            globalPatterns: initPatternSet()
+            globalPatterns: initPatternSet(),
+            loopStart: 0,
+            loopEnd: 0,
+            temporarySwaps: {}
         }
     };
     state.songSequence = [defaultId];
@@ -395,6 +419,27 @@ export function loadAndApplyInitialState() {
                 return chordObj;
             });
         };
+        
+        // NEW Phase 6 Helper: Sanitize Swaps Maps
+        const sanitizeSwaps = (swapsObj) => {
+            if (!swapsObj || typeof swapsObj !== 'object') return {};
+            const cleanSwaps = {};
+            Object.entries(swapsObj).forEach(([k, v]) => {
+                const idx = parseInt(k, 10);
+                if (!isNaN(idx) && v && typeof v.symbol === 'string') {
+                    const swapObj = { ...v };
+                    swapObj.symbol = typeof swapObj.symbol === 'string' ? swapObj.symbol.replace(/[<>"]/g, '').substring(0, 20) : 'I';
+                    if (swapObj.symbol.startsWith('Oct')) swapObj.symbol = swapObj.symbol.replace('Oct', 'Dim');
+                    if (typeof swapObj.key !== 'number') delete swapObj.key;
+                    if (typeof swapObj.duration !== 'undefined' && isNaN(Number(swapObj.duration))) delete swapObj.duration;
+                    if (typeof swapObj.inversionOffset !== 'number') delete swapObj.inversionOffset;
+                    if (typeof swapObj.voicingType !== 'string') delete swapObj.voicingType;
+                    if (typeof swapObj.voicing !== 'object') delete swapObj.voicing;
+                    cleanSwaps[idx] = swapObj;
+                }
+            });
+            return cleanSwaps;
+        };
 
         // 2. Phase 6 Architecture Loading
         if (savedState.sections && typeof savedState.sections === 'object' && Array.isArray(savedState.songSequence)) {
@@ -408,7 +453,10 @@ export function loadAndApplyInitialState() {
                         chordPattern: sanitizePat(sec.globalPatterns?.chordPattern, false) || initChordPattern(),
                         bassPattern: sanitizePat(sec.globalPatterns?.bassPattern, false) || initChordPattern(),
                         drumPattern: sanitizePat(sec.globalPatterns?.drumPattern, true) || initDrumPattern()
-                    }
+                    },
+                    loopStart: typeof sec.loopStart === 'number' ? sec.loopStart : 0,
+                    loopEnd: typeof sec.loopEnd === 'number' ? sec.loopEnd : (sec.progression ? sec.progression.length : 0),
+                    temporarySwaps: sanitizeSwaps(sec.temporarySwaps)
                 };
             });
             state.songSequence = savedState.songSequence;
@@ -422,9 +470,18 @@ export function loadAndApplyInitialState() {
                 drumPattern: sanitizePat(savedState.globalPatterns.drumPattern, true) || initDrumPattern()
             } : initPatternSet();
             
+            const legacySwaps = sanitizeSwaps(savedState.temporarySwaps);
             const defaultId = 'sec-' + Math.random().toString(36).substring(2, 10);
             state.sections = {
-                [defaultId]: { id: defaultId, name: 'Section 1', progression: legacyProg, globalPatterns: legacyGP }
+                [defaultId]: { 
+                    id: defaultId, 
+                    name: 'Section 1', 
+                    progression: legacyProg, 
+                    globalPatterns: legacyGP,
+                    loopStart: typeof savedState.loopStart === 'number' ? savedState.loopStart : 0,
+                    loopEnd: typeof savedState.loopEnd === 'number' ? savedState.loopEnd : legacyProg.length,
+                    temporarySwaps: legacySwaps
+                }
             };
             state.songSequence = [defaultId];
             state.activeSectionId = defaultId;
@@ -432,31 +489,12 @@ export function loadAndApplyInitialState() {
 
         // Establish active pointers
         if (state.sections[state.activeSectionId]) {
-            state.currentProgression = state.sections[state.activeSectionId].progression;
-            state.globalPatterns = state.sections[state.activeSectionId].globalPatterns;
-        }
-
-        // 3. Sanitize Temporary Swaps
-        if (savedState.temporarySwaps && typeof savedState.temporarySwaps === 'object') {
-            state.temporarySwaps = {};
-            Object.entries(savedState.temporarySwaps).forEach(([k, v]) => {
-                const idx = parseInt(k, 10);
-                if (!isNaN(idx) && v && typeof v.symbol === 'string') {
-                    const swapObj = { ...v };
-                    swapObj.symbol = swapObj.symbol.replace(/[<>"]/g, '').substring(0, 20);
-                    if (swapObj.symbol.startsWith('Oct')) {
-                        swapObj.symbol = swapObj.symbol.replace('Oct', 'Dim');
-                    }
-                    // Only keep valid properties in the swap object
-                    if (typeof swapObj.key !== 'number') delete swapObj.key;
-                    if (typeof swapObj.duration !== 'undefined' && isNaN(Number(swapObj.duration))) delete swapObj.duration;
-                    if (typeof swapObj.inversionOffset !== 'number') delete swapObj.inversionOffset;
-                    if (typeof swapObj.voicingType !== 'string') delete swapObj.voicingType;
-                    if (typeof swapObj.voicing !== 'object') delete swapObj.voicing;
-
-                    state.temporarySwaps[idx] = swapObj;
-                }
-            });
+            const activeSec = state.sections[state.activeSectionId];
+            state.currentProgression = activeSec.progression;
+            state.globalPatterns = activeSec.globalPatterns;
+            state.loopStart = activeSec.loopStart ?? 0;
+            state.loopEnd = activeSec.loopEnd ?? activeSec.progression.length;
+            state.temporarySwaps = activeSec.temporarySwaps ?? {};
         }
         
         if (savedState.editorState && savedState.editorState.activeTab) {
@@ -469,15 +507,129 @@ export function loadAndApplyInitialState() {
 export function switchActiveSection(sectionId) {
     if (!state.sections[sectionId]) return false;
     
+    // Sync outgoing section before swapping
+    if (state.activeSectionId && state.sections[state.activeSectionId]) {
+        state.sections[state.activeSectionId].loopStart = state.loopStart;
+        state.sections[state.activeSectionId].loopEnd = state.loopEnd;
+        state.sections[state.activeSectionId].temporarySwaps = state.temporarySwaps;
+    }
+    
     saveHistoryState();
     state.activeSectionId = sectionId;
-    state.currentProgression = state.sections[sectionId].progression;
-    state.globalPatterns = state.sections[sectionId].globalPatterns;
+    const sec = state.sections[sectionId];
+    
+    state.currentProgression = sec.progression;
+    state.globalPatterns = sec.globalPatterns;
+    state.loopStart = sec.loopStart ?? 0;
+    state.loopEnd = sec.loopEnd ?? sec.progression.length;
+    state.temporarySwaps = sec.temporarySwaps ? JSON.parse(JSON.stringify(sec.temporarySwaps)) : {};
     
     state.selectedChordIndex = null;
-    state.temporarySwaps = {};
     
     applyLoopBounds();
     persistAppState();
     return true;
+}
+
+// --- Phase 6: Macro-Arrangement Intent Functions ---
+
+export function createAndAppendSection(name) {
+    // Sync outgoing section
+    if (state.activeSectionId && state.sections[state.activeSectionId]) {
+        state.sections[state.activeSectionId].loopStart = state.loopStart;
+        state.sections[state.activeSectionId].loopEnd = state.loopEnd;
+        state.sections[state.activeSectionId].temporarySwaps = state.temporarySwaps;
+    }
+
+    saveHistoryState();
+    const currentSec = state.sections[state.activeSectionId];
+    const inheritedPatterns = currentSec ? JSON.parse(JSON.stringify(currentSec.globalPatterns)) : initPatternSet();
+    
+    const newId = 'sec-' + Math.random().toString(36).substring(2, 10);
+    state.sections[newId] = {
+        id: newId,
+        name: name,
+        progression: [],
+        globalPatterns: inheritedPatterns,
+        loopStart: 0,
+        loopEnd: 0,
+        temporarySwaps: {}
+    };
+    
+    state.songSequence.push(newId);
+    
+    // Inline switch logic to avoid double history saves
+    state.activeSectionId = newId;
+    state.currentProgression = state.sections[newId].progression;
+    state.globalPatterns = state.sections[newId].globalPatterns;
+    state.loopStart = 0;
+    state.loopEnd = 0;
+    state.temporarySwaps = {};
+    state.selectedChordIndex = null;
+    
+    applyLoopBounds();
+    persistAppState();
+    return newId;
+}
+
+export function renameSection(sectionId, newName) {
+    if (!state.sections[sectionId]) return;
+    saveHistoryState();
+    state.sections[sectionId].name = newName;
+    persistAppState();
+}
+
+export function removeSectionFromSequence(index) {
+    saveHistoryState();
+    state.songSequence.splice(index, 1);
+    persistAppState();
+}
+
+export function appendExistingSection(sectionId, insertIndex = null) {
+    saveHistoryState();
+    if (insertIndex === null) insertIndex = state.songSequence.length;
+    state.songSequence.splice(insertIndex, 0, sectionId);
+    persistAppState();
+}
+
+export function reorderSequence(oldIndex, newIndex) {
+    saveHistoryState();
+    const item = state.songSequence.splice(oldIndex, 1)[0];
+    state.songSequence.splice(newIndex, 0, item);
+    persistAppState();
+}
+
+export function inheritSectionData(targetId, sourceId) {
+    if (!state.sections[targetId] || !state.sections[sourceId]) return;
+    saveHistoryState();
+    
+    const sourceSec = state.sections[sourceId];
+    
+    // Deep copy progression and generate fresh IDs to detach rhythm slices
+    state.sections[targetId].progression = JSON.parse(JSON.stringify(sourceSec.progression));
+    state.sections[targetId].progression.forEach(chord => {
+        if (chord.chordPattern && chord.chordPattern.instances) chord.chordPattern.instances.forEach(i => i.id = Math.random().toString(36).substring(2, 10));
+        if (chord.bassPattern && chord.bassPattern.instances) chord.bassPattern.instances.forEach(i => i.id = Math.random().toString(36).substring(2, 10));
+        if (chord.drumPattern && chord.drumPattern.hits) chord.drumPattern.hits.forEach(h => h.id = Math.random().toString(36).substring(2, 10));
+    });
+    
+    // Copy global patterns
+    state.sections[targetId].globalPatterns = JSON.parse(JSON.stringify(sourceSec.globalPatterns));
+    
+    // Inherit bounds and swaps!
+    state.sections[targetId].loopStart = sourceSec.loopStart ?? 0;
+    state.sections[targetId].loopEnd = sourceSec.loopEnd ?? state.sections[targetId].progression.length;
+    state.sections[targetId].temporarySwaps = sourceSec.temporarySwaps ? JSON.parse(JSON.stringify(sourceSec.temporarySwaps)) : {};
+    
+    // Sync pointers if we are inheriting into the active section
+    if (state.activeSectionId === targetId) {
+        state.currentProgression = state.sections[targetId].progression;
+        state.globalPatterns = state.sections[targetId].globalPatterns;
+        state.loopStart = state.sections[targetId].loopStart;
+        state.loopEnd = state.sections[targetId].loopEnd;
+        state.temporarySwaps = state.sections[targetId].temporarySwaps;
+    }
+    
+    applyLoopBounds();
+    persistAppState();
 }

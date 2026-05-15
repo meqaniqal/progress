@@ -340,3 +340,8 @@ button.control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .turn-label { color: var(--ctrl-primary-bg); font-weight: bold; }
 .turn-btns-container { display: flex; flex-wrap: wrap; gap: 8px; }
 .turn-btn { padding: 4px 10px; }
+
+/* --- Beginner Helpers --- */
+body:not(.show-helpers) .beginner-helper {
+    display: none !important;
+}

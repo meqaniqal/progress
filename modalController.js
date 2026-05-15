@@ -36,6 +36,7 @@ function _initSettingsModal(onResetPlayback, onRenderProgression) {
                 resetSession();
                 
                 // Sync UI with fresh state
+                document.body.classList.toggle('show-helpers', state.showManualOnStartup);
                 document.getElementById('key-selector').value = state.baseKey;
                 updateKeyAndModeDisplay(state);
                 document.getElementById('bpm-slider').value = state.bpm;
@@ -161,6 +162,7 @@ function _initManualModal() {
         
         cbShowManual.addEventListener('change', (e) => {
             state.showManualOnStartup = e.target.checked;
+            document.body.classList.toggle('show-helpers', state.showManualOnStartup);
             persistAppState();
         });
 

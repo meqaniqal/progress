@@ -89,6 +89,10 @@
             </select>
         </div>
         
+        <div class="beginner-helper" style="font-size: 12px; opacity: 0.7; margin-top: -5px; margin-bottom: 10px; font-style: italic;">
+            💡 (Drag chords ⬇️ or double-tap to add to progression)
+        </div>
+
         <div id="palette-diatonic" class="chord-palette">
             <strong>Diatonic:</strong>
             <button class="chord-btn" data-chord="I">I</button>
@@ -129,6 +133,13 @@
             <div class="song-tray-header">
                 <h3 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">📖 Song Sequencer</h3>
                 <button class="control-btn secondary" id="btn-close-song-tray" style="padding: 4px 10px; font-size: 12px;">Close</button>
+            </div>
+            <div id="song-section-palette" style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: rgba(0,0,0,0.05); padding: 8px 12px; border-radius: 6px; border: 1px dashed var(--border-main);">
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <strong style="font-size: 12px; opacity: 0.8;">Section Palette:</strong>
+                    <span class="beginner-helper" style="font-size: 10px; opacity: 0.7; font-style: italic;">💡 (Drag ⬇️ or double-tap to add to song)</span>
+                </div>
+                <div id="song-section-buttons" style="display: inline-flex; flex-wrap: wrap; gap: 4px;"></div>
             </div>
             <div id="song-sequence-display" class="song-sequence-display">
                 <!-- Macro blocks will go here -->

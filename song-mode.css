@@ -49,6 +49,7 @@
     border-color: var(--ctrl-primary-bg);
     color: var(--ctrl-primary-bg);
     z-index: 2;
+    border-top: 4px solid hsl(var(--macro-hue, 210), 40%, 50%);
 }
 
 .section-add-wrapper {
@@ -92,9 +93,9 @@
 }
 
 .song-section-block {
-    background: var(--ctrl-secondary-bg);
-    color: var(--text-main);
-    border: 1px solid var(--border-main);
+    background-color: hsl(var(--macro-hue, 210), 25%, 45%);
+    color: #ffffff;
+    border: 1px solid rgba(0,0,0,0.1);
     padding: 8px 16px;
     border-radius: 4px;
     font-weight: bold;
@@ -109,19 +110,44 @@
 }
 
 .song-section-block:hover {
-    background: var(--ctrl-secondary-hover);
+    filter: brightness(1.1);
     transform: translateY(-1px);
     box-shadow: 0 4px 6px var(--shadow-panel);
 }
 
 .song-section-block.playing {
-    border-color: var(--original-chord-highlight);
-    box-shadow: 0 0 0 2px var(--original-chord-highlight);
-    background: rgba(16, 185, 129, 0.1);
+    border-color: transparent;
+    box-shadow: 0 0 0 2px var(--bg-body), 0 0 0 5px var(--original-chord-highlight);
+    background-color: hsl(var(--macro-hue, 210), 30%, 55%);
+    transform: translateY(-2px);
+    z-index: 2;
 }
 
 [data-theme="dark"] .song-section-block.playing {
-    background: rgba(5, 150, 105, 0.15);
+    background-color: hsl(var(--macro-hue, 210), 25%, 40%);
+}
+
+[data-theme="dark"] .song-section-block {
+    background-color: hsl(var(--macro-hue, 210), 20%, 30%);
+    color: #e0e0e0;
+    border-color: rgba(255,255,255,0.05);
+}
+
+/* Distinct colors for the palette buttons to override default chord-btn grays */
+.section-palette-btn {
+    background-color: hsl(var(--macro-hue, 210), 25%, 45%);
+    color: #ffffff;
+    border-color: rgba(0,0,0,0.1);
+}
+[data-theme="dark"] .section-palette-btn {
+    background-color: hsl(var(--macro-hue, 210), 20%, 30%);
+    color: #e0e0e0;
+    border-color: rgba(255,255,255,0.05);
+}
+.section-palette-btn:hover {
+    background-color: hsl(var(--macro-hue, 210), 30%, 50%);
+    border-color: rgba(0,0,0,0.2);
+    color: #ffffff;
 }
 
 .song-placeholder {

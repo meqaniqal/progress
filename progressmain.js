@@ -204,6 +204,8 @@ import { initSongController, updateSongUI, exitSongMode } from './songController
 function _loadAndApplyInitialState() {
     loadAndApplyInitialState();
     
+    document.body.classList.toggle('show-helpers', state.showManualOnStartup);
+
     // Sync UI to State
     document.getElementById('key-selector').value = state.baseKey;
     updateKeyAndModeDisplay(state);
@@ -591,7 +593,7 @@ function initApp() {
     initSongController({ onRenderProgression: renderProgression });
     _setupControlButtons();
     _setupChordButtons();
-    initTransport();
+    initTransport({ onRenderProgression: renderProgression });
     _setupProgressionDisplayEvents(display);
     _setupDragAndDrop(display);
     _setupSmartDragCollapse();
