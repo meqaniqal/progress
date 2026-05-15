@@ -12,7 +12,17 @@ export function exportToMidi(state) {
     let midiNotesToWrite = [];
 
     if (state.useVoiceLeading) {
-        midiNotesToWrite = getPlayableNotes(state.currentProgression, state);
+        let currentChunk = [];
+        state.currentProgression.forEach(chord => {
+            if (chord._isSectionStart && currentChunk.length > 0) {
+                midiNotesToWrite.push(...getPlayableNotes(currentChunk, state));
+                currentChunk = [];
+            }
+            currentChunk.push(chord);
+        });
+        if (currentChunk.length > 0) {
+            midiNotesToWrite.push(...getPlayableNotes(currentChunk, state));
+        }
     } else {
         // Just use block root position chords
         // Drop by 1 octave (-12) to match the pad register warmth used in audio playback
@@ -35,6 +45,11 @@ export function exportToMidi(state) {
         state.currentProgression.forEach((chord, index) => {
             const chordNotes = midiNotesToWrite[index];
             
+            let absBeatStart = 0;
+            for (let i = 0; i < index; i++) {
+                absBeatStart += Number(state.currentProgression[i].duration) || 2;
+            }
+            
             let pattern = chord.chordPattern;
             let isGlobalChord = false;
             if (pattern && !pattern.isLocalOverride && state.globalPatterns && state.globalPatterns.chordPattern) {
@@ -49,7 +64,7 @@ export function exportToMidi(state) {
             isGlobalDrum = true;
         }
             pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-        pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 2, null, drumPatForDucking, isGlobalDrum);
+        pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 2, null, drumPatForDucking, isGlobalDrum, absBeatStart);
             
             const beats = Number(chord.duration) || 2;
             const slotTicks = beats * CONFIG.MIDI_TICKS_PER_BEAT;
@@ -109,10 +124,15 @@ export function exportToMidi(state) {
     let bassSlotStartTick = 0;
 
     for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
-        state.currentProgression.forEach(chord => {
+        state.currentProgression.forEach((chord, index) => {
             const rootNote = getChordNotes(chord.symbol, chord.key)[0] + CONFIG.BASS_OCTAVE_DROP; 
             const beats = Number(chord.duration) || 2;
             const slotTicks = beats * CONFIG.MIDI_TICKS_PER_BEAT;
+            
+            let absBeatStart = 0;
+            for (let i = 0; i < index; i++) {
+                absBeatStart += Number(state.currentProgression[i].duration) || 2;
+            }
             
             let bPattern = chord.bassPattern;
             let isGlobalBass = false;
@@ -129,7 +149,7 @@ export function exportToMidi(state) {
             }
             
             bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-            bPattern = resolvePattern(bPattern, isGlobalBass, beats, null, drumPatForDucking, isGlobalDrum);
+            bPattern = resolvePattern(bPattern, isGlobalBass, beats, null, drumPatForDucking, isGlobalDrum, absBeatStart);
 
             const instances = [...bPattern.instances].sort((a, b) => a.startTime - b.startTime);
             

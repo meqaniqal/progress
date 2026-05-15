@@ -10,11 +10,20 @@ import { SYNTH_REGISTRY } from './synthEngines.js';
 export function calculateAudioTimeline(progression, bpm, useVoiceLeading, exportPasses = 1, globalOptions = {}) {
     const timeline = [];
     let currentTime = 0;
-    let currentBeat = 0;
 
     let notesArray = [];
     if (useVoiceLeading) {
-        notesArray = getPlayableNotes(progression, globalOptions);
+        let currentChunk = [];
+        progression.forEach(chord => {
+            if (chord._isSectionStart && currentChunk.length > 0) {
+                notesArray.push(...getPlayableNotes(currentChunk, globalOptions));
+                currentChunk = [];
+            }
+            currentChunk.push(chord);
+        });
+        if (currentChunk.length > 0) {
+            notesArray.push(...getPlayableNotes(currentChunk, globalOptions));
+        }
     } else {
         // Drop by 1 octave (-12) to match the pad register warmth used in live playback
         notesArray = progression.map(chord => getChordNotes(chord.symbol, chord.key).map(n => n - 12));
@@ -23,9 +32,18 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
     const chordEngine = globalOptions.instruments?.chords || 'sawtooth';
     const bassEngine = globalOptions.instruments?.bass || 'sine';
 
+    const loopStart = globalOptions.loopStart ?? 0;
+    const loopEnd = globalOptions.loopEnd ?? progression.length;
+
     for (let pass = 0; pass < exportPasses; pass++) {
-        progression.forEach((chord, index) => {
+        for (let index = loopStart; index < loopEnd; index++) {
+            const chord = progression[index];
             const chordNotes = notesArray[index];
+            
+            let absBeatStart = 0;
+            for (let i = 0; i < index; i++) {
+                absBeatStart += Number(progression[i].duration) || 2;
+            }
             
             let pattern = chord.chordPattern;
             let isGlobalChord = false;
@@ -40,10 +58,11 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
             drumPatForDucking = globalOptions.globalPatterns.drumPattern;
             isGlobalDrum = true;
         }
-            pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-        pattern = resolvePattern(pattern, isGlobalChord, Number(chord.duration) || 2, null, drumPatForDucking, isGlobalDrum);
             
             const beats = Number(chord.duration) || 2;
+            pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
+            pattern = resolvePattern(pattern, isGlobalChord, beats, null, drumPatForDucking, isGlobalDrum, absBeatStart);
+
             const duration = (60.0 / Number(bpm)) * beats;
 
             if (chordNotes) {
@@ -99,7 +118,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     isGlobalBass = true;
                 }
                 bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-            bPattern = resolvePattern(bPattern, isGlobalBass, Number(chord.duration) || 2, null, drumPatForDucking, isGlobalDrum);
+            bPattern = resolvePattern(bPattern, isGlobalBass, Number(chord.duration) || 2, null, drumPatForDucking, isGlobalDrum, absBeatStart);
 
                 bPattern.instances.forEach(instance => {
                     if (instance.probability !== undefined && Math.random() > instance.probability) return;
@@ -156,16 +175,16 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     for (const hit of globalDrumPat.hits) {
                         if (hit.time >= 1.0) continue; // Non-destructive truncation
                         const hitBeatOffset = hit.time * gLength;
-                        let loopStartBeat = Math.floor(currentBeat / gLength) * gLength;
+                        let loopStartBeat = Math.floor(absBeatStart / gLength) * gLength;
                         
                         let absoluteHitBeat = Math.round((loopStartBeat + hitBeatOffset) * 10000) / 10000;
-                        let currentBeatRounded = Math.round(currentBeat * 10000) / 10000;
-                        let chordEndBeatRounded = Math.round((currentBeat + beats) * 10000) / 10000;
+                        let absBeatStartRounded = Math.round(absBeatStart * 10000) / 10000;
+                        let chordEndBeatRounded = Math.round((absBeatStart + beats) * 10000) / 10000;
                         
-                        if (absoluteHitBeat < currentBeatRounded) absoluteHitBeat += gLength;
+                        if (absoluteHitBeat < absBeatStartRounded) absoluteHitBeat += gLength;
                         
                         while (absoluteHitBeat < chordEndBeatRounded) {
-                            const beatWithinChord = absoluteHitBeat - currentBeatRounded;
+                            const beatWithinChord = absoluteHitBeat - absBeatStartRounded;
                             const hitTimeSec = currentTime + (beatWithinChord * (60.0 / Number(bpm)));
                             if (hit.probability === undefined || Math.random() <= hit.probability) {
                                 timeline.push({
@@ -184,8 +203,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
             }
             
             currentTime += duration;
-            currentBeat += beats;
-        });
+        }
     }
     return timeline;
 }

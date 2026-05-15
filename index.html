@@ -132,15 +132,18 @@
         <!-- Phase 6: Song Sequencer Tray -->
         <div id="song-sequencer-tray" class="song-sequencer-tray" style="display: none;">
             <div class="song-tray-header">
-                <h3 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">📖 Song Sequencer</h3>
+                <h3 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">♫ Song Sequencer</h3>
                 <button class="control-btn secondary" id="btn-close-song-tray" style="padding: 4px 10px; font-size: 12px;">Close</button>
             </div>
-            <div id="song-section-palette" style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: rgba(0,0,0,0.05); padding: 8px 12px; border-radius: 6px; border: 1px dashed var(--border-main);">
-                <div style="display: flex; flex-direction: column; gap: 2px;">
-                    <strong style="font-size: 12px; opacity: 0.8;">Section Palette:</strong>
-                    <span class="beginner-helper" style="font-size: 10px; opacity: 0.7; font-style: italic;">💡 (Drag ⬇️ or double-tap to add to song)</span>
+            <div id="song-section-palette" style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; background: rgba(0,0,0,0.05); padding: 8px 12px; border-radius: 6px; border: 1px dashed var(--border-main);">
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <strong style="font-size: 12px; opacity: 0.8;">Section Palette:</strong>
+                        <span class="beginner-helper" style="font-size: 10px; opacity: 0.7; font-style: italic;">💡 (Drag ⬇️ or double-tap to add to song)</span>
+                    </div>
+                    <div id="song-section-buttons" style="display: inline-flex; flex-wrap: wrap; gap: 4px;"></div>
                 </div>
-                <div id="song-section-buttons" style="display: inline-flex; flex-wrap: wrap; gap: 4px;"></div>
+                <button class="chord-btn del-btn" id="btn-delete-macro-block" style="margin: 0; padding: 4px 12px; font-size: 13px;" title="Delete selected block from song sequence">🗑 Delete Block</button>
             </div>
             <div id="song-sequence-display" class="song-sequence-display">
                 <!-- Macro blocks will go here -->
@@ -156,7 +159,7 @@
                 <button id="btn-add-section" class="control-btn secondary icon-btn" style="font-size: 18px; line-height: 1; padding: 0 8px; height: 32px;" title="Add Section">+</button>
             </div>
             <button id="btn-toggle-song-tray" class="control-btn secondary" style="margin-left: auto; padding: 4px 10px; font-size: 12px; display: none;" title="Open Song Macro-Arrangement">
-                📖 Song View
+                ♫ Song View
             </button>
         </div>
 

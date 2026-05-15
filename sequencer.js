@@ -49,7 +49,7 @@ function getSectionBounds(state, sectionId) {
 function getAbsoluteBeatPos(progression, index) {
     let beats = 0;
     for (let i = 0; i < index; i++) {
-        beats += Number(progression[i].duration) || 4;
+        beats += Number(progression[i].duration) || 2;
     }
     return beats;
 }
@@ -110,7 +110,12 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
 
         if (playhead.isMacro) {
             if (state.songSequence.length === 0) return;
-            if (playhead.macroIndex >= state.songSequence.length) playhead.macroIndex = 0;
+            
+            let macStart = state.macroLoopStart ?? 0;
+            let macEnd = state.macroLoopEnd > 0 ? state.macroLoopEnd : state.songSequence.length;
+            if (macEnd > state.songSequence.length) macEnd = state.songSequence.length;
+            
+            if (playhead.macroIndex >= macEnd || playhead.macroIndex < macStart) playhead.macroIndex = macStart;
             sectionId = state.songSequence[playhead.macroIndex];
             const section = state.sections[sectionId];
             if (!section) return;
@@ -166,7 +171,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         
         if (!notesToPlay) return;
 
-        const beats = Number(chordObj.duration) || 4;
+        const beats = Number(chordObj.duration) || 2;
         const chordSlotDuration = (60.0 / Number(state.bpm)) * beats;
         
         let pattern = chordObj.chordPattern;
@@ -182,8 +187,11 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             drumPatForDucking = globalPatterns.drumPattern;
             isGlobalDrum = true;
         }
+        
+        const absBeatStart = getAbsoluteBeatPos(progressionToUse, absIndex);
+        
         pattern = pattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-        pattern = resolvePattern(pattern, isGlobalChord, beats, null, drumPatForDucking, isGlobalDrum);
+        pattern = resolvePattern(pattern, isGlobalChord, beats, null, drumPatForDucking, isGlobalDrum, absBeatStart);
 
         // Render each rhythmic slice instance inside the chord slot
         pattern.instances.forEach(instance => {
@@ -222,7 +230,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                 isGlobalBass = true;
             }
             bPattern = bPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
-            bPattern = resolvePattern(bPattern, isGlobalBass, beats, null, drumPatForDucking, isGlobalDrum);
+            bPattern = resolvePattern(bPattern, isGlobalBass, beats, null, drumPatForDucking, isGlobalDrum, absBeatStart);
             
             bPattern.instances.forEach(instance => {
                 if (instance.probability !== undefined && Math.random() > instance.probability) return;
@@ -237,7 +245,6 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         }
         
         // --- Schedule Drums ---
-        const absBeatStart = getAbsoluteBeatPos(progressionToUse, absIndex);
         const drumPat = chordObj.drumPattern;
         
         if (drumPat && drumPat.isLocalOverride) {
@@ -316,11 +323,11 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             if (!section) return false;
 
             if (section.progression.length === 0) {
-                beats = 8; // Default pause for empty sections
+                beats = 2; // Default pause for empty sections
                 playhead.chordIndex = 9999;
             } else {
                 const chordObj = section.progression[playhead.chordIndex];
-                beats = chordObj ? (Number(chordObj.duration) || 4) : 4;
+                beats = chordObj ? (Number(chordObj.duration) || 2) : 2;
                 playhead.chordIndex++;
             }
             
@@ -329,8 +336,13 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             const bounds = getSectionBounds(state, sectionId);
             if (playhead.chordIndex >= bounds.end || section.progression.length === 0) {
                 playhead.macroIndex++;
-                if (playhead.macroIndex >= state.songSequence.length) {
-                    if (state.isLooping) playhead.macroIndex = 0;
+                
+                let macStart = state.macroLoopStart ?? 0;
+                let macEnd = state.macroLoopEnd > 0 ? state.macroLoopEnd : state.songSequence.length;
+                if (macEnd > state.songSequence.length) macEnd = state.songSequence.length;
+                
+                if (playhead.macroIndex >= macEnd) {
+                    if (state.isLooping) playhead.macroIndex = macStart;
                     else return false;
                 }
                 const nextSectionId = state.songSequence[playhead.macroIndex];
@@ -342,7 +354,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             const sliceLength = bounds.end - bounds.start;
 
             const chordObj = state.currentProgression[bounds.start + playhead.chordIndexRel];
-            beats = chordObj ? (Number(chordObj.duration) || 4) : 4;
+            beats = chordObj ? (Number(chordObj.duration) || 2) : 2;
             nextNoteTime += (60.0 / Number(state.bpm)) * beats;
 
             playhead.chordIndexRel++;
@@ -358,13 +370,25 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         if (!isPlaying) return;
         
         const state = getState();
-        if (state.currentProgression.length === 0) {
-            stopThisPlayback(); // Use local stop function
+
+        // Prevent playback from permanently dying if an empty section is loaded in macro mode
+        if (!playhead.isMacro && state.currentProgression.length === 0) {
+            stopThisPlayback();
+            if (onComplete) onComplete();
+            return;
+        }
+        if (playhead.isMacro && state.songSequence.length === 0) {
+            stopThisPlayback();
             if (onComplete) onComplete();
             return;
         }
 
-        while (nextNoteTime < getAudioCurrentTime() + CONFIG.SCHEDULE_AHEAD_SEC) {
+        // Workaround for native Drag & Drop suspending JavaScript timers on desktop browsers:
+        // Pre-schedule a larger buffer of audio if a drag operation is active to prevent dropouts.
+        const isDragging = document.querySelector('.dragging') !== null || document.body.classList.contains('is-dragging-palette');
+        const scheduleAheadSec = isDragging ? 3.0 : (CONFIG.SCHEDULE_AHEAD_SEC || 0.1);
+
+        while (nextNoteTime < getAudioCurrentTime() + scheduleAheadSec) {
             scheduleNote(nextNoteTime);
             const keepGoing = advanceNote();
             

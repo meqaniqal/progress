@@ -112,7 +112,7 @@ The richest harmony sounds like mud if the sound design overlaps.
 
 ---
 
-## Advanced Electronica & AI Synergy (Phase 5 - Current Focus)
+## Advanced Electronica & AI Synergy (Phase 5 - Complete ✅)
 To achieve a "mind-bending" electronica aesthetic, the app is currently expanding to support:
 - **Tension & Release Mapping (Completed):** A visual UI curve that maps the harmonic tension of the progression, allowing the user to architect dramatic emotional arcs before rendering notes.
 - **Extended & Altered Voicings (Completed):** 9ths, 11ths, 13ths, and altered dominants specifically voiced for lush, atmospheric synth pads.
@@ -192,9 +192,9 @@ Transform the app from a single-loop sketchpad into a full song structure arrang
 ### 7. Progressive Disclosure & Simple Mode (Future Goal)
 - **Beginner-Friendly Defaults:** A default "Simple Mode" upon app load that hides advanced theory configurations, the timeline editor, and complex voicings.
 - **Progressive Interface:** A settings gear that allows users to progressively turn on "Advanced Mode" features (like the Rhythm Editor, Borrowed/Extended chords palettes, and specific sound design tools) as they gain familiarity with the workflow.
-- **Beginner/Advanced Toggle:** A dedicated toggle button located next to the Manual button. When set to "Beginner", the Pattern Editor, Section Tabs, and Song Sequencer are hidden, reverting the app to a simple, single-loop chord sketching tool. Turning it to "Advanced" reveals the full suite of production tools.
+- **Beginner/Advanced Toggle (Completed):** A dedicated toggle button located next to the Manual button. When set to "Beginner", the Pattern Editor, Section Tabs, and Song Sequencer are hidden, reverting the app to a simple, single-loop chord sketching tool. Turning it to "Advanced" reveals the full suite of production tools.
 
-### 8. Song Mode & Macro-Arrangement (Phase 6)
+### 8. Song Mode & Macro-Arrangement (Phase 6 - Complete ✅)
 Transform the app from a single-loop sketchpad into a full song structure arranger, allowing users to build, sequence, and export multi-section tracks (Intro, Verse, Chorus, etc.).
 
 **1. Data Architecture & Migration**
@@ -224,6 +224,16 @@ Transform the app from a single-loop sketchpad into a full song structure arrang
 - **Single Source of Truth Playback:** Playback evaluates the `songSequence` array directly. The audio engine traverses the sections seamlessly.
 - **Auto-Tab Tracking & State Sync:** During Song Mode playback, the UI automatically switches the active Section Tab to match the currently playing section. If the user stops playback, the chord tray retains focus on that section for immediate editing.
 - **Playback Start Position:** Playback starts from the currently *selected* section in the song tray, rather than restarting from the beginning of the song every time playback is stopped and started. Manual selection during playback gracefully cues the next section.
+- **Sequence Wrapping:** Playback seamlessly wraps from the last section in the song sequencer back to the first section (or adheres to the Macro-Loop brackets).
 - **Empty Sections:** If playback hits an empty section, the engine pauses for the duration of the gap and displays a message indicating there is no song data for that section yet, ensuring the user realizes something is missing.
 - **Macro-Looping:** Loop brackets (`[` and `]`) in the Song Tray allow auditioning macro-transitions (e.g., looping the end of the Bridge into the Chorus).
 - **Contextual Export & Capping:** If the Song Tray is open, Export handles the entire macro-sequence. Because `exportPasses` multiplied by a full song could result in massive files (e.g., 15+ minutes), the app will detect if an export will exceed 1 minute and prompt the user, offering to cap the export to a 3-minute limit, with a dropdown to increase or bypass the cap if deliberately desired.
+
+**6. Song Tray UI Polish**
+- **Exclusive View Toggle:** The "♫ Song View" button above the chord tray hides itself when the Song Tray is open, ensuring a cleaner UI.
+
+### 9. Architectural Refactoring & Optimization (Phase 6.5 - Next)
+Before introducing the mathematical complexity of microtonal harmony, the codebase will undergo a strict optimization pass to ensure maximum maintainability and modularity:
+- **UI Rendering De-Cluttering:** Break down massive, monolithic render functions (like those in `ui.js` and `songController.js`) into atomic, descriptive sub-renderers.
+- **State Manager Purification:** Extract heavy calculation and macro-baking loops (`getExportState`) out of `store.js` and into dedicated pure utility modules.
+- **Memory Leak Audit:** Perform a rigorous pass over all dynamic UI injections (modals, dropdowns, inspectors) to ensure 100% reliable event listener cleanup on element destruction.

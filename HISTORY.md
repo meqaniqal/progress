@@ -70,3 +70,11 @@
 - **Custom Drum Samples:** Implemented `.wav` uploads via `FileReader`, background decoding via `OfflineAudioContext`, and persistent storage via IndexedDB (`db.js`).
 - **Advanced Timeline Rendering:** Added pre-computed SVG waveform rendering for custom drum hits and real-time polyrhythmic Arpeggiator visualization on chord slices.
 - **Contextual UI & Layout:** Grouped timeline properties (Velocity, Probability, Pitch, Avoid Kick) into attached tabs. Compacted Inspector tools and added contextual popup menus for drum labels to manage custom samples.
+
+## Phase 6: Song Mode & Macro-Arrangement (Complete)
+- **Nested State Architecture:** Evolved single progression array into a library of multi-section pointers (`Intro`, `Verse`, `Chorus`).
+- **Song Tray Sequencer:** Added a macro-level sequence tray with native drag-and-drop section building, double-tap appending, and dedicated macro loop brackets.
+- **Audio Engine Context Switching:** Sequencer now seamlessly wraps between sections and dynamically restarts/syncs when contexts or loop bounds are dragged during playback.
+- **Multi-pass Export Context Mapping:** MIDI, WAV, and AI Text Prompt generators dynamically flatten and bake multi-section arrangements, maintaining perfect absolute phase-tracking for polyrhythms and kick ducking.
+- **Beginner Mode:** Added a global toggle to strip away advanced sequencers (Pattern Editor, Section Tabs, Song Tray) to provide an unintimidating sketching interface for new users.
+- **Voice Leading Chunking:** Export engines now strictly respect section boundaries when calculating voice leading arrays, ensuring 1:1 playback parity with the live app.

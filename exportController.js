@@ -1,5 +1,6 @@
 import { exportToWav } from './wavExport.js';
-import { state, getActiveProgression } from './store.js';
+import { state, getExportState } from './store.js';
+import { isSongTrayOpen } from './songController.js';
 
 export function initExportUI() {
     const exportWavSwitch = document.getElementById('btn-export-wav-switch');
@@ -11,17 +12,13 @@ export function initExportUI() {
     let exportStartX = 0;
     let exportMode = 'wav'; // 'wav' or 'stems'
 
-    const performStemsExport = () => {
+    const performStemsExport = (baseExportState) => {
         const tracks = ['chords', 'bass', 'bassHarmonic', 'drums'];
         let delay = 0;
 
         tracks.forEach((track) => {
-            if (state.volumes[track] > 0.01) {
-                const exportState = { 
-                    ...state, 
-                    currentProgression: getActiveProgression(),
-                    volumes: { ...state.volumes }
-                };
+            if (baseExportState.volumes[track] > 0.01) {
+                const exportState = JSON.parse(JSON.stringify(baseExportState));
                 
                 // Solo the current track by muting everything else
                 tracks.forEach(t => {
@@ -97,6 +94,21 @@ export function initExportUI() {
             return; // User was just changing modes, abort export
         }
         
+        const exportState = getExportState(isSongTrayOpen);
+        const totalBeats = exportState.currentProgression.slice(exportState.loopStart, exportState.loopEnd).reduce((sum, chord) => sum + (Number(chord.duration) || 4), 0);
+        const loopDurationMin = (totalBeats / exportState.bpm);
+        const totalExportMin = loopDurationMin * exportState.exportPasses;
+        
+        if (totalExportMin > 3.0) {
+            const recommendedPasses = Math.max(1, Math.floor(3.0 / loopDurationMin));
+            const confirmMsg = `This export will generate ${totalExportMin.toFixed(1)} minutes of audio.\n\nTo prevent massive file sizes and long rendering times, we recommend capping this to ${recommendedPasses} pass(es) (${(loopDurationMin * recommendedPasses).toFixed(1)} mins).\n\nClick OK to proceed with ${recommendedPasses} pass(es), or Cancel to abort.`;
+            if (confirm(confirmMsg)) {
+                exportState.exportPasses = recommendedPasses;
+            } else {
+                return; // Abort export
+            }
+        }
+
         const finalMode = exportMode;
         const originalText = exportWavSwitch.textContent;
         const originalBg = exportWavSwitch.style.backgroundColor;
@@ -109,11 +121,10 @@ export function initExportUI() {
         setTimeout(async () => {
             try {
                 if (finalMode === 'wav') {
-                    const exportState = { ...state, currentProgression: getActiveProgression() };
                     const dummyBtn = document.createElement('button');
                     await exportToWav(exportState, dummyBtn);
                 } else {
-                    await performStemsExport();
+                    await performStemsExport(exportState);
                 }
             } catch (err) {
                 console.error("Export failed:", err);

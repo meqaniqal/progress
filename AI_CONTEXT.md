@@ -24,7 +24,7 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 7. CORRECTION PROTOCOL: If a mistake is pointed out, acknowledge the correct pattern and do not repeat the error. The user may provide a `// CORRECT_PATTERN: <description>` comment to reinforce a rule.
 
 ## CURRENT STATE & ROADMAP
-**Current State:** Phase 4 Complete. Sequence architecture and AI export capabilities are fully integrated and tested.
+**Current State:** Phase 6 Complete. Transitioning to a comprehensive Code Optimization & Refactoring pass before starting Phase 7.
 
 **Phase 2: Contextual Auditioning & Looping (Complete)**
 - [x] Section looping (UI slice selection for seamless playback).
@@ -83,17 +83,22 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
   - [x] *Protocol requirement:* The Boolean overlap/carving math must be isolated in a pure, Jest-testable module before integration.
   - [x] *Protocol requirement:* Hide this new editor behind a persistent Settings toggle (`enableExperimentalDrawMode`) during development to preserve legacy stability.
 
-**Phase 6: Song Mode & Macro-Arrangement (Current Focus)**
+**Phase 6: Song Mode & Macro-Arrangement (Complete)**
 - [x] Nested State Architecture & UI Data Pointers.
 - [x] Smart Dropdown First-Time Flow & Naming logic.
 - [x] "Inherit From" Empty State population.
 - [x] Song Tray Drag-and-Drop Sequencing & Double-Tap Appending.
 - [x] Macro Playback Engine (Cross-section audio/UI sync).
-- [ ] Fix Macro Playback sequence wrapping bug.
-- [ ] Add Macro Loop Brackets to the Song Tray.
-- [ ] Hide "Song View" button when Song Tray is open.
-- [ ] Implement Beginner/Advanced global toggle button next to the Manual button.
-- [ ] Multi-pass Macro MIDI & WAV Export context mapping.
+- [x] Fix Macro Playback sequence wrapping bug.
+- [x] Add Macro Loop Brackets to the Song Tray.
+- [x] Hide "Song View" button when Song Tray is open.
+- [x] Implement Beginner/Advanced global toggle button next to the Manual button.
+- [x] Multi-pass Macro MIDI & WAV Export context mapping.
+
+**Phase 6.5: Code Optimization & Refactoring (Next Steps)**
+- [ ] Step 1: UI Rendering De-Cluttering (Break down monolithic renderers in `ui.js` and `songController.js`).
+- [ ] Step 2: Extract Macro-Baking Logic (Move complex export compilation out of `store.js` into pure utility modules).
+- [ ] Step 3: Event & Memory Audit (Ensure safe cleanup of dynamic UI listeners, specifically in inspectors and modals).
 
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.

@@ -8,11 +8,11 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
 import { initPatternSet } from './patternUtils.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
 import { KEY_NAMES, highlightChordInUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
-import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, resetSession, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal } from './store.js';
+import { state, getActiveProgression, getExportState, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, resetSession, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal } from './store.js';
 import { initExportUI } from './exportController.js';
 import { initModals } from './modalController.js';
 import { initTransport, resetTransport, isPlaybackActive } from './transportController.js';
-import { initSongController, updateSongUI, exitSongMode } from './songController.js';
+import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from './songController.js';
 
         function undo() {
             if (undoState()) {
@@ -358,8 +358,22 @@ function _setupControlButtons() {
     document.getElementById('btn-undo').addEventListener('click', undo);
     document.getElementById('btn-clear').addEventListener('click', clearProgression);
     document.getElementById('btn-export').addEventListener('click', () => {
-        const exportState = { ...state, currentProgression: getActiveProgression() };
-        exportToMidi(exportState);
+        const exportState = getExportState(isSongTrayOpen);
+        
+        const totalBeats = exportState.currentProgression.slice(exportState.loopStart, exportState.loopEnd).reduce((sum, chord) => sum + (Number(chord.duration) || 4), 0);
+        const loopDurationMin = (totalBeats / exportState.bpm);
+        const totalExportMin = loopDurationMin * exportState.exportPasses;
+        
+        if (totalExportMin > 3.0) {
+            const recommendedPasses = Math.max(1, Math.floor(3.0 / loopDurationMin));
+            const confirmMsg = `This export will generate ${totalExportMin.toFixed(1)} minutes of audio/MIDI.\n\nTo prevent massive file sizes and long rendering times, we recommend capping this to ${recommendedPasses} pass(es) (${(loopDurationMin * recommendedPasses).toFixed(1)} mins).\n\nClick OK to proceed with ${recommendedPasses} pass(es), or Cancel to abort.`;
+            if (confirm(confirmMsg)) {
+                exportState.exportPasses = recommendedPasses;
+                exportToMidi(exportState);
+            }
+        } else {
+            exportToMidi(exportState);
+        }
     });
 
     const btnModeToggle = document.getElementById('btn-mode-toggle');
@@ -547,6 +561,15 @@ function _setupDragAndDrop(display) {
             applyLoopBounds();
             persistAppState();
             renderProgression();
+
+            // Instantly sync audio engine to new loop boundaries by restarting playback
+            const playBtn = document.getElementById('btn-play-toggle');
+            if (playBtn && playBtn.classList.contains('active')) {
+                playBtn.click();
+                setTimeout(() => {
+                    if (playBtn && !playBtn.classList.contains('active')) playBtn.click();
+                }, 50);
+            }
         },
         onDragCancel: () => renderProgression(),
         getItemText: (index) => state.currentProgression[index].symbol,

@@ -37,7 +37,12 @@ export function getCurrentPattern() {
     if (localPat && !localPat.isLocalOverride) {
         const globalPat = app.state.globalPatterns[editorState.activeTab];
         const beats = Number(chord.duration) || 4;
-        return resolvePattern(globalPat, true, beats, localPat.inheritMode);
+        
+        let absBeatStart = 0;
+        for (let i = 0; i < editorState.activeIndex; i++) {
+            absBeatStart += Number(app.state.currentProgression[i].duration) || 2;
+        }
+        return resolvePattern(globalPat, true, beats, localPat.inheritMode, null, false, absBeatStart);
     }
     return localPat;
 }

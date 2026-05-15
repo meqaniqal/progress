@@ -16,13 +16,13 @@ h1 { padding-bottom: 0.5rem; margin: 0; }
     overflow: visible; /* Allow connector to draw outside the bounds */
     touch-action: none;
 }
+.progression-item.in-loop { box-shadow: var(--item-in-loop-shadow); z-index: 1; }
 .progression-item.playing { 
     background-color: hsl(var(--dyn-hue), 90%, calc(var(--item-base-lum) + 15%)); 
     transform: scale(1.05); 
     box-shadow: 0 4px 12px hsl(var(--dyn-hue), 80%, calc(var(--item-base-lum) + 10%)); 
     z-index: 2; 
 }
-.progression-item.in-loop { box-shadow: var(--item-in-loop-shadow); z-index: 1; }
 .remove-btn { background: none; border: none; color: var(--item-text); cursor: pointer; font-size: 16px; padding: 0; line-height: 1; opacity: 0.7; }
 .remove-btn:hover { opacity: 1; }
 .progression-item.dragging,
@@ -57,7 +57,7 @@ h1 { padding-bottom: 0.5rem; margin: 0; }
 
 /* Hide the delete 'X' button on touch devices to prevent accidental deletion */
 @media (pointer: coarse) {
-    .remove-btn { display: none; }
+    .progression-item .remove-btn { display: none; }
 }
 
 /* Swap Menu Popover */
@@ -350,5 +350,9 @@ body:not(.show-helpers) .beginner-helper {
 body.beginner-mode #rhythm-editor-panel,
 body.beginner-mode #section-tabs-container,
 body.beginner-mode #song-sequencer-tray {
+    display: none !important;
+}
+
+body:not(.beginner-mode) #btn-manual {
     display: none !important;
 }

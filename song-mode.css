@@ -115,6 +115,11 @@
     box-shadow: 0 4px 6px var(--shadow-panel);
 }
 
+.song-section-block.in-loop {
+    box-shadow: var(--item-in-loop-shadow);
+    z-index: 1;
+}
+
 .song-section-block.playing {
     border-color: transparent;
     box-shadow: 0 0 0 2px var(--bg-body), 0 0 0 5px var(--original-chord-highlight);

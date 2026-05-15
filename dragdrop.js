@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
 
-export function getDragAfterElement(container, x, y, itemClass) {
-    const draggableElements = [...container.querySelectorAll(`.${itemClass}:not(.dragging), #bracket-start:not(.dragging), #bracket-end:not(.dragging)`)];
+export function getDragAfterElement(container, x, y, itemClass, bracketStartId = 'bracket-start', bracketEndId = 'bracket-end') {
+    const draggableElements = [...container.querySelectorAll(`.${itemClass}:not(.dragging), #${bracketStartId}:not(.dragging), #${bracketEndId}:not(.dragging)`)];
 
     for (const child of draggableElements) {
         const box = child.getBoundingClientRect();
@@ -21,6 +21,8 @@ export function initDragAndDrop({
     placeholderClass = 'progression-placeholder',
     sourceClass = 'chord-btn',
     sourceDataAttribute = 'chord',
+    bracketStartId = 'bracket-start',
+    bracketEndId = 'bracket-end',
     onReorder,
     onAddFromSource,
     onBracketDrop,
@@ -68,7 +70,7 @@ export function initDragAndDrop({
                 e.target.style.display = 'none'; 
                 document.body.removeChild(dragImg);
             }, 0);
-        } else if (e.target.id === 'bracket-start' || e.target.id === 'bracket-end') {
+        } else if (e.target.id === bracketStartId || e.target.id === bracketEndId) {
             // Handling Dragging for Loop Brackets
             draggedBracket = e.target.id;
             e.dataTransfer.effectAllowed = 'move';
@@ -103,6 +105,8 @@ export function initDragAndDrop({
         if (dragPlaceholder.parentNode) dragPlaceholder.parentNode.removeChild(dragPlaceholder);
         
         const resetIndex = draggedIndex;
+        const droppedBracket = draggedBracket; // Capture before nulling
+        
         draggedIndex = null;
         draggedBracket = null;
         draggedSourceItem = null;
@@ -110,8 +114,13 @@ export function initDragAndDrop({
         
         if (resetIndex !== null) {
             onReorder(resetIndex, resetIndex); // Dispatch a clean reset intent
+        } else if (droppedBracket) {
+            // If dropped outside, snap brackets to the absolute boundaries of the sequence
+            const itemCount = display.querySelectorAll(`.${itemClass}:not(.dragging)`).length;
+            const snapIndex = (droppedBracket === bracketStartId) ? 0 : itemCount;
+            if (onBracketDrop) onBracketDrop(droppedBracket, snapIndex, null, null);
         } else {
-            onDragCancel(); // Clean reset for brackets if dropped outside
+            onDragCancel(); // Clean reset for palette items dropped outside
         }
     });
 
@@ -122,7 +131,7 @@ export function initDragAndDrop({
     display.addEventListener('dragover', (e) => {
         if (draggedIndex === null && draggedBracket === null && draggedSourceItem === null) return;
         e.preventDefault(); 
-        const afterElement = getDragAfterElement(display, e.clientX, e.clientY, itemClass);
+        const afterElement = getDragAfterElement(display, e.clientX, e.clientY, itemClass, bracketStartId, bracketEndId);
         
         if (afterElement !== currentAfterElement) {
             currentAfterElement = afterElement;
@@ -149,8 +158,17 @@ export function initDragAndDrop({
 
     display.addEventListener('dragleave', (e) => {
         if (!display.contains(e.relatedTarget) && dragPlaceholder.parentNode) {
-            dragPlaceholder.parentNode.removeChild(dragPlaceholder);
-            currentAfterElement = undefined;
+            if (draggedBracket) {
+                // Visually snap the placeholder to the absolute bounds instead of disappearing
+                if (draggedBracket === bracketStartId) {
+                    display.insertBefore(dragPlaceholder, display.firstElementChild);
+                } else if (draggedBracket === bracketEndId) {
+                    display.appendChild(dragPlaceholder);
+                }
+            } else {
+                dragPlaceholder.parentNode.removeChild(dragPlaceholder);
+            }
+            currentAfterElement = undefined; // Ensure dragover recalculates if re-entered
         }
     });
 
@@ -159,7 +177,7 @@ export function initDragAndDrop({
         e.preventDefault();
         currentAfterElement = undefined;
 
-        const allItems = [...display.querySelectorAll(`.${itemClass}:not(.dragging), .${placeholderClass}, .bracket-placeholder, #bracket-start:not(.dragging), #bracket-end:not(.dragging)`)];
+        const allItems = [...display.querySelectorAll(`.${itemClass}:not(.dragging), .${placeholderClass}, .bracket-placeholder, #${bracketStartId}:not(.dragging), #${bracketEndId}:not(.dragging)`)];
         
         let insertIndex = null;
         let newLoopStart = null;
@@ -170,9 +188,9 @@ export function initDragAndDrop({
         for (const el of allItems) {
             if (el.classList.contains(placeholderClass)) {
                 insertIndex = currentItemCount;
-            } else if (el.id === 'bracket-start' || (el.classList.contains('bracket-placeholder') && draggedBracket === 'bracket-start')) {
+            } else if (el.id === bracketStartId || (el.classList.contains('bracket-placeholder') && draggedBracket === bracketStartId)) {
                 newLoopStart = currentItemCount;
-            } else if (el.id === 'bracket-end' || (el.classList.contains('bracket-placeholder') && draggedBracket === 'bracket-end')) {
+            } else if (el.id === bracketEndId || (el.classList.contains('bracket-placeholder') && draggedBracket === bracketEndId)) {
                 newLoopEnd = currentItemCount;
             }
             

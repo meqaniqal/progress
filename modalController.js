@@ -1,7 +1,8 @@
-import { state, getActiveProgression, persistAppState, resetSession } from './store.js';
+import { state, getExportState, persistAppState, resetSession } from './store.js';
 import { generateAIPrompt } from './promptGenerator.js';
 import { KEY_NAMES, updateKeyAndModeDisplay } from './ui.js';
 import { setTrackVolume } from './synth.js';
+import { isSongTrayOpen } from './songController.js';
 
 export function initModals({ onResetPlayback, onRenderProgression }) {
     _initSettingsModal(onResetPlayback, onRenderProgression);
@@ -76,12 +77,13 @@ function _initAIPromptModal() {
     
     if (btnAiPrompt) {
         btnAiPrompt.addEventListener('click', () => {
-            const activeProgression = getActiveProgression();
-            if (activeProgression.length === 0) {
+            const exportState = getExportState(isSongTrayOpen);
+            const macroProgression = exportState.currentProgression.slice(exportState.loopStart, exportState.loopEnd);
+            if (macroProgression.length === 0) {
                 alert("Please build a progression first.");
                 return;
             }
-            const promptText = generateAIPrompt(activeProgression, state.bpm, KEY_NAMES[state.baseKey], state.mode);
+            const promptText = generateAIPrompt(macroProgression, state.bpm, KEY_NAMES[state.baseKey], state.mode);
             const modal = document.getElementById('ai-prompt-modal');
             const textArea = document.getElementById('ai-prompt-text');
             textArea.value = promptText;

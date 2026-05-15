@@ -1,6 +1,7 @@
 import { saveState, loadState, clearState } from './storage.js';
 import { calculateLoopBounds } from './stateUtils.js';
 import { initChordPattern, initDrumPattern, initPatternSet } from './patternUtils.js';
+import { resolvePattern } from './patternResolver.js';
 
 export const state = {
     sections: {}, // Map of sectionId -> { id, name, progression, globalPatterns }
@@ -16,6 +17,8 @@ export const state = {
     globalVoicing: 'auto', // 'auto', 'close', 'spread', 'quartal'
     loopStart: 0,
     loopEnd: 0,
+    macroLoopStart: 0,
+    macroLoopEnd: 0,
     theme: 'dark',
     mode: 'major',
     exportPasses: 1,
@@ -82,6 +85,118 @@ export function getActiveProgression() {
         }
         return chord;
     });
+}
+
+export function getExportState(isMacro) {
+    const exportState = JSON.parse(JSON.stringify(state)); // Deep copy
+    
+    if (isMacro && exportState.songSequence.length > 0) {
+        let flattenedProgression = [];
+        let macStart = exportState.macroLoopStart ?? 0;
+        let macEnd = exportState.macroLoopEnd > 0 ? exportState.macroLoopEnd : exportState.songSequence.length;
+        if (macEnd > exportState.songSequence.length) macEnd = exportState.songSequence.length;
+        
+
+        for (let i = macStart; i < macEnd; i++) {
+            const sectionId = exportState.songSequence[i];
+            const section = exportState.sections[sectionId];
+            if (!section) continue;
+            
+            let secStart = (sectionId === state.activeSectionId) ? state.loopStart : (section.loopStart ?? 0);
+            let secEnd = (sectionId === state.activeSectionId) ? state.loopEnd : (section.loopEnd ?? section.progression.length);
+            
+            const slicedProg = section.progression.slice(secStart, secEnd);
+            
+            let absBeatStart = 0;
+
+            const bakedProg = slicedProg.map((chord, sliceIdx) => {
+                const originalIdx = secStart + sliceIdx;
+                let swap = section.temporarySwaps?.[originalIdx];
+                if (sectionId === state.activeSectionId && state.temporarySwaps?.[originalIdx]) {
+                    swap = state.temporarySwaps[originalIdx];
+                }
+                const mergedChord = swap ? { ...chord, ...swap } : { ...chord };
+                if (sliceIdx === 0) mergedChord._isSectionStart = true;
+                
+                const beats = Number(mergedChord.duration) || 2;
+                
+                let isGlobalDrum = false;
+                let drumPatForDucking = mergedChord.drumPattern;
+                if (drumPatForDucking && !drumPatForDucking.isLocalOverride && section.globalPatterns && section.globalPatterns.drumPattern) {
+                    drumPatForDucking = section.globalPatterns.drumPattern;
+                    isGlobalDrum = true;
+                }
+                
+                // Bake Chords and Bass (Relative 0.0 to 1.0)
+                if (mergedChord.chordPattern && !mergedChord.chordPattern.isLocalOverride) {
+                    mergedChord.chordPattern = resolvePattern(
+                        section.globalPatterns.chordPattern,
+                        true,
+                        beats,
+                        null,
+                        drumPatForDucking,
+                        isGlobalDrum,
+                        absBeatStart
+                    );
+                    mergedChord.chordPattern.isLocalOverride = true;
+                }
+                if (mergedChord.bassPattern && !mergedChord.bassPattern.isLocalOverride) {
+                    mergedChord.bassPattern = resolvePattern(
+                        section.globalPatterns.bassPattern,
+                        true,
+                        beats,
+                        null,
+                        drumPatForDucking,
+                        isGlobalDrum,
+                        absBeatStart
+                    );
+                    mergedChord.bassPattern.isLocalOverride = true;
+                }
+
+                // Bake Drums (Absolute continuous timeline converted to localized chord bounds)
+                if (mergedChord.drumPattern && !mergedChord.drumPattern.isLocalOverride) {
+                    const globalDrumPat = section.globalPatterns.drumPattern;
+                    const gLength = globalDrumPat.lengthBeats || 4;
+                    const localHits = [];
+                    
+                    if (globalDrumPat.hits) {
+                        for (const hit of globalDrumPat.hits) {
+                            if (hit.time >= 1.0) continue;
+                            const hitBeatOffset = hit.time * gLength;
+                            let loopStartBeat = Math.floor(absBeatStart / gLength) * gLength;
+                            
+                            let absoluteHitBeat = Math.round((loopStartBeat + hitBeatOffset) * 10000) / 10000;
+                            let absBeatStartRounded = Math.round(absBeatStart * 10000) / 10000;
+                            let chordEndBeatRounded = Math.round((absBeatStart + beats) * 10000) / 10000;
+                            
+                            if (absoluteHitBeat < absBeatStartRounded) absoluteHitBeat += gLength;
+                            
+                            while (absoluteHitBeat < chordEndBeatRounded) {
+                                const beatWithinChord = absoluteHitBeat - absBeatStartRounded;
+                                localHits.push({ ...hit, time: beatWithinChord / beats });
+                                absoluteHitBeat += gLength;
+                                absoluteHitBeat = Math.round(absoluteHitBeat * 10000) / 10000;
+                            }
+                        }
+                    }
+                    mergedChord.drumPattern = { isLocalOverride: true, hits: localHits };
+                }
+                
+                absBeatStart += beats;
+                return mergedChord;
+            });
+            
+            flattenedProgression.push(...bakedProg);
+        }
+        
+        exportState.currentProgression = flattenedProgression;
+        exportState.loopStart = 0;
+        exportState.loopEnd = flattenedProgression.length;
+    } else {
+        exportState.currentProgression = getActiveProgression();
+    }
+    
+    return exportState;
 }
 
 export function updateEditorState(updates) {
@@ -181,6 +296,12 @@ export function applyLoopBounds() {
     state.loopEnd = bounds.end;
 }
 
+export function applyMacroLoopBounds() {
+    const bounds = calculateLoopBounds(state.songSequence.length, state.macroLoopStart, state.macroLoopEnd);
+    state.macroLoopStart = bounds.start;
+    state.macroLoopEnd = bounds.end;
+}
+
 // --- History & Undo ---
 export function saveHistoryState() {
     // Force a sync of active primitive pointers into the section before capturing history
@@ -196,7 +317,9 @@ export function saveHistoryState() {
         activeSectionId: state.activeSectionId,
         temporarySwaps: JSON.parse(JSON.stringify(state.temporarySwaps)),
         loopStart: state.loopStart,
-        loopEnd: state.loopEnd
+        loopEnd: state.loopEnd,
+        macroLoopStart: state.macroLoopStart,
+        macroLoopEnd: state.macroLoopEnd
     });
     if (state.history.length > 50) state.history.shift(); // Max 50 undos
 }
@@ -217,6 +340,8 @@ export function undoState() {
             state.loopEnd = activeSec.loopEnd ?? previousState.loopEnd;
             state.temporarySwaps = activeSec.temporarySwaps ?? previousState.temporarySwaps;
         }
+        state.macroLoopStart = previousState.macroLoopStart ?? 0;
+        state.macroLoopEnd = previousState.macroLoopEnd ?? state.songSequence.length;
     } else {
         state.temporarySwaps = previousState.temporarySwaps;
         state.loopStart = previousState.loopStart;
@@ -224,6 +349,7 @@ export function undoState() {
     }
 
     applyLoopBounds();
+    applyMacroLoopBounds();
     persistAppState();
     return true;
 }
@@ -267,6 +393,8 @@ export function resetSession() {
     state.globalVoicing = 'auto';
     state.loopStart = 0;
     state.loopEnd = 0;
+    state.macroLoopStart = 0;
+    state.macroLoopEnd = 0;
     state.theme = 'dark';
     state.mode = 'major';
     state.exportPasses = 1;
@@ -320,6 +448,8 @@ export function loadAndApplyInitialState() {
         
         if (typeof savedState.loopStart === 'number') state.loopStart = Math.max(0, savedState.loopStart);
         if (typeof savedState.loopEnd === 'number') state.loopEnd = Math.max(0, savedState.loopEnd);
+        if (typeof savedState.macroLoopStart === 'number') state.macroLoopStart = Math.max(0, savedState.macroLoopStart);
+        if (typeof savedState.macroLoopEnd === 'number') state.macroLoopEnd = Math.max(0, savedState.macroLoopEnd);
 
         if (savedState.exportPasses !== undefined) {
             const parsedPasses = parseInt(savedState.exportPasses, 10);
@@ -505,6 +635,7 @@ export function loadAndApplyInitialState() {
         }
     }
     applyLoopBounds();
+    applyMacroLoopBounds();
 }
 
 export function switchActiveSection(sectionId) {
@@ -571,6 +702,7 @@ export function createAndAppendSection(name) {
     state.selectedChordIndex = null;
     
     applyLoopBounds();
+    applyMacroLoopBounds();
     persistAppState();
     return newId;
 }
@@ -585,6 +717,7 @@ export function renameSection(sectionId, newName) {
 export function removeSectionFromSequence(index) {
     saveHistoryState();
     state.songSequence.splice(index, 1);
+    applyMacroLoopBounds();
     persistAppState();
 }
 
@@ -592,6 +725,7 @@ export function appendExistingSection(sectionId, insertIndex = null) {
     saveHistoryState();
     if (insertIndex === null) insertIndex = state.songSequence.length;
     state.songSequence.splice(insertIndex, 0, sectionId);
+    applyMacroLoopBounds();
     persistAppState();
 }
 
@@ -599,6 +733,7 @@ export function reorderSequence(oldIndex, newIndex) {
     saveHistoryState();
     const item = state.songSequence.splice(oldIndex, 1)[0];
     state.songSequence.splice(newIndex, 0, item);
+    applyMacroLoopBounds();
     persistAppState();
 }
 

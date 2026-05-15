@@ -1,4 +1,4 @@
-import { state, switchActiveSection, createAndAppendSection, renameSection, removeSectionFromSequence, appendExistingSection, reorderSequence, inheritSectionData } from './store.js';
+import { state, switchActiveSection, createAndAppendSection, renameSection, removeSectionFromSequence, appendExistingSection, reorderSequence, inheritSectionData, saveHistoryState, persistAppState, applyMacroLoopBounds } from './store.js';
 import { initDragAndDrop } from './dragdrop.js';
 
 let _onRenderProgression = null;
@@ -14,6 +14,15 @@ function getSectionHue(id) {
     }
     const macroHues = [210, 280, 340, 15, 45, 180, 260, 320]; // Slate, Mauve, Rose, Rust, Gold, Teal, Indigo, Magenta
     return macroHues[Math.abs(hash) % macroHues.length];
+}
+
+function createBracketElement(id, text) {
+    const br = document.createElement('div');
+    br.id = id;
+    br.textContent = text;
+    br.draggable = true;
+    br.className = 'bracket-element';
+    return br;
 }
 
 export function setActiveSequenceIndex(index) {
@@ -34,6 +43,7 @@ export function initSongController(callbacks) {
     const trayDisplay = document.getElementById('song-sequence-display');
     const progressionDisplay = document.getElementById('progression-display');
     const paletteContainer = document.getElementById('song-section-buttons');
+    const btnDeleteBlock = document.getElementById('btn-delete-macro-block');
 
     if (btnAddSection) {
         btnAddSection.addEventListener('click', (e) => {
@@ -112,24 +122,24 @@ export function initSongController(callbacks) {
     if (btnToggleTray) btnToggleTray.addEventListener('click', toggleSongTray);
     if (btnCloseTray) btnCloseTray.addEventListener('click', () => { if (isSongTrayOpen) toggleSongTray(); });
 
+    if (btnDeleteBlock) {
+        btnDeleteBlock.addEventListener('click', () => {
+            if (_activeSequenceIndex !== null && _activeSequenceIndex < state.songSequence.length) {
+                removeSectionFromSequence(_activeSequenceIndex);
+                if (_activeSequenceIndex >= state.songSequence.length) {
+                    _activeSequenceIndex = state.songSequence.length > 0 ? state.songSequence.length - 1 : null;
+                }
+                updateSongUI();
+                if (_onRenderProgression) _onRenderProgression();
+            }
+        });
+    }
+
     if (trayDisplay) {
         trayDisplay.addEventListener('click', (e) => {
-            const removeBtn = e.target.closest('.remove-section-btn');
-            if (removeBtn) {
-                const block = e.target.closest('.song-section-block');
-                const index = parseInt(block.dataset.index, 10);
-                removeSectionFromSequence(index);
-                
-                if (_activeSequenceIndex === index) _activeSequenceIndex = null;
-                else if (_activeSequenceIndex !== null && _activeSequenceIndex > index) _activeSequenceIndex--;
-                
-                updateSongUI();
-                return;
-            }
-            
             // Focus the clicked section in the editor
             const block = e.target.closest('.song-section-block');
-            if (block && !removeBtn) {
+            if (block) {
                 const index = parseInt(block.dataset.index, 10);
                 _activeSequenceIndex = index;
                 switchActiveSection(block.dataset.id);
@@ -144,7 +154,9 @@ export function initSongController(callbacks) {
             placeholderClass: 'song-placeholder',
             sourceClass: 'section-palette-btn',
             sourceDataAttribute: 'id',
-            onReorder: (oldIndex, newIndex) => {
+            bracketStartId: 'bracket-macro-start',
+            bracketEndId: 'bracket-macro-end',
+            onReorder: (oldIndex, newIndex, newLoopStart, newLoopEnd) => {
                 if (oldIndex === null || newIndex === null) { updateSongUI(); return; }
                 if (oldIndex !== newIndex) {
                     reorderSequence(oldIndex, newIndex);
@@ -158,15 +170,53 @@ export function initSongController(callbacks) {
                         _activeSequenceIndex++;
                     }
                 }
+                
+                if (newLoopStart !== null && newLoopEnd !== null) {
+                    state.macroLoopStart = newLoopStart;
+                    state.macroLoopEnd = newLoopEnd;
+                    applyMacroLoopBounds();
+                    persistAppState();
+                }
                 updateSongUI();
             },
-            onAddFromSource: (sourceId, sourceKey, insertIndex) => {
+            onAddFromSource: (sourceId, sourceKey, insertIndex, newLoopStart, newLoopEnd) => {
                 if (insertIndex === null) insertIndex = state.songSequence.length;
                 appendExistingSection(sourceId, insertIndex);
+                
+                if (newLoopStart !== null && newLoopEnd !== null) {
+                    state.macroLoopStart = newLoopStart;
+                    state.macroLoopEnd = newLoopEnd;
+                    applyMacroLoopBounds();
+                    persistAppState();
+                }
                 _activeSequenceIndex = insertIndex;
                 switchActiveSection(sourceId);
                 updateSongUI();
                 if (_onRenderProgression) _onRenderProgression();
+            },
+            onBracketDrop: (bracketId, insertIndex, newLoopStart, newLoopEnd) => {
+                saveHistoryState();
+                if (newLoopStart !== null && newLoopEnd !== null) {
+                    state.macroLoopStart = newLoopStart;
+                    state.macroLoopEnd = newLoopEnd;
+                } else {
+                    if (insertIndex === null) insertIndex = state.songSequence.length;
+                    if (bracketId === 'bracket-macro-start') state.macroLoopStart = insertIndex;
+                    else if (bracketId === 'bracket-macro-end') state.macroLoopEnd = insertIndex;
+                }
+                applyMacroLoopBounds();
+                persistAppState();
+                updateSongUI();
+                if (_onRenderProgression) _onRenderProgression();
+
+                // Instantly sync audio engine to new macro loop boundaries by restarting playback
+                const playBtn = document.getElementById('btn-play-toggle');
+                if (playBtn && playBtn.classList.contains('active')) {
+                    playBtn.click();
+                    setTimeout(() => {
+                        if (playBtn && !playBtn.classList.contains('active')) playBtn.click();
+                    }, 50);
+                }
             },
             onDragCancel: () => updateSongUI(),
             getItemText: (index) => state.sections[state.songSequence[index]]?.name || ''
@@ -346,6 +396,15 @@ export function toggleSongTray() {
         Array.from(document.querySelectorAll('.chord-palette')).forEach(p => p.style.display = 'block');
     }
     updateSongUI();
+
+    // Instantly sync audio engine context (Micro vs Macro) by restarting playback
+    const playBtn = document.getElementById('btn-play-toggle');
+    if (playBtn && playBtn.classList.contains('active')) {
+        playBtn.click();
+        setTimeout(() => {
+            if (playBtn && !playBtn.classList.contains('active')) playBtn.click();
+        }, 50);
+    }
 }
 
 export function exitSongMode() {
@@ -368,16 +427,46 @@ export function updateSongUI() {
         return true;
     });
 
-    tabsContainer.innerHTML = orderedSections.map(sec => `
-        <div class="section-tab ${sec.id === state.activeSectionId ? 'active' : ''}" data-id="${sec.id}" title="${sec.id === state.activeSectionId ? 'Click to rename' : `Switch to ${sec.name}`}" style="--macro-hue: ${getSectionHue(sec.id)};">
-            ${sec.name}
-        </div>
-    `).join('');
+    // Strict DOM Reconciliation for Tabs (Prevents dragging bugs)
+    const existingTabs = tabsContainer.querySelectorAll('.section-tab');
+    orderedSections.forEach((sec, i) => {
+        let tab = existingTabs[i];
+        if (!tab) {
+            tab = document.createElement('div');
+            tab.className = 'section-tab';
+            tabsContainer.appendChild(tab);
+        }
+        tab.dataset.id = sec.id;
+        tab.title = sec.id === state.activeSectionId ? 'Click to rename' : `Switch to ${sec.name}`;
+        tab.style.setProperty('--macro-hue', getSectionHue(sec.id));
+        tab.textContent = sec.name;
+        
+        if (sec.id === state.activeSectionId) tab.classList.add('active');
+        else tab.classList.remove('active');
+    });
+    for (let i = orderedSections.length; i < existingTabs.length; i++) {
+        tabsContainer.removeChild(existingTabs[i]);
+    }
     
     if (paletteContainer) {
-        paletteContainer.innerHTML = orderedSections.map(sec => `
-            <button class="chord-btn section-palette-btn" data-id="${sec.id}" draggable="true" title="Drag to sequencer or double-click to append" style="--macro-hue: ${getSectionHue(sec.id)};">${sec.name}</button>
-        `).join('');
+        // Strict DOM Reconciliation for Palette Buttons
+        const existingPalettes = paletteContainer.querySelectorAll('.section-palette-btn');
+        orderedSections.forEach((sec, i) => {
+            let btn = existingPalettes[i];
+            if (!btn) {
+                btn = document.createElement('button');
+                btn.className = 'chord-btn section-palette-btn';
+                btn.draggable = true;
+                paletteContainer.appendChild(btn);
+            }
+            btn.dataset.id = sec.id;
+            btn.title = "Drag to sequencer or double-click to append";
+            btn.style.setProperty('--macro-hue', getSectionHue(sec.id));
+            btn.textContent = `${sec.name} ⬇`;
+        });
+        for (let i = orderedSections.length; i < existingPalettes.length; i++) {
+            paletteContainer.removeChild(existingPalettes[i]);
+        }
     }
 
     if (btnToggleTray) {
@@ -401,12 +490,76 @@ export function updateSongUI() {
             _activeSequenceIndex = state.songSequence.lastIndexOf(state.activeSectionId);
         }
 
-        trayDisplay.innerHTML = state.songSequence.map((id, index) => {
+        const emptyState = trayDisplay.querySelector('.section-empty-state');
+        if (emptyState) emptyState.remove();
+
+        const existingBlocks = trayDisplay.querySelectorAll('.song-section-block');
+
+        state.songSequence.forEach((id, index) => {
+            let block = existingBlocks[index];
             const sec = state.sections[id];
-            if (!sec) return '';
+            if (!sec) return;
+            
             const isPlaying = (id === state.activeSectionId && index === _activeSequenceIndex);
-            return `<div class="song-section-block ${isPlaying ? 'playing' : ''}" data-id="${id}" data-index="${index}" draggable="true" style="--macro-hue: ${getSectionHue(id)};"><span style="opacity: 0.5; font-size: 10px;">☰</span>${sec.name}<button class="remove-btn remove-section-btn" style="margin-left: 6px;">×</button></div>`;
-        }).join('');
+            
+            if (!block) {
+                block = document.createElement('div');
+                block.className = 'song-section-block';
+                block.innerHTML = `<span class="block-name"></span>`;
+                block.draggable = true;
+                trayDisplay.appendChild(block);
+            }
+            
+            block.dataset.id = id;
+            block.dataset.index = index;
+            block.style.setProperty('--macro-hue', getSectionHue(id));
+            block.querySelector('.block-name').textContent = sec.name;
+            
+            if (isPlaying) block.classList.add('playing');
+            else block.classList.remove('playing');
+        });
+
+        for (let i = state.songSequence.length; i < existingBlocks.length; i++) {
+            trayDisplay.removeChild(existingBlocks[i]);
+        }
+
+        // Render Macro Brackets
+        if (state.songSequence.length > 0 && state.isLooping) {
+            let startBr = document.getElementById('bracket-macro-start') || createBracketElement('bracket-macro-start', '[');
+            let endBr = document.getElementById('bracket-macro-end') || createBracketElement('bracket-macro-end', ']');
+            
+            startBr.style.display = 'inline-block';
+            endBr.style.display = 'inline-block';
+
+            const updatedItems = trayDisplay.querySelectorAll('.song-section-block');
+            
+            let mStart = state.macroLoopStart ?? 0;
+            let mEnd = state.macroLoopEnd ?? state.songSequence.length;
+            if (mEnd === 0 || mEnd > state.songSequence.length) mEnd = state.songSequence.length;
+
+            if (updatedItems[mStart]) trayDisplay.insertBefore(startBr, updatedItems[mStart]);
+            else trayDisplay.appendChild(startBr);
+
+            if (updatedItems[mEnd]) trayDisplay.insertBefore(endBr, updatedItems[mEnd]);
+            else trayDisplay.appendChild(endBr);
+            
+            updatedItems.forEach((block, index) => {
+                if (index >= mStart && index < mEnd) block.classList.add('in-loop');
+                else block.classList.remove('in-loop');
+            });
+        } else {
+            const startBr = document.getElementById('bracket-macro-start');
+            const endBr = document.getElementById('bracket-macro-end');
+            if (startBr && startBr.parentNode) startBr.parentNode.removeChild(startBr);
+            if (endBr && endBr.parentNode) endBr.parentNode.removeChild(endBr);
+        }
+    }
+
+    const btnDeleteBlock = document.getElementById('btn-delete-macro-block');
+    if (btnDeleteBlock) {
+        btnDeleteBlock.disabled = (_activeSequenceIndex === null || state.songSequence.length === 0);
+        btnDeleteBlock.style.opacity = btnDeleteBlock.disabled ? '0.5' : '1';
+        btnDeleteBlock.style.cursor = btnDeleteBlock.disabled ? 'not-allowed' : 'pointer';
     }
 
     // 3. Render "Inherit From" empty state

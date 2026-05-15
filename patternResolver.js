@@ -3,7 +3,7 @@
  * If isGlobal is true, the pattern is treated as a 4-beat master loop.
  * It will be truncated if the chord is shorter, or looped if the chord is longer.
  */
-export function resolvePattern(pattern, isGlobal, chordBeats, inheritMode = null, drumPattern = null, isDrumGlobal = false) {
+export function resolvePattern(pattern, isGlobal, chordBeats, inheritMode = null, drumPattern = null, isDrumGlobal = false, absBeatStart = 0) {
     if (!pattern) return null;
 
     let resolvedInstances = [];
@@ -37,9 +37,9 @@ export function resolvePattern(pattern, isGlobal, chordBeats, inheritMode = null
                 }
             }
         } else {
-            const loops = mode === 'empty' ? 1 : Math.ceil(chordBeats / GLOBAL_BEATS);
-            for (let loop = 0; loop < loops; loop++) {
-                if (pattern.instances) {
+            if (pattern.instances) {
+                const loops = mode === 'empty' ? 1 : Math.ceil(chordBeats / GLOBAL_BEATS);
+                for (let loop = 0; loop < loops; loop++) {
                     for (const inst of pattern.instances) {
                         const absStart = (loop * GLOBAL_BEATS) + (inst.startTime * GLOBAL_BEATS);
                         let absEnd = absStart + (inst.duration * GLOBAL_BEATS);
@@ -56,15 +56,29 @@ export function resolvePattern(pattern, isGlobal, chordBeats, inheritMode = null
                         }
                     }
                 }
-                if (pattern.hits) {
-                    for (const hit of pattern.hits) {
-                        const absTime = (loop * GLOBAL_BEATS) + (hit.time * GLOBAL_BEATS);
-                        if (absTime >= chordBeats) continue;
+            }
+            if (pattern.hits) {
+                const gLength = GLOBAL_BEATS;
+                for (const hit of pattern.hits) {
+                    if (hit.time >= 1.0) continue;
+                    const hitBeatOffset = hit.time * gLength;
+                    let loopStartBeat = Math.floor(absBeatStart / gLength) * gLength;
+                    
+                    let absoluteHitBeat = Math.round((loopStartBeat + hitBeatOffset) * 10000) / 10000;
+                    let absBeatStartRounded = Math.round(absBeatStart * 10000) / 10000;
+                    let chordEndBeatRounded = Math.round((absBeatStart + chordBeats) * 10000) / 10000;
+                    
+                    if (absoluteHitBeat < absBeatStartRounded) absoluteHitBeat += gLength;
+                    
+                    while (absoluteHitBeat < chordEndBeatRounded) {
+                        const beatWithinChord = absoluteHitBeat - absBeatStartRounded;
                         resolvedHits.push({
                             ...hit,
-                            id: hit.id + '_' + loop,
-                            time: absTime / chordBeats
+                            id: hit.id + '_' + absoluteHitBeat,
+                            time: beatWithinChord / chordBeats
                         });
+                        absoluteHitBeat += gLength;
+                        absoluteHitBeat = Math.round(absoluteHitBeat * 10000) / 10000;
                     }
                 }
             }
@@ -73,7 +87,7 @@ export function resolvePattern(pattern, isGlobal, chordBeats, inheritMode = null
 
     // Apply dynamic kick avoidance if requested
     if (pattern.avoidKick && drumPattern && resolvedInstances.length > 0) {
-        const resolvedDrums = resolvePattern(drumPattern, isDrumGlobal, chordBeats, null, null, false);
+        const resolvedDrums = resolvePattern(drumPattern, isDrumGlobal, chordBeats, null, null, false, absBeatStart);
         if (resolvedDrums && resolvedDrums.hits) {
             const kickRoom = 0.5 / chordBeats; // Shift by an 8th note
             const ducked = [];
@@ -101,5 +115,11 @@ export function resolvePattern(pattern, isGlobal, chordBeats, inheritMode = null
     const resolved = { ...pattern };
     if (pattern.instances) resolved.instances = resolvedInstances;
     if (pattern.hits) resolved.hits = resolvedHits;
+    
+    // If ducking was successfully applied, turn it off on the baked object to prevent double-ducking later
+    if (pattern.avoidKick && drumPattern && resolvedInstances.length > 0) {
+        resolved.avoidKick = false;
+    }
+    
     return resolved;
 }
