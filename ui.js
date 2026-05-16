@@ -188,9 +188,25 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
     if (lastChord && lastChord.key !== state.baseKey) {
         modPanel.style.display = 'block';
         const modeStr = state.mode.charAt(0).toUpperCase() + state.mode.slice(1).replace(/([A-Z])/g, ' $1').trim();
-        document.getElementById('mod-from-key').textContent = `${KEY_NAMES[lastChord.key]} ${modeStr}`;
-        document.getElementById('mod-to-key').textContent = `${KEY_NAMES[state.baseKey]} ${modeStr}`;
         
+        const fromKeyStr = `${KEY_NAMES[lastChord.key]} ${modeStr}`;
+        const toKeyStr = `${KEY_NAMES[state.baseKey]} ${modeStr}`;
+        
+        if (state.isAdvancedMode) {
+            modPanel.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <strong style="font-size: 13px; color: var(--placeholder-border);">${fromKeyStr} ➔ ${toKeyStr} pivot chords:</strong>
+                    <div id="mod-buttons" style="display: inline-flex; flex-wrap: wrap; gap: 4px;"></div>
+                </div>
+            `;
+        } else {
+            modPanel.innerHTML = `
+                <strong>🚀 Modulation Detected!</strong>
+                <p>Smooth the transition from <strong id="mod-from-key">${fromKeyStr}</strong> to <strong id="mod-to-key">${toKeyStr}</strong> using these suggested Pivot chords:</p>
+                <div id="mod-buttons"></div>
+            `;
+        }
+
         const btnContainer = document.getElementById('mod-buttons');
         btnContainer.innerHTML = '';
         

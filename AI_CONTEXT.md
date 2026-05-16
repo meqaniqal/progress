@@ -84,6 +84,12 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] Dedicated UI Song Tray for sequencing parts (Verse, Chorus) via drag-and-drop.
 - [x] Global playback and export evaluation wrapping seamlessly across sections.
 
+**Phase 7: True Mobile Adaptive UX (Planned)**
+- [x] Viewport-aware FAB positioning (`env(safe-area-inset-bottom)`, `dvh`) to prevent transport bar from vanishing behind mobile browser chrome.
+- [x] Swipeable Single-Tab UI for Song Sections on narrow screens (< 450px viewport).
+- [x] Eliminate horizontal scroll fatigue in favor of gesture-based navigation.
+- [x] Responsive flex-wrapping for Rhythm Editor toolbars to prevent UI clipping on narrow (<360px) viewports.
+
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.
 - `move_protocol`: Relocate via 1) Delete diff 2) Insert diff. Never combine.

@@ -155,11 +155,17 @@
             <div id="section-tabs" class="section-tabs">
                 <!-- Rendered tabs go here -->
             </div>
+            <!-- Mobile Adaptive Single-Tab -->
+            <div id="mobile-unitab" class="mobile-unitab" style="display: none;" title="Swipe left/right to change sections">
+                <span id="mobile-unitab-label" style="font-weight: bold; font-size: 14px; margin-bottom: 2px;">Section</span>
+                <div id="mobile-unitab-dots" style="display: flex; gap: 4px; align-items: center;"></div>
+            </div>
+            
             <div class="section-add-wrapper">
                 <button id="btn-add-section" class="control-btn secondary icon-btn" style="font-size: 18px; line-height: 1; padding: 0 8px; height: 32px;" title="Add Section">+</button>
             </div>
             <button id="btn-toggle-song-tray" class="control-btn secondary" style="margin-left: auto; padding: 4px 10px; font-size: 12px; display: none;" title="Open Song Macro-Arrangement">
-                ♫ Song View
+                ♫ <span class="hide-on-mobile">Song View</span>
             </button>
         </div>
 
@@ -230,7 +236,7 @@
         </div>
         
         <div style="position: relative; width: 100%; display: flex; flex-direction: column; flex-grow: 1;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; width: 100%; padding: 0 12px; position: relative; z-index: 10; margin-bottom: -1px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; row-gap: 6px; width: 100%; padding: 0 12px; position: relative; z-index: 10; margin-bottom: -1px;">
                 <div style="display: flex; gap: 8px; align-items: flex-end;">
                     <div id="pattern-fx-group" style="display: none; align-items: center; background: rgba(0,0,0,0.4); padding: 0 10px; border-radius: 6px 6px 0 0; border: 1px solid rgba(255,255,255,0.1); border-bottom: none; height: 26px;">
                         <input type="checkbox" id="pattern-avoid-kick" style="margin: 0 6px 0 0; cursor: pointer;">

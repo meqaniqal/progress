@@ -196,3 +196,12 @@ Before introducing the mathematical complexity of microtonal harmony, the codeba
 - **UI Rendering De-Cluttering:** Break down massive, monolithic render functions (like those in `ui.js` and `songController.js`) into atomic, descriptive sub-renderers.
 - **State Manager Purification:** Extract heavy calculation and macro-baking loops (`getExportState`) out of `store.js` and into dedicated pure utility modules.
 - **Memory Leak Audit:** Perform a rigorous pass over all dynamic UI injections (modals, dropdowns, inspectors) to ensure 100% reliable event listener cleanup on element destruction.
+
+### 10. True Mobile Adaptive UX (Phase 7 - Planned)
+The mobile web environment introduces unique viewport challenges (DPR scaling, dynamic browser chrome, fat-finger targets) that require adaptive UI paradigms rather than just responsive squishing.
+- **Dynamic Viewport Transport Fix (Completed):** The floating Play button currently vanishes under mobile browser navigation bars during scroll. This requires migrating from absolute `bottom: 0` to using CSS environment variables (`env(safe-area-inset-bottom)`) and dynamic viewport units (`dvh`).
+- **Swipeable Single-Tab UI (Completed):** On narrow screens (< 450px), horizontally scrolling through multiple song section tabs is cumbersome. The UI will adapt into a single, prominent "Active Section" display block.
+  - Users swipe left/right on this single tab to cycle through the song sequence contextually.
+  - A single tap opens the standard context/rename menu intuitively mapping to mobile interactions.
+- **Responsive Editor Toolbars (Completed):** Implemented strict flex-wrapping and container boundaries across the Rhythm Editor to ensure tools like Draw Mode and Pitch Mode neatly stack on narrow mobile viewports instead of breaking off-screen.
+  - CSS media queries will handle the breakpoint shift seamlessly.

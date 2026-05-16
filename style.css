@@ -1,4 +1,4 @@
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 2rem; padding-bottom: 60px; max-width: 950px; margin: 0 auto; background: var(--bg-body); color: var(--text-main); transition: background-color 0.3s ease, color 0.3s ease; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 2rem; padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); min-height: 100dvh; max-width: 950px; margin: 0 auto; background: var(--bg-body); color: var(--text-main); transition: background-color 0.3s ease, color 0.3s ease; }
 h1 { padding-bottom: 0.5rem; margin: 0; }
 .panel { background: var(--bg-panel); padding: 1.5rem; border-radius: 8px; box-shadow: 0 4px 6px var(--shadow-panel); margin-bottom: 1.5rem; transition: background-color 0.3s ease; }
 .chord-btn { padding: 10px 15px; margin: 5px; border: 1px solid var(--btn-border); border-radius: 4px; background: var(--btn-bg); color: var(--text-main); cursor: pointer; font-weight: bold; transition: 0.2s; touch-action: none; }
@@ -161,13 +161,17 @@ body.is-dragging-palette .chord-palette:not(.active-palette) {
 /* --- Floating Transport Bar (FAB) --- */
 #transport-bar {
     position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: env(safe-area-inset-bottom, 0px);
+    left: 0;
+    width: 100vw;
     z-index: 1000;
     display: flex;
     flex-direction: column;
     align-items: center;
+    pointer-events: none; /* Let clicks pass through empty sides */
+}
+#transport-bar > * {
+    pointer-events: auto; /* Re-enable clicks on controls */
 }
 #btn-play-toggle {
     position: relative;
@@ -355,4 +359,92 @@ body.beginner-mode #song-sequencer-tray {
 
 body:not(.beginner-mode) #btn-manual {
     display: none !important;
+}
+
+/* --- Mobile Flexbox Constraints --- */
+/* Prevent pattern editor toolbar items from bursting out the right side of the screen */
+#rhythm-editor-content, 
+.tab-content-wrapper, 
+.rhythm-toolbar, 
+.tool-group, 
+.toolbar-row {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.toolbar-row > * {
+    max-width: 100%;
+}
+
+/* Allow section tabs to scroll without pushing 'Song View' offscreen */
+.section-tabs-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+}
+
+.section-tabs {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    gap: 4px;
+    padding-bottom: 2px;
+}
+
+.section-add-wrapper {
+    flex-shrink: 0;
+}
+
+#btn-toggle-song-tray {
+    flex-shrink: 0;
+    white-space: nowrap;
+    margin-left: auto;
+}
+
+/* Ensure dropdowns shrink gracefully */
+.rhythm-select {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* --- Adaptive Mobile Unitab --- */
+.mobile-unitab {
+    display: none;
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px dashed var(--border-main);
+    border-radius: 6px;
+    padding: 6px 10px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: pan-y; /* Enable vertical scroll, capture horizontal swipes */
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+}
+[data-theme="dark"] .mobile-unitab { background: rgba(0, 0, 0, 0.2); }
+
+.mobile-unitab::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: hsla(var(--macro-hue, 200), 50%, 50%, 0.1);
+    pointer-events: none;
+}
+.mobile-unitab-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--text-main); opacity: 0.2;
+}
+
+/* Target narrow mobile phones strictly (< 450px) */
+@media (max-width: 450px) {
+    .section-tabs { display: none !important; }
+    .mobile-unitab { display: flex !important; }
+    .hide-on-mobile { display: none; }
+}
+@media (min-width: 451px) {
+    .mobile-unitab { display: none !important; }
 }

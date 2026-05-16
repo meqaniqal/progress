@@ -241,6 +241,8 @@ export function initSongController(callbacks) {
             updateSongUI();
         }
     });
+    
+    initMobileUnitabSwiping();
 }
 
 function getUniqueSectionName(name, excludeSectionId = null) {
@@ -380,6 +382,57 @@ function closeSectionDropdown() {
     }
 }
 
+function initMobileUnitabSwiping() {
+    const unitab = document.getElementById('mobile-unitab');
+    if (!unitab) return;
+
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const SWIPE_THRESHOLD = 40;
+
+    unitab.addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, {passive: true});
+    
+    unitab.addEventListener('touchend', e => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, {passive: true});
+
+    unitab.addEventListener('click', e => {
+        const existingDropdown = document.getElementById('active-section-dropdown');
+        if (existingDropdown) closeSectionDropdown();
+        else openRenameDropdown(unitab, state.activeSectionId);
+    });
+
+    function handleSwipe() {
+        const diff = touchEndX - touchStartX;
+        if (Math.abs(diff) > SWIPE_THRESHOLD) {
+            const orderedSections = state.songSequence.map(id => state.sections[id]).filter((sec, index, self) => 
+                index === self.findIndex((t) => (t.id === sec.id))
+            );
+            
+            const currentIndex = orderedSections.findIndex(s => s.id === state.activeSectionId);
+            if (currentIndex === -1) return;
+
+            let nextIndex = currentIndex;
+            if (diff < 0) { // Swiped left -> next tab
+                nextIndex = (currentIndex + 1) % orderedSections.length;
+            } else { // Swiped right -> prev tab
+                nextIndex = (currentIndex - 1 + orderedSections.length) % orderedSections.length;
+            }
+            
+            if (nextIndex !== currentIndex) {
+                const nextId = orderedSections[nextIndex].id;
+                switchActiveSection(nextId);
+                setActiveSequenceIndex(state.songSequence.lastIndexOf(nextId));
+                updateSongUI();
+                if (_onRenderProgression) _onRenderProgression();
+            }
+        }
+    }
+}
+
 export function toggleSongTray() {
     const tray = document.getElementById('song-sequencer-tray');
     const btnToggleTray = document.getElementById('btn-toggle-song-tray');
@@ -474,6 +527,31 @@ export function updateSongUI() {
             btnToggleTray.style.display = 'none';
         } else {
             btnToggleTray.style.display = orderedSections.length > 1 ? 'inline-block' : 'none';
+        }
+    }
+
+    // 1.5 Render Mobile Unitab Data
+    const unitabLabel = document.getElementById('mobile-unitab-label');
+    const unitabDots = document.getElementById('mobile-unitab-dots');
+    const unitab = document.getElementById('mobile-unitab');
+    
+    if (unitab && unitabLabel && unitabDots) {
+        const activeSec = state.sections[state.activeSectionId];
+        if (activeSec) {
+            unitabLabel.textContent = activeSec.name;
+            unitab.style.setProperty('--macro-hue', getSectionHue(activeSec.id));
+            
+            unitabDots.innerHTML = '';
+            orderedSections.forEach(sec => {
+                const dot = document.createElement('div');
+                dot.className = 'mobile-unitab-dot';
+                if (sec.id === state.activeSectionId) {
+                    dot.classList.add('active');
+                    dot.style.background = `hsl(${getSectionHue(sec.id)}, 70%, 60%)`;
+                    dot.style.opacity = '1';
+                }
+                unitabDots.appendChild(dot);
+            });
         }
     }
 
