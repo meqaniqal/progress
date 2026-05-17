@@ -97,39 +97,40 @@ function createBracketElement(id, text) {
     return br;
 }
 
-export function renderProgression(state, selectedChordIndex, callbacks) {
-    const display = document.getElementById('progression-display');
+function createChordElement() {
+    const el = document.createElement('div');
+    el.className = 'progression-item';
 
-    const existingItems = display.querySelectorAll('.progression-item');
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'chord-label';
+    labelSpan.style.position = 'relative';
+    labelSpan.style.zIndex = '1';
+    el.appendChild(labelSpan);
 
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-btn';
+    removeBtn.title = 'Remove Chord';
+    removeBtn.textContent = '×';
+    el.appendChild(removeBtn);
+    
+    el.draggable = true;
+
+    const graphSegment = document.createElement('div');
+    graphSegment.className = 'tension-graph-segment';
+    const area = document.createElement('div');
+    area.className = 'tension-area';
+    graphSegment.appendChild(area);
+    el.appendChild(graphSegment);
+
+    return el;
+}
+
+function renderChordItems(state, display, existingItems, selectedChordIndex) {
     state.currentProgression.forEach((chord, index) => {
         let el = existingItems[index];
         
         if (!el) {
-            el = document.createElement('div');
-            el.className = 'progression-item';
-
-            const labelSpan = document.createElement('span');
-            labelSpan.className = 'chord-label';
-            labelSpan.style.position = 'relative';
-            labelSpan.style.zIndex = '1';
-            el.appendChild(labelSpan);
-
-            const removeBtn = document.createElement('button');
-            removeBtn.className = 'remove-btn';
-            removeBtn.title = 'Remove Chord';
-            removeBtn.textContent = '×';
-            el.appendChild(removeBtn);
-            
-            el.draggable = true;
-
-            const graphSegment = document.createElement('div');
-            graphSegment.className = 'tension-graph-segment';
-            const area = document.createElement('div');
-            area.className = 'tension-area';
-            graphSegment.appendChild(area);
-            el.appendChild(graphSegment);
-
+            el = createChordElement();
             display.appendChild(el);
         }
 
@@ -138,9 +139,6 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
 
         const labelSpan = el.querySelector('.chord-label');
         if (labelSpan) labelSpan.textContent = `${displayChord.symbol} `;
-
-        el.querySelector('.remove-btn').title = 'Remove Chord';
-        el.querySelector('.remove-btn').textContent = '×';
 
         if (isTemp) el.classList.add('temporary');
         else el.classList.remove('temporary');
@@ -182,9 +180,13 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         if (isInsideLoop) el.classList.add('in-loop');
         else el.classList.remove('in-loop');
     });
+}
 
+function renderModulationPanel(state, callbacks) {
     const lastChord = state.currentProgression[state.currentProgression.length - 1];
     const modPanel = document.getElementById('modulation-panel');
+    if (!modPanel) return;
+
     if (lastChord && lastChord.key !== state.baseKey) {
         modPanel.style.display = 'block';
         const modeStr = state.mode.charAt(0).toUpperCase() + state.mode.slice(1).replace(/([A-Z])/g, ' $1').trim();
@@ -226,13 +228,17 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
             btnContainer.appendChild(btn);
         });
     } else {
-        if (modPanel) modPanel.style.display = 'none';
+        modPanel.style.display = 'none';
     }
+}
 
-    for (let i = state.currentProgression.length; i < existingItems.length; i++) {
+function cleanupExtraItems(display, targetLength, existingItems) {
+    for (let i = targetLength; i < existingItems.length; i++) {
         display.removeChild(existingItems[i]);
     }
+}
 
+function renderLoopBrackets(state, display) {
     if (state.currentProgression.length > 0 && state.isLooping) {
         let startBr = document.getElementById('bracket-start') || createBracketElement('bracket-start', '[');
         let endBr = document.getElementById('bracket-end') || createBracketElement('bracket-end', ']');
@@ -252,7 +258,9 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         if (startBr && startBr.parentNode) startBr.parentNode.removeChild(startBr);
         if (endBr && endBr.parentNode) endBr.parentNode.removeChild(endBr);
     }
+}
 
+function updateLineEnds(display) {
     const allItems = display.querySelectorAll('.progression-item');
     if (allItems.length > 1) {
         for (let i = 0; i < allItems.length - 1; i++) {
@@ -264,9 +272,25 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
             }
         }
     }
+}
 
+function updateUndoButton(state) {
     const undoBtn = document.getElementById('btn-undo');
     if (undoBtn) undoBtn.disabled = state.history.length === 0;
+}
+
+export function renderProgression(state, selectedChordIndex, callbacks) {
+    const display = document.getElementById('progression-display');
+    if (!display) return;
+
+    const existingItems = display.querySelectorAll('.progression-item');
+
+    renderChordItems(state, display, existingItems, selectedChordIndex);
+    renderModulationPanel(state, callbacks);
+    cleanupExtraItems(display, state.currentProgression.length, existingItems);
+    renderLoopBrackets(state, display);
+    updateLineEnds(display);
+    updateUndoButton(state);
 
     renderChordInspector(state, selectedChordIndex, callbacks);
 }

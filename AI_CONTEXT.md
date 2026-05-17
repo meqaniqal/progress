@@ -90,7 +90,7 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] Extract heavy macro-arrangement sequencing logic (`getExportState`) out of `store.js` into dedicated utility modules.
 - [x] Fix custom dropdown memory leaks in song section UI.
 - [x] Upgrade sequencer UI syncing from `setTimeout` to a V-Sync aligned `requestAnimationFrame` event queue.
-- [ ] Break down monolithic render functions in `ui.js` (Pending).
+- [x] Break down monolithic render functions in `ui.js` (Complete).
 
 **Phase 7: True Mobile Adaptive UX (Planned)**
 - [x] Viewport-aware FAB positioning (`env(safe-area-inset-bottom)`, `dvh`) to prevent transport bar from vanishing behind mobile browser chrome.

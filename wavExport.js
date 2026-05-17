@@ -4,6 +4,7 @@ import { audioBufferToWav } from './wavEncoder.js';
 import { generateArpNotes } from './arp.js';
 import { resolvePattern } from './patternResolver.js';
 import { playDrum, initAudio } from './synth.js';
+import { SYNTH_REGISTRY } from './synthEngines.js';
 
 // --- Layer 1: Pure Timeline Calculator (Testable) ---
 export function calculateAudioTimeline(progression, bpm, useVoiceLeading, exportPasses = 1, globalOptions = {}) {
@@ -18,6 +19,10 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
         // Drop by 1 octave (-12) to match the pad register warmth used in live playback
         notesArray = progression.map(chord => getChordNotes(chord.symbol, chord.key).map(n => n - 12));
     }
+
+    const chordInst = globalOptions.instruments && globalOptions.instruments.chords ? globalOptions.instruments.chords : 'sawtooth';
+    const bassInst = globalOptions.instruments && globalOptions.instruments.bass ? globalOptions.instruments.bass : 'sine';
+    const drumInst = globalOptions.instruments && globalOptions.instruments.drums ? globalOptions.instruments.drums : 'synth';
 
     for (let pass = 0; pass < exportPasses; pass++) {
         progression.forEach((chord, index) => {
@@ -56,7 +61,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                                 freq: Math.pow(2, (event.note - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                                 startTime: instanceStartTime + event.startTime,
                                 duration: event.duration, // generateArpNotes handles the exact gate logic
-                                type: 'sawtooth'
+                                type: chordInst,
+                                track: 'chords'
                             });
                         });
                     } else {
@@ -67,7 +73,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                                 freq: Math.pow(2, (midiNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                                 startTime: instanceStartTime,
                                 duration: gateDuration,
-                                type: 'sawtooth' // Chords pad
+                                type: chordInst,
+                                track: 'chords'
                             });
                         });
                     }
@@ -102,7 +109,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                         freq: Math.pow(2, (finalBassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                         startTime: instanceStartTime,
                         duration: gateDuration,
-                        type: 'sine' // Sub bass
+                        type: bassInst,
+                        track: 'bass'
                     });
 
                     // --- Bass Harmonic Layer (Sawtooth Enhance) ---
@@ -111,7 +119,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                         freq: Math.pow(2, (finalBassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                         startTime: instanceStartTime,
                         duration: gateDuration,
-                        type: 'sawtooth-bass' // Dedicated type for routing
+                        type: 'sawtooth-bass',
+                        track: 'bassHarmonic'
                     });
                 });
             }
@@ -129,7 +138,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                             drumType: hit.row,
                             startTime: hitTimeSec,
                             velocity: hit.velocity || 1.0,
-                            duration: 0.5 // Safe max length bound
+                            duration: 0.5, // Safe max length bound
+                            drumKit: drumInst
                         });
                     }
                 }
@@ -158,7 +168,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                                     drumType: hit.row,
                                     startTime: hitTimeSec,
                                     velocity: hit.velocity || 1.0,
-                                    duration: 0.5 // Safe max length bound
+                                    duration: 0.5, // Safe max length bound
+                                    drumKit: drumInst
                                 });
                             }
                             absoluteHitBeat += gLength;
@@ -216,53 +227,18 @@ export async function exportToWav(state, buttonElement) {
 
         timeline.forEach(ev => {
             if (ev.type === 'drum') {
-                playDrum(ev.drumType, ev.startTime, ev.velocity, offlineCtx, drumsGain);
+                playDrum(ev.drumType, ev.startTime, ev.velocity, offlineCtx, drumsGain, ev.drumKit);
                 return;
             }
 
-            const osc = offlineCtx.createOscillator();
-            const gainNode = offlineCtx.createGain();
-            let filterNode = null;
-
-            osc.type = ev.type === 'sawtooth-bass' ? 'sawtooth' : ev.type;
-            osc.frequency.value = ev.freq;
-
-            const safeAttack = Math.min(CONFIG.ATTACK_TIME, ev.duration * 0.3);
-            const safeRelease = Math.min(CONFIG.RELEASE_TIME, ev.duration * 0.5);
-            const sustainLevel = ev.type === 'sawtooth-bass' ? CONFIG.SUSTAIN_LEVEL * 0.8 : CONFIG.SUSTAIN_LEVEL;
-
-            gainNode.gain.setValueAtTime(0, ev.startTime);
-            gainNode.gain.linearRampToValueAtTime(sustainLevel, ev.startTime + safeAttack);
-            gainNode.gain.linearRampToValueAtTime(sustainLevel, ev.startTime + ev.duration - safeRelease);
-            gainNode.gain.linearRampToValueAtTime(0, ev.startTime + ev.duration);
-
             let targetGainNode = bassGain;
-            if (ev.type === 'sawtooth') targetGainNode = chordsGain;
-            if (ev.type === 'sawtooth-bass') targetGainNode = bassHarmonicGain;
+            if (ev.track === 'chords') targetGainNode = chordsGain;
+            else if (ev.track === 'bassHarmonic') targetGainNode = bassHarmonicGain;
 
-            if (ev.type === 'sawtooth') {
-                filterNode = offlineCtx.createBiquadFilter();
-                filterNode.type = 'lowpass';
-                filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 1.5, ev.startTime);
-                filterNode.frequency.exponentialRampToValueAtTime(CONFIG.SYNTH_LPF_CUTOFF, ev.startTime + safeAttack);
-                filterNode.Q.value = CONFIG.SYNTH_LPF_RESONANCE;
-
-                osc.connect(filterNode);
-                filterNode.connect(gainNode);
-            } else if (ev.type === 'sawtooth-bass') {
-                filterNode = offlineCtx.createBiquadFilter();
-                filterNode.type = 'lowpass';
-                filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 2.5, ev.startTime);
-                
-                osc.connect(filterNode);
-                filterNode.connect(gainNode);
-            } else {
-                osc.connect(gainNode);
+            const engine = SYNTH_REGISTRY[ev.type];
+            if (engine) {
+                engine(offlineCtx, ev.freq, ev.startTime, ev.duration, targetGainNode, null);
             }
-            gainNode.connect(targetGainNode);
-            
-            osc.start(ev.startTime);
-            osc.stop(ev.startTime + ev.duration + 0.1); // Add 100ms safety padding
         });
 
         const renderedBuffer = await offlineCtx.startRendering();

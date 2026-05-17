@@ -10,7 +10,11 @@ function showDrumLabelMenu(rowType, rowEl) {
     menu.className = 'drum-label-menu';
     menu.style.position = 'absolute';
     menu.style.left = '40px';
-    menu.style.top = '2px';
+    if (rowType === 'kick') {
+        menu.style.bottom = '2px';
+    } else {
+        menu.style.top = '2px';
+    }
     menu.style.backgroundColor = 'var(--bg-panel)';
     menu.style.border = '1px solid var(--border-main)';
     menu.style.borderRadius = '4px';
@@ -21,6 +25,9 @@ function showDrumLabelMenu(rowType, rowEl) {
     menu.style.flexDirection = 'column';
     menu.style.gap = '6px';
     menu.style.minWidth = '120px';
+
+    // Prevent the timeline from capturing the pointer and blocking the file input click
+    menu.addEventListener('pointerdown', (e) => e.stopPropagation());
 
     const title = document.createElement('div');
     title.textContent = `Sound: ${DRUM_LABELS[rowType]}`;
