@@ -78,6 +78,11 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - Build, sequence, and export multi-section tracks (Intro, Verse, Chorus, etc.) using a dedicated drag-and-drop Song Tray.
 - Independent global patterns and loop bounds per section, with smart "Inherit From" data population.
 
+### Phase 6.5: Architectural Optimization (Complete ✅)
+- **State Manager Purification:** Extracted macro-baking logic into dedicated utility modules.
+- **Memory Leak Resolution:** Audited and patched dynamic UI injections.
+- **High-Performance Visual Sync:** Refactored the sequencer's highlighting engine to a `requestAnimationFrame` event queue, ensuring butter-smooth V-Sync rendering and eliminating background-tab audio blasts.
+
 ## 🛠️ Local Development
 
 This application is built with zero dependencies using strictly Vanilla JS (ES6 Modules), HTML, and CSS. 

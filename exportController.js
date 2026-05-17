@@ -1,5 +1,6 @@
 import { exportToWav } from './wavExport.js';
-import { state, getExportState } from './store.js';
+import { state } from './store.js'; // State is still needed for global variables like `state.bpm`
+import { getExportState } from './exportStateBuilder.js';
 import { isSongTrayOpen } from './songController.js';
 
 export function initExportUI() {

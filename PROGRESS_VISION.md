@@ -193,11 +193,12 @@ Transform the app from a single-loop sketchpad into a full song structure arrang
 **6. Song Tray UI Polish**
 - **Exclusive View Toggle:** The "♫ Song View" button above the chord tray hides itself when the Song Tray is open, ensuring a cleaner UI.
 
-### 9. Architectural Refactoring & Optimization (Phase 6.5 - Next)
-Before introducing the mathematical complexity of microtonal harmony, the codebase will undergo a strict optimization pass to ensure maximum maintainability and modularity:
-- **UI Rendering De-Cluttering:** Break down massive, monolithic render functions (like those in `ui.js` and `songController.js`) into atomic, descriptive sub-renderers.
-- **State Manager Purification:** Extract heavy calculation and macro-baking loops (`getExportState`) out of `store.js` and into dedicated pure utility modules.
-- **Memory Leak Audit:** Perform a rigorous pass over all dynamic UI injections (modals, dropdowns, inspectors) to ensure 100% reliable event listener cleanup on element destruction.
+### 9. Architectural Refactoring & Optimization (Phase 6.5 - Complete ✅)
+Before introducing the mathematical complexity of microtonal harmony, the codebase underwent a strict optimization pass to ensure maximum maintainability and modularity:
+- **UI Rendering De-Cluttering (Planned):** Break down massive, monolithic render functions (like those in `ui.js` and `songController.js`) into atomic, descriptive sub-renderers.
+- **State Manager Purification (Complete ✅):** Extracted heavy calculation and macro-baking loops (`getExportState`) out of `store.js` and into `exportStateBuilder.js`.
+- **Memory Leak Audit (Complete ✅):** Performed a rigorous pass over dynamic UI injections and patched a race-condition listener leak in `songController.js`.
+- **Visual Sync Engine (Complete ✅):** Upgraded `sequencer.js` from `setTimeout` to a `requestAnimationFrame` event queue to prevent background-tab performance throttling.
 
 ### 10. True Mobile Adaptive UX (Phase 7 - Planned)
 The mobile web environment introduces unique viewport challenges (DPR scaling, dynamic browser chrome, fat-finger targets) that require adaptive UI paradigms rather than just responsive squishing.

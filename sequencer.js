@@ -4,12 +4,13 @@ import { generateArpNotes } from './arp.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators, playDrum } from './synth.js';
 import { resolvePattern } from './patternResolver.js';
 import { isSongTrayOpen } from './songController.js';
-import { getExportState } from './store.js';
+import { getExportState } from './exportStateBuilder.js';
 
-let uiTimeouts = [];
+let uiEventQueue = [];
+let drawLoopId = null;
 
 const LOOKAHEAD_MS = 25;
-const SCHEDULE_AHEAD_SEC = 0.1;
+const SCHEDULE_AHEAD_SEC = 0.15;
 
 export function auditionChord(chordSymbol, baseKey, specificNotes = null) {
     if (!chordSymbol) return;
@@ -76,6 +77,19 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
     // Immediately stop any currently playing audio from this module
     // This ensures only one progression plays at a time from this module's API.
     stopAllAudio(onHighlight);
+
+    // Start the visual sync loop
+    if (!drawLoopId) {
+        function draw() {
+            const now = getAudioCurrentTime();
+            while (uiEventQueue.length > 0 && uiEventQueue[0].time <= now) {
+                const event = uiEventQueue.shift();
+                event.action();
+            }
+            drawLoopId = requestAnimationFrame(draw);
+        }
+        drawLoopId = requestAnimationFrame(draw);
+    }
 
     let cachedMacroState = null;
     let macroLookup = [];
@@ -257,12 +271,10 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                     const hitTimeSec = time + (hit.time * beats * (60.0 / Number(state.bpm)));
                     playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
                     if (onDrumPlay && hit.id) {
-                        const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
-                        const tId = setTimeout(() => {
-                            onDrumPlay(hit.id);
-                            uiTimeouts = uiTimeouts.filter(id => id !== tId);
-                        }, Math.max(0, delayMs));
-                        uiTimeouts.push(tId);
+                        uiEventQueue.push({ 
+                            time: hitTimeSec, 
+                            action: () => onDrumPlay(hit.id) 
+                        });
                     }
                 }
             }
@@ -289,12 +301,10 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                         if (hit.probability === undefined || Math.random() <= hit.probability) {
                             playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
                             if (onDrumPlay && hit.id) {
-                                const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
-                                const tId = setTimeout(() => {
-                                    onDrumPlay(hit.id);
-                                    uiTimeouts = uiTimeouts.filter(id => id !== tId);
-                                }, Math.max(0, delayMs));
-                                uiTimeouts.push(tId);
+                                uiEventQueue.push({ 
+                                    time: hitTimeSec, 
+                                    action: () => onDrumPlay(hit.id) 
+                                });
                             }
                         }
                         absoluteHitBeat += gLength;
@@ -304,18 +314,20 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             }
         }
 
-        const delayMs = (time - getAudioCurrentTime()) * 1000;
-        const highlightId = setTimeout(() => {
-            if (isSongTrayOpen && macroLookup[absIndex]) {
-                const { sectionId, localIndex, macroIndex } = macroLookup[absIndex];
-                if (onHighlight) onHighlight(localIndex, sectionId, macroIndex);
-            } else {
-                if (onHighlight) onHighlight(absIndex);
+        uiEventQueue.push({
+            time: time,
+            action: () => {
+                if (isSongTrayOpen && macroLookup[absIndex]) {
+                    const { sectionId, localIndex, macroIndex } = macroLookup[absIndex];
+                    if (onHighlight) onHighlight(localIndex, sectionId, macroIndex);
+                } else {
+                    if (onHighlight) onHighlight(absIndex);
+                }
             }
-            uiTimeouts = uiTimeouts.filter(id => id !== highlightId);
-        }, Math.max(0, delayMs));
+        });
         
-        uiTimeouts.push(highlightId);
+        // Ensure chronological execution of UI events
+        uiEventQueue.sort((a, b) => a.time - b.time);
     }
 
     function advanceNote() {
@@ -350,6 +362,13 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             return;
         }
 
+        // Tab Throttling Safeguard: If the tab is backgrounded, browsers throttle setTimeout to 1000ms.
+        // This causes nextNoteTime to fall far behind getAudioCurrentTime(), resulting in a massive 
+        // while-loop execution that schedules a blast of notes in the past. 
+        if (nextNoteTime < getAudioCurrentTime() - 0.1) {
+            nextNoteTime = getAudioCurrentTime() + 0.05;
+        }
+
         while (nextNoteTime < getAudioCurrentTime() + SCHEDULE_AHEAD_SEC) {
             scheduleNote(currentChordIndexRel, nextNoteTime);
             const keepGoing = advanceNote();
@@ -372,8 +391,11 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         if (schedulerTimerId) clearTimeout(schedulerTimerId);
         schedulerTimerId = null;
 
-        uiTimeouts.forEach(clearTimeout);
-        uiTimeouts = [];
+        uiEventQueue = [];
+        if (drawLoopId) {
+            cancelAnimationFrame(drawLoopId);
+            drawLoopId = null;
+        }
         if (onHighlight) onHighlight(-1); // Clear all highlights
 
         stopOscillators();
@@ -386,8 +408,11 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
 
 // Export a general stop function that can be called if no specific playback instance is available
 export function stopAllAudio(onHighlightCallback) {
-    uiTimeouts.forEach(clearTimeout);
-    uiTimeouts = [];
+    uiEventQueue = [];
+    if (drawLoopId) {
+        cancelAnimationFrame(drawLoopId);
+        drawLoopId = null;
+    }
     if (onHighlightCallback) onHighlightCallback(-1);
 
     stopOscillators();

@@ -8,7 +8,8 @@ import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder
 import { initPatternSet } from './patternUtils.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
 import { KEY_NAMES, highlightChordInUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
-import { state, getActiveProgression, getExportState, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, resetSession, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal } from './store.js';
+import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, resetSession, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal } from './store.js';
+import { getExportState } from './exportStateBuilder.js';
 import { initExportUI } from './exportController.js';
 import { initModals } from './modalController.js';
 import { initTransport, resetTransport, isPlaybackActive } from './transportController.js';

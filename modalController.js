@@ -1,4 +1,5 @@
-import { state, getExportState, persistAppState, resetSession } from './store.js';
+import { state, persistAppState, resetSession } from './store.js';
+import { getExportState } from './exportStateBuilder.js';
 import { generateAIPrompt } from './promptGenerator.js';
 import { KEY_NAMES, updateKeyAndModeDisplay } from './ui.js';
 import { setTrackVolume } from './synth.js';

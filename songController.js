@@ -333,14 +333,20 @@ function showDropdownMenu(anchorElement, titleText, presets, initialInputValue, 
         }
     };
 
-    setTimeout(() => {
+    let listenersAttached = false;
+    const timeoutId = setTimeout(() => {
         document.addEventListener('pointermove', moveHandler);
         document.addEventListener('pointerdown', outsideClickHandler);
-        dropdown._cleanup = () => {
+        listenersAttached = true;
+    }, 50);
+
+    dropdown._cleanup = () => {
+        clearTimeout(timeoutId);
+        if (listenersAttached) {
             document.removeEventListener('pointermove', moveHandler);
             document.removeEventListener('pointerdown', outsideClickHandler);
-        };
-    }, 50);
+        }
+    };
 }
 
 function openRenameDropdown(tabElement, sectionId) {

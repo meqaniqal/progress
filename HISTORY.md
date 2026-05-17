@@ -68,3 +68,8 @@
 - Transformed the single-loop workflow into a multi-section track arranger.
 - Implemented a foldaway Song Tray for macro-sequencing (Intro, Verse, Chorus, etc.) via drag-and-drop.
 - Added intelligent state handling where sections maintain independent progressions, boundaries, and drum grooves, seamlessly unified during continuous playback and MIDI/WAV export.
+
+## Phase 6.5: Architectural Refactoring & Optimization (Complete)
+- **State Manager Purification:** Extracted macro-baking loops and progression compilation (`getExportState`) into `exportStateBuilder.js`, restoring `store.js` as a pure SSOT state container.
+- **Memory Leak Resolution:** Audited dynamic UI injections and patched a race-condition memory leak in the song sequence dropdown menus.
+- **High-Performance Visual Sync:** Refactored the sequencer's visual highlighting engine from `setTimeout` to a `requestAnimationFrame` event queue. This guarantees V-Sync rendering, decouples UI from the audio thread, and eliminates background-tab "audio blasts" caused by browser throttling.
