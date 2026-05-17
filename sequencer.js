@@ -3,6 +3,8 @@ import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators, playDrum } from './synth.js';
 import { resolvePattern } from './patternResolver.js';
+import { isSongTrayOpen } from './songController.js';
+import { getExportState } from './store.js';
 
 let uiTimeouts = [];
 
@@ -75,8 +77,54 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
     // This ensures only one progression plays at a time from this module's API.
     stopAllAudio(onHighlight);
 
-    const initialState = getState();
-    if (initialState.currentProgression.length === 0) {
+    let cachedMacroState = null;
+    let macroLookup = [];
+    let lastHistoryLength = -1;
+
+    let cachedPlayableNotes = null;
+    let lastActiveProgStr = null;
+
+    function getLiveState() {
+        const rawState = getState();
+        if (isSongTrayOpen) {
+            // "Tricky Buffering": Use history length and bounds as a highly efficient cache invalidator
+            if (!cachedMacroState || 
+                rawState.history.length !== lastHistoryLength || 
+                rawState.macroLoopStart !== cachedMacroState.macroLoopStart || 
+                rawState.macroLoopEnd !== cachedMacroState.macroLoopEnd ||
+                rawState.songSequence.length !== cachedMacroState.songSequence.length) 
+            {
+                cachedMacroState = getExportState(true);
+                lastHistoryLength = rawState.history.length;
+                
+                // Build a lookup table to map the flattened playback array back to the UI
+                macroLookup = [];
+                let macStart = rawState.macroLoopStart ?? 0;
+                let macEnd = rawState.macroLoopEnd > 0 ? rawState.macroLoopEnd : rawState.songSequence.length;
+                if (macEnd > rawState.songSequence.length) macEnd = rawState.songSequence.length;
+                
+                for (let i = macStart; i < macEnd; i++) {
+                    const sectionId = rawState.songSequence[i];
+                    const section = rawState.sections[sectionId];
+                    if (!section) continue;
+                    
+                    let secStart = (sectionId === rawState.activeSectionId) ? rawState.loopStart : (section.loopStart ?? 0);
+                    let secEnd = (sectionId === rawState.activeSectionId) ? rawState.loopEnd : (section.loopEnd ?? section.progression.length);
+                    
+                    for (let j = secStart; j < secEnd; j++) {
+                        macroLookup.push({ sectionId, localIndex: j, macroIndex: i });
+                    }
+                }
+            }
+            return cachedMacroState;
+        }
+        cachedMacroState = null;
+        macroLookup = [];
+        return rawState;
+    }
+
+    const startState = getLiveState();
+    if (startState.currentProgression.length === 0) {
         return () => {}; // Return a no-op stop function if nothing to play
     }
 
@@ -84,7 +132,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
     nextNoteTime = getAudioCurrentTime() + 0.05; // Buffer 50ms ahead for clean start
 
     function scheduleNote(chordIndexRel, time) {
-        const state = getState(); // Always get the latest state
+        const state = getLiveState(); // Automatically swap between Local or Macro state
         const activeProg = getActive(state);
         const bounds = getBounds(state);
         const sliceLength = bounds.end - bounds.start;
@@ -100,9 +148,32 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         
         let notesToPlay = [];
         if (state.useVoiceLeading) {
-            // Must calculate from the full progression to get proper voice leading context
-            const allPlayableNotes = getPlayableNotes(activeProg, state);
-            notesToPlay = allPlayableNotes[absIndex];
+            // Performance cache: generate hash to avoid recalculating voice leading on every tick
+            const progStr = activeProg.map(c => `${c.symbol}-${c.key}-${c.inversionOffset||0}-${c.voicingType||'global'}`).join(',') + `|${state.isLooping}`;
+            
+            if (!cachedPlayableNotes || lastActiveProgStr !== progStr) {
+                let allPlayableNotes = [];
+                if (isSongTrayOpen) {
+                    // Isolate voice leading per section so macro playback sounds identical to local playback
+                    let currentChunk = [];
+                    for (let i = 0; i < activeProg.length; i++) {
+                        if (activeProg[i]._isSectionStart && currentChunk.length > 0) {
+                            allPlayableNotes = allPlayableNotes.concat(getPlayableNotes(currentChunk, state));
+                            currentChunk = [];
+                        }
+                        currentChunk.push(activeProg[i]);
+                    }
+                    if (currentChunk.length > 0) {
+                        allPlayableNotes = allPlayableNotes.concat(getPlayableNotes(currentChunk, state));
+                    }
+                } else {
+                    allPlayableNotes = getPlayableNotes(activeProg, state);
+                }
+                cachedPlayableNotes = allPlayableNotes;
+                lastActiveProgStr = progStr;
+            }
+            
+            notesToPlay = cachedPlayableNotes[absIndex];
         } else {
             // Drop by 1 octave (-12) to match standard audition and pad register warmth
             notesToPlay = getChordNotes(activeProg[absIndex].symbol, activeProg[absIndex].key).map(n => n - 12);
@@ -235,7 +306,12 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
 
         const delayMs = (time - getAudioCurrentTime()) * 1000;
         const highlightId = setTimeout(() => {
-            if (onHighlight) onHighlight(absIndex);
+            if (isSongTrayOpen && macroLookup[absIndex]) {
+                const { sectionId, localIndex, macroIndex } = macroLookup[absIndex];
+                if (onHighlight) onHighlight(localIndex, sectionId, macroIndex);
+            } else {
+                if (onHighlight) onHighlight(absIndex);
+            }
             uiTimeouts = uiTimeouts.filter(id => id !== highlightId);
         }, Math.max(0, delayMs));
         
@@ -243,7 +319,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
     }
 
     function advanceNote() {
-        const state = getState();
+        const state = getLiveState();
         const activeProg = getActive(state);
         const bounds = getBounds(state);
         const sliceLength = bounds.end - bounds.start;
@@ -267,7 +343,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
     function scheduler() {
         if (!isPlaying) return;
         
-        const state = getState();
+        const state = getLiveState();
         if (state.currentProgression.length === 0) {
             stopThisPlayback(); // Use local stop function
             if (onComplete) onComplete();

@@ -12,7 +12,18 @@ export function exportToMidi(state) {
     let midiNotesToWrite = [];
 
     if (state.useVoiceLeading) {
-        midiNotesToWrite = getPlayableNotes(state.currentProgression, state);
+        let currentChunk = [];
+        for (let i = 0; i < state.currentProgression.length; i++) {
+            const chord = state.currentProgression[i];
+            if (chord._isSectionStart && currentChunk.length > 0) {
+                midiNotesToWrite = midiNotesToWrite.concat(getPlayableNotes(currentChunk, state));
+                currentChunk = [];
+            }
+            currentChunk.push(chord);
+        }
+        if (currentChunk.length > 0) {
+            midiNotesToWrite = midiNotesToWrite.concat(getPlayableNotes(currentChunk, state));
+        }
     } else {
         // Just use block root position chords
         // Drop by 1 octave (-12) to match the pad register warmth used in audio playback

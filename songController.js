@@ -526,7 +526,9 @@ export function updateSongUI() {
         if (isSongTrayOpen) {
             btnToggleTray.style.display = 'none';
         } else {
-            btnToggleTray.style.display = orderedSections.length > 1 ? 'inline-block' : 'none';
+                const hasMultipleSections = Object.keys(state.sections).length > 1;
+                const hasSequence = state.songSequence.length > 1;
+                btnToggleTray.style.display = (hasMultipleSections || hasSequence) ? 'inline-block' : 'none';
         }
     }
 

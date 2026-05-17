@@ -187,6 +187,8 @@ Transform the app from a single-loop sketchpad into a full song structure arrang
 - **Empty Sections:** If playback hits an empty section, the engine pauses for the duration of the gap and displays a message indicating there is no song data for that section yet, ensuring the user realizes something is missing.
 - **Macro-Looping:** Loop brackets (`[` and `]`) in the Song Tray allow auditioning macro-transitions (e.g., looping the end of the Bridge into the Chorus).
 - **Contextual Export & Capping:** If the Song Tray is open, Export handles the entire macro-sequence. Because `exportPasses` multiplied by a full song could result in massive files (e.g., 15+ minutes), the app will detect if an export will exceed 1 minute and prompt the user, offering to cap the export to a 3-minute limit, with a dropdown to increase or bypass the cap if deliberately desired.
+- **Isolated Voice-Leading:** The audio and MIDI export engines recognize section boundaries, ensuring that independent sections (like a Verse and Chorus) retain their exact original voicings rather than mathematically bleeding together across the transition.
+- **Global vs Local State Protection:** Ensures local sketchpad edits (temporary swaps) do not inadvertently overwrite index-matched chords in the globally flattened macro sequence.
 
 **6. Song Tray UI Polish**
 - **Exclusive View Toggle:** The "♫ Song View" button above the chord tray hides itself when the Song Tray is open, ensuring a cleaner UI.

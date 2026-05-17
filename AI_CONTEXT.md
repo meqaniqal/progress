@@ -83,6 +83,8 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] Nested section state architecture allowing multiple independent progressions.
 - [x] Dedicated UI Song Tray for sequencing parts (Verse, Chorus) via drag-and-drop.
 - [x] Global playback and export evaluation wrapping seamlessly across sections.
+- [x] Real-time live audio traversal with perfect UI sequence tracking.
+- [x] Isolated voice-leading boundaries for macro playback and offline MIDI export.
 
 **Phase 7: True Mobile Adaptive UX (Planned)**
 - [x] Viewport-aware FAB positioning (`env(safe-area-inset-bottom)`, `dvh`) to prevent transport bar from vanishing behind mobile browser chrome.
