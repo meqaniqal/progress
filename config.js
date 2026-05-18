@@ -35,5 +35,9 @@ export const CONFIG = {
         'snare': 38,
         'chh': 42,
         'ohh': 46
-    }
+    },
+    SYNESTHETIC_HUE_STEP: 30,
+    MACRO_HUES: [210, 280, 340, 15, 45, 180, 260, 320],
+    DROPDOWN_CLOSE_DISTANCE: 150,
+    MOBILE_SWIPE_THRESHOLD: 40
 };

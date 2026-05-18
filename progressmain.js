@@ -405,7 +405,7 @@ function _setupControlButtons() {
             el.addEventListener('input', (e) => {
                 const val = parseFloat(e.target.value);
                 state.volumes[track] = val;
-                try { setTrackVolume(track, val); } catch (err) {}
+                try { setTrackVolume(track, val); } catch (err) { console.warn(`Failed to set volume for ${track}: Audio engine may not be ready.`, err); }
                 persistAppState();
             });
         }
@@ -621,6 +621,16 @@ function _setupGlobalDoubleTap() {
     });
 }
 
+function _preWarmAudio() {
+    const warmUp = () => {
+        try { initAudio(); } catch (e) {}
+        document.removeEventListener('pointerdown', warmUp);
+        document.removeEventListener('keydown', warmUp);
+    };
+    document.addEventListener('pointerdown', warmUp, { passive: true });
+    document.addEventListener('keydown', warmUp, { passive: true });
+}
+
 // --- Main Entry Point ---
 function initApp() {
     const display = document.getElementById('progression-display');
@@ -645,6 +655,7 @@ function initApp() {
     _setupDragAndDrop(display);
     _setupSmartDragCollapse();
     _setupGlobalDoubleTap();
+    _preWarmAudio();
     renderProgression();
     loadPersistedDrumSamples(); // Fetch user's custom drum kit from IndexedDB
 

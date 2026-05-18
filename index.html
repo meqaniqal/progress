@@ -45,23 +45,23 @@
                     <strong>Export Passes:</strong>
                     <input type="number" id="multipass-input" min="1" max="32" value="1" class="export-passes-input" title="Number of loopthroughs to export">
                 </label>
-                <button class="control-btn primary" id="btn-export" style="padding: 6px 12px; font-size: 13px;">💾 MIDI</button>
+                <button class="control-btn primary btn-md" id="btn-export">💾 MIDI</button>
                 <div id="export-wav-container" title="Drag left/right to toggle mode, Click to export">
                     <button class="control-btn primary" id="btn-export-wav-switch">💾 WAV</button>
                 </div>
-                <button class="control-btn secondary" id="btn-ai-prompt" style="padding: 6px 12px; font-size: 13px;">🤖 AI Prompt</button>
-                <button class="control-btn secondary" id="btn-mode-toggle" title="Toggle Beginner/Advanced Mode" style="padding: 6px 12px; font-size: 13px;">🎓 Advanced</button>
-                <button class="control-btn secondary" id="btn-settings" title="Settings" style="padding: 6px 10px; font-size: 16px;">⚙️</button>
+                <button class="control-btn secondary btn-md" id="btn-ai-prompt">🤖 AI Prompt</button>
+                <button class="control-btn secondary btn-md" id="btn-mode-toggle" title="Toggle Beginner/Advanced Mode">🎓 Advanced</button>
+                <button class="control-btn secondary btn-icon-lg" id="btn-settings" title="Settings">⚙️</button>
             </div>
         </div>
     </div>
 
     <div class="panel" id="builder-panel">
         <div class="builder-controls">
-            <button class="control-btn secondary" id="btn-undo" title="Undo" disabled style="padding: 4px 8px; font-size: 13px;">↩ Undo</button>
-            <button class="control-btn secondary" id="btn-clear" title="Clear Progression" style="padding: 4px 8px; font-size: 13px;">🗑 Clear</button>
-            <strong style="font-size: 16px; padding-left: 5px;">Key: <span id="key-display">C Major</span></strong>
-            <select id="key-selector" class="rhythm-select" style="padding: 4px 8px;">
+            <button class="control-btn secondary btn-sm" id="btn-undo" title="Undo" disabled>↩ Undo</button>
+            <button class="control-btn secondary btn-sm" id="btn-clear" title="Clear Progression">🗑 Clear</button>
+            <strong class="key-display-label">Key: <span id="key-display">C Major</span></strong>
+            <select id="key-selector" class="rhythm-select select-sm">
                 <option value="60">C</option>
                 <option value="61">C♯/D♭</option>
                 <option value="62">D</option>
@@ -75,7 +75,7 @@
                 <option value="70">A♯/B♭</option>
                 <option value="71">B</option>
             </select>
-            <select id="mode-selector" class="rhythm-select" style="padding: 4px 8px;">
+            <select id="mode-selector" class="rhythm-select select-sm">
                 <option value="major">Major</option>
                 <option value="minor">Natural Minor</option>
                 <option value="harmonicMinor">Harmonic Minor</option>
@@ -90,7 +90,7 @@
             </select>
         </div>
         
-        <div class="beginner-helper" style="font-size: 12px; opacity: 0.7; margin-top: -5px; margin-bottom: 10px; font-style: italic;">
+        <div class="beginner-helper">
             💡 (Drag chords ⬇️ or double-tap to add to progression)
         </div>
 
@@ -132,18 +132,18 @@
         <!-- Phase 6: Song Sequencer Tray -->
         <div id="song-sequencer-tray" class="song-sequencer-tray" style="display: none;">
             <div class="song-tray-header">
-                <h3 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">♫ Song Sequencer</h3>
-                <button class="control-btn secondary" id="btn-close-song-tray" style="padding: 4px 10px; font-size: 12px;">Close</button>
+                <h3 class="song-tray-title">♫ Song Sequencer</h3>
+                <button class="control-btn secondary btn-sm" id="btn-close-song-tray">Close</button>
             </div>
-            <div id="song-section-palette" style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; background: rgba(0,0,0,0.05); padding: 8px 12px; border-radius: 6px; border: 1px dashed var(--border-main);">
-                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                    <div style="display: flex; flex-direction: column; gap: 2px;">
-                        <strong style="font-size: 12px; opacity: 0.8;">Section Palette:</strong>
-                        <span class="beginner-helper" style="font-size: 10px; opacity: 0.7; font-style: italic;">💡 (Drag ⬇️ or double-tap to add to song)</span>
+            <div id="song-section-palette">
+                <div class="palette-header-group">
+                    <div class="palette-labels">
+                        <strong class="palette-title">Section Palette:</strong>
+                        <span class="beginner-helper palette-hint">💡 (Drag ⬇️ or double-tap to add to song)</span>
                     </div>
-                    <div id="song-section-buttons" style="display: inline-flex; flex-wrap: wrap; gap: 4px;"></div>
+                    <div id="song-section-buttons"></div>
                 </div>
-                <button class="chord-btn del-btn" id="btn-delete-macro-block" style="margin: 0; padding: 4px 12px; font-size: 13px;" title="Delete selected block from song sequence">🗑 Delete Block</button>
+                <button class="chord-btn del-btn btn-sm" id="btn-delete-macro-block" style="margin: 0;" title="Delete selected block from song sequence">🗑 Delete Block</button>
             </div>
             <div id="song-sequence-display" class="song-sequence-display">
                 <!-- Macro blocks will go here -->
@@ -157,14 +157,14 @@
             </div>
             <!-- Mobile Adaptive Single-Tab -->
             <div id="mobile-unitab" class="mobile-unitab" style="display: none;" title="Swipe left/right to change sections">
-                <span id="mobile-unitab-label" style="font-weight: bold; font-size: 14px; margin-bottom: 2px;">Section</span>
-                <div id="mobile-unitab-dots" style="display: flex; gap: 4px; align-items: center;"></div>
+                <span id="mobile-unitab-label">Section</span>
+                <div id="mobile-unitab-dots"></div>
             </div>
             
             <div class="section-add-wrapper">
-                <button id="btn-add-section" class="control-btn secondary icon-btn" style="font-size: 18px; line-height: 1; padding: 0 8px; height: 32px;" title="Add Section">+</button>
+                <button id="btn-add-section" class="control-btn secondary icon-btn btn-icon-plus" title="Add Section">+</button>
             </div>
-            <button id="btn-toggle-song-tray" class="control-btn secondary" style="margin-left: auto; padding: 4px 10px; font-size: 12px; display: none;" title="Open Song Macro-Arrangement">
+            <button id="btn-toggle-song-tray" class="control-btn secondary btn-sm" style="margin-left: auto; display: none;" title="Open Song Macro-Arrangement">
                 ♫ <span class="hide-on-mobile">Song View</span>
             </button>
         </div>
@@ -179,8 +179,8 @@
 
     <!-- Global Transport Controls -->
     <div id="transport-bar">
-        <div id="super-volume-popup" style="display: none; position: absolute; bottom: 55px; left: 50%; transform: translateX(-50%); width: 40px; height: 120px; background: var(--bg-panel); border: 1px solid var(--border-main); border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); flex-direction: column; align-items: center; justify-content: flex-end; padding: 10px 0; z-index: 999; box-sizing: border-box;">
-            <div id="super-volume-fill" style="width: 20px; height: 25%; background: var(--ctrl-primary-bg); border-radius: 10px; pointer-events: none; transition: height 0.05s linear, background-color 0.2s ease;"></div>
+        <div id="super-volume-popup" style="display: none;">
+            <div id="super-volume-fill" style="height: 25%;"></div>
         </div>
         <button class="control-btn primary" id="btn-play-toggle" title="Play/Stop (Drag up for volume)">▶</button>
     </div>
@@ -197,8 +197,8 @@
                     <button class="toggle-btn active" data-mode="local">Local Override</button>
                 </div>
                 <div id="experimental-push-pull" class="experimental-push-pull">
-                    <button class="control-btn secondary" id="btn-pull-global" style="padding: 4px 10px; font-size: 11px;" title="Revert to inheriting the Global Pattern">↺ From Global</button>
-                    <button class="control-btn secondary" id="btn-push-global" style="padding: 4px 10px; font-size: 11px;" title="Push this pattern to update the Global Master">⇡ Set Global</button>
+                    <button class="control-btn secondary btn-sm" id="btn-pull-global" title="Revert to inheriting the Global Pattern">↺ From Global</button>
+                    <button class="control-btn secondary btn-sm" id="btn-push-global" title="Push this pattern to update the Global Master">⇡ Set Global</button>
                 </div>
             </div>
         </div>
@@ -211,59 +211,59 @@
         </div>
         <div class="tab-content-wrapper">
         <div class="rhythm-toolbar tabs-active">
-            <div class="tool-group" style="flex-wrap: wrap; gap: 6px;">
+            <div class="tool-group">
                 <!-- Main Tools Row -->
-                <div class="toolbar-row" style="display: flex; flex-wrap: nowrap; gap: 4px; width: 100%; align-items: center; overflow-x: auto;">
-                    <button class="control-btn secondary" id="btn-rhythm-reset" style="padding: 6px 12px; font-size: 13px;" title="Revert to inheriting the Global Pattern">↺ Reset</button>
-                    <button class="control-btn secondary" id="btn-rhythm-clear" style="padding: 6px 12px; font-size: 13px;" title="Override with a single, un-sliced basic block">⊘ Clear</button>
-                    <button class="control-btn secondary" id="btn-rhythm-copy" style="padding: 6px 12px; font-size: 13px;" title="Copy rhythm pattern">📋 Copy</button>
-                    <button class="control-btn secondary" id="btn-rhythm-paste" style="padding: 6px 12px; font-size: 13px;" title="Paste rhythm pattern" disabled>📋 Paste</button>
-                    <button class="control-btn secondary" id="btn-rhythm-delete" style="padding: 6px 12px; font-size: 13px;" title="Delete selected slices">🗑 Delete</button>
+                <div class="toolbar-row">
+                    <button class="control-btn secondary btn-md" id="btn-rhythm-reset" title="Revert to inheriting the Global Pattern">↺ Reset</button>
+                    <button class="control-btn secondary btn-md" id="btn-rhythm-clear" title="Override with a single, un-sliced basic block">⊘ Clear</button>
+                    <button class="control-btn secondary btn-md" id="btn-rhythm-copy" title="Copy rhythm pattern">📋 Copy</button>
+                    <button class="control-btn secondary btn-md" id="btn-rhythm-paste" title="Paste rhythm pattern" disabled>📋 Paste</button>
+                    <button class="control-btn secondary btn-md" id="btn-rhythm-delete" title="Delete selected slices">🗑 Delete</button>
                     <div id="zoom-controls-group" class="toolbar-group-panel" style="display: none; align-items: center; gap: 4px; margin-left: auto;">
                         <span style="font-size: 11px; font-weight: bold; opacity: 0.8;" title="Zoom">🔍</span>
-                        <input type="range" id="zoom-slider" min="0.8" max="4.0" step="0.1" value="1.0" style="width: 50px; margin: 0; cursor: pointer;">
+                        <input type="range" id="zoom-slider" min="0.8" max="4.0" step="0.1" value="1.0" class="range-sm">
                     </div>
                     <div class="toolbar-group-panel" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap;">
-                        <button id="btn-grid-toggle" class="tool-btn active" style="padding: 4px 6px; font-size: 11px; min-width: 65px; text-align: center; border-radius: 4px; margin: 0; white-space: nowrap;" title="Toggle Grid Snapping">Grid: <span id="grid-display-value">1/16</span></button>
-                        <input type="range" id="rhythm-grid-slider" min="0" max="4" value="4" style="width: 50px; margin: 0; cursor: pointer;">
+                        <button id="btn-grid-toggle" class="tool-btn grid-toggle-btn active" title="Toggle Grid Snapping">Grid: <span id="grid-display-value">1/16</span></button>
+                        <input type="range" id="rhythm-grid-slider" min="0" max="4" value="4" class="range-sm">
                     </div>
                 </div>
                 <!-- Arp & Properties Row -->
-                <div class="toolbar-row" id="arp-toolbar-row" style="display: flex; flex-wrap: wrap; gap: 8px; width: 100%; align-items: center;">
-                    <button class="control-btn primary" id="btn-apply-arp" style="padding: 4px 10px; font-size: 12px;">✨ Apply Arp</button>
+                <div class="toolbar-row" id="arp-toolbar-row">
+                    <button class="control-btn primary btn-md" id="btn-apply-arp">✨ Apply Arp</button>
                 </div>
             </div>
         </div>
         
-        <div style="position: relative; width: 100%; display: flex; flex-direction: column; flex-grow: 1;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; row-gap: 6px; width: 100%; padding: 0 12px; position: relative; z-index: 10; margin-bottom: -1px;">
-                <div style="display: flex; gap: 8px; align-items: flex-end;">
-                    <div id="pattern-fx-group" style="display: none; align-items: center; background: rgba(0,0,0,0.4); padding: 0 10px; border-radius: 6px 6px 0 0; border: 1px solid rgba(255,255,255,0.1); border-bottom: none; height: 26px;">
-                        <input type="checkbox" id="pattern-avoid-kick" style="margin: 0 6px 0 0; cursor: pointer;">
-                        <label for="pattern-avoid-kick" style="font-size: 11px; font-weight: bold; color: #fff; cursor: pointer; user-select: none;">Avoid Kick</label>
+        <div class="rhythm-editor-content-body">
+            <div class="rhythm-timeline-header">
+                <div class="header-tools-left">
+                    <div id="pattern-fx-group" class="fx-prop-group" style="display: none;">
+                        <input type="checkbox" id="pattern-avoid-kick" class="fx-checkbox">
+                        <label for="pattern-avoid-kick" class="fx-label">Avoid Kick</label>
                     </div>
                     
-                    <div id="item-properties-group" style="display: none; align-items: center; background: rgba(0,0,0,0.4); padding: 0 10px; border-radius: 6px 6px 0 0; border: 1px solid rgba(255,255,255,0.1); border-bottom: none; gap: 10px; height: 26px;">
-                        <div id="prop-pitch-wrapper" style="display: none; gap: 4px; align-items: center;">
-                            <button class="control-btn secondary icon-btn" id="btn-pitch-down" style="font-size: 10px; padding: 2px 6px; line-height: 1;">-</button>
-                            <span id="prop-pitch-display" style="font-size: 11px; font-weight: bold; width: 32px; text-align: center; color: var(--text-main);">Root</span>
-                            <button class="control-btn secondary icon-btn" id="btn-pitch-up" style="font-size: 10px; padding: 2px 6px; line-height: 1;">+</button>
+                    <div id="item-properties-group" class="fx-prop-group" style="display: none; gap: 10px;">
+                        <div id="prop-pitch-wrapper" class="prop-pitch-wrapper" style="display: none;">
+                            <button class="control-btn secondary icon-btn prop-pitch-btn" id="btn-pitch-down">-</button>
+                            <span id="prop-pitch-display" class="prop-pitch-display">Root</span>
+                            <button class="control-btn secondary icon-btn prop-pitch-btn" id="btn-pitch-up">+</button>
                         </div>
-                        <div id="prop-velocity-wrapper" style="display: flex; align-items: center; gap: 4px;">
-                            <span style="font-size: 11px; font-weight: bold; color: #fff; opacity: 0.8;" title="Velocity">VEL:</span>
-                            <input type="range" id="prop-velocity-slider" min="0.1" max="1.0" step="0.05" value="1.0" style="width: 50px; margin: 0; cursor: pointer;">
+                        <div id="prop-velocity-wrapper" class="prop-control-wrapper">
+                            <span class="prop-val-label" title="Velocity">VEL:</span>
+                            <input type="range" id="prop-velocity-slider" min="0.1" max="1.0" step="0.05" value="1.0" class="range-sm">
                         </div>
-                        <div id="prop-probability-wrapper" style="display: flex; align-items: center; gap: 4px;">
-                            <span style="font-size: 11px; font-weight: bold; color: #fff; opacity: 0.8;" title="Probability">PROB:</span>
+                        <div id="prop-probability-wrapper" class="prop-control-wrapper">
+                            <span class="prop-val-label" title="Probability">PROB:</span>
                             <!-- Step 0.25 forces snapping to 0, 25, 50, 75, 100% -->
-                            <input type="range" id="prop-probability-slider" min="0.0" max="1.0" step="0.25" value="1.0" style="width: 50px; margin: 0; cursor: pointer;" title="0%, 25%, 50%, 75%, 100%">
+                            <input type="range" id="prop-probability-slider" min="0.0" max="1.0" step="0.25" value="1.0" class="range-sm" title="0%, 25%, 50%, 75%, 100%">
                         </div>
                     </div>
                 </div>
 
                 <div id="editor-mode-toggles" class="editor-mode-toggles" style="display: flex; gap: 4px;">
-                    <button id="btn-draw-toggle" class="tool-btn draw-pitch-btn" style="display: none; border-radius: 6px 6px 0 0; border-bottom: none; padding: 0 10px; height: 26px;" title="Toggle Pencil Draw Tool">✏️ Draw Mode</button>
-                    <button id="btn-pitch-toggle" class="tool-btn draw-pitch-btn" style="display: none; border-radius: 6px 6px 0 0; border-bottom: none; padding: 0 10px; height: 26px;" title="Toggle Pitch Mode (Piano Roll)">🎹 Pitch Mode</button>
+                    <button id="btn-draw-toggle" class="tool-btn draw-pitch-btn" style="display: none;" title="Toggle Pencil Draw Tool">✏️ Draw Mode</button>
+                    <button id="btn-pitch-toggle" class="tool-btn draw-pitch-btn" style="display: none;" title="Toggle Pitch Mode (Piano Roll)">🎹 Pitch Mode</button>
                 </div>
             </div>
             <div class="rhythm-timeline-container" id="rhythm-timeline">
@@ -278,9 +278,9 @@
     <div id="ai-prompt-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
             <h3>🤖 AI Generation Prompt</h3>
-            <p style="font-size: 14px; opacity: 0.8; margin-bottom: 12px;">Copy this text into AI music generators (like Suno, Udio, or ACE Studio) to guide the harmonic structure and mood.</p>
+            <p class="modal-description">Copy this text into AI music generators (like Suno, Udio, or ACE Studio) to guide the harmonic structure and mood.</p>
             <textarea id="ai-prompt-text" class="prompt-textarea" readonly></textarea>
-            <div class="controls" style="margin-top: 15px; justify-content: flex-end; gap: 10px;">
+            <div class="controls modal-controls">
                 <button class="control-btn secondary" id="btn-close-prompt">Close</button>
                 <button class="control-btn primary" id="btn-copy-prompt">Copy to Clipboard</button>
             </div>
@@ -295,7 +295,7 @@
                 <!-- Theme -->
                 <div class="settings-row">
                     <strong class="settings-label">Theme</strong>
-                    <select id="theme-selector" class="rhythm-select" style="width: 120px;">
+                    <select id="theme-selector" class="rhythm-select settings-select">
                         <option value="light">Light Mode</option>
                         <option value="dark">Dark Mode</option>
                     </select>
@@ -303,24 +303,24 @@
                 <!-- BPM -->
                 <div class="settings-row">
                     <strong class="settings-label">Tempo (BPM)</strong>
-                    <input type="number" id="bpm-slider" class="rhythm-select" value="120" min="40" max="240" style="width: 120px; box-sizing: border-box;">
+                    <input type="number" id="bpm-slider" class="rhythm-select settings-select" value="120" min="40" max="240">
                 </div>
                 <!-- Voice Leading -->
                 <div class="settings-row" title="Calculates the shortest melodic distance between chords for smooth transitions">
                     <strong class="settings-label info">Voice Leading ℹ️</strong>
-                    <input type="checkbox" id="voice-leading" checked style="transform: scale(1.2); margin-right: 5px;">
+                    <input type="checkbox" id="voice-leading" checked class="settings-checkbox">
                 </div>
                 <!-- Experimental Draw Mode -->
                 <div class="settings-row" title="Enable the new edit-in-place workflow and pencil draw tool">
                     <strong class="settings-label info">Experimental Draw Mode ℹ️</strong>
-                    <input type="checkbox" id="experimental-draw-mode" style="transform: scale(1.2); margin-right: 5px;">
+                    <input type="checkbox" id="experimental-draw-mode" class="settings-checkbox">
                 </div>
                 <!-- Instruments -->
                 <div style="margin-top: 15px;">
-                    <strong class="settings-label" style="display: block; margin-bottom: 10px;">Instruments</strong>
+                    <strong class="settings-label settings-section-title">Instruments</strong>
                     <div class="settings-row">
-                        <span style="font-size: 14px;">🎹 Chords Synth</span>
-                        <select id="inst-chords" class="rhythm-select" style="width: 120px;">
+                        <span class="settings-label-sm">🎹 Chords Synth</span>
+                        <select id="inst-chords" class="rhythm-select settings-select">
                             <option value="sawtooth">Lush Sawpad</option>
                             <option value="sine">Pure Sine</option>
                             <option value="fm">FM Electric Piano</option>
@@ -328,8 +328,8 @@
                         </select>
                     </div>
                     <div class="settings-row">
-                        <span style="font-size: 14px;">🎸 Sub Bass</span>
-                        <select id="inst-bass" class="rhythm-select" style="width: 120px;">
+                        <span class="settings-label-sm">🎸 Sub Bass</span>
+                        <select id="inst-bass" class="rhythm-select settings-select">
                             <option value="sine">Deep Sine</option>
                             <option value="sawtooth">Gritty Saw</option>
                             <option value="fm">FM Sub</option>
@@ -337,50 +337,50 @@
                         </select>
                     </div>
                 <div class="settings-row">
-                    <span style="font-size: 14px;">🥁 Drum Kit</span>
-                    <select id="inst-drums" class="rhythm-select" style="width: 120px;">
+                    <span class="settings-label-sm">🥁 Drum Kit</span>
+                    <select id="inst-drums" class="rhythm-select settings-select">
                         <option value="synth">Synthesized</option>
                         <option value="custom">Custom Samples</option>
                     </select>
                 </div>
-                <div id="custom-drums-panel" style="display: none; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px; margin-top: 5px;">
-                    <div class="settings-row" style="margin-bottom: 4px;"><span style="font-size: 12px; width: 40px;">Kick</span><input type="file" id="upload-kick" accept="audio/*" style="font-size: 11px; width: 140px;"></div>
-                    <div class="settings-row" style="margin-bottom: 4px;"><span style="font-size: 12px; width: 40px;">Snare</span><input type="file" id="upload-snare" accept="audio/*" style="font-size: 11px; width: 140px;"></div>
-                    <div class="settings-row" style="margin-bottom: 4px;"><span style="font-size: 12px; width: 40px;">CHH</span><input type="file" id="upload-chh" accept="audio/*" style="font-size: 11px; width: 140px;"></div>
-                    <div class="settings-row" style="margin-bottom: 8px;"><span style="font-size: 12px; width: 40px;">OHH</span><input type="file" id="upload-ohh" accept="audio/*" style="font-size: 11px; width: 140px;"></div>
-                    <button class="control-btn" id="btn-clear-custom-drums" style="width: 100%; font-size: 12px; padding: 4px; color: #ef4444; border-color: rgba(239, 68, 68, 0.5);">🗑 Clear Custom Samples</button>
+                <div id="custom-drums-panel" style="display: none;">
+                    <div class="custom-drum-row"><span class="custom-drum-label">Kick</span><input type="file" id="upload-kick" accept="audio/*" class="custom-drum-input"></div>
+                    <div class="custom-drum-row"><span class="custom-drum-label">Snare</span><input type="file" id="upload-snare" accept="audio/*" class="custom-drum-input"></div>
+                    <div class="custom-drum-row"><span class="custom-drum-label">CHH</span><input type="file" id="upload-chh" accept="audio/*" class="custom-drum-input"></div>
+                    <div class="custom-drum-row last"><span class="custom-drum-label">OHH</span><input type="file" id="upload-ohh" accept="audio/*" class="custom-drum-input"></div>
+                    <button class="control-btn btn-danger-sm" id="btn-clear-custom-drums">🗑 Clear Custom Samples</button>
                 </div>
                 </div>
                 <!-- Mixer -->
                 <div style="margin-top: 5px;">
-                    <strong class="settings-label" style="display: block; margin-bottom: 10px;">Mixer</strong>
+                    <strong class="settings-label settings-section-title">Mixer</strong>
                     <div class="mixer-panel">
                         <label class="mixer-row">
                             <span style="font-size: 14px; font-weight: bold;">🔊 Master</span>
-                            <input type="range" id="vol-master" min="0" max="2.0" step="0.05" value="1.0" style="width: 60%; margin: 0;">
+                            <input type="range" id="vol-master" min="0" max="2.0" step="0.05" value="1.0" class="mixer-slider">
                         </label>
                         <div class="mixer-divider"></div>
                         <label class="mixer-row">
-                            <span style="font-size: 14px;">🎹 Chords</span>
-                            <input type="range" id="vol-chords" min="0" max="1.5" step="0.05" value="0.8" style="width: 60%; margin: 0;">
+                            <span class="settings-label-sm">🎹 Chords</span>
+                            <input type="range" id="vol-chords" min="0" max="1.5" step="0.05" value="0.8" class="mixer-slider">
                         </label>
                         <label class="mixer-row">
-                            <span style="font-size: 14px;">🎸 Bass</span>
-                            <input type="range" id="vol-bass" min="0" max="1.5" step="0.05" value="0.8" style="width: 60%; margin: 0;">
+                            <span class="settings-label-sm">🎸 Bass</span>
+                            <input type="range" id="vol-bass" min="0" max="1.5" step="0.05" value="0.8" class="mixer-slider">
                         </label>
                         <label class="mixer-row">
-                            <span style="font-size: 14px;">〰️ Bass Enhance</span>
-                            <input type="range" id="vol-bassHarmonic" min="0" max="1.5" step="0.05" value="0.0" style="width: 60%; margin: 0;">
+                            <span class="settings-label-sm">〰️ Bass Enhance</span>
+                            <input type="range" id="vol-bassHarmonic" min="0" max="1.5" step="0.05" value="0.0" class="mixer-slider">
                         </label>
                         <label class="mixer-row">
-                            <span style="font-size: 14px;">🥁 Drums</span>
-                            <input type="range" id="vol-drums" min="0" max="1.5" step="0.05" value="0.8" style="width: 60%; margin: 0;">
+                            <span class="settings-label-sm">🥁 Drums</span>
+                            <input type="range" id="vol-drums" min="0" max="1.5" step="0.05" value="0.8" class="mixer-slider">
                         </label>
                     </div>
                 </div>
             </div>
             <div class="settings-row" style="margin-top: 10px;">
-                <button class="control-btn" id="btn-reset-session" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.5); font-size: 13px;" title="Clear all data and reset to defaults">⚠️ Factory Reset</button>
+                <button class="control-btn btn-danger" id="btn-reset-session" title="Clear all data and reset to defaults">⚠️ Factory Reset</button>
                 <button class="control-btn primary" id="btn-close-settings">Done</button>
             </div>
         </div>

@@ -1,5 +1,6 @@
 import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getDiatonicChords, SCALE_PREFIXES } from './theory.js';
 import { renderChordInspector } from './inspectorController.js';
+import { CONFIG } from './config.js';
 
 export const KEY_NAMES = {
     60: 'C', 61: 'C♯/D♭', 62: 'D', 63: 'D♯/E♭', 64: 'E', 65: 'F',
@@ -27,7 +28,7 @@ export function getSynestheticColorProfile(currentChord, prevChord, nextChord, m
         const circlePos = (pitchClass * 7) % 12; 
         // Map the 12 circle positions evenly across the full 360-degree color wheel.
         // The new double-ring selection outline ensures contrast against any color!
-        hue = (circlePos * 30) % 360;
+        hue = (circlePos * CONFIG.SYNESTHETIC_HUE_STEP) % 360;
     }
 
     let backwardTensionDelta = 0;
@@ -97,40 +98,39 @@ function createBracketElement(id, text) {
     return br;
 }
 
-function createChordElement() {
-    const el = document.createElement('div');
-    el.className = 'progression-item';
+export function renderProgression(state, selectedChordIndex, callbacks) {
+    const display = document.getElementById('progression-display');
 
-    const labelSpan = document.createElement('span');
-    labelSpan.className = 'chord-label';
-    labelSpan.style.position = 'relative';
-    labelSpan.style.zIndex = '1';
-    el.appendChild(labelSpan);
+    const existingItems = display.querySelectorAll('.progression-item');
 
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'remove-btn';
-    removeBtn.title = 'Remove Chord';
-    removeBtn.textContent = '×';
-    el.appendChild(removeBtn);
-    
-    el.draggable = true;
-
-    const graphSegment = document.createElement('div');
-    graphSegment.className = 'tension-graph-segment';
-    const area = document.createElement('div');
-    area.className = 'tension-area';
-    graphSegment.appendChild(area);
-    el.appendChild(graphSegment);
-
-    return el;
-}
-
-function renderChordItems(state, display, existingItems, selectedChordIndex) {
     state.currentProgression.forEach((chord, index) => {
         let el = existingItems[index];
         
         if (!el) {
-            el = createChordElement();
+            el = document.createElement('div');
+            el.className = 'progression-item';
+
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'chord-label';
+            labelSpan.style.position = 'relative';
+            labelSpan.style.zIndex = '1';
+            el.appendChild(labelSpan);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'remove-btn';
+            removeBtn.title = 'Remove Chord';
+            removeBtn.textContent = '×';
+            el.appendChild(removeBtn);
+            
+            el.draggable = true;
+
+            const graphSegment = document.createElement('div');
+            graphSegment.className = 'tension-graph-segment';
+            const area = document.createElement('div');
+            area.className = 'tension-area';
+            graphSegment.appendChild(area);
+            el.appendChild(graphSegment);
+
             display.appendChild(el);
         }
 
@@ -139,6 +139,9 @@ function renderChordItems(state, display, existingItems, selectedChordIndex) {
 
         const labelSpan = el.querySelector('.chord-label');
         if (labelSpan) labelSpan.textContent = `${displayChord.symbol} `;
+
+        el.querySelector('.remove-btn').title = 'Remove Chord';
+        el.querySelector('.remove-btn').textContent = '×';
 
         if (isTemp) el.classList.add('temporary');
         else el.classList.remove('temporary');
@@ -180,13 +183,9 @@ function renderChordItems(state, display, existingItems, selectedChordIndex) {
         if (isInsideLoop) el.classList.add('in-loop');
         else el.classList.remove('in-loop');
     });
-}
 
-function renderModulationPanel(state, callbacks) {
     const lastChord = state.currentProgression[state.currentProgression.length - 1];
     const modPanel = document.getElementById('modulation-panel');
-    if (!modPanel) return;
-
     if (lastChord && lastChord.key !== state.baseKey) {
         modPanel.style.display = 'block';
         const modeStr = state.mode.charAt(0).toUpperCase() + state.mode.slice(1).replace(/([A-Z])/g, ' $1').trim();
@@ -228,17 +227,13 @@ function renderModulationPanel(state, callbacks) {
             btnContainer.appendChild(btn);
         });
     } else {
-        modPanel.style.display = 'none';
+        if (modPanel) modPanel.style.display = 'none';
     }
-}
 
-function cleanupExtraItems(display, targetLength, existingItems) {
-    for (let i = targetLength; i < existingItems.length; i++) {
+    for (let i = state.currentProgression.length; i < existingItems.length; i++) {
         display.removeChild(existingItems[i]);
     }
-}
 
-function renderLoopBrackets(state, display) {
     if (state.currentProgression.length > 0 && state.isLooping) {
         let startBr = document.getElementById('bracket-start') || createBracketElement('bracket-start', '[');
         let endBr = document.getElementById('bracket-end') || createBracketElement('bracket-end', ']');
@@ -258,39 +253,28 @@ function renderLoopBrackets(state, display) {
         if (startBr && startBr.parentNode) startBr.parentNode.removeChild(startBr);
         if (endBr && endBr.parentNode) endBr.parentNode.removeChild(endBr);
     }
-}
 
-function updateLineEnds(display) {
     const allItems = display.querySelectorAll('.progression-item');
     if (allItems.length > 1) {
+        // Pass 1: Batch layout reads to prevent Forced Synchronous Layouts
+        const offsets = Array.from(allItems).map(item => item.offsetTop);
+        
+        // Pass 2: Batch DOM writes
         for (let i = 0; i < allItems.length - 1; i++) {
             const currentItem = allItems[i];
-            const nextItem = allItems[i+1];
-            currentItem.classList.remove('is-line-end');
-            if (nextItem.offsetTop > currentItem.offsetTop) {
+            if (offsets[i + 1] > offsets[i]) {
                 currentItem.classList.add('is-line-end');
+            } else {
+                currentItem.classList.remove('is-line-end');
             }
         }
+        allItems[allItems.length - 1].classList.remove('is-line-end');
+    } else if (allItems.length === 1) {
+        allItems[0].classList.remove('is-line-end');
     }
-}
 
-function updateUndoButton(state) {
     const undoBtn = document.getElementById('btn-undo');
     if (undoBtn) undoBtn.disabled = state.history.length === 0;
-}
-
-export function renderProgression(state, selectedChordIndex, callbacks) {
-    const display = document.getElementById('progression-display');
-    if (!display) return;
-
-    const existingItems = display.querySelectorAll('.progression-item');
-
-    renderChordItems(state, display, existingItems, selectedChordIndex);
-    renderModulationPanel(state, callbacks);
-    cleanupExtraItems(display, state.currentProgression.length, existingItems);
-    renderLoopBrackets(state, display);
-    updateLineEnds(display);
-    updateUndoButton(state);
 
     renderChordInspector(state, selectedChordIndex, callbacks);
 }

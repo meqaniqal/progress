@@ -1,5 +1,6 @@
 import { state, switchActiveSection, createAndAppendSection, renameSection, removeSectionFromSequence, appendExistingSection, reorderSequence, inheritSectionData, saveHistoryState, persistAppState, applyMacroLoopBounds } from './store.js';
 import { initDragAndDrop } from './dragdrop.js';
+import { CONFIG } from './config.js';
 
 let _onRenderProgression = null;
 export let isSongTrayOpen = false;
@@ -12,8 +13,7 @@ function getSectionHue(id) {
     for (let i = 0; i < id.length; i++) {
         hash = id.charCodeAt(i) + ((hash << 5) - hash);
     }
-    const macroHues = [210, 280, 340, 15, 45, 180, 260, 320]; // Slate, Mauve, Rose, Rust, Gold, Teal, Indigo, Magenta
-    return macroHues[Math.abs(hash) % macroHues.length];
+    return CONFIG.MACRO_HUES[Math.abs(hash) % CONFIG.MACRO_HUES.length];
 }
 
 function createBracketElement(id, text) {
@@ -322,7 +322,7 @@ function showDropdownMenu(anchorElement, titleText, presets, initialInputValue, 
         const distX = Math.max(dr.left - e.clientX, 0, e.clientX - dr.right);
         const distY = Math.max(dr.top - e.clientY, 0, e.clientY - dr.bottom);
         const distance = Math.sqrt(distX * distX + distY * distY);
-        if (distance > 150) closeSectionDropdown();
+        if (distance > CONFIG.DROPDOWN_CLOSE_DISTANCE) closeSectionDropdown();
     };
 
     // Mobile tap-outside closing logic
@@ -333,19 +333,15 @@ function showDropdownMenu(anchorElement, titleText, presets, initialInputValue, 
         }
     };
 
-    let listenersAttached = false;
+        const abortController = new AbortController();
     const timeoutId = setTimeout(() => {
-        document.addEventListener('pointermove', moveHandler);
-        document.addEventListener('pointerdown', outsideClickHandler);
-        listenersAttached = true;
+            document.addEventListener('pointermove', moveHandler, { signal: abortController.signal });
+            document.addEventListener('pointerdown', outsideClickHandler, { signal: abortController.signal });
     }, 50);
 
     dropdown._cleanup = () => {
         clearTimeout(timeoutId);
-        if (listenersAttached) {
-            document.removeEventListener('pointermove', moveHandler);
-            document.removeEventListener('pointerdown', outsideClickHandler);
-        }
+            abortController.abort();
     };
 }
 
@@ -394,7 +390,6 @@ function initMobileUnitabSwiping() {
 
     let touchStartX = 0;
     let touchEndX = 0;
-    const SWIPE_THRESHOLD = 40;
 
     unitab.addEventListener('touchstart', e => {
         touchStartX = e.changedTouches[0].screenX;
@@ -413,7 +408,7 @@ function initMobileUnitabSwiping() {
 
     function handleSwipe() {
         const diff = touchEndX - touchStartX;
-        if (Math.abs(diff) > SWIPE_THRESHOLD) {
+        if (Math.abs(diff) > CONFIG.MOBILE_SWIPE_THRESHOLD) {
             const orderedSections = state.songSequence.map(id => state.sections[id]).filter((sec, index, self) => 
                 index === self.findIndex((t) => (t.id === sec.id))
             );

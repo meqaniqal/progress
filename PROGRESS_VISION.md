@@ -195,12 +195,12 @@ Transform the app from a single-loop sketchpad into a full song structure arrang
 
 ### 9. Architectural Refactoring & Optimization (Phase 6.5 - Complete ✅)
 Before introducing the mathematical complexity of microtonal harmony, the codebase underwent a strict optimization pass to ensure maximum maintainability and modularity:
-- **UI Rendering De-Cluttering (Planned):** Break down massive, monolithic render functions (like those in `ui.js` and `songController.js`) into atomic, descriptive sub-renderers.
+- **UI Rendering De-Cluttering (Complete ✅):** Broke down monolithic render functions (e.g., extracting the `inspectorController.js` logic out of `ui.js`) to improve modularity.
 - **State Manager Purification (Complete ✅):** Extracted heavy calculation and macro-baking loops (`getExportState`) out of `store.js` and into `exportStateBuilder.js`.
 - **Memory Leak Audit (Complete ✅):** Performed a rigorous pass over dynamic UI injections and patched a race-condition listener leak in `songController.js`.
 - **Visual Sync Engine (Complete ✅):** Upgraded `sequencer.js` from `setTimeout` to a `requestAnimationFrame` event queue to prevent background-tab performance throttling.
 
-### 10. True Mobile Adaptive UX (Phase 7 - Planned)
+### 10. True Mobile Adaptive UX (Phase 7 - Complete ✅)
 The mobile web environment introduces unique viewport challenges (DPR scaling, dynamic browser chrome, fat-finger targets) that require adaptive UI paradigms rather than just responsive squishing.
 - **Dynamic Viewport Transport Fix (Completed):** The floating Play button currently vanishes under mobile browser navigation bars during scroll. This requires migrating from absolute `bottom: 0` to using CSS environment variables (`env(safe-area-inset-bottom)`) and dynamic viewport units (`dvh`).
 - **Swipeable Single-Tab UI (Completed):** On narrow screens (< 450px), horizontally scrolling through multiple song section tabs is cumbersome. The UI will adapt into a single, prominent "Active Section" display block.
