@@ -11,7 +11,8 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - MOBILE DRAG & DROP: Never rely on `e.dataTransfer.getData()` to pass payloads. Always use module-scoped variables (e.g., `draggedSourceChord`, `draggedIndex`) to pass state between `dragstart` and `drop` to maintain strict compatibility with the mobile polyfill.
 
 ## MANDATORY WORKFLOW
-1. PROFESSIONAL STANDARDS FIRST: Proactively align the codebase with rigorous professional practices so it endures all scrutiny by senior code reviewers. Ensure existing code meets these standards before adding features, taking extreme care not to break functionality or introduce regressions.
+1. **CONTEXT PROVISIONING:** For any new session or task, always include `AI_CONTEXT.md` and `PROJECT_STRUCTURE.txt`. This ensures architectural alignment and prevents incorrect assumptions about the codebase.
+2. PROFESSIONAL STANDARDS FIRST: Proactively align the codebase with rigorous professional practices so it endures all scrutiny by senior code reviewers. Ensure existing code meets these standards before adding features, taking extreme care not to break functionality or introduce regressions.
 2. PLAN: Formulate/agree on plan before coding.
 3. TRACE-DRIVEN DEBUGGING:
    - Map the chain first: `UI Click → State Update → [Mod A out] → [Mod B in] → Render`
