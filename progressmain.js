@@ -367,8 +367,8 @@ function _setupControlButtons() {
         const loopDurationMin = (totalBeats / exportState.bpm);
         const totalExportMin = loopDurationMin * exportState.exportPasses;
         
-        if (totalExportMin > 3.0) {
-            const recommendedPasses = Math.max(1, Math.floor(3.0 / loopDurationMin));
+        if (totalExportMin > CONFIG.EXPORT_MINUTE_LIMIT) {
+            const recommendedPasses = Math.max(1, Math.floor(CONFIG.EXPORT_MINUTE_LIMIT / loopDurationMin));
             const confirmMsg = `This export will generate ${totalExportMin.toFixed(1)} minutes of audio/MIDI.\n\nTo prevent massive file sizes and long rendering times, we recommend capping this to ${recommendedPasses} pass(es) (${(loopDurationMin * recommendedPasses).toFixed(1)} mins).\n\nClick OK to proceed with ${recommendedPasses} pass(es), or Cancel to abort.`;
             if (confirm(confirmMsg)) {
                 exportState.exportPasses = recommendedPasses;

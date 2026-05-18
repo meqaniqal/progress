@@ -6,6 +6,7 @@ let _onRenderProgression = null;
 export let isSongTrayOpen = false;
 let _activeSequenceIndex = null;
 let _showInheritForSection = null;
+let _pendingDropdownTimeout = null;
 
 // Generates a stable, professional muted hue based on the unique section ID
 function getSectionHue(id) {
@@ -48,6 +49,11 @@ export function initSongController(callbacks) {
     if (btnAddSection) {
         btnAddSection.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (_pendingDropdownTimeout) {
+                clearTimeout(_pendingDropdownTimeout);
+                _pendingDropdownTimeout = null;
+            }
+
             if (document.getElementById('active-section-dropdown')) {
                 closeSectionDropdown();
                 return;
@@ -58,7 +64,10 @@ export function initSongController(callbacks) {
                 const firstId = state.songSequence[0];
                 if (state.sections[firstId] && state.sections[firstId].name === 'Section 1') {
                     openFirstTimeRenameDropdown(btnAddSection, firstId, () => {
-                        setTimeout(() => openAddSectionDropdown(btnAddSection), 50); // slight delay to prevent event clashes
+                        _pendingDropdownTimeout = setTimeout(() => {
+                            openAddSectionDropdown(btnAddSection);
+                            _pendingDropdownTimeout = null;
+                        }, 50); // slight delay to prevent event clashes
                     });
                     return;
                 }
@@ -71,6 +80,7 @@ export function initSongController(callbacks) {
     // Strict Event Delegation for tabs
     if (tabsContainer) {
         tabsContainer.addEventListener('click', (e) => {
+            e.stopPropagation();
             const tab = e.target.closest('.section-tab');
             if (!tab) return;
             
@@ -401,6 +411,7 @@ function initMobileUnitabSwiping() {
     }, {passive: true});
 
     unitab.addEventListener('click', e => {
+        e.stopPropagation();
         const existingDropdown = document.getElementById('active-section-dropdown');
         if (existingDropdown) closeSectionDropdown();
         else openRenameDropdown(unitab, state.activeSectionId);
