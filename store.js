@@ -430,6 +430,7 @@ export function loadAndApplyInitialState() {
                     chordObj.chordPattern = chordObj.pattern;
                     delete chordObj.pattern;
                 }
+                if (typeof item.divisions === 'number') chordObj.divisions = item.divisions;
 
                 chordObj.chordPattern = sanitizePat(chordObj.chordPattern, false) || initChordPattern();
                 
@@ -461,6 +462,7 @@ export function loadAndApplyInitialState() {
                     if (typeof swapObj.inversionOffset !== 'number') delete swapObj.inversionOffset;
                     if (typeof swapObj.voicingType !== 'string') delete swapObj.voicingType;
                     if (typeof swapObj.voicing !== 'object') delete swapObj.voicing;
+                if (typeof swapObj.divisions === 'number') cleanSwaps[idx].divisions = swapObj.divisions;
                     cleanSwaps[idx] = swapObj;
                 }
             });

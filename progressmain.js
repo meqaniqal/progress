@@ -94,7 +94,7 @@ import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from '
                     if (state.useVoiceLeading) {
                         notesToPlay = getPlayableNotes(getActiveProgression(), state)[index];
                     }
-                    auditionChord(chordToAudition.symbol, chordToAudition.key, notesToPlay);
+                    auditionChord(chordToAudition.symbol, chordToAudition.key, notesToPlay, chordToAudition.divisions);
                 }
                 
                 renderProgression();
@@ -113,7 +113,7 @@ import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from '
                 persistAppState();
                 const newlyActiveProg = getActiveProgression();
                 const notesToPlay = getPlayableNotes(newlyActiveProg, state)[index];
-                auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay);
+            auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay, newlyActiveProg[index].divisions);
                 renderProgression();
             },
             onChangeVoicing: (index, voicingObj) => {
@@ -131,7 +131,7 @@ import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from '
 
                 const newlyActiveProg = getActiveProgression();
                 const notesToPlay = getPlayableNotes(newlyActiveProg, state)[index];
-                auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay);
+            auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay, newlyActiveProg[index].divisions);
                 renderProgression();
             },
             onSetGlobalVoicing: (type) => {
@@ -346,7 +346,7 @@ function _setupProgressionDisplayEvents(display) {
             if (state.useVoiceLeading) {
                 notesToPlay = getPlayableNotes(getActiveProgression(), state)[index];
             }
-            auditionChord(displayChord.symbol, displayChord.key, notesToPlay);
+        auditionChord(displayChord.symbol, displayChord.key, notesToPlay, displayChord.divisions);
         }
 
         // Always select the clicked chord (no toggling off)

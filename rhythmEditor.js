@@ -52,7 +52,7 @@ export function auditionSlicePitch(pitchOffset = 0) {
     const chord = swap ? { ...baseChord, ...swap } : baseChord;
     
     if (!chord) return;
-    const notes = getChordNotes(chord.symbol, chord.key, app.state.divisions || 12);
+    const notes = getChordNotes(chord.symbol, chord.key, chord.divisions || app.state.divisions || 12);
     if (!notes) return;
     
     const now = getAudioCurrentTime();

@@ -39,7 +39,7 @@ export function exportToMidi(state) {
     } else {
         // Just use block root position chords
         // Drop by 1 octave (-12) to match the pad register warmth used in audio playback
-        midiNotesToWrite = state.currentProgression.map(chord => getChordNotes(chord.symbol, chord.key).map(n => n - 12));
+        midiNotesToWrite = state.currentProgression.map(chord => getChordNotes(chord.symbol, chord.key, chord.divisions || state.divisions || 12).map(n => n - 12));
     }
 
     // Initialize MidiWriterJS (assumes MidiWriter is available globally)
@@ -154,7 +154,7 @@ export function exportToMidi(state) {
 
     for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
         state.currentProgression.forEach(chord => {
-            const rootNote = getChordNotes(chord.symbol, chord.key)[0] + CONFIG.BASS_OCTAVE_DROP; 
+            const rootNote = getChordNotes(chord.symbol, chord.key, chord.divisions || state.divisions || 12)[0] + CONFIG.BASS_OCTAVE_DROP; 
             const beats = Number(chord.duration) || 2;
             const slotTicks = beats * 128;
             

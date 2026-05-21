@@ -87,6 +87,14 @@
                 <option value="wholeTone">Whole Tone</option>
                 <option value="diminishedWH">Diminished</option>
                 <option value="altered">Altered (Super Locrian)</option>
+                <optgroup label="Microtonal / Macrotonal">
+                    <option value="bpLambda">Bohlen-Pierce Lambda</option>
+                    <option value="bpDur">Bohlen-Pierce Dur</option>
+                    <option value="bpMoll">Bohlen-Pierce Moll</option>
+                    <option value="slendroPentatonic">Slendro (5-EDO)</option>
+                    <option value="edo24Bayati">24-EDO Bayati (Maqam)</option>
+                    <option value="edo24Rast">24-EDO Rast (Maqam)</option>
+                </optgroup>
             </select>
         </div>
         
@@ -103,6 +111,13 @@
             <button class="chord-btn" data-chord="V">V</button>
             <button class="chord-btn" data-chord="vi">vi</button>
             <button class="chord-btn" data-chord="vii°">vii°</button>
+            <!-- Extra buttons reserved for macrotonal scales (e.g., 9-note BP scales) -->
+            <button class="chord-btn" data-chord="" style="display: none;"></button>
+            <button class="chord-btn" data-chord="" style="display: none;"></button>
+            <button class="chord-btn" data-chord="" style="display: none;"></button>
+            <button class="chord-btn" data-chord="" style="display: none;"></button>
+            <button class="chord-btn" data-chord="" style="display: none;"></button>
+            <button class="chord-btn" data-chord="" style="display: none;"></button>
         </div>
         <div id="palette-borrowed" class="chord-palette">
             <strong>Borrowed (Modal Mixture):</strong>

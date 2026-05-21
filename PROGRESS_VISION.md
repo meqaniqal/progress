@@ -207,4 +207,11 @@ The mobile web environment introduces unique viewport challenges (DPR scaling, d
   - Users swipe left/right on this single tab to cycle through the song sequence contextually.
   - A single tap opens the standard context/rename menu intuitively mapping to mobile interactions.
 - **Responsive Editor Toolbars (Completed):** Implemented strict flex-wrapping and container boundaries across the Rhythm Editor to ensure tools like Draw Mode and Pitch Mode neatly stack on narrow mobile viewports instead of breaking off-screen.
+
+### 11. True Microtonal Modularity (Phase 8 - Complete ✅)
+Transitioning from mapping 12-TET math into EDOs towards supporting true, independent microtonal composition without destabilizing the core standard engine.
+- **Tuning Lock State Architecture:** Added a `tuningBase` override directly to the chord object (e.g., `chord.divisions`). Selecting an inherently microtonal scale locks that chord's tuning to prevent destructive quantization if the user changes the global 12-TET setting.
+- **Isolated Sandbox (`microtonalDictionary.js`):** Created a dedicated module for non-12-TET, non-heptatonic scales (e.g., the 13-note Bohlen-Pierce scale, 5-EDO Slendro, 24-EDO Maqams) that bypasses standard Roman Numeral parsing.
+- **Continuous Float-Based Suggestions (`microtonalSuggestions.js`):** Moved beyond `modulo 12` integer pitch-classes for harmonic suggestions. Utilized Cents and Least Squares Distance math to mathematically calculate the closest harmonic replacements and modulations across entirely different tuning systems.
+- **Exotic UI Bridge:** Built a dedicated "Microtonal" category in the scale dropdown that queries the new dictionary to populate the UI palettes with custom syntax (e.g., `BPLambda1`, `EDO24Bayati2`) instead of diatonic numerals.
   - CSS media queries will handle the breakpoint shift seamlessly.

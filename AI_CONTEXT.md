@@ -1,6 +1,6 @@
 # PROGRESS APP: AI SYSTEM PROTOCOL
 ROLE: Sr. Audio/Frontend Eng.
-TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHub/Cloudflare Pages).
+TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHub/Cloudflare Pages). Jest for testing.
 
 ## ARCHITECTURE & STATE
 - SSOT: Pure JS `AppState` object. UI reads only; dispatches intents. No direct mutation. **Never read state from the DOM during performance-critical loops.**
@@ -25,7 +25,7 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 7. CORRECTION PROTOCOL: If a mistake is pointed out, acknowledge the correct pattern and do not repeat the error. The user may provide a `// CORRECT_PATTERN: <description>` comment to reinforce a rule.
 
 ## CURRENT STATE & ROADMAP
-**Current State:** Phase 6 Complete. Song Mode macro-arrangement, intelligent basslines, and generative rhythms are fully integrated.
+**Current State:** Phase 8 Complete. The core application features are stable. The next phase will likely focus on advanced synthesis or new generative music theory modules.
 
 **Phase 2: Contextual Auditioning & Looping (Complete)**
 - [x] Section looping (UI slice selection for seamless playback).
@@ -98,6 +98,18 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] Swipeable Single-Tab UI for Song Sections on narrow screens (< 450px viewport).
 - [x] Eliminate horizontal scroll fatigue in favor of gesture-based navigation.
 - [x] Responsive flex-wrapping for Rhythm Editor toolbars to prevent UI clipping on narrow (<360px) viewports.
+**Phase 7.5: Core Microtonal Engine (Complete)**
+- [x] Decouple pitch representation (Float-based MIDI math and EDO scale mapping).
+- [x] Harmonic Segmentation Engine (Identify and separate stable cores from clashing microtonal beats).
+- [x] Auto Pan-Leading (Spatial separation of dissonant micro-clusters in Web Audio).
+- [x] MPE MIDI Export (14-bit Pitch Bend routing across 14 independent MIDI channels).
+- [x] Global Tuning Settings (12-TET, 19-EDO, 24-EDO, 31-EDO exposed to user).
+
+**Phase 8: True Microtonal Modularity (Complete)**
+- [x] **Tuning Lock State:** Implemented a `divisions` override at the chord object level to protect microtonal structures from global state changes.
+- [x] **Isolated Microtonal Sandbox:** Created `microtonalDictionary.js` to define true microtonal scales (e.g., Bohlen-Pierce, Pelog) outside the 12-TET Roman Numeral parser.
+- [x] **Float-Based Suggestions:** Created `microtonalSuggestions.js` to calculate harmonic swaps via Cent-based interval arrays and Least Squares Distance, completely replacing `modulo 12` integer logic.
+- [x] **Exotic UI Bridge:** Updated the scale selector to dynamically generate custom micro-chord badges (e.g., `BP1`) instead of diatonic numerals.
 
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.

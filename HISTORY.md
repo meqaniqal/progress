@@ -73,3 +73,21 @@
 - **State Manager Purification:** Extracted macro-baking loops and progression compilation (`getExportState`) into `exportStateBuilder.js`, restoring `store.js` as a pure SSOT state container.
 - **Memory Leak Resolution:** Audited dynamic UI injections and patched a race-condition memory leak in the song sequence dropdown menus.
 - **High-Performance Visual Sync:** Refactored the sequencer's visual highlighting engine from `setTimeout` to a `requestAnimationFrame` event queue. This guarantees V-Sync rendering, decouples UI from the audio thread, and eliminates background-tab "audio blasts" caused by browser throttling.
+
+## Phase 7: True Mobile Adaptive UX (Complete)
+- Implemented viewport-aware FAB positioning using `env(safe-area-inset-bottom)` to prevent transport bar from vanishing under browser chrome.
+- Added Swipeable Single-Tab UI for Song Sections on narrow screens (< 450px viewport) with gesture-based navigation.
+- Refactored Rhythm Editor toolbars with responsive flex-wrapping to prevent UI clipping on narrow viewports.
+
+## Phase 7.5: Core Microtonal Engine (Complete)
+- Decoupled pitch calculations from standard integers, introducing float-based MIDI math.
+- Added mathematical conversions for arbitrary Equal Divisions of the Octave (19-EDO, 24-EDO, 31-EDO).
+- Implemented an acoustic roughness engine (`segmentMicrotonalCluster`) to detect clashing microtonal intervals (15-65 cents apart).
+- Upgraded Web Audio synth to process fractional MIDI pitches and spatially pan dissonant beat-frequency clusters out of the center channel.
+- Introduced MPE (MIDI Polyphonic Expression) to the `.mid` exporter, allocating fractional pitches to independent channels with precise 14-bit Pitch Bend values.
+
+## Phase 8: True Microtonal Modularity (Complete)
+- [x] **Tuning Lock State Architecture:** Prevented destructive quantization by locking chord-level divisions.
+- [x] **`microtonalDictionary.js`:** Built a sandbox for true microtonal scales (Bohlen-Pierce, Pelog, 24-EDO Maqams) safely isolated from the Roman Numeral engine.
+- [x] **`microtonalSuggestions.js`:** Implemented continuous float-based (cents) Least Squares Distance math for context-aware swaps and turnarounds.
+- [x] **Scale Dropdown UI Bridge:** Dynamically populated chord palettes with custom microtonal syntax.

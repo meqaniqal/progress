@@ -1,4 +1,5 @@
 import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getDiatonicChords, SCALE_PREFIXES } from './theory.js';
+import { getMicrotonalDiatonicChords } from './microtonalDictionary.js';
 import { renderChordInspector } from './inspectorController.js';
 import { CONFIG } from './config.js';
 
@@ -61,7 +62,7 @@ export function updateKeyAndModeDisplay(state) {
     const modeSelector = document.getElementById('mode-selector');
     if (modeSelector) modeSelector.value = state.mode;
     
-    const isExotic = !!SCALE_PREFIXES[state.mode];
+    const isExotic = !!SCALE_PREFIXES[state.mode] || !!getMicrotonalDiatonicChords(state.mode);
     
     const diatonicContainer = document.getElementById('palette-diatonic');
     if (diatonicContainer) {

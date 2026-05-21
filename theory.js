@@ -1,4 +1,6 @@
 import { CHORD_INTERVALS } from './chordDictionary.js';
+import { getMicrotonalChord, getMicrotonalDiatonicChords } from './microtonalDictionary.js';
+import { getMicrotonalAlternatives, getMicrotonalTurnarounds } from './microtonalSuggestions.js';
 
 export const SCALES = {
     major: [0, 2, 4, 5, 7, 9, 11],
@@ -106,6 +108,12 @@ export function getChordNotes(symbol, baseKey, divisions = 12) {
         }
     }
     
+    // Fallback 3: True Microtonal Sandbox Parser (e.g., BPLambda1)
+    if (!intervals) {
+        const microNotes = getMicrotonalChord(symbol, baseKey);
+        if (microNotes) return microNotes; // Bypasses 12-TET mapping; BP inherently locks its own tuning math
+    }
+
     if (!intervals) return null;
     
     return intervals.map(interval => {
@@ -120,6 +128,11 @@ export function getChordNotes(symbol, baseKey, divisions = 12) {
 // Returns chords that share a similar harmonic function for contextual swapping
 // Calculates shared tones purely by modulo interval mapping, making it key-agnostic.
 export function getAlternatives(chordSymbol, baseKey = 60, mode = 'major') {
+    const microDiatonic = getMicrotonalDiatonicChords(mode);
+    if (microDiatonic) {
+        return getMicrotonalAlternatives(chordSymbol, baseKey, mode);
+    }
+
     const sourceNotes = getChordNotes(chordSymbol, baseKey);
     if (!sourceNotes) return [];
     
@@ -161,6 +174,9 @@ export function getAlternatives(chordSymbol, baseKey = 60, mode = 'major') {
 
 // --- Omni-Scale Generation & Mathematics ---
 export function getDiatonicChords(scaleType = 'major') {
+    const microChords = getMicrotonalDiatonicChords(scaleType);
+    if (microChords) return microChords;
+
     const prefix = SCALE_PREFIXES[scaleType];
     if (prefix) {
         // Exotic scales naming convention: Prefix + 1-indexed degree (e.g. WT1, Oct2)
@@ -227,7 +243,14 @@ export function calculateChordTension(midiNotes) {
     for (let i = 0; i < midiNotes.length; i++) {
         for (let j = i + 1; j < midiNotes.length; j++) {
             const interval = Math.abs(midiNotes[i] - midiNotes[j]) % 12;
-            dissonance += INTERVAL_WEIGHTS[interval];
+            
+            // Support float intervals by interpolating between nearest integer weights
+            const lower = Math.floor(interval);
+            const upper = (lower + 1) % 12;
+            const fraction = interval - lower;
+            const weight = (INTERVAL_WEIGHTS[lower] * (1 - fraction)) + (INTERVAL_WEIGHTS[upper] * fraction);
+            
+            dissonance += weight;
             pairs++;
         }
     }
@@ -250,14 +273,21 @@ export function getHarmonicProfile(symbol, mode = 'major', baseKey = 60) {
         tension = calculateChordTension(chordNotes);
         
         // 2. Mathematically evaluate if chord contains out-of-scale tones (Borrowed)
-        const scaleIntervals = SCALES[mode] || SCALES['major'];
-        const scalePitchClasses = scaleIntervals.map(interval => (baseKey + interval) % 12);
-        const chordPitchClasses = chordNotes.map(n => n % 12);
-        isBorrowed = !chordPitchClasses.every(pc => scalePitchClasses.includes(pc));
+        const microDiatonic = getMicrotonalDiatonicChords(mode);
+        if (microDiatonic) {
+            // For microtonal systems, if the symbol is native to the scale, it's not borrowed
+            isBorrowed = !microDiatonic.includes(symbol);
+        } else {
+            const scaleIntervals = SCALES[mode] || SCALES['major'];
+            const scalePitchClasses = scaleIntervals.map(interval => (baseKey + interval) % 12);
+            const chordPitchClasses = chordNotes.map(n => n % 12);
+            // Use small tolerance for float equality just in case of EDO approximations
+            isBorrowed = !chordPitchClasses.every(pc => scalePitchClasses.some(spc => Math.abs(spc - pc) < 0.1));
+        }
         
         // 3. Approximate Circle of Fifths distance for Hue coloring
-        const rootPc = chordPitchClasses[0];
-        const intervalFromTonic = (rootPc - (baseKey % 12) + 12) % 12;
+        const rootPc = Math.round(chordNotes[0]) % 12;
+        const intervalFromTonic = (rootPc - (Math.round(baseKey) % 12) + 12) % 12;
         const circleOfFifths = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5];
         fifthsFromTonic = circleOfFifths.indexOf(intervalFromTonic);
         if (fifthsFromTonic > 6) fifthsFromTonic -= 12;
@@ -308,6 +338,11 @@ export function getTransitionSuggestions(fromKey, toKey, mode = 'major') {
 // --- Turnaround Chords ---
 // Suggests chords that strongly lead into the given target chord
 export function getTurnaroundSuggestions(targetSymbol, mode = 'major', baseKey = 60) {
+    const microDiatonic = getMicrotonalDiatonicChords(mode);
+    if (microDiatonic) {
+        return getMicrotonalTurnarounds(targetSymbol, baseKey, mode);
+    }
+
     // 1. Algorithmic Discovery for Exotic/Symmetric Scales
     if (SCALE_PREFIXES[mode]) {
         const targetNotes = getChordNotes(targetSymbol, baseKey);
@@ -391,7 +426,8 @@ export function optimizeVoicing(notes) {
 // total melodic distance from the previous chord.
 export function applyVoiceLeading(progression, globalOptions = {}) {
     const divisions = globalOptions.divisions || 12;
-    const validProgression = progression.filter(chord => getChordNotes(chord.symbol, chord.key, divisions));
+    const getDivisions = (chord) => chord.divisions || divisions;
+    const validProgression = progression.filter(chord => getChordNotes(chord.symbol, chord.key, getDivisions(chord)));
     if (validProgression.length === 0) return [];
     
     // Dynamic voicing extraction to support future global or per-chord overrides
@@ -406,7 +442,7 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
 
     // 1. Smart Anchoring for the First Chord
     const firstOpts = getOptions(validProgression[0]);
-    let firstTarget = optimizeVoicing(getChordNotes(validProgression[0].symbol, validProgression[0].key, divisions));
+    let firstTarget = optimizeVoicing(getChordNotes(validProgression[0].symbol, validProgression[0].key, getDivisions(validProgression[0])));
     
     // Generate inversions dynamically based on the requested Voicing Type
     let firstInversions = generateInversions(firstTarget, firstOpts.voicingType);
@@ -441,7 +477,7 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
     for (let i = 1; i < validProgression.length; i++) {
         let prevChord = processed[i - 1];
         let opts = getOptions(validProgression[i]);
-        let targetNotes = getChordNotes(validProgression[i].symbol, validProgression[i].key, divisions);
+        let targetNotes = getChordNotes(validProgression[i].symbol, validProgression[i].key, getDivisions(validProgression[i]));
         targetNotes = optimizeVoicing(targetNotes);
         
         let inversions = generateInversions(targetNotes, opts.voicingType);

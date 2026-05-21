@@ -17,7 +17,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
         notesArray = getPlayableNotes(progression, globalOptions);
     } else {
         // Drop by 1 octave (-12) to match the pad register warmth used in live playback
-        notesArray = progression.map(chord => getChordNotes(chord.symbol, chord.key, globalOptions.divisions || 12).map(n => n - 12));
+        notesArray = progression.map(chord => getChordNotes(chord.symbol, chord.key, chord.divisions || globalOptions.divisions || 12).map(n => n - 12));
     }
 
     const chordInst = globalOptions.instruments && globalOptions.instruments.chords ? globalOptions.instruments.chords : 'sawtooth';
@@ -93,7 +93,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
             }
             
             // Add Bass Note
-            const rootChordNotes = getChordNotes(chord.symbol, chord.key, globalOptions.divisions || 12);
+            const rootChordNotes = getChordNotes(chord.symbol, chord.key, chord.divisions || globalOptions.divisions || 12);
             if (rootChordNotes) {
                 const bassNote = rootChordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
                 

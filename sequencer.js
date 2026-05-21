@@ -8,12 +8,12 @@ import { isSongTrayOpen, getActiveSequenceIndex } from './songController.js';
 
 let uiTimeouts = [];
 
-export function auditionChord(chordSymbol, baseKey, specificNotes = null) {
+export function auditionChord(chordSymbol, baseKey, specificNotes = null, divisions = null) {
     if (!chordSymbol) return;
     
     initAudio();
 
-    const chordNotes = getChordNotes(chordSymbol, baseKey, state.divisions || 12);
+    const chordNotes = getChordNotes(chordSymbol, baseKey, divisions || state.divisions || 12);
     if (!chordNotes) return;
 
     const rootNoteMidi = chordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
@@ -161,7 +161,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             notesToPlay = allPlayableNotes[absIndex];
         } else {
             // Drop by 1 octave (-12) to match standard audition and pad register warmth
-            notesToPlay = getChordNotes(activeProg[absIndex].symbol, activeProg[absIndex].key, state.divisions || 12).map(n => n - 12);
+            notesToPlay = getChordNotes(activeProg[absIndex].symbol, activeProg[absIndex].key, activeProg[absIndex].divisions || state.divisions || 12).map(n => n - 12);
         }
         
         if (!notesToPlay) return;
@@ -215,7 +215,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         
         const rootSymbol = chordObj.symbol;
         const rootKey = chordObj.key;
-        const rootChordNotes = getChordNotes(rootSymbol, rootKey, state.divisions || 12);
+        const rootChordNotes = getChordNotes(rootSymbol, rootKey, chordObj.divisions || state.divisions || 12);
         if (rootChordNotes) {
             const rootNoteMidi = rootChordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
             
