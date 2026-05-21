@@ -1,6 +1,6 @@
 import { resolvePattern } from './patternResolver.js';
 import { getAudioCurrentTime, playTone, initAudio, midiToFreq } from './synth.js';
-import { getChordNotes, segmentMicrotonalCluster } from './theory.js';
+import { getChordNotes, segmentMicrotonalCluster, snapToGrid } from './theory.js';
 import { CONFIG } from './config.js';
 import { GRID_STEPS } from './rhythmConfig.js';
 import { initRhythmControls } from './rhythmControls.js';
@@ -67,7 +67,7 @@ export function auditionSlicePitch(pitchOffset = 0) {
     segmented.frictionLeft.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', panL));
     segmented.frictionRight.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', panR));
 
-    const finalBassNote = notes[0] + CONFIG.BASS_OCTAVE_DROP + pitchOffset;
+    const finalBassNote = snapToGrid(notes[0] + CONFIG.BASS_OCTAVE_DROP + pitchOffset, chord.divisions || app.state.divisions || 12);
     playTone(midiToFreq(finalBassNote), now, duration, 'sine');
 }
 

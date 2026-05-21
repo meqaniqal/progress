@@ -4,6 +4,7 @@ import { generateAIPrompt } from './promptGenerator.js';
 import { KEY_NAMES, updateKeyAndModeDisplay } from './ui.js';
 import { setTrackVolume } from './synth.js';
 import { isSongTrayOpen } from './songController.js';
+import { updateMicrotonalSettingsUI } from './progressmain.js';
 
 export function initModals({ onResetPlayback, onRenderProgression }) {
     _initSettingsModal(onResetPlayback, onRenderProgression);
@@ -58,9 +59,14 @@ function _initSettingsModal(onResetPlayback, onRenderProgression) {
                 const autoPanInput = document.getElementById('auto-pan-leading');
                 if (autoPanInput) autoPanInput.checked = state.autoPanLeading;
                 
+                const midiExportSelector = document.getElementById('midi-export-routing');
+                if (midiExportSelector) midiExportSelector.value = state.midiExportRouting || 'mpe';
+
                 const tuningSelector = document.getElementById('tuning-selector');
                 if (tuningSelector) tuningSelector.value = state.divisions || 12;
                 
+                updateMicrotonalSettingsUI();
+
                 const expDrawInput = document.getElementById('experimental-draw-mode');
                 if (expDrawInput) expDrawInput.checked = state.enableExperimentalDrawMode;
                 

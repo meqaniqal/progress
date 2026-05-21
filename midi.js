@@ -15,6 +15,85 @@ function getMpePitchBend(floatPitch, bendRange = 2) {
     };
 }
 
+function getLinearMidiKey(floatPitch, divisions) {
+    let periodMidiSize = 12.0;
+    if (divisions === 13) {
+        periodMidiSize = 12 * Math.log2(3);
+    }
+    
+    let key = 60 + Math.round((floatPitch - 60) * (divisions / periodMidiSize));
+    
+    while (key < 0) key += divisions;
+    while (key > 127) key -= divisions;
+    
+    return key;
+}
+
+export function exportScalaFile(divisions) {
+    let periodCents = 1200;
+    let name = `${divisions}-TET`;
+
+    if (divisions === 13) {
+        periodCents = 1200 * Math.log2(3); // 1901.955
+        name = `Bohlen-Pierce_13-ED3`;
+    } else if (divisions === 5) {
+        name = `Slendro_5-EDO`;
+    } else if (divisions !== 12) {
+        name = `${divisions}-EDO`;
+    } else {
+        name = `12-TET_Standard`;
+    }
+
+    let content = `! ${name}.scl\n!\nProgress App Generated Tuning\n ${divisions}\n!\n`;
+    const stepCents = periodCents / divisions;
+    for (let i = 1; i <= divisions; i++) {
+        content += ` ${(i * stepCents).toFixed(5)}\n`;
+    }
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${name}.scl`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+export function exportTunFile(divisions) {
+    let periodCents = 1200;
+    let name = `${divisions}-TET`;
+
+    if (divisions === 13) {
+        periodCents = 1200 * Math.log2(3);
+        name = `Bohlen-Pierce_13-ED3`;
+    } else if (divisions === 5) {
+        name = `Slendro_5-EDO`;
+    } else if (divisions !== 12) {
+        name = `${divisions}-EDO`;
+    } else {
+        name = `12-TET_Standard`;
+    }
+
+    let content = `; ${name}\n[Scale Begin]\nFormat= "AnaMark-TUN"\nFormatVersion= 200\n\n[Info]\nName= "${name}"\n\n[Exact Tuning]\n`;
+    const stepCents = periodCents / divisions;
+    for (let i = 0; i < 128; i++) {
+        const cents = 6000 + (i - 60) * stepCents;
+        content += `note ${i}= ${cents.toFixed(6)}\n`;
+    }
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${name}.tun`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
 export function exportToMidi(state) {
     if (state.currentProgression.length === 0) {
         alert("Please add some chords to the progression first!");
@@ -42,11 +121,27 @@ export function exportToMidi(state) {
         midiNotesToWrite = state.currentProgression.map(chord => getChordNotes(chord.symbol, chord.key, chord.divisions || state.divisions || 12).map(n => n - 12));
     }
 
-    // Initialize MidiWriterJS (assumes MidiWriter is available globally)
-    const track = new MidiWriter.Track();
-    track.addEvent(new MidiWriter.ProgramChangeEvent({instrument: 1})); // Acoustic Grand Piano
+    const isMultiTrack = state.midiExportRouting === 'multi-track';
+    const isClean = state.midiExportRouting === 'clean';
+    let chordTracks = [];
+    let currentChordTicks = [];
 
-    let currentTick = 0;
+    function getChordTrack(idx) {
+        if (!chordTracks[idx]) {
+            const trk = new MidiWriter.Track();
+            trk.addTrackName(isMultiTrack ? `Progress chords ${idx + 1}` : 'Progress chords');
+            trk.addEvent(new MidiWriter.ProgramChangeEvent({instrument: CONFIG.MIDI_INSTRUMENT_PIANO}));
+            trk.setTempo(state.bpm);
+            trk.addEvent(new MidiWriter.TimeSignatureEvent(4, 4, 24, 8));
+            chordTracks[idx] = trk;
+            currentChordTicks[idx] = 0;
+        }
+        return chordTracks[idx];
+    }
+
+    // Ensure at least 1 track exists for MPE mode to inherit the tempo event
+    getChordTrack(0);
+
     let slotStartTick = 0;
     
     const chordsVol = state.volumes ? state.volumes.chords : 0.8;
@@ -56,6 +151,7 @@ export function exportToMidi(state) {
     for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
         // Add polyrhythmic chords and arpeggios to track
         state.currentProgression.forEach((chord, index) => {
+            const isLastMacroChord = pass === (state.exportPasses || 1) - 1 && index === state.currentProgression.length - 1;
             const chordNotes = midiNotesToWrite[index];
             
             let pattern = chord.chordPattern;
@@ -77,6 +173,9 @@ export function exportToMidi(state) {
             let currentChannel = 2; // MPE Channels 2-15
 
             instances.forEach(instance => {
+                const isLastInstance = instance === instances[instances.length - 1];
+                const useFullDuration = isLastMacroChord && isLastInstance;
+
                 const instanceStartTick = slotStartTick + Math.round(instance.startTime * slotTicks);
                 const instanceDurationTicks = Math.round(instance.duration * slotTicks);
                 const instanceDurationSec = instance.duration * chordDurationSec;
@@ -92,54 +191,93 @@ export function exportToMidi(state) {
                     arpEvents.forEach(event => {
                         const noteStartTick = instanceStartTick + Math.round(event.startTime * (state.bpm / 60) * 128);
                         const noteDurationTicks = Math.max(1, Math.round(event.duration * (state.bpm / 60) * 128));
-                        const waitTicks = Math.max(0, noteStartTick - currentTick);
-                        
                         const { intNote, bendValue } = getMpePitchBend(event.note);
 
-                        track.addEvent(new MidiWriter.PitchBendEvent({
-                            bend: bendValue,
-                            channel: currentChannel,
-                            wait: 'T0'
-                        }));
+                        let arpPitch = intNote;
+                        if (isClean) arpPitch = getLinearMidiKey(event.note, state.divisions || 12);
 
-                        track.addEvent(new MidiWriter.NoteEvent({
-                            pitch: [intNote],
+                        const targetTrack = getChordTrack(0);
+                        const targetChannel = isMultiTrack ? 1 : currentChannel;
+                        if (!isMultiTrack) currentChannel = currentChannel >= 15 ? 2 : currentChannel + 1;
+
+                        const waitTicks = Math.max(0, noteStartTick - currentChordTicks[0]);
+                        const events = [];
+                        if (!isClean) {
+                            events.push(new MidiWriter.PitchBendEvent({
+                                bend: bendValue,
+                                channel: targetChannel,
+                                wait: `T${waitTicks}`
+                            }));
+                        }
+
+                        events.push(new MidiWriter.NoteEvent({
+                            pitch: [arpPitch],
                             duration: `T${noteDurationTicks}`,
                             wait: `T${waitTicks}`,
                             velocity: Math.min(127, Math.round(CONFIG.MIDI_CHORD_VELOCITY * (chordsVol / 0.8))),
-                            channel: currentChannel
+                            channel: targetChannel
                         }));
-                        
-                        currentChannel = currentChannel >= 15 ? 2 : currentChannel + 1;
-                        currentTick += waitTicks + noteDurationTicks;
+                        targetTrack.addEvent(events, {sequential: false});
+                        currentChordTicks[0] += waitTicks + noteDurationTicks;
                     });
                 } else {
                     const noteStartTick = instanceStartTick;
-                    const noteDurationTicks = Math.round(instanceDurationTicks * 0.95);
-                    const waitTicks = Math.max(0, noteStartTick - currentTick);
+                    const actualNoteDurationTicks = useFullDuration ? instanceDurationTicks : Math.round(instanceDurationTicks * 0.95);
 
-                    const pitchBends = [];
-                    const notes = [];
+                    if (isMultiTrack) {
+                        chordNotes.forEach((floatNote, noteIdx) => {
+                            const targetTrack = getChordTrack(noteIdx);
+                            const waitTicks = Math.max(0, noteStartTick - currentChordTicks[noteIdx]);
+                            const { intNote, bendValue } = getMpePitchBend(floatNote);
+                            
+                            let multiPitch = intNote;
+                            if (isClean) multiPitch = getLinearMidiKey(floatNote, state.divisions || 12);
 
-                    chordNotes.forEach((floatNote, noteIdx) => {
-                        const { intNote, bendValue } = getMpePitchBend(floatNote);
+                            const events = [];
+                            if (!isClean) {
+                                events.push(new MidiWriter.PitchBendEvent({ bend: bendValue, channel: 1, wait: `T${waitTicks}` }));
+                            }
+                            events.push(new MidiWriter.NoteEvent({
+                                pitch: [multiPitch], duration: `T${actualNoteDurationTicks}`, wait: `T${waitTicks}`,
+                                velocity: Math.min(127, Math.round(CONFIG.MIDI_CHORD_VELOCITY * (chordsVol / 0.8))), channel: 1
+                            }));
+                            
+                            targetTrack.addEvent(events, {sequential: false});
+                            currentChordTicks[noteIdx] += waitTicks + actualNoteDurationTicks;
+                        });
+                    } else {
+                        const targetTrack = getChordTrack(0);
+                        const waitTicks = Math.max(0, noteStartTick - currentChordTicks[0]);
+                        const events = [];
 
-                        pitchBends.push(new MidiWriter.PitchBendEvent({ bend: bendValue, channel: currentChannel, wait: 'T0' }));
+                        if (isClean) {
+                            const pitches = chordNotes.map(n => getLinearMidiKey(n, state.divisions || 12));
+                            events.push(new MidiWriter.NoteEvent({
+                                pitch: pitches,
+                                duration: `T${actualNoteDurationTicks}`,
+                                wait: `T${waitTicks}`,
+                                velocity: Math.min(127, Math.round(CONFIG.MIDI_CHORD_VELOCITY * (chordsVol / 0.8))),
+                                channel: 1
+                            }));
+                        } else {
+                            chordNotes.forEach((floatNote, idx) => {
+                                const { intNote, bendValue } = getMpePitchBend(floatNote);
+                                const targetChannel = currentChannel;
+                                currentChannel = currentChannel >= 15 ? 2 : currentChannel + 1;
+                                const isLast = idx === chordNotes.length - 1;
 
-                        notes.push(new MidiWriter.NoteEvent({
-                            pitch: [intNote],
-                            duration: `T${noteDurationTicks}`,
-                            wait: noteIdx === 0 ? `T${waitTicks}` : 'T0',
-                            velocity: Math.min(127, Math.round(CONFIG.MIDI_CHORD_VELOCITY * (chordsVol / 0.8))),
-                            channel: currentChannel
-                        }));
-                        currentChannel = currentChannel >= 15 ? 2 : currentChannel + 1;
-                    });
-                    
-                    pitchBends.forEach(pb => track.addEvent(pb));
-                    track.addEvent(notes, {sequential: false});
-
-                    currentTick += waitTicks + noteDurationTicks;
+                                events.push(new MidiWriter.PitchBendEvent({ bend: bendValue, channel: targetChannel, wait: `T${waitTicks}` }));
+                                events.push(new MidiWriter.NoteEvent({
+                                    pitch: [intNote], duration: `T${actualNoteDurationTicks}`, wait: `T${waitTicks}`,
+                                    velocity: Math.min(127, Math.round(CONFIG.MIDI_CHORD_VELOCITY * (chordsVol / 0.8))), channel: targetChannel,
+                                    sequential: !isLast ? false : true
+                                }));
+                            });
+                        }
+                        
+                        targetTrack.addEvent(events);
+                        currentChordTicks[0] += waitTicks + actualNoteDurationTicks;
+                    }
                 }
             });
             
@@ -149,11 +287,15 @@ export function exportToMidi(state) {
 
     // Add a bass line! (Root notes played down two octaves)
     const bassTrack = new MidiWriter.Track();
+    bassTrack.addTrackName('Progress bass');
+    bassTrack.setTempo(state.bpm);
     let currentBassGlobalTick = 0;
     let bassSlotStartTick = 0;
+    let hasBassNotes = false;
 
     for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
-        state.currentProgression.forEach(chord => {
+        state.currentProgression.forEach((chord, index) => {
+            const isLastMacroChord = pass === (state.exportPasses || 1) - 1 && index === state.currentProgression.length - 1;
             const rootNote = getChordNotes(chord.symbol, chord.key, chord.divisions || state.divisions || 12)[0] + CONFIG.BASS_OCTAVE_DROP; 
             const beats = Number(chord.duration) || 2;
             const slotTicks = beats * 128;
@@ -170,26 +312,38 @@ export function exportToMidi(state) {
             const instances = [...bPattern.instances].sort((a, b) => a.startTime - b.startTime);
             
             instances.forEach(instance => {
+                hasBassNotes = true;
+
+                const isLastInstance = instance === instances[instances.length - 1];
+                const useFullDuration = isLastMacroChord && isLastInstance;
+
                 const instanceStartTick = bassSlotStartTick + Math.round(instance.startTime * slotTicks);
-                const instanceDurationTicks = Math.round(instance.duration * slotTicks * 0.95);
+                const instanceDurationTicks = useFullDuration ? Math.round(instance.duration * slotTicks) : Math.round(instance.duration * slotTicks * 0.95);
                 const waitTicks = Math.max(0, instanceStartTick - currentBassGlobalTick);
 
                 const finalBassNote = rootNote + (instance.pitchOffset || 0);
                 const { intNote, bendValue } = getMpePitchBend(finalBassNote);
 
-                bassTrack.addEvent(new MidiWriter.PitchBendEvent({
-                    bend: bendValue,
-                    channel: 1,
-                    wait: 'T0'
-                }));
+                let bassPitch = intNote;
+                if (isClean) bassPitch = getLinearMidiKey(finalBassNote, state.divisions || 12);
 
-                bassTrack.addEvent(new MidiWriter.NoteEvent({ 
-                    pitch: [intNote], 
+                const events = [];
+                if (!isClean) {
+                    events.push(new MidiWriter.PitchBendEvent({
+                        bend: bendValue,
+                        channel: 1,
+                        wait: `T${waitTicks}`
+                    }));
+                }
+
+                events.push(new MidiWriter.NoteEvent({ 
+                    pitch: [bassPitch], 
                     duration: `T${instanceDurationTicks}`, 
                     wait: `T${waitTicks}`,
                     velocity: Math.min(127, Math.round(CONFIG.MIDI_BASS_VELOCITY * (bassVol / 0.8))),
                     channel: 1
                 }));
+                bassTrack.addEvent(events, {sequential: false});
                 currentBassGlobalTick += waitTicks + instanceDurationTicks;
             });
 
@@ -199,10 +353,13 @@ export function exportToMidi(state) {
 
     // --- Add Drum Track (Channel 10) ---
     const drumTrack = new MidiWriter.Track();
+    drumTrack.addTrackName('Progress drums');
+    drumTrack.setTempo(state.bpm);
     // MIDI Channel 10 is reserved for Percussion (MidiWriter uses 1-based indexing, so channel: 10)
     let currentDrumGlobalTick = 0;
     let drumSlotStartTick = 0;
     let currentDrumBeat = 0;
+    let hasDrumNotes = false;
     
     const DRUM_MIDI_MAP = {
         'kick': 36, // C1 (General MIDI Bass Drum 1)
@@ -262,6 +419,8 @@ export function exportToMidi(state) {
             const sortedTicks = Object.keys(groupedHits).map(Number).sort((a, b) => a - b);
 
             sortedTicks.forEach(tick => {
+                hasDrumNotes = true;
+
                 const waitTicks = Math.max(0, tick - currentDrumGlobalTick);
                 const noteDurationTicks = 16; // Short crisp hit duration (1/32 note)
                 
@@ -280,7 +439,27 @@ export function exportToMidi(state) {
         });
     }
 
-    const write = new MidiWriter.Writer([track, bassTrack, drumTrack], { tempo: state.bpm });
+    // Force perfect loop boundaries by padding the tracks to the exact final tick
+    const forceEndTick = slotStartTick;
+    
+    chordTracks.forEach((trk, idx) => {
+        if (forceEndTick > currentChordTicks[idx]) {
+            trk.addEvent(new MidiWriter.NoteEvent({pitch: [0], duration: 'T1', wait: `T${forceEndTick - currentChordTicks[idx] - 1}`, velocity: 1, channel: 1}));
+        }
+    });
+
+    if (hasBassNotes && forceEndTick > currentBassGlobalTick) {
+        bassTrack.addEvent(new MidiWriter.NoteEvent({pitch: [0], duration: 'T1', wait: `T${forceEndTick - currentBassGlobalTick - 1}`, velocity: 1, channel: 1}));
+    }
+    if (hasDrumNotes && forceEndTick > currentDrumGlobalTick) {
+        drumTrack.addEvent(new MidiWriter.NoteEvent({pitch: [0], duration: 'T1', wait: `T${forceEndTick - currentDrumGlobalTick - 1}`, velocity: 1, channel: 10}));
+    }
+
+    const finalTracks = [...chordTracks];
+    if (hasBassNotes) finalTracks.push(bassTrack);
+    if (hasDrumNotes) finalTracks.push(drumTrack);
+
+    const write = new MidiWriter.Writer(finalTracks);
     const dataUri = write.dataUri();
 
     // Trigger download

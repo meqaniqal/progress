@@ -108,7 +108,12 @@ export function getExportState(isMacro) {
         exportState.loopEnd = flattenedProgression.length;
         exportState.temporarySwaps = {}; // Clear this so local swaps don't falsely overwrite global macro indices!
     } else {
-        exportState.currentProgression = getActiveProgression();
+        const prog = getActiveProgression();
+        const start = exportState.loopStart ?? 0;
+        const end = exportState.loopEnd ?? prog.length;
+        exportState.currentProgression = prog.slice(start, end);
+        exportState.loopStart = 0;
+        exportState.loopEnd = exportState.currentProgression.length;
     }
     
     return exportState;

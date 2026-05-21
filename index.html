@@ -336,9 +336,22 @@
                     <input type="checkbox" id="voice-leading" checked class="settings-checkbox">
                 </div>
                 <!-- Auto Pan-Leading -->
-                <div class="settings-row" title="Automatically pans highly dissonant microtonal clusters wide left and right to prevent center channel muddiness">
+                <div class="settings-row" id="row-auto-pan" title="Automatically pans highly dissonant microtonal clusters wide left and right to prevent center channel muddiness">
                     <strong class="settings-label info">Auto Pan-Leading ℹ️</strong>
                     <input type="checkbox" id="auto-pan-leading" checked class="settings-checkbox">
+                </div>
+                <!-- MIDI Export Mode -->
+                <div class="settings-row" id="row-midi-routing" title="How microtonal pitch bends are exported to MIDI">
+                    <strong class="settings-label info">MIDI Export Routing ℹ️</strong>
+                    <select id="midi-export-routing" class="rhythm-select settings-select">
+                        <option value="mpe">Pitch Bends (MPE Standard)</option>
+                        <option value="multi-track">Pitch Bends (Multi-Track)</option>
+                        <option value="clean">Tuning Files (Clean MIDI)</option>
+                    </select>
+                </div>
+                <div class="settings-row" id="row-tuning-files" style="margin-top: 4px; display: flex; gap: 4px;">
+                    <button class="control-btn secondary btn-sm" id="btn-export-scala" style="width: 100%;">💾 Export .scl</button>
+                    <button class="control-btn secondary btn-sm" id="btn-export-tun" style="width: 100%;">💾 Export .tun</button>
                 </div>
                 <!-- Experimental Draw Mode -->
                 <div class="settings-row" title="Enable the new edit-in-place workflow and pencil draw tool">

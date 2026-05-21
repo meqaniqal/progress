@@ -3,7 +3,7 @@ import { getChordNotes, getPlayableNotes } from './theory.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, setTrackVolume, decodeCustomDrumSample, loadPersistedDrumSamples, clearCustomDrumSamples } from './synth.js';
 import { auditionChord, playProgression, stopAllAudio } from './sequencer.js';
 import { initDragAndDrop } from './dragdrop.js';
-import { exportToMidi } from './midi.js';
+import { exportToMidi, exportScalaFile, exportTunFile } from './midi.js';
 import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder } from './stateUtils.js';
 import { initPatternSet } from './patternUtils.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
@@ -201,6 +201,19 @@ import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from '
             }
         }
 
+export function updateMicrotonalSettingsUI() {
+    const isMicrotonal = state.divisions !== 12;
+    const isCleanRouting = state.midiExportRouting === 'clean';
+
+    const rowAutoPan = document.getElementById('row-auto-pan');
+    const rowMidiRouting = document.getElementById('row-midi-routing');
+    const rowTuningFiles = document.getElementById('row-tuning-files');
+
+    if (rowAutoPan) rowAutoPan.style.display = isMicrotonal ? 'flex' : 'none';
+    if (rowMidiRouting) rowMidiRouting.style.display = isMicrotonal ? 'flex' : 'none';
+    if (rowTuningFiles) rowTuningFiles.style.display = (isMicrotonal && isCleanRouting) ? 'flex' : 'none';
+}
+
 // --- Initialization Helpers ---
 function _loadAndApplyInitialState() {
     loadAndApplyInitialState();
@@ -249,6 +262,11 @@ function _loadAndApplyInitialState() {
     const autoPanInput = document.getElementById('auto-pan-leading');
     if (autoPanInput) autoPanInput.checked = state.autoPanLeading;
     
+    const midiExportSelector = document.getElementById('midi-export-routing');
+    if (midiExportSelector) midiExportSelector.value = state.midiExportRouting || 'mpe';
+    
+    updateMicrotonalSettingsUI();
+
     const expDrawInput = document.getElementById('experimental-draw-mode');
     if (expDrawInput) expDrawInput.checked = state.enableExperimentalDrawMode;
 
@@ -277,6 +295,7 @@ function _setupTopBarEvents() {
         tuningSelector.addEventListener('change', (e) => {
             state.divisions = parseInt(e.target.value, 10) || 12;
             persistAppState();
+            updateMicrotonalSettingsUI();
             renderProgression();
         });
     }
@@ -374,7 +393,13 @@ function _setupChordButtons() {
 function _setupControlButtons() {
     document.getElementById('btn-undo').addEventListener('click', undo);
     document.getElementById('btn-clear').addEventListener('click', clearProgression);
-    document.getElementById('btn-export').addEventListener('click', () => {
+    
+    const btnExport = document.getElementById('btn-export');
+    btnExport.addEventListener('click', () => {
+        if (btnExport.disabled) return;
+        btnExport.disabled = true;
+        setTimeout(() => btnExport.disabled = false, 1000);
+        
         const exportState = getExportState(isSongTrayOpen);
         
         const totalBeats = exportState.currentProgression.slice(exportState.loopStart, exportState.loopEnd).reduce((sum, chord) => sum + (Number(chord.duration) || 4), 0);
@@ -489,6 +514,35 @@ function _setupControlButtons() {
         });
     }
     
+    const midiExportSelector = document.getElementById('midi-export-routing');
+    if (midiExportSelector) {
+        midiExportSelector.addEventListener('change', (e) => {
+            state.midiExportRouting = e.target.value;
+            persistAppState();
+            updateMicrotonalSettingsUI();
+        });
+    }
+    
+    const btnExportScala = document.getElementById('btn-export-scala');
+    if (btnExportScala) {
+        btnExportScala.addEventListener('click', () => {
+            if (btnExportScala.disabled) return;
+            btnExportScala.disabled = true;
+            setTimeout(() => btnExportScala.disabled = false, 1000);
+            exportScalaFile(state.divisions);
+        });
+    }
+    
+    const btnExportTun = document.getElementById('btn-export-tun');
+    if (btnExportTun) {
+        btnExportTun.addEventListener('click', () => {
+            if (btnExportTun.disabled) return;
+            btnExportTun.disabled = true;
+            setTimeout(() => btnExportTun.disabled = false, 1000);
+            exportTunFile(state.divisions);
+        });
+    }
+
     const expDrawInput = document.getElementById('experimental-draw-mode');
     if (expDrawInput) {
         expDrawInput.addEventListener('change', (e) => {
@@ -653,8 +707,13 @@ function _preWarmAudio() {
     document.addEventListener('keydown', warmUp, { passive: true });
 }
 
+let appInitialized = false;
+
 // --- Main Entry Point ---
 function initApp() {
+    if (appInitialized) return;
+    appInitialized = true;
+    
     const display = document.getElementById('progression-display');
     _loadAndApplyInitialState();
     _setupTopBarEvents();

@@ -1,4 +1,4 @@
-import { getChordNotes, applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension, midiToFreq, getEdoPitch, segmentMicrotonalCluster } from './theory.js';
+import { getChordNotes, applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension, midiToFreq, getEdoPitch, segmentMicrotonalCluster, snapToGrid } from './theory.js';
 
 describe('Theory & Voice Leading Module', () => {
     
@@ -191,6 +191,21 @@ describe('Theory & Voice Leading Module', () => {
             expect(voiced[1]).toBeCloseTo(63.871, 3);
             expect(voiced[2]).toBeCloseTo(70.839, 3);
             expect(voiced[3]).toBeCloseTo(73.935, 3);
+        });
+        
+        it('should snap off-grid baseKeys (e.g. D major) to the absolute EDO grid anchored at C4 (60)', () => {
+            // D major in 31-EDO. D is 2 semitones up.
+            const notes = getChordNotes('I', 62, 31);
+            // 2 * (31/12) = 5.166 -> step 5.
+            expect(notes[0]).toBeCloseTo(60 + 5 * (12/31));
+        });
+        
+        it('should snap bass pitch offsets securely to the EDO grid', () => {
+            // C4 = 60. Bass plays a 5th up (+7)
+            const bassMidi = 60 + 7;
+            const snapped = snapToGrid(bassMidi, 31);
+            // 7 * (31/12) = 18.08 -> step 18.
+            expect(snapped).toBeCloseTo(60 + 18 * (12/31));
         });
     });
 });

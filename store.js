@@ -14,6 +14,7 @@ export const state = {
     isLooping: true, // Hardcoded to always loop
     useVoiceLeading: true,
     autoPanLeading: true,
+    midiExportRouting: 'mpe',
     globalVoicing: 'auto', // 'auto', 'close', 'spread', 'quartal'
     divisions: 12, // Standard Equal Temperament
     loopStart: 0,
@@ -280,6 +281,7 @@ export function resetSession() {
     state.isLooping = true;
     state.useVoiceLeading = true;
     state.autoPanLeading = true;
+    state.midiExportRouting = 'mpe';
     state.globalVoicing = 'auto';
     state.divisions = 12;
     state.loopStart = 0;
@@ -334,6 +336,7 @@ export function loadAndApplyInitialState() {
         state.isLooping = true; // Hardcoded to always loop
         state.useVoiceLeading = Boolean(savedState.useVoiceLeading ?? savedState.voiceLeading ?? state.useVoiceLeading);
         state.autoPanLeading = savedState.autoPanLeading !== undefined ? Boolean(savedState.autoPanLeading) : true;
+        state.midiExportRouting = savedState.midiExportRouting || 'mpe';
         state.globalVoicing = savedState.globalVoicing || 'auto';
         state.divisions = savedState.divisions !== undefined ? parseInt(savedState.divisions, 10) : 12;
         state.theme = savedState.theme === 'light' ? 'light' : 'dark';

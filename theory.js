@@ -118,9 +118,11 @@ export function getChordNotes(symbol, baseKey, divisions = 12) {
     
     return intervals.map(interval => {
         if (divisions === 12) return baseKey + interval;
-        // Map standard 12-TET semitone intervals to the closest steps in the target EDO
-        const edoStep = Math.round(interval * (divisions / 12));
-        return getEdoPitch(baseKey, edoStep, divisions);
+        // Find the absolute semitone distance from the global anchor (MIDI 60)
+        const absoluteSemitones = (baseKey - 60) + interval;
+        let periodMidiSize = 12.0;
+        const edoStep = Math.round(absoluteSemitones * (divisions / periodMidiSize));
+        return 60 + (edoStep * (periodMidiSize / divisions));
     });
 }
 
@@ -681,6 +683,16 @@ export function midiToFreq(midiPitch, a4Freq = 440.0) {
 
 export function freqToMidi(frequency, a4Freq = 440.0) {
     return 69 + 12 * Math.log2(frequency / a4Freq);
+}
+
+export function snapToGrid(floatPitch, divisions = 12) {
+    if (!divisions || divisions === 12) return floatPitch;
+    let periodMidiSize = 12.0;
+    if (divisions === 13) periodMidiSize = 12 * Math.log2(3);
+    else if (divisions === 5) periodMidiSize = 12.0;
+    
+    const edoStep = Math.round((floatPitch - 60) * (divisions / periodMidiSize));
+    return 60 + (edoStep * (periodMidiSize / divisions));
 }
 
 /**

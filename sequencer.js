@@ -1,4 +1,4 @@
-import { getChordNotes, getPlayableNotes, segmentMicrotonalCluster } from './theory.js';
+import { getChordNotes, getPlayableNotes, segmentMicrotonalCluster, snapToGrid } from './theory.js';
 import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators, playDrum } from './synth.js';
@@ -234,7 +234,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                 const instanceStartTime = time + (instance.startTime * chordSlotDuration);
                 const instanceDuration = instance.duration * chordSlotDuration;
                 const gateDuration = instanceDuration * 0.95;
-                const finalBassNote = rootNoteMidi + (instance.pitchOffset || 0);
+                const finalBassNote = snapToGrid(rootNoteMidi + (instance.pitchOffset || 0), chordObj.divisions || state.divisions || 12);
                 playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, bassInst, 'bass');
                 playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, 'sawtooth-bass', 'bassHarmonic');
             });

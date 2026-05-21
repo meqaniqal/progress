@@ -70,7 +70,12 @@ export function getMicrotonalChord(symbol, baseKey) {
         const scaleIndex = (degree + (i * step)) % scaleLength;
         const periodShift = Math.floor((degree + (i * step)) / scaleLength) * tuning.periodSize;
         const pitchOffset = (scale[scaleIndex] * stepSize) + periodShift;
-        chordPitches.push(baseKey + pitchOffset);
+        const absoluteTarget = baseKey + pitchOffset;
+        
+        const edoStep = Math.round((absoluteTarget - 60) * (tuning.divisions / tuning.periodSize));
+        const snappedPitch = 60 + (edoStep * (tuning.periodSize / tuning.divisions));
+        
+        chordPitches.push(snappedPitch);
     }
     return chordPitches;
 }

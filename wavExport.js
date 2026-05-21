@@ -1,4 +1,4 @@
-import { getChordNotes, getPlayableNotes, segmentMicrotonalCluster } from './theory.js';
+import { getChordNotes, getPlayableNotes, segmentMicrotonalCluster, snapToGrid } from './theory.js';
 import { CONFIG } from './config.js';
 import { audioBufferToWav } from './wavEncoder.js';
 import { generateArpNotes } from './arp.js';
@@ -113,7 +113,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     const instanceDuration = instance.duration * duration;
                     const gateDuration = instanceDuration * 0.95;
 
-                    const finalBassNote = bassNote + (instance.pitchOffset || 0);
+                    const finalBassNote = snapToGrid(bassNote + (instance.pitchOffset || 0), chord.divisions || globalOptions.divisions || 12);
 
                     timeline.push({
                         midiNote: finalBassNote,
@@ -214,11 +214,12 @@ export async function exportToWav(state, buttonElement) {
         const timeline = calculateAudioTimeline(state.currentProgression, state.bpm, state.useVoiceLeading, state.exportPasses, state);
         if (timeline.length === 0) return;
 
-        const totalDuration = timeline.reduce((max, ev) => Math.max(max, ev.startTime + ev.duration), 0);
-        const renderDuration = totalDuration + CONFIG.RELEASE_TIME + CONFIG.EXPORT_TAIL_PADDING; // Extra tail for release
+        const totalBeats = state.currentProgression.reduce((sum, chord) => sum + (Number(chord.duration) || 2), 0) * (state.exportPasses || 1);
+        const exactRenderDurationSec = (60.0 / state.bpm) * totalBeats;
         
         const sampleRate = 44100;
-        const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, sampleRate * renderDuration, sampleRate);
+        const lengthFrames = Math.max(1, Math.ceil(sampleRate * exactRenderDurationSec));
+        const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, lengthFrames, sampleRate);
 
         const masterCompressor = offlineCtx.createDynamicsCompressor();
         masterCompressor.threshold.value = CONFIG.COMPRESSOR_THRESHOLD;
