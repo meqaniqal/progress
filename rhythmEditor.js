@@ -1,6 +1,6 @@
 import { resolvePattern } from './patternResolver.js';
 import { getAudioCurrentTime, playTone, initAudio, midiToFreq } from './synth.js';
-import { getChordNotes } from './theory.js';
+import { getChordNotes, segmentMicrotonalCluster } from './theory.js';
 import { CONFIG } from './config.js';
 import { GRID_STEPS } from './rhythmConfig.js';
 import { initRhythmControls } from './rhythmControls.js';
@@ -52,14 +52,21 @@ export function auditionSlicePitch(pitchOffset = 0) {
     const chord = swap ? { ...baseChord, ...swap } : baseChord;
     
     if (!chord) return;
-    const notes = getChordNotes(chord.symbol, chord.key);
+    const notes = getChordNotes(chord.symbol, chord.key, app.state.divisions || 12);
     if (!notes) return;
     
     const now = getAudioCurrentTime();
     const duration = 0.4; // Short, punchy audition
     
+    const panL = app.state.autoPanLeading !== false ? -0.75 : 0;
+    const panR = app.state.autoPanLeading !== false ? 0.75 : 0;
+    
     // Play chord pad and bass note together
-    notes.forEach(n => playTone(midiToFreq(n - 12), now, duration, 'sawtooth'));
+    const segmented = segmentMicrotonalCluster(notes.map(n => n - 12));
+    segmented.core.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', 0));
+    segmented.frictionLeft.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', panL));
+    segmented.frictionRight.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', panR));
+
     const finalBassNote = notes[0] + CONFIG.BASS_OCTAVE_DROP + pitchOffset;
     playTone(midiToFreq(finalBassNote), now, duration, 'sine');
 }

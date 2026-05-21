@@ -13,7 +13,9 @@ export const state = {
     bpm: 120,
     isLooping: true, // Hardcoded to always loop
     useVoiceLeading: true,
+    autoPanLeading: true,
     globalVoicing: 'auto', // 'auto', 'close', 'spread', 'quartal'
+    divisions: 12, // Standard Equal Temperament
     loopStart: 0,
     loopEnd: 0,
     macroLoopStart: 0,
@@ -277,7 +279,9 @@ export function resetSession() {
     state.bpm = 120;
     state.isLooping = true;
     state.useVoiceLeading = true;
+    state.autoPanLeading = true;
     state.globalVoicing = 'auto';
+    state.divisions = 12;
     state.loopStart = 0;
     state.loopEnd = 0;
     state.macroLoopStart = 0;
@@ -329,7 +333,9 @@ export function loadAndApplyInitialState() {
         
         state.isLooping = true; // Hardcoded to always loop
         state.useVoiceLeading = Boolean(savedState.useVoiceLeading ?? savedState.voiceLeading ?? state.useVoiceLeading);
+        state.autoPanLeading = savedState.autoPanLeading !== undefined ? Boolean(savedState.autoPanLeading) : true;
         state.globalVoicing = savedState.globalVoicing || 'auto';
+        state.divisions = savedState.divisions !== undefined ? parseInt(savedState.divisions, 10) : 12;
         state.theme = savedState.theme === 'light' ? 'light' : 'dark';
         state.mode = savedState.mode === 'minor' ? 'minor' : 'major';
         

@@ -212,6 +212,9 @@ function _loadAndApplyInitialState() {
     updateKeyAndModeDisplay(state);
     document.getElementById('bpm-slider').value = state.bpm;
     
+    const tuningSelector = document.getElementById('tuning-selector');
+    if (tuningSelector) tuningSelector.value = state.divisions || 12;
+    
     // Ensure bassHarmonic volume state exists (default 0.0 for silent)
     if (state.volumes.bassHarmonic === undefined) {
         state.volumes.bassHarmonic = 0.0;
@@ -243,6 +246,8 @@ function _loadAndApplyInitialState() {
     const multipassInput = document.getElementById('multipass-input');
     if (multipassInput) multipassInput.value = state.exportPasses || 1;
     document.getElementById('voice-leading').checked = state.useVoiceLeading;
+    const autoPanInput = document.getElementById('auto-pan-leading');
+    if (autoPanInput) autoPanInput.checked = state.autoPanLeading;
     
     const expDrawInput = document.getElementById('experimental-draw-mode');
     if (expDrawInput) expDrawInput.checked = state.enableExperimentalDrawMode;
@@ -264,6 +269,15 @@ function _setupTopBarEvents() {
             state.theme = e.target.value;
             document.documentElement.setAttribute('data-theme', state.theme);
             persistAppState();
+        });
+    }
+    
+    const tuningSelector = document.getElementById('tuning-selector');
+    if (tuningSelector) {
+        tuningSelector.addEventListener('change', (e) => {
+            state.divisions = parseInt(e.target.value, 10) || 12;
+            persistAppState();
+            renderProgression();
         });
     }
     
@@ -367,8 +381,8 @@ function _setupControlButtons() {
         const loopDurationMin = (totalBeats / exportState.bpm);
         const totalExportMin = loopDurationMin * exportState.exportPasses;
         
-        if (totalExportMin > CONFIG.EXPORT_MINUTE_LIMIT) {
-            const recommendedPasses = Math.max(1, Math.floor(CONFIG.EXPORT_MINUTE_LIMIT / loopDurationMin));
+        if (totalExportMin > 3.0) {
+            const recommendedPasses = Math.max(1, Math.floor(3.0 / loopDurationMin));
             const confirmMsg = `This export will generate ${totalExportMin.toFixed(1)} minutes of audio/MIDI.\n\nTo prevent massive file sizes and long rendering times, we recommend capping this to ${recommendedPasses} pass(es) (${(loopDurationMin * recommendedPasses).toFixed(1)} mins).\n\nClick OK to proceed with ${recommendedPasses} pass(es), or Cancel to abort.`;
             if (confirm(confirmMsg)) {
                 exportState.exportPasses = recommendedPasses;
@@ -466,6 +480,14 @@ function _setupControlButtons() {
         state.useVoiceLeading = e.target.checked;
         persistAppState();
     });
+    
+    const autoPanInput = document.getElementById('auto-pan-leading');
+    if (autoPanInput) {
+        autoPanInput.addEventListener('change', (e) => {
+            state.autoPanLeading = e.target.checked;
+            persistAppState();
+        });
+    }
     
     const expDrawInput = document.getElementById('experimental-draw-mode');
     if (expDrawInput) {

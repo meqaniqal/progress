@@ -357,7 +357,7 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
     if (!editorState.isGlobal && editorState.activeIndex !== null) {
         const chord = app.state.currentProgression[editorState.activeIndex];
         if (chord) {
-            const notes = getChordNotes(chord.symbol, chord.key);
+            const notes = getChordNotes(chord.symbol, chord.key, app.state.divisions || 12);
             if (notes) chordNotes = notes;
         }
     }

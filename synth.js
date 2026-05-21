@@ -163,7 +163,7 @@ export function midiToFreq(m) {
     return Math.pow(2, (m - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ;
 }
 
-export function playTone(freq, startTime, duration, type = 'sine', destBus = null) {
+export function playTone(freq, startTime, duration, type = 'sine', destBus = null, pan = 0) {
     const engine = SYNTH_REGISTRY[type];
     if (!engine) return;
 
@@ -177,8 +177,19 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
         if (type === 'sawtooth-bass') targetGainNode = bassHarmonicGain;
     }
 
-    const osc = engine(audioCtx, freq, startTime, duration, targetGainNode, (deadOsc) => {
+    let finalDest = targetGainNode;
+    let panner = null;
+    
+    if (pan !== 0 && audioCtx.createStereoPanner) {
+        panner = audioCtx.createStereoPanner();
+        panner.pan.value = pan;
+        panner.connect(targetGainNode);
+        finalDest = panner;
+    }
+
+    const osc = engine(audioCtx, freq, startTime, duration, finalDest, (deadOsc) => {
         activeOscillators = activeOscillators.filter(o => o !== deadOsc);
+        if (panner) panner.disconnect();
     });
     
     if (osc) activeOscillators.push(osc);

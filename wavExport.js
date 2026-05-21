@@ -1,4 +1,4 @@
-import { getChordNotes, getPlayableNotes } from './theory.js';
+import { getChordNotes, getPlayableNotes, segmentMicrotonalCluster } from './theory.js';
 import { CONFIG } from './config.js';
 import { audioBufferToWav } from './wavEncoder.js';
 import { generateArpNotes } from './arp.js';
@@ -17,7 +17,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
         notesArray = getPlayableNotes(progression, globalOptions);
     } else {
         // Drop by 1 octave (-12) to match the pad register warmth used in live playback
-        notesArray = progression.map(chord => getChordNotes(chord.symbol, chord.key).map(n => n - 12));
+        notesArray = progression.map(chord => getChordNotes(chord.symbol, chord.key, globalOptions.divisions || 12).map(n => n - 12));
     }
 
     const chordInst = globalOptions.instruments && globalOptions.instruments.chords ? globalOptions.instruments.chords : 'sawtooth';
@@ -62,27 +62,38 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                                 startTime: instanceStartTime + event.startTime,
                                 duration: event.duration, // generateArpNotes handles the exact gate logic
                                 type: chordInst,
-                                track: 'chords'
+                                track: 'chords',
+                                pan: 0
                             });
                         });
                     } else {
                         const gateDuration = instanceDuration * 0.95; // Slight gate
-                        chordNotes.forEach(midiNote => {
+                        const segmented = segmentMicrotonalCluster(chordNotes);
+                        
+                        const panL = globalOptions.autoPanLeading !== false ? -0.75 : 0;
+                        const panR = globalOptions.autoPanLeading !== false ? 0.75 : 0;
+                        
+                        const addTimelineEvent = (note, panValue) => {
                             timeline.push({
-                                midiNote,
-                                freq: Math.pow(2, (midiNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
+                                midiNote: note,
+                                freq: Math.pow(2, (note - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                                 startTime: instanceStartTime,
                                 duration: gateDuration,
                                 type: chordInst,
-                                track: 'chords'
+                                track: 'chords',
+                                pan: panValue
                             });
-                        });
+                        };
+                        
+                        segmented.core.forEach(note => addTimelineEvent(note, 0));
+                        segmented.frictionLeft.forEach(note => addTimelineEvent(note, panL));
+                        segmented.frictionRight.forEach(note => addTimelineEvent(note, panR));
                     }
                 });
             }
             
             // Add Bass Note
-            const rootChordNotes = getChordNotes(chord.symbol, chord.key);
+            const rootChordNotes = getChordNotes(chord.symbol, chord.key, globalOptions.divisions || 12);
             if (rootChordNotes) {
                 const bassNote = rootChordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
                 
@@ -110,7 +121,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                         startTime: instanceStartTime,
                         duration: gateDuration,
                         type: bassInst,
-                        track: 'bass'
+                        track: 'bass',
+                        pan: 0
                     });
 
                     // --- Bass Harmonic Layer (Sawtooth Enhance) ---
@@ -120,7 +132,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                         startTime: instanceStartTime,
                         duration: gateDuration,
                         type: 'sawtooth-bass',
-                        track: 'bassHarmonic'
+                        track: 'bassHarmonic',
+                        pan: 0
                     });
                 });
             }
@@ -235,9 +248,17 @@ export async function exportToWav(state, buttonElement) {
             if (ev.track === 'chords') targetGainNode = chordsGain;
             else if (ev.track === 'bassHarmonic') targetGainNode = bassHarmonicGain;
 
+            let finalDest = targetGainNode;
+            if (ev.pan && ev.pan !== 0 && offlineCtx.createStereoPanner) {
+                const panner = offlineCtx.createStereoPanner();
+                panner.pan.value = ev.pan;
+                panner.connect(targetGainNode);
+                finalDest = panner;
+            }
+
             const engine = SYNTH_REGISTRY[ev.type];
             if (engine) {
-                engine(offlineCtx, ev.freq, ev.startTime, ev.duration, targetGainNode, null);
+                engine(offlineCtx, ev.freq, ev.startTime, ev.duration, finalDest, null);
             }
         });
 

@@ -305,10 +305,25 @@
                     <strong class="settings-label">Tempo (BPM)</strong>
                     <input type="number" id="bpm-slider" class="rhythm-select settings-select" value="120" min="40" max="240">
                 </div>
+                <!-- Tuning System -->
+                <div class="settings-row" title="Equal Divisions of the Octave (Microtonality)">
+                    <strong class="settings-label info">Tuning System ℹ️</strong>
+                    <select id="tuning-selector" class="rhythm-select settings-select">
+                        <option value="12">12-TET (Standard)</option>
+                        <option value="19">19-EDO</option>
+                        <option value="24">24-EDO (Quarter Tones)</option>
+                        <option value="31">31-EDO (Just Approx)</option>
+                    </select>
+                </div>
                 <!-- Voice Leading -->
                 <div class="settings-row" title="Calculates the shortest melodic distance between chords for smooth transitions">
                     <strong class="settings-label info">Voice Leading ℹ️</strong>
                     <input type="checkbox" id="voice-leading" checked class="settings-checkbox">
+                </div>
+                <!-- Auto Pan-Leading -->
+                <div class="settings-row" title="Automatically pans highly dissonant microtonal clusters wide left and right to prevent center channel muddiness">
+                    <strong class="settings-label info">Auto Pan-Leading ℹ️</strong>
+                    <input type="checkbox" id="auto-pan-leading" checked class="settings-checkbox">
                 </div>
                 <!-- Experimental Draw Mode -->
                 <div class="settings-row" title="Enable the new edit-in-place workflow and pencil draw tool">

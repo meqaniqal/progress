@@ -1,4 +1,4 @@
-import { getChordNotes, applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension } from './theory.js';
+import { getChordNotes, applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension, midiToFreq, getEdoPitch, segmentMicrotonalCluster } from './theory.js';
 
 describe('Theory & Voice Leading Module', () => {
     
@@ -147,6 +147,50 @@ describe('Theory & Voice Leading Module', () => {
             // Notes: A(69), C(72), E(76), G(79), D(86 - an octave up)
             const notes = getChordNotes('vi11', 60);
             expect(notes).toEqual([69, 72, 76, 79, 86]);
+        });
+    });
+
+    describe('Microtonal Math & Harmonic Segmentation', () => {
+        it('should correctly convert MIDI to frequency', () => {
+            expect(midiToFreq(69)).toBeCloseTo(440.0);
+            expect(midiToFreq(60)).toBeCloseTo(261.625, 2);
+        });
+
+        it('should correctly calculate floating point pitches for non-12-TET divisions', () => {
+            // 24-EDO (Quarter tones): 1 step from C(60) = 60.5
+            expect(getEdoPitch(60, 1, 24)).toBeCloseTo(60.5);
+
+            // 31-EDO: 1 step from C(60) = 60 + (12/31) ~ 60.387
+            expect(getEdoPitch(60, 1, 31)).toBeCloseTo(60.387, 3);
+        });
+
+        it('should segment highly dissonant microtonal clusters into core and friction arrays', () => {
+            // C4 (60.0), C4 + 35 cents (60.35), G4 (67.0)
+            const cluster = [60.0, 60.35, 67.0];
+            const segmented = segmentMicrotonalCluster(cluster);
+            
+            expect(segmented.core).toEqual([60.0, 67.0]);
+            expect(segmented.frictionLeft).toEqual([60.35]); // 35 cents falls within the 15-65c clash threshold
+        });
+    });
+
+    describe('EDO Scale Support (Phase 2)', () => {
+        it('should output floating point MIDI pitches for non-12-TET divisions', () => {
+            const notes = getChordNotes('I', 60, 31);
+            expect(notes[0]).toBeCloseTo(60.0);
+            expect(notes[1]).toBeCloseTo(63.871, 3);
+            expect(notes[2]).toBeCloseTo(66.968, 3);
+        });
+        
+        it('should safely optimize voicings for floating-point microtonal pitches', () => {
+            // Cmaj9 in 31-EDO: Root (0), Maj3 (4), P5 (7), Maj7 (11), Maj9 (14)
+            const notes = getChordNotes('Imaj9', 60, 31);
+            const voiced = optimizeVoicing(notes);
+            expect(voiced.length).toBe(4); // The Perfect 5th should be dropped
+            expect(voiced[0]).toBeCloseTo(60.0);
+            expect(voiced[1]).toBeCloseTo(63.871, 3);
+            expect(voiced[2]).toBeCloseTo(70.839, 3);
+            expect(voiced[3]).toBeCloseTo(73.935, 3);
         });
     });
 });

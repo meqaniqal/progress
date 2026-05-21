@@ -29,7 +29,15 @@ export const INTERVAL_WEIGHTS = {
     8: 0.6, 9: 0.3, 10: 0.5, 11: 0.9
 };
 
-export function getChordNotes(symbol, baseKey) {
+// --- Microtonal & Alternative Tuning Core ---
+export const TUNING_SYSTEMS = {
+    TET12: 12, // Standard Equal Temperament
+    EDO19: 19, // 19-Tone Equal Temperament
+    EDO24: 24, // Quarter-tone EDO
+    EDO31: 31, // 31-Tone Equal Temperament (excellent Just Intonation approx)
+};
+
+export function getChordNotes(symbol, baseKey, divisions = 12) {
     if (!symbol || typeof symbol !== 'string') return null;
 
     let intervals = CHORD_INTERVALS[symbol];
@@ -94,12 +102,18 @@ export function getChordNotes(symbol, baseKey) {
             const prefix = exoticMatch[1];
             const degree = parseInt(exoticMatch[2], 10) - 1; // 1-indexed to 0-indexed
             const scaleType = Object.keys(SCALE_PREFIXES).find(k => SCALE_PREFIXES[k] === prefix) || 'wholeTone';
-            intervals = buildChordByScaleSteps(scaleType, degree, 3, 2);
+            intervals = buildChordByScaleSteps(scaleType, degree, 3, 2, divisions);
         }
     }
     
     if (!intervals) return null;
-    return intervals.map(interval => baseKey + interval);
+    
+    return intervals.map(interval => {
+        if (divisions === 12) return baseKey + interval;
+        // Map standard 12-TET semitone intervals to the closest steps in the target EDO
+        const edoStep = Math.round(interval * (divisions / 12));
+        return getEdoPitch(baseKey, edoStep, divisions);
+    });
 }
 
 // --- Harmonic Function Alternatives ---
@@ -193,7 +207,7 @@ export function getDiatonicChords(scaleType = 'major') {
  * @param {number} step - The index jump (default 2 for standard tertian harmony).
  * @returns {number[]} Array of semitone intervals from the tonic.
  */
-export function buildChordByScaleSteps(scaleType = 'major', rootDegree = 0, numNotes = 3, step = 2) {
+export function buildChordByScaleSteps(scaleType = 'major', rootDegree = 0, numNotes = 3, step = 2, divisions = 12) {
     const scale = SCALES[scaleType] || SCALES['major'];
     const chordIntervals = [];
     const scaleLength = scale.length;
@@ -361,13 +375,13 @@ export function optimizeVoicing(notes) {
     if (notes.length < 5) return notes; // Triads and standard 7ths remain intact
     
     const root = notes[0];
-    // Remove the Perfect 5th (+7 semitones) to clear up midrange mud
-    let voiced = notes.filter(n => n !== root + 7);
+    // Remove the Perfect 5th (approx +7 semitones). Use a small tolerance for float MIDI pitches (EDO support)
+    let voiced = notes.filter(n => Math.abs(n - (root + 7)) > 0.15);
     
     // If it's still massive (like an 11th chord), drop the root too!
     // The dedicated bass synth already plays the root 2 octaves down.
     if (voiced.length >= 5) {
-        voiced = voiced.filter(n => n !== root);
+        voiced = voiced.filter(n => Math.abs(n - root) > 0.15);
     }
     return voiced;
 }
@@ -376,7 +390,8 @@ export function optimizeVoicing(notes) {
 // Calculates the inversion of a target chord that has the shortest 
 // total melodic distance from the previous chord.
 export function applyVoiceLeading(progression, globalOptions = {}) {
-    const validProgression = progression.filter(chord => getChordNotes(chord.symbol, chord.key));
+    const divisions = globalOptions.divisions || 12;
+    const validProgression = progression.filter(chord => getChordNotes(chord.symbol, chord.key, divisions));
     if (validProgression.length === 0) return [];
     
     // Dynamic voicing extraction to support future global or per-chord overrides
@@ -391,7 +406,7 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
 
     // 1. Smart Anchoring for the First Chord
     const firstOpts = getOptions(validProgression[0]);
-    let firstTarget = optimizeVoicing(getChordNotes(validProgression[0].symbol, validProgression[0].key));
+    let firstTarget = optimizeVoicing(getChordNotes(validProgression[0].symbol, validProgression[0].key, divisions));
     
     // Generate inversions dynamically based on the requested Voicing Type
     let firstInversions = generateInversions(firstTarget, firstOpts.voicingType);
@@ -408,7 +423,8 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
         if (inv[inv.length - 1] > firstOpts.extremeHigh) extremePenalty += (inv[inv.length - 1] - firstOpts.extremeHigh) * firstOpts.extremeWeight;
         
         let rootPenalty = 0;
-        if ((firstOpts.voicingType === 'auto' || firstOpts.voicingType === 'close') && (inv[0] % 12 !== firstTarget[0] % 12)) {
+        const isRootMismatch = Math.abs((inv[0] % 12) - (firstTarget[0] % 12)) > 0.15;
+        if ((firstOpts.voicingType === 'auto' || firstOpts.voicingType === 'close') && isRootMismatch) {
             rootPenalty = 15; // Strongly bias towards root position for the opening chord stability
         }
 
@@ -425,7 +441,7 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
     for (let i = 1; i < validProgression.length; i++) {
         let prevChord = processed[i - 1];
         let opts = getOptions(validProgression[i]);
-        let targetNotes = getChordNotes(validProgression[i].symbol, validProgression[i].key);
+        let targetNotes = getChordNotes(validProgression[i].symbol, validProgression[i].key, divisions);
         targetNotes = optimizeVoicing(targetNotes);
         
         let inversions = generateInversions(targetNotes, opts.voicingType);
@@ -619,4 +635,70 @@ function _insertBestPad(smaller, larger) {
         }
     }
     return bestArr;
+}
+
+// --- Microtonal Math & Conversion Utilities ---
+
+export function midiToFreq(midiPitch, a4Freq = 440.0) {
+    return a4Freq * Math.pow(2, (midiPitch - 69) / 12);
+}
+
+export function freqToMidi(frequency, a4Freq = 440.0) {
+    return 69 + 12 * Math.log2(frequency / a4Freq);
+}
+
+/**
+ * Converts an EDO scale step into a floating-point MIDI pitch.
+ * @param {number} baseMidi - The root MIDI note (e.g., 60 for C)
+ * @param {number} edoSteps - Number of scale steps from the root
+ * @param {number} divisions - Equal divisions of the octave (default: 12)
+ * @returns {number} Floating point MIDI pitch (e.g., 60.5 for a quarter tone)
+ */
+export function getEdoPitch(baseMidi, edoSteps, divisions = 12) {
+    const stepSize = 12.0 / divisions;
+    return baseMidi + (edoSteps * stepSize);
+}
+
+/**
+ * Programmatically segments a dense microtonal cluster to prevent muddiness.
+ * Groups stable ratios into a core, and isolates highly dissonant intervals.
+ * @param {number[]} floatMidiNotes - Array of float MIDI pitches.
+ * @returns {Object} { core: [], frictionLeft: [], frictionRight: [] }
+ */
+export function segmentMicrotonalCluster(floatMidiNotes) {
+    const core = [];
+    const frictionLeft = [];
+    const frictionRight = [];
+
+    if (!floatMidiNotes || floatMidiNotes.length === 0) return { core, frictionLeft, frictionRight };
+
+    const sorted = [...floatMidiNotes].sort((a, b) => a - b);
+    core.push(sorted[0]); // The bass/root tone is always stable core
+
+    let panLeft = true;
+
+    for (let i = 1; i < sorted.length; i++) {
+        const note = sorted[i];
+        let isFriction = false;
+
+        for (const c of core) {
+            const intervalCents = Math.abs(note - c) * 100; // 1 semitone = 100 cents
+            const normalizedInterval = intervalCents % 1200; // Wrap within 1 octave
+            
+            // Acoustic beating is highest when frequencies are ~15 to 65 cents apart
+            if (normalizedInterval >= 15 && normalizedInterval <= 65) {
+                isFriction = true;
+                break; // Clashes heavily with a core note
+            }
+        }
+
+        if (isFriction) {
+            panLeft ? frictionLeft.push(note) : frictionRight.push(note);
+            panLeft = !panLeft; // Alternate spatial distribution
+        } else {
+            core.push(note);
+        }
+    }
+
+    return { core, frictionLeft, frictionRight };
 }

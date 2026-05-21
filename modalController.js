@@ -55,6 +55,12 @@ function _initSettingsModal(onResetPlayback, onRenderProgression) {
                 if (multipassInput) multipassInput.value = state.exportPasses;
                 document.getElementById('voice-leading').checked = state.useVoiceLeading;
                 
+                const autoPanInput = document.getElementById('auto-pan-leading');
+                if (autoPanInput) autoPanInput.checked = state.autoPanLeading;
+                
+                const tuningSelector = document.getElementById('tuning-selector');
+                if (tuningSelector) tuningSelector.value = state.divisions || 12;
+                
                 const expDrawInput = document.getElementById('experimental-draw-mode');
                 if (expDrawInput) expDrawInput.checked = state.enableExperimentalDrawMode;
                 
