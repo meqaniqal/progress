@@ -135,9 +135,4 @@ export function closeRhythmEditor() {
     editorState.justPushedToGlobalIndex = null;
     const panel = document.getElementById('rhythm-editor-panel');
     if (panel) panel.style.display = 'none';
-
-        const builderPanel = document.getElementById('builder-panel');
-        if (builderPanel) builderPanel.style.display = 'block';
-        const undoBtn = document.getElementById('btn-undo');
-        if (undoBtn) undoBtn.style.display = '';
 }

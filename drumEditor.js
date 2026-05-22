@@ -34,6 +34,7 @@ export function initDrumInteractions(timeline) {
     let panStartX = 0;
     let panStartScrollLeft = 0;
     let cachedTimelineRect = null;
+    let dragTimeOffset = 0;
 
     timeline.addEventListener('wheel', (e) => {
         if (editorState.activeTab === 'drumPattern' && editorState.isGlobal && (e.ctrlKey || e.metaKey)) {
@@ -101,6 +102,12 @@ export function initDrumInteractions(timeline) {
             editorState.draggedHitId = hitElement.dataset.id;
             editorState.selectedHitId = hitElement.dataset.id;
             app.saveHistoryState();
+            
+            const pattern = getCurrentPattern();
+            if (pattern && pattern.hits) {
+                const hit = pattern.hits.find(h => h.id === hitElement.dataset.id);
+                if (hit) dragTimeOffset = timeRatio - hit.time;
+            }
         } else {
             editorState.selectedHitId = null;
             editorState.isPanning = true;
@@ -125,8 +132,9 @@ export function initDrumInteractions(timeline) {
         const newRowType = DRUM_ROWS[newRowIndex];
 
         let x = e.clientX - rect.left;
-        let newTime = Math.max(0, x / rect.width);
-        
+        let rawTimeRatio = Math.max(0, x / rect.width);
+        let newTime = Math.max(0, rawTimeRatio - dragTimeOffset);
+
         const actualGridValue = getActiveGridValue();
         if (actualGridValue > 0 && !e.shiftKey) newTime = Math.round(newTime / actualGridValue) * actualGridValue;
 

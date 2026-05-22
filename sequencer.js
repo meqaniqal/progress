@@ -181,7 +181,6 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
 
         const chordInst = state.instruments && state.instruments.chords ? state.instruments.chords : 'sawtooth';
         const bassInst = state.instruments && state.instruments.bass ? state.instruments.bass : 'sine';
-        const drumInst = state.instruments && state.instruments.drums ? state.instruments.drums : 'synth';
 
         // Render each rhythmic slice instance inside the chord slot
         pattern.instances.forEach(instance => {
@@ -251,7 +250,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                     if (hit.probability !== undefined && Math.random() > hit.probability) continue;
 
                     const hitTimeSec = time + (hit.time * beats * (60.0 / Number(state.bpm)));
-                    playDrum(hit.row, hitTimeSec, hit.velocity || 1.0, null, null, drumInst);
+                    playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
                     if (onDrumPlay && hit.id) {
                         const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
                         const tId = setTimeout(() => {
@@ -283,7 +282,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                         const beatWithinChord = absoluteHitBeat - absBeatStartRounded;
                         const hitTimeSec = time + (beatWithinChord * (60.0 / Number(state.bpm)));
                         if (hit.probability === undefined || Math.random() <= hit.probability) {
-                            playDrum(hit.row, hitTimeSec, hit.velocity || 1.0, null, null, drumInst);
+                            playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
                             if (onDrumPlay && hit.id) {
                                 const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
                                 const tId = setTimeout(() => {
@@ -349,7 +348,9 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
     }
 
     function scheduler() {
-        if (!isPlaying) return;
+        if (!isPlaying) {
+            return;
+        }
         
         const state = getState();
         const secState = getSectionState(state, currentMacroIndex);

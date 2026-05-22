@@ -23,6 +23,9 @@ export function resetTransport() {
 }
 
 export function initTransport(callbacks) {
+    if (window.__transportInitialized) return;
+    window.__transportInitialized = true;
+
     if (callbacks) _onRenderProgression = callbacks.onRenderProgression;
 
     const playToggleBtn = document.getElementById('btn-play-toggle');

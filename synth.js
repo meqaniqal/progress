@@ -27,10 +27,19 @@ export let noiseBuffer = null; // Pre-allocated for drum synthesis
 export const customDrumBuffers = { kick: null, snare: null, chh: null, ohh: null };
 export const customDrumPeaks = { kick: null, snare: null, chh: null, ohh: null };
 
+export function getCustomDrumPeaks(type) {
+    return customDrumPeaks[type];
+}
+
+export function hasCustomDrumSamples() {
+    return !!(customDrumBuffers.kick || customDrumBuffers.snare || customDrumBuffers.chh || customDrumBuffers.ohh);
+}
+
 // Helper to calculate waveform peaks once upon decoding, saving the UI from doing heavy math
 function extractWaveformPeaks(buffer, resolution = 50) {
+    if (!buffer) return null;
     const channelData = buffer.getChannelData(0);
-    const blockSize = Math.floor(channelData.length / resolution);
+    const blockSize = Math.max(1, Math.floor(channelData.length / resolution));
     const peaks = [];
     let globalMax = 0;
     for (let i = 0; i < resolution; i++) {
@@ -109,7 +118,8 @@ export async function decodeCustomDrumSample(type, arrayBuffer, saveToDb = true)
         // Use OfflineAudioContext to decode. This bypasses the browser's Autoplay Policy
         // which blocks the standard AudioContext from starting without a user gesture.
         const sampleRate = audioCtx ? audioCtx.sampleRate : 44100;
-        decodeCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, sampleRate);
+        // Guarantee at least 1 second of buffer length to prevent browser-specific decoding aborts
+        decodeCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, sampleRate, sampleRate);
     }
     try {
         if (saveToDb) {
@@ -195,30 +205,34 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
     if (osc) activeOscillators.push(osc);
 }
 
-export function playDrum(type, startTime, velocity = 1.0, customCtx = null, customDest = null, drumKit = 'synth') {
+export function playDrum(type, startTime, velocity = 1.0, customCtx = null, customDest = null) {
     if (!audioCtx && !customCtx) initAudio();
     
     const ctx = customCtx || audioCtx;
     const dest = customDest || drumsGain;
     if (!ctx) return;
 
-    if (drumKit === 'custom' && customDrumBuffers[type]) {
-        const engine = DRUM_REGISTRY['sample'];
+    try {
+        if (customDrumBuffers[type]) {
+            const engine = DRUM_REGISTRY['sample'];
+            if (engine) {
+                const nodes = engine(ctx, startTime, velocity, dest, customDrumBuffers[type], (deadNode) => {
+                    activeOscillators = activeOscillators.filter(o => o !== deadNode);
+                });
+                if (nodes) activeOscillators.push(...nodes);
+            }
+            return;
+        }
+
+        const engine = DRUM_REGISTRY[type];
         if (engine) {
-            const nodes = engine(ctx, startTime, velocity, dest, customDrumBuffers[type], (deadNode) => {
+            const nodes = engine(ctx, startTime, velocity, dest, noiseBuffer, (deadNode) => {
                 activeOscillators = activeOscillators.filter(o => o !== deadNode);
             });
             if (nodes) activeOscillators.push(...nodes);
         }
-        return;
-    }
-
-    const engine = DRUM_REGISTRY[type];
-    if (engine) {
-        const nodes = engine(ctx, startTime, velocity, dest, noiseBuffer, (deadNode) => {
-            activeOscillators = activeOscillators.filter(o => o !== deadNode);
-        });
-        if (nodes) activeOscillators.push(...nodes);
+    } catch (e) {
+        console.warn(`Failed to play drum: ${type}`, e);
     }
 }
 

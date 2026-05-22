@@ -25,7 +25,7 @@ export const state = {
     mode: 'major',
     exportPasses: 1,
     volumes: { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 }, // 0.8 provides headroom for mixing
-    instruments: { chords: 'sawtooth', bass: 'sine', drums: 'synth' },
+    instruments: { chords: 'sawtooth', bass: 'sine' },
     selectedChordIndex: null,
     globalPatterns: initPatternSet(),
     showManualOnStartup: true,
@@ -292,7 +292,7 @@ export function resetSession() {
     state.mode = 'major';
     state.exportPasses = 1;
     state.volumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 };
-    state.instruments = { chords: 'sawtooth', bass: 'sine', drums: 'synth' };
+    state.instruments = { chords: 'sawtooth', bass: 'sine' };
     state.selectedChordIndex = null;
     state.showManualOnStartup = true;
     state.enableExperimentalDrawMode = true;
@@ -444,7 +444,7 @@ export function loadAndApplyInitialState() {
                     chordObj.bassPattern = sanitizePat(chordObj.bassPattern, false) || initChordPattern();
                 }
 
-                chordObj.drumPattern = sanitizePat(chordObj.drumPattern, true) || initChordPattern();
+                chordObj.drumPattern = sanitizePat(chordObj.drumPattern, true) || initDrumPattern();
 
                 return chordObj;
             });

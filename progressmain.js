@@ -1,6 +1,6 @@
 import { CONFIG } from './config.js';
 import { getChordNotes, getPlayableNotes } from './theory.js';
-import { initAudio, getAudioCurrentTime, midiToFreq, playTone, setTrackVolume, decodeCustomDrumSample, loadPersistedDrumSamples, clearCustomDrumSamples } from './synth.js';
+import { initAudio, getAudioCurrentTime, midiToFreq, playTone, setTrackVolume, loadPersistedDrumSamples, clearCustomDrumSamples, hasCustomDrumSamples } from './synth.js';
 import { auditionChord, playProgression, stopAllAudio } from './sequencer.js';
 import { initDragAndDrop } from './dragdrop.js';
 import { exportToMidi, exportScalaFile, exportTunFile } from './midi.js';
@@ -214,6 +214,13 @@ export function updateMicrotonalSettingsUI() {
     if (rowTuningFiles) rowTuningFiles.style.display = (isMicrotonal && isCleanRouting) ? 'flex' : 'none';
 }
 
+export function updateCustomDrumsUI() {
+    const customDrumsPanel = document.getElementById('custom-drums-panel');
+    if (customDrumsPanel) {
+        customDrumsPanel.style.display = hasCustomDrumSamples() ? 'block' : 'none';
+    }
+}
+
 // --- Initialization Helpers ---
 function _loadAndApplyInitialState() {
     loadAndApplyInitialState();
@@ -249,12 +256,7 @@ function _loadAndApplyInitialState() {
         if (el) el.value = state.instruments[track] || 'sawtooth';
     });
     
-    const instDrums = document.getElementById('inst-drums');
-    const customDrumsPanel = document.getElementById('custom-drums-panel');
-    if (instDrums) {
-        instDrums.value = state.instruments.drums || 'synth';
-        if (customDrumsPanel) customDrumsPanel.style.display = instDrums.value === 'custom' ? 'block' : 'none';
-    }
+    updateCustomDrumsUI();
     
     const multipassInput = document.getElementById('multipass-input');
     if (multipassInput) multipassInput.value = state.exportPasses || 1;
@@ -460,44 +462,14 @@ function _setupControlButtons() {
         }
     });
     
-    const instDrums = document.getElementById('inst-drums');
-    const customDrumsPanel = document.getElementById('custom-drums-panel');
-    if (instDrums) {
-        instDrums.addEventListener('change', (e) => {
-            state.instruments.drums = e.target.value;
-            if (customDrumsPanel) customDrumsPanel.style.display = e.target.value === 'custom' ? 'block' : 'none';
-            persistAppState();
-        });
-    }
 
-    ['kick', 'snare', 'chh', 'ohh'].forEach(type => {
-        const fileInput = document.getElementById(`upload-${type}`);
-        if (fileInput) {
-            fileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async (ev) => {
-                    const arrayBuffer = ev.target.result;
-                    await decodeCustomDrumSample(type, arrayBuffer);
-                };
-                reader.readAsArrayBuffer(file);
-            });
-        }
-    });
-    
+
     const btnClearDrums = document.getElementById('btn-clear-custom-drums');
     if (btnClearDrums) {
         btnClearDrums.addEventListener('click', async () => {
             await clearCustomDrumSamples();
-            ['kick', 'snare', 'chh', 'ohh'].forEach(type => {
-                const fileInput = document.getElementById(`upload-${type}`);
-                if (fileInput) fileInput.value = ''; // Reset the file inputs in the UI
-            });
-            if (instDrums) {
-                instDrums.value = 'synth';
-                instDrums.dispatchEvent(new Event('change')); // Trigger state update and hide panel
-            }
+            updateCustomDrumsUI();
+            renderProgression();
         });
     }
 
@@ -680,7 +652,8 @@ function _setupGlobalDoubleTap() {
     document.addEventListener('pointerdown', (e) => {
         // Ignore taps on all interactive elements, timelines, panels, and controls
         const ignoredSelectors = 'button, input, select, textarea, .progression-item, .chord-btn, .rhythm-instance, .drum-hit, .bracket-element, .controls, .pattern-tab, .swap-menu, .rhythm-timeline-container, .modal-content, .drum-row-label';
-        if (e.target.closest(ignoredSelectors)) {
+        // CORRECT_PATTERN: Text nodes don't have .closest, so we must guard this call.
+        if (e.target.closest && e.target.closest(ignoredSelectors)) {
             lastTapTime = 0;
             return;
         }
@@ -707,12 +680,10 @@ function _preWarmAudio() {
     document.addEventListener('keydown', warmUp, { passive: true });
 }
 
-let appInitialized = false;
-
 // --- Main Entry Point ---
 function initApp() {
-    if (appInitialized) return;
-    appInitialized = true;
+    if (window.__progressAppInitialized) return;
+    window.__progressAppInitialized = true;
     
     const display = document.getElementById('progression-display');
     _loadAndApplyInitialState();
@@ -725,7 +696,8 @@ function initApp() {
         updateEditorState,
         updatePattern,
         pushPatternToGlobal,
-        resetPatternToGlobal
+        resetPatternToGlobal,
+        updateCustomDrumsUI
     });
     _setupKeyAndModeSelectors();
     initSongController({ onRenderProgression: renderProgression });
@@ -738,7 +710,10 @@ function initApp() {
     _setupGlobalDoubleTap();
     _preWarmAudio();
     renderProgression();
-    loadPersistedDrumSamples(); // Fetch user's custom drum kit from IndexedDB
+    loadPersistedDrumSamples().then(() => {
+        updateCustomDrumsUI();
+        renderProgression();
+    }); // Fetch user's custom drum kit from IndexedDB and update UI
 
     // Reveal the UI smoothly now that everything is styled and loaded
     document.documentElement.classList.add('loaded');

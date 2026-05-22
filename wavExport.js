@@ -22,7 +22,6 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
 
     const chordInst = globalOptions.instruments && globalOptions.instruments.chords ? globalOptions.instruments.chords : 'sawtooth';
     const bassInst = globalOptions.instruments && globalOptions.instruments.bass ? globalOptions.instruments.bass : 'sine';
-    const drumInst = globalOptions.instruments && globalOptions.instruments.drums ? globalOptions.instruments.drums : 'synth';
 
     for (let pass = 0; pass < exportPasses; pass++) {
         progression.forEach((chord, index) => {
@@ -151,8 +150,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                             drumType: hit.row,
                             startTime: hitTimeSec,
                             velocity: hit.velocity || 1.0,
-                            duration: 0.5, // Safe max length bound
-                            drumKit: drumInst
+                            duration: 0.5 // Safe max length bound
                         });
                     }
                 }
@@ -180,9 +178,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                                     type: 'drum',
                                     drumType: hit.row,
                                     startTime: hitTimeSec,
-                                    velocity: hit.velocity || 1.0,
-                                    duration: 0.5, // Safe max length bound
-                                    drumKit: drumInst
+                                velocity: hit.velocity || 1.0,
+                                duration: 0.5 // Safe max length bound
                                 });
                             }
                             absoluteHitBeat += gLength;
@@ -241,7 +238,7 @@ export async function exportToWav(state, buttonElement) {
 
         timeline.forEach(ev => {
             if (ev.type === 'drum') {
-                playDrum(ev.drumType, ev.startTime, ev.velocity, offlineCtx, drumsGain, ev.drumKit);
+                playDrum(ev.drumType, ev.startTime, ev.velocity, offlineCtx, drumsGain);
                 return;
             }
 

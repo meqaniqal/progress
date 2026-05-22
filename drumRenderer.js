@@ -1,7 +1,7 @@
 import { GRID_STEPS, DRUM_ROWS, DRUM_ROW_BG_COLORS, DRUM_LABELS } from './rhythmConfig.js';
 import { generateId } from './patternUtils.js';
 import { editorState, app, setCurrentPattern, getDurationBeats, renderRhythmTimeline } from './rhythmEditor.js';
-import { customDrumPeaks, decodeCustomDrumSample, clearCustomDrumSample } from './synth.js';
+import { getCustomDrumPeaks, decodeCustomDrumSample, clearCustomDrumSample } from './synth.js';
 
 function showDrumLabelMenu(rowType, rowEl) {
     document.querySelectorAll('.drum-label-menu').forEach(el => el.remove());
@@ -49,10 +49,7 @@ function showDrumLabelMenu(rowType, rowEl) {
         reader.onload = async (ev) => {
             const arrayBuffer = ev.target.result;
             await decodeCustomDrumSample(rowType, arrayBuffer);
-            if (app.state.instruments.drums !== 'custom') {
-                app.state.instruments.drums = 'custom';
-                app.persistAppState();
-            }
+            if (app.updateCustomDrumsUI) app.updateCustomDrumsUI();
             menu.remove();
             renderRhythmTimeline(); 
         };
@@ -77,6 +74,7 @@ function showDrumLabelMenu(rowType, rowEl) {
     clearBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         await clearCustomDrumSample(rowType);
+        if (app.updateCustomDrumsUI) app.updateCustomDrumsUI();
         menu.remove();
         renderRhythmTimeline(); 
     });
@@ -257,10 +255,10 @@ export function renderDrumGrid(container, pattern) {
             }
             
             // --- Waveform Rendering Engine ---
-            const isCustom = app.state.instruments && app.state.instruments.drums === 'custom';
-            const peaks = isCustom ? customDrumPeaks[hit.row] : null;
+            const peaks = getCustomDrumPeaks(hit.row);
 
             if (peaks && peaks.length > 0) {
+                hitEl.classList.add('has-waveform');
                 hitEl.style.background = 'transparent';
                 hitEl.style.border = 'none';
                 hitEl.style.width = '45px'; // Expand hit area slightly to make room for waveform
@@ -298,6 +296,7 @@ export function renderDrumGrid(container, pattern) {
                 }
                 path.setAttribute('d', pathDataTop + pathDataBottom + 'Z');
             } else {
+                hitEl.classList.remove('has-waveform');
                 const svg = hitEl.querySelector('svg.waveform');
                 if (svg) svg.remove();
                 hitEl.style.background = '';
