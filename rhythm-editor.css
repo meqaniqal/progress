@@ -238,11 +238,11 @@
 
 /* --- Rhythm Editor Header & Toolbar --- */
 #rhythm-header {
-    display: flex; align-items: center; justify-content: space-between; 
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
     border-bottom: 2px solid var(--border-main); padding-bottom: 10px; margin-bottom: 12px;
 }
-#rhythm-header h3 { margin: 0; border: none; padding: 0; font-size: 16px; display: flex; align-items: center; }
-#pattern-mode-controls { display: flex; gap: 8px; }
+#rhythm-header h3 { margin: 0; border: none; padding: 0; font-size: 16px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+#pattern-mode-controls { display: flex; gap: 8px; flex-wrap: wrap; }
 .toolbar-group-panel {
     display: flex; align-items: center; gap: 8px; margin-left: 8px; 
     background: var(--bg-body); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main);
@@ -256,8 +256,8 @@
 /* --- Push/Pull Global Mode --- */
 .experimental-push-pull { display: none; flex-direction: column; align-items: center; gap: 8px; }
 .experimental-push-pull.active { display: flex; }
-.push-pull-btn-container { display: flex; gap: 8px; }
-.global-mode-container { display: flex; align-items: center; gap: 8px; font-size: 12px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 4px; }
+.push-pull-btn-container { display: flex; gap: 8px; flex-wrap: wrap; }
+.global-mode-container { display: flex; align-items: center; gap: 8px; font-size: 12px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 4px; flex-wrap: wrap; }
 .global-mode-container label { color: var(--text-main); opacity: 0.8; margin: 0; font-size: 11px; }
 .global-mode-container select { padding: 2px 4px; font-size: 11px; margin: 0; min-width: 100px; }
 .global-mode-container button { padding: 2px 6px; font-size: 11px; margin-left: 4px; }

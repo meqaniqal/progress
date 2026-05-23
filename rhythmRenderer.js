@@ -69,87 +69,25 @@ export function renderRhythmTimeline() {
             
             experimentalPushPull.classList.add('active');
             
-            let btnContainer = document.getElementById('push-pull-btn-container');
-            if (!btnContainer) {
-                btnContainer = document.createElement('div');
-                btnContainer.id = 'push-pull-btn-container';
-                btnContainer.className = 'push-pull-btn-container';
-                while (experimentalPushPull.firstChild) {
-                    btnContainer.appendChild(experimentalPushPull.firstChild);
-                }
-                experimentalPushPull.appendChild(btnContainer);
-            }
-            
-            let globalModeContainer = document.getElementById('global-mode-container');
-            if (!globalModeContainer) {
-                globalModeContainer = document.createElement('div');
-                globalModeContainer.id = 'global-mode-container';
-                globalModeContainer.className = 'global-mode-container';
-                globalModeContainer.innerHTML = `
-                    <label>Inherit Mode:</label>
-                    <select id="global-mode-select" class="rhythm-select">
-                        <option value="loop">Loop Pattern</option>
-                        <option value="empty">Leave Empty</option>
-                        <option value="stretch">Stretch to Fit</option>
-                    </select>
-                    <button id="btn-apply-inherit-all" class="control-btn secondary" title="Apply this inherit mode to all other chords that are using the Global Pattern">Apply to All</button>
-                `;
-                btnContainer.parentNode.insertBefore(globalModeContainer, btnContainer);
-                
-                const selectEl = globalModeContainer.querySelector('#global-mode-select');
-                selectEl.addEventListener('change', (e) => {
-                    const chordToUpdate = app.state.currentProgression[editorState.activeIndex];
-                    if (chordToUpdate) {
-                        app.saveHistoryState();
-                        if (!chordToUpdate[editorState.activeTab]) {
-                            chordToUpdate[editorState.activeTab] = { isLocalOverride: false };
-                        }
-                        chordToUpdate[editorState.activeTab].inheritMode = e.target.value;
-                        app.persistAppState();
-                        renderRhythmTimeline();
-                    }
-                });
-
-                const applyAllBtn = globalModeContainer.querySelector('#btn-apply-inherit-all');
-                applyAllBtn.addEventListener('click', (e) => {
-                    const mode = selectEl.value;
-                    app.saveHistoryState();
-                    
-                    const globalPat = app.state.globalPatterns[editorState.activeTab];
-                    if (globalPat) globalPat.globalMode = mode;
-
-                    app.state.currentProgression.forEach(c => {
-                        const pat = c[editorState.activeTab];
-                        if (!pat || !pat.isLocalOverride) {
-                            if (!c[editorState.activeTab]) c[editorState.activeTab] = { isLocalOverride: false };
-                            c[editorState.activeTab].inheritMode = mode;
-                        }
-                    });
-                    
-                    app.persistAppState();
-                    renderRhythmTimeline();
-                    
-                    const origText = e.target.textContent;
-                    e.target.textContent = '✓ Applied';
-                    setTimeout(() => e.target.textContent = origText, 1500);
-                });
-            }
-            
-            const btnPush = btnContainer.querySelector('#btn-push-global');
-            const btnPull = btnContainer.querySelector('#btn-pull-global');
+            const btnContainer = document.getElementById('push-pull-btn-container');
+            const globalModeContainer = document.getElementById('global-mode-container');
+            const btnPush = document.getElementById('btn-push-global');
+            const btnPull = document.getElementById('btn-pull-global');
 
             if (isOverride) {
-                globalModeContainer.style.display = 'none';
+                if (globalModeContainer) globalModeContainer.style.display = 'none';
                 if (btnPush) btnPush.style.display = 'inline-block';
                 if (btnPull) btnPull.style.display = 'inline-block';
             } else {
-                globalModeContainer.style.display = 'flex';
+                if (globalModeContainer) globalModeContainer.style.display = 'flex';
                 if (btnPush) btnPush.style.display = 'none';
                 if (btnPull) btnPull.style.display = 'none';
                 
-                const selectEl = globalModeContainer.querySelector('#global-mode-select');
-                const globalPat = app.state.globalPatterns[editorState.activeTab];
-                selectEl.value = (localPat && localPat.inheritMode) ? localPat.inheritMode : (globalPat && globalPat.globalMode ? globalPat.globalMode : 'loop');
+                if (globalModeContainer) {
+                    const selectEl = globalModeContainer.querySelector('#global-mode-select');
+                    const globalPat = app.state.globalPatterns[editorState.activeTab];
+                    if (selectEl) selectEl.value = (localPat && localPat.inheritMode) ? localPat.inheritMode : (globalPat && globalPat.globalMode ? globalPat.globalMode : 'loop');
+                }
             }
         }
         if (btnLegacyReset) btnLegacyReset.style.display = 'none'; // Hide legacy reset button in toolbar
@@ -228,7 +166,14 @@ export function renderRhythmTimeline() {
 
     const applyArpBtn = document.getElementById('btn-apply-arp');
     const isChordTab = editorState.activeTab === 'chordPattern';
-    if (applyArpBtn) applyArpBtn.style.display = isChordTab ? 'inline-block' : 'none';
+    if (applyArpBtn) {
+        applyArpBtn.style.display = isChordTab ? 'inline-block' : 'none';
+        if (isChordTab) {
+            const selectedInsts = pattern.instances ? pattern.instances.filter(i => i.isSelected) : [];
+            const hasArp = selectedInsts.length > 0 && selectedInsts[0].arpSettings !== null;
+            applyArpBtn.textContent = hasArp ? '✨ Arp: ON' : '✨ Arp: OFF';
+        }
+    }
     if (styleSelect) styleSelect.style.display = isChordTab ? 'inline-block' : 'none';
     if (rateSelect) rateSelect.style.display = isChordTab ? 'inline-block' : 'none';
     

@@ -32,6 +32,11 @@ function _setupTabsAndToggles() {
             }
 
             app.persistAppState();
+            const modeSelect = document.getElementById('global-mode-select');
+            const pattern = getCurrentPattern();
+            if (modeSelect && pattern) {
+                modeSelect.value = pattern.inheritMode || pattern.globalMode || 'loop';
+            }
             renderRhythmTimeline();
         });
     });
@@ -286,6 +291,56 @@ function _setupPropertiesControls() {
 
 /** Sets up the Copy, Paste, Reset, and Delete buttons in the toolbar. */
 function _setupToolbarButtons() {
+    // --- Global Fit Mode ---
+    const modeSelect = document.getElementById('global-mode-select');
+    if (modeSelect) {
+        modeSelect.addEventListener('change', (e) => {
+            const pattern = getCurrentPattern();
+            if (pattern) {
+                app.saveHistoryState();
+                setCurrentPattern({ ...pattern, inheritMode: e.target.value, globalMode: e.target.value });
+                app.persistAppState();
+                renderRhythmTimeline();
+            }
+        });
+    }
+
+    const btnInfo = document.getElementById('btn-global-fit-info');
+    if (btnInfo) {
+        btnInfo.addEventListener('click', (e) => {
+            e.preventDefault();
+            alert("Global Fit Mode:\n\nDetermines how the Global Pattern adapts when applied to a chord with a different duration.\n\n• Repeat to Fill: Loops the pattern to fill the space.\n• Stretch to Fit: Speeds up or slows down the pattern to fit exactly.\n• Play Once: Plays the pattern once and leaves extra space empty.\n\nThe 'Apply Fit' button makes your current choice the default for ALL chords.");
+        });
+    }
+
+    const applyAllBtn = document.getElementById('btn-apply-inherit-all');
+    if (applyAllBtn) {
+        applyAllBtn.addEventListener('click', (e) => {
+            const selectEl = document.getElementById('global-mode-select');
+            if (!selectEl) return;
+            const mode = selectEl.value;
+            app.saveHistoryState();
+            
+            const globalPat = app.state.globalPatterns[editorState.activeTab];
+            if (globalPat) globalPat.globalMode = mode;
+
+            app.state.currentProgression.forEach(c => {
+                const pat = c[editorState.activeTab];
+                if (!pat || !pat.isLocalOverride) {
+                    if (!c[editorState.activeTab]) c[editorState.activeTab] = { isLocalOverride: false };
+                    c[editorState.activeTab].inheritMode = mode;
+                }
+            });
+            
+            app.persistAppState();
+            renderRhythmTimeline();
+            
+            const origText = e.target.textContent;
+            e.target.textContent = '✓ Applied';
+            setTimeout(() => e.target.textContent = origText, 1500);
+        });
+    }
+
     // --- Pitch Mode Toggle ---
     const btnPitchToggle = document.getElementById('btn-pitch-toggle');
     if (btnPitchToggle) {

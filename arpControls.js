@@ -45,8 +45,7 @@ export function initArpControls() {
         if (!pattern) return;
 
         const selectedInsts = pattern.instances.filter(i => i.isSelected);
-        // Update settings in real-time if an arp is already active on the selection
-        if (selectedInsts.length > 0 && selectedInsts[0].arpSettings !== null) {
+        if (selectedInsts.length > 0) {
             const newSettings = {
                 style: styleSelect.value,
                 rate: rateSelect.value,

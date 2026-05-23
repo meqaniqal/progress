@@ -9,6 +9,7 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - THEORY: Roman Numeral -> MIDI Pitch Array `[60, 64, 67]`. Math/Voice Leading fns must be pure.
 - CONSTANTS: No magic numbers in code. Extract all configuration values to a top-level `CONFIG` object.
 - MOBILE DRAG & DROP: Never rely on `e.dataTransfer.getData()` to pass payloads. Always use module-scoped variables (e.g., `draggedSourceChord`, `draggedIndex`) to pass state between `dragstart` and `drop` to maintain strict compatibility with the mobile polyfill.
+- STYLING: Keep unnecessary CSS out of `index.html`. Only CSS absolutely critical for preventing initial FOUC should be inline. All other styles belong in appropriate `.css` files.
 
 ## MANDATORY WORKFLOW
 1. **CONTEXT PROVISIONING:** For any new session or task, always include `AI_CONTEXT.md` and `PROJECT_STRUCTURE.txt`. This ensures architectural alignment and prevents incorrect assumptions about the codebase.

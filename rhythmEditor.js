@@ -125,6 +125,12 @@ export function openRhythmEditor(index) {
 
     renderRhythmTimeline();
     
+    const modeSelect = document.getElementById('global-mode-select');
+    const pattern = getCurrentPattern();
+    if (modeSelect && pattern) {
+        modeSelect.value = pattern.inheritMode || pattern.globalMode || 'loop';
+    }
+    
     const panel = document.getElementById('rhythm-editor-panel');
     panel.style.display = 'block';
 }

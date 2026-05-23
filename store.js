@@ -99,28 +99,7 @@ export function updatePattern(tab, pattern, activeIndex, isGlobal, markAsOverrid
         
         if (tab === 'chordPattern') {
             const oldBassPattern = state.globalPatterns['bassPattern'];
-            const bassCopy = JSON.parse(JSON.stringify(pattern));
-            bassCopy.instances.forEach(inst => {
-                inst.id = Math.random().toString(36).substring(2, 10);
-                if (oldBassPattern && Array.isArray(oldBassPattern.instances)) {
-                    const center = inst.startTime + (inst.duration / 2);
-                    const oldInst = oldBassPattern.instances.find(o => center >= o.startTime && center <= o.startTime + o.duration);
-                    if (oldInst && oldInst.pitchOffset) {
-                        inst.pitchOffset = oldInst.pitchOffset;
-                    }
-                }
-            });
-            state.globalPatterns['bassPattern'] = bassCopy;
-        }
-    } else {
-        if (activeIndex === null) return;
-        const chord = state.currentProgression[activeIndex];
-        if (chord) {
-            if (markAsOverride) pattern.isLocalOverride = true;
-            chord[tab] = pattern;
-            
-            if (tab === 'chordPattern') {
-                const oldBassPattern = chord['bassPattern'];
+            if (!oldBassPattern || !oldBassPattern.isLocalOverride) {
                 const bassCopy = JSON.parse(JSON.stringify(pattern));
                 bassCopy.instances.forEach(inst => {
                     inst.id = Math.random().toString(36).substring(2, 10);
@@ -132,7 +111,32 @@ export function updatePattern(tab, pattern, activeIndex, isGlobal, markAsOverrid
                         }
                     }
                 });
-                chord['bassPattern'] = bassCopy;
+                state.globalPatterns['bassPattern'] = bassCopy;
+            }
+        }
+    } else {
+        if (activeIndex === null) return;
+        const chord = state.currentProgression[activeIndex];
+        if (chord) {
+            if (markAsOverride) pattern.isLocalOverride = true;
+            chord[tab] = pattern;
+            
+            if (tab === 'chordPattern') {
+                const oldBassPattern = chord['bassPattern'];
+                if (!oldBassPattern || !oldBassPattern.isLocalOverride) {
+                    const bassCopy = JSON.parse(JSON.stringify(pattern));
+                    bassCopy.instances.forEach(inst => {
+                        inst.id = Math.random().toString(36).substring(2, 10);
+                        if (oldBassPattern && Array.isArray(oldBassPattern.instances)) {
+                            const center = inst.startTime + (inst.duration / 2);
+                            const oldInst = oldBassPattern.instances.find(o => center >= o.startTime && center <= o.startTime + o.duration);
+                            if (oldInst && oldInst.pitchOffset) {
+                                inst.pitchOffset = oldInst.pitchOffset;
+                            }
+                        }
+                    });
+                    chord['bassPattern'] = bassCopy;
+                }
             }
         }
     }
@@ -155,19 +159,23 @@ export function pushPatternToGlobal(tab, pattern, activeIndex) {
     
     if (tab === 'chordPattern') {
         const oldGlobalBass = state.globalPatterns['bassPattern'];
-        const bassCopy = JSON.parse(JSON.stringify(globalCopy));
-        bassCopy.instances.forEach(inst => {
-            inst.id = Math.random().toString(36).substring(2, 10);
-            if (oldGlobalBass && Array.isArray(oldGlobalBass.instances)) {
-                const center = inst.startTime + (inst.duration / 2);
-                const oldInst = oldGlobalBass.instances.find(o => center >= o.startTime && center <= o.startTime + o.duration);
-                if (oldInst && oldInst.pitchOffset) {
-                    inst.pitchOffset = oldInst.pitchOffset;
+        if (!oldGlobalBass || !oldGlobalBass.isLocalOverride) {
+            const bassCopy = JSON.parse(JSON.stringify(globalCopy));
+            bassCopy.instances.forEach(inst => {
+                inst.id = Math.random().toString(36).substring(2, 10);
+                if (oldGlobalBass && Array.isArray(oldGlobalBass.instances)) {
+                    const center = inst.startTime + (inst.duration / 2);
+                    const oldInst = oldGlobalBass.instances.find(o => center >= o.startTime && center <= o.startTime + o.duration);
+                    if (oldInst && oldInst.pitchOffset) {
+                        inst.pitchOffset = oldInst.pitchOffset;
+                    }
                 }
+            });
+            state.globalPatterns['bassPattern'] = bassCopy;
+            if (!chord || !chord['bassPattern'] || !chord['bassPattern'].isLocalOverride) {
+                resetPatternToGlobal('bassPattern', activeIndex);
             }
-        });
-        state.globalPatterns['bassPattern'] = bassCopy;
-        resetPatternToGlobal('bassPattern', activeIndex);
+        }
     }
 }
 

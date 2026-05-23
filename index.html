@@ -212,8 +212,19 @@
                     <button class="toggle-btn active" data-mode="local">Local Override</button>
                 </div>
                 <div id="experimental-push-pull" class="experimental-push-pull">
+                <div id="push-pull-btn-container" class="push-pull-btn-container" style="align-items: center; justify-content: center;">
+                    <div id="global-mode-container" class="global-mode-container">
+                        <button id="btn-apply-inherit-all" class="control-btn secondary btn-sm" style="padding: 2px 6px; font-size: 11px;" title="Apply this fit mode to all chords using the Global Pattern">Apply Fit</button>
+                        <select id="global-mode-select" class="rhythm-select select-sm" style="min-width: auto; padding: 2px 4px;">
+                            <option value="loop">Repeat to Fill</option>
+                            <option value="stretch">Stretch to Fit</option>
+                            <option value="truncate">Play Once</option>
+                        </select>
+                        <button id="btn-global-fit-info" class="icon-btn" style="cursor: pointer; opacity: 0.8; font-size: 14px; padding: 0;" title="Info">ℹ️</button>
+                    </div>
                     <button class="control-btn secondary btn-sm" id="btn-pull-global" title="Revert to inheriting the Global Pattern">↺ From Global</button>
                     <button class="control-btn secondary btn-sm" id="btn-push-global" title="Push this pattern to update the Global Master">⇡ Set Global</button>
+                </div>
                 </div>
             </div>
         </div>
@@ -245,7 +256,7 @@
                 </div>
                 <!-- Arp & Properties Row -->
                 <div class="toolbar-row" id="arp-toolbar-row">
-                    <button class="control-btn primary btn-md" id="btn-apply-arp">✨ Apply Arp</button>
+                    <button class="control-btn primary btn-md" id="btn-apply-arp">✨ Arp: OFF</button>
                 </div>
             </div>
         </div>
