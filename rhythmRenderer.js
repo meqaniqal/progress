@@ -141,7 +141,7 @@ export function renderRhythmTimeline() {
     }
 
     // Sync the legacy toggle's visual state
-    if (legacyToggle && !isExperimental) {
+    if (legacyToggle && (!isExperimental || !isChordOrBass)) {
         const toggles = legacyToggle.querySelectorAll('.toggle-btn');
         toggles.forEach(b => {
             if ((b.dataset.mode === 'global' && editorState.isGlobal) || 

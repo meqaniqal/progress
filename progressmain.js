@@ -378,16 +378,37 @@ function _setupProgressionDisplayEvents(display) {
 }
 
 function _setupChordButtons() {
-    const chordBtns = document.querySelectorAll('.chord-btn');
-    chordBtns.forEach(btn => {
-        if (btn.hasAttribute('data-chord')) {
-            btn.draggable = true;
-            btn.addEventListener('click', () => {
-                auditionChord(btn.dataset.chord, state.baseKey);
-            });
-            btn.addEventListener('dblclick', () => {
-                addChord(btn.dataset.chord);
-            });
+    let lastTapTime = 0;
+    let lastTapId = null;
+
+    // Ensure statically defined palette buttons have draggable set
+    document.querySelectorAll('.chord-btn[data-chord]').forEach(btn => {
+        btn.draggable = true;
+    });
+
+    // Universal Double-Tap (Pointerdown) for all chord buttons (Palette & Modulation)
+    document.addEventListener('pointerdown', (e) => {
+        const btn = e.target.closest('.chord-btn');
+        if (btn && btn.hasAttribute('data-chord') && !btn.closest('.swap-menu')) {
+            const now = Date.now();
+            if (now - lastTapTime < 350 && lastTapId === btn.dataset.chord) {
+                e.preventDefault();
+                const targetKey = btn.hasAttribute('data-key') ? parseInt(btn.dataset.key, 10) : state.baseKey;
+                addChord(btn.dataset.chord, targetKey);
+                lastTapTime = 0;
+            } else {
+                lastTapTime = now;
+                lastTapId = btn.dataset.chord;
+            }
+        }
+    });
+
+    // Universal Click (Audition)
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.chord-btn');
+        if (btn && btn.hasAttribute('data-chord') && !btn.closest('.swap-menu')) {
+            const targetKey = btn.hasAttribute('data-key') ? parseInt(btn.dataset.key, 10) : state.baseKey;
+            if (!isPlaybackActive()) auditionChord(btn.dataset.chord, targetKey);
         }
     });
 }

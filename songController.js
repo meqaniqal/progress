@@ -667,6 +667,8 @@ export function updateSongUI() {
 
     if (state.currentProgression.length === 0 && Object.keys(state.sections).length > 1) {
         _showInheritForSection = state.activeSectionId;
+    } else if (state.currentProgression.length > 0) {
+        _showInheritForSection = null; // Clear the dropdown if the user adds a chord
     }
 
     if (_showInheritForSection === state.activeSectionId && Object.keys(state.sections).length > 1) {

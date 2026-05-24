@@ -222,9 +222,6 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
             btn.dataset.key = sug.key;
             btn.draggable = true;
             
-            btn.addEventListener('click', () => callbacks.onAuditionChord(sug.symbol, sug.key));
-            btn.addEventListener('dblclick', () => callbacks.onAddChord(sug.symbol, sug.key));
-            
             btnContainer.appendChild(btn);
         });
     } else {

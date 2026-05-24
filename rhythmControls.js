@@ -475,8 +475,11 @@ function _setupToolbarButtons() {
 /** Sets up global keyboard shortcuts when the Rhythm Editor is active. */
 function _setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
-        // Ignore if focus is inside an input, textarea, or select
-        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+        // Ignore if focus is inside a text input, textarea, or select
+        const tag = e.target.tagName;
+        if (tag === 'TEXTAREA' || tag === 'SELECT' || (tag === 'INPUT' && !['range', 'checkbox'].includes(e.target.type))) {
+            return;
+        }
 
         if (e.key === 'Backspace' || e.key === 'Delete') {
             const panel = document.getElementById('rhythm-editor-panel');

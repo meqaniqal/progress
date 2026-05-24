@@ -100,16 +100,25 @@ export function initTimelineInteractions(timeline) {
             editorState.isResizing = resizeHandle.classList.contains('left') ? 'left' : 'right';
             editorState.draggedInstanceId = instId;
             
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            
             timeline.setPointerCapture(e.pointerId);
             app.saveHistoryState();
             
             const pattern = getCurrentPattern();
             if (pattern) {
                 const currentInst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
-                if (currentInst && !currentInst.isSelected) {
-                    setCurrentPattern(exclusiveSelect(pattern, editorState.draggedInstanceId));
-                    auditionSlicePitch(currentInst.pitchOffset || 0);
-                    renderRhythmTimeline();
+                if (currentInst) {
+                    originalStartTime = currentInst.startTime;
+                    originalDuration = currentInst.duration;
+                    editorState.dragStartPitchOffset = currentInst.pitchOffset || 0;
+                    
+                    if (!currentInst.isSelected) {
+                        setCurrentPattern(exclusiveSelect(pattern, editorState.draggedInstanceId));
+                        auditionSlicePitch(currentInst.pitchOffset || 0);
+                        renderRhythmTimeline();
+                    }
                 }
             }
             return;
@@ -226,25 +235,40 @@ export function initTimelineInteractions(timeline) {
 
         if (editorState.isResizing && editorState.draggedInstanceId) {
             if (!hasValidContext()) return;
-            const rect = cachedTimelineRect || getTimelineRect();
-            let newTime = (e.clientX - rect.left) / rect.width;
 
-            const actualGridValue = getActiveGridValue();
-            if (actualGridValue > 0 && !e.shiftKey) {
-                newTime = Math.round(newTime / actualGridValue) * actualGridValue;
+            // ESCAPE HATCH: If dragging vertically in Pitch Mode, assume the user meant to change pitch, not resize.
+            if (editorState.isPitchModeEnabled && editorState.activeTab === 'bassPattern') {
+                const deltaY = e.clientY - dragStartY;
+                const deltaX = e.clientX - dragStartX;
+                
+                // If vertical drag distance is significant and dominates horizontal drag
+                if (Math.abs(deltaY) > 5 && Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
+                    editorState.isResizing = null;
+                    editorState.isDragging = true;
+                }
             }
+            
+            if (editorState.isResizing) {
+                const rect = cachedTimelineRect || getTimelineRect();
+                let newTime = (e.clientX - rect.left) / rect.width;
 
-            const pattern = getCurrentPattern();
-            const inst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
-            
-            const newPattern = resizeInstance(pattern, editorState.draggedInstanceId, editorState.isResizing, newTime);
-            const updatedInst = newPattern.instances.find(i => i.id === editorState.draggedInstanceId);
-            
-            if (inst && updatedInst && (updatedInst.startTime !== inst.startTime || updatedInst.duration !== inst.duration)) {
-                setCurrentPattern(newPattern);
-                renderRhythmTimeline();
+                const actualGridValue = getActiveGridValue();
+                if (actualGridValue > 0 && !e.shiftKey) {
+                    newTime = Math.round(newTime / actualGridValue) * actualGridValue;
+                }
+
+                const pattern = getCurrentPattern();
+                const inst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
+                
+                const newPattern = resizeInstance(pattern, editorState.draggedInstanceId, editorState.isResizing, newTime);
+                const updatedInst = newPattern.instances.find(i => i.id === editorState.draggedInstanceId);
+                
+                if (inst && updatedInst && (updatedInst.startTime !== inst.startTime || updatedInst.duration !== inst.duration)) {
+                    setCurrentPattern(newPattern);
+                    renderRhythmTimeline();
+                }
+                return;
             }
-            return;
         }
 
         if (editorState.draggedInstanceId && !editorState.isDragging) {
