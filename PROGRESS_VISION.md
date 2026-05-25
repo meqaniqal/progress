@@ -215,3 +215,9 @@ Transitioning from mapping 12-TET math into EDOs towards supporting true, indepe
 - **Continuous Float-Based Suggestions (`microtonalSuggestions.js`):** Moved beyond `modulo 12` integer pitch-classes for harmonic suggestions. Utilized Cents and Least Squares Distance math to mathematically calculate the closest harmonic replacements and modulations across entirely different tuning systems.
 - **Exotic UI Bridge:** Built a dedicated "Microtonal" category in the scale dropdown that queries the new dictionary to populate the UI palettes with custom syntax (e.g., `BPLambda1`, `EDO24Bayati2`) instead of diatonic numerals.
   - CSS media queries will handle the breakpoint shift seamlessly.
+
+### 12. Advanced Composition & UX Polish (Phase 9 - Upcoming)
+- **Enharmonic Context Dimming:** When switching scales, chords in the palette or inspector that are enharmonically equivalent to chords already present in the active section of the chord tray will receive a subdued visual styling. This gently indicates to the user that the chord is already in use.
+- **Loop Block Dragging:** Introduce a draggable macro-block in the chord palette that represents the current loop bounds. Dragging or double-tapping this button will insert the entire sequence of chords currently within the loop brackets into the progression at once.
+- **Polyphonic Slice Pitch Editing:** Expand the Pattern Editor's Pitch Mode (currently limited to Bass) to support Chords. Allow users to adjust the pitch of individual notes within a sliced chord block, essentially creating custom voicings per slice. Includes copy/paste functionality to apply these specific pitch modifications across multiple slices.
+- **Intelligent Bassline Enhancements:** Refine the bassline generation logic which is currently too strict (often yielding a single short slice). Upgrade it to produce more interesting, multi-note rhythmic patterns that take surrounding chords and broader rhythmic context into consideration.

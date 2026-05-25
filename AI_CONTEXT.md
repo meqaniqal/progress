@@ -112,6 +112,12 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] **Float-Based Suggestions:** Created `microtonalSuggestions.js` to calculate harmonic swaps via Cent-based interval arrays and Least Squares Distance, completely replacing `modulo 12` integer logic.
 - [x] **Exotic UI Bridge:** Updated the scale selector to dynamically generate custom micro-chord badges (e.g., `BP1`) instead of diatonic numerals.
 
+**Phase 9: Advanced Composition & UX Polish (Upcoming)**
+- [ ] **Enharmonic Context Dimming:** Subdue palette/inspector chords that are identical to chords already in the active progression.
+- [ ] **Loop Block Dragging:** A new button representing the current loop bounds that allows drag-and-dropping the entire looped sequence at once.
+- [ ] **Polyphonic Slice Pitch Editing:** Expand Pitch Mode in the Pattern Editor to allow pitch adjustments of individual notes within a chord slice, plus copy/pasting of these modifications.
+- [ ] **Intelligent Bassline Enhancements:** Refine generation logic to produce interesting, multi-note rhythms instead of overly strict short slices, accounting for surrounding chord context.
+
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.
 - `move_protocol`: Relocate via 1) Delete diff 2) Insert diff. Never combine.

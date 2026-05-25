@@ -53,7 +53,7 @@ export function initDrumPattern(isLocalOverride = false) {
  */
 export function initPatternSet() {
     const chordPattern = initChordPattern(false);
-    const bassPattern = JSON.parse(JSON.stringify(chordPattern));
+    const bassPattern = structuredClone(chordPattern);
     bassPattern.instances.forEach(inst => inst.id = generateId()); // Ensure unique DOM IDs
     const drumPattern = initDrumPattern(false);
     return { chordPattern, bassPattern, drumPattern };

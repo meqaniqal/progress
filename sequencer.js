@@ -184,7 +184,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
 
         // Render each rhythmic slice instance inside the chord slot
         pattern.instances.forEach(instance => {
-            if (instance.probability !== undefined && Math.random() > instance.probability) return;
+            if (instance.probability != null && Math.random() > instance.probability) return;
 
             const instanceStartTime = time + (instance.startTime * chordSlotDuration);
             const instanceDuration = instance.duration * chordSlotDuration;
@@ -228,7 +228,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             bPattern = resolvePattern(bPattern, isGlobalBass, beats);
             
             bPattern.instances.forEach(instance => {
-                if (instance.probability !== undefined && Math.random() > instance.probability) return;
+                if (instance.probability != null && Math.random() > instance.probability) return;
 
                 const instanceStartTime = time + (instance.startTime * chordSlotDuration);
                 const instanceDuration = instance.duration * chordSlotDuration;
@@ -247,7 +247,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             // Local Punch-In
             if (drumPat.hits) {
                 for (const hit of drumPat.hits) {
-                    if (hit.probability !== undefined && Math.random() > hit.probability) continue;
+                    if (hit.probability != null && Math.random() > hit.probability) continue;
 
                     const hitTimeSec = time + (hit.time * beats * (60.0 / Number(state.bpm)));
                     playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);

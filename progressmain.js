@@ -4,11 +4,9 @@ import { initAudio, getAudioCurrentTime, midiToFreq, playTone, setTrackVolume, l
 import { auditionChord, playProgression, stopAllAudio } from './sequencer.js';
 import { initDragAndDrop } from './dragdrop.js';
 import { exportToMidi, exportScalaFile, exportTunFile } from './midi.js';
-import { calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder } from './stateUtils.js';
-import { initPatternSet } from './patternUtils.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
 import { KEY_NAMES, highlightChordInUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
-import { state, getActiveProgression, applyLoopBounds, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, resetSession, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal } from './store.js';
+import { state, getActiveProgression, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal, addChord, removeChord, clearProgression, swapChord, stepInversion, changeVoicing, changeVoicingType, setGlobalVoicing, changeChordKey, transposeChord, changeDuration, addTurnaround, reorderProgression, addChordFromSource, setProgressionBrackets } from './store.js';
 import { getExportState } from './exportStateBuilder.js';
 import { initExportUI } from './exportController.js';
 import { initModals } from './modalController.js';
@@ -21,72 +19,20 @@ import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from '
             }
         }
 
-        function addChord(numeral, targetKey = state.baseKey) {
-            saveHistoryState();
-            const isAtEnd = state.loopEnd === state.currentProgression.length;
-            state.currentProgression.push({ symbol: numeral, key: targetKey, ...initPatternSet(), duration: 2 });
-            
-            if (isAtEnd) state.loopEnd = state.currentProgression.length;
-            
-            applyLoopBounds();
-            persistAppState();
-            renderProgression();
-        }
-
-        function removeChord(index) {
-            saveHistoryState();
-            const isAtEnd = state.loopEnd === state.currentProgression.length;
-            state.temporarySwaps = calculateSwapsOnRemove(state.temporarySwaps, index);
-            
-            if (state.selectedChordIndex > index) {
-                state.selectedChordIndex--;
-            }
-            
-            state.currentProgression.splice(index, 1);
-            
-            if (isAtEnd) {
-                state.loopEnd = state.currentProgression.length;
-            } else if (index < state.loopEnd) {
-                state.loopEnd--;
-            }
-            
-            if (index < state.loopStart) {
-                state.loopStart--;
-            }
-            
-            applyLoopBounds();
-            persistAppState();
-            renderProgression();
-        }
-
-        function clearProgression() {
-            if (state.currentProgression.length === 0) return;
-            saveHistoryState();
-            state.temporarySwaps = {};
-            state.selectedChordIndex = null;
-            resetTransport();
-            state.currentProgression = [];
-            applyLoopBounds();
-            persistAppState();
-            renderProgression();
-        }
-
         const uiCallbacks = {
             onAuditionChord: (symbol, key) => {
                 if (!isPlaybackActive()) auditionChord(symbol, key);
             },
-            onAddChord: (symbol, key) => addChord(symbol, key),
-            onRemoveChord: (index) => removeChord(index),
+            onAddChord: (symbol, key) => {
+                addChord(symbol, key);
+                renderProgression();
+            },
+            onRemoveChord: (index) => {
+                removeChord(index);
+                renderProgression();
+            },
             onSwapChord: (index, altSymbol, originalChord) => {
-                saveHistoryState();
-                if (altSymbol === originalChord.symbol) {
-                    delete state.temporarySwaps[index];
-                } else {
-                    // Create a swap object that only contains the changed property.
-                    // getActiveProgression will merge it with the original.
-                    state.temporarySwaps[index] = { symbol: altSymbol };
-                }
-                persistAppState(); // Persist before getting active progression for audition
+                swapChord(index, altSymbol, originalChord.symbol);
                 
                 const chordToAudition = getActiveProgression()[index];
                 if (!isPlaybackActive()) {
@@ -100,79 +46,42 @@ import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from '
                 renderProgression();
             },
             onStepInversion: (index, direction) => {
-                saveHistoryState();
-                const chordToModify = getActiveProgression()[index];
-                const currentOffset = chordToModify.inversionOffset ?? 0;
-                const newOffset = currentOffset + direction;
-
-                if (state.temporarySwaps[index]) {
-                    state.temporarySwaps[index] = { ...state.temporarySwaps[index], inversionOffset: newOffset };
-                } else {
-                    state.currentProgression[index].inversionOffset = newOffset;
-                }
-                persistAppState();
+                stepInversion(index, direction);
                 const newlyActiveProg = getActiveProgression();
                 const notesToPlay = getPlayableNotes(newlyActiveProg, state)[index];
             auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay, newlyActiveProg[index].divisions);
                 renderProgression();
             },
             onChangeVoicing: (index, voicingObj) => {
-                saveHistoryState();
-                state.currentProgression[index].voicing = voicingObj;
-                if (state.temporarySwaps[index]) state.temporarySwaps[index] = { ...state.temporarySwaps[index], voicing: voicingObj };
-                persistAppState();
+                changeVoicing(index, voicingObj);
                 renderProgression();
             },
             onChangeVoicingType: (index, type) => {
-                saveHistoryState();
-                state.currentProgression[index].voicingType = type;
-                if (state.temporarySwaps[index]) state.temporarySwaps[index].voicingType = type;
-                persistAppState();
-
+                changeVoicingType(index, type);
                 const newlyActiveProg = getActiveProgression();
                 const notesToPlay = getPlayableNotes(newlyActiveProg, state)[index];
             auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay, newlyActiveProg[index].divisions);
                 renderProgression();
             },
             onSetGlobalVoicing: (type) => {
-                saveHistoryState();
-                state.globalVoicing = type;
-                persistAppState();
+                setGlobalVoicing(type);
                 renderProgression();
             },
             onChangeChordKey: (index, newKey) => {
-                saveHistoryState();
-                state.currentProgression[index].key = newKey;
-                if (state.temporarySwaps[index]) {
-                    state.temporarySwaps[index].key = newKey;
-                }
-                persistAppState();
+                changeChordKey(index, newKey);
                 renderProgression();
             },
             onTransposeChord: (index) => {
-                saveHistoryState();
-                state.currentProgression[index].key = state.baseKey;
-                if (state.temporarySwaps[index]) state.temporarySwaps[index].key = state.baseKey;
-                persistAppState();
+                transposeChord(index);
                 renderProgression();
             },
             onChangeDuration: (index, dur) => {
-                saveHistoryState();
-                state.currentProgression[index].duration = dur;
-                if (state.temporarySwaps[index]) state.temporarySwaps[index].duration = dur;
-                persistAppState();
+                changeDuration(index, dur);
                 renderProgression();
             },
             onAddTurnaround: (index, altSymbol, key) => {
-                saveHistoryState();
-                const insertIndex = index + 1;
-                state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
-                state.currentProgression.splice(insertIndex, 0, { symbol: altSymbol, key: key, ...initPatternSet(), duration: 2 });
-                if (insertIndex <= state.loopEnd) state.loopEnd++;
-                state.selectedChordIndex = insertIndex;
+                addTurnaround(index, altSymbol, key);
                 auditionChord(altSymbol, key);
-                applyLoopBounds();
-                persistAppState();
                 renderProgression();
             }
         };
@@ -342,6 +251,7 @@ function _setupProgressionDisplayEvents(display) {
             const index = parseInt(item.dataset.index, 10);
             if (confirm('Delete this chord?')) {
                 removeChord(index);
+                renderProgression();
             }
         }
     });
@@ -357,6 +267,7 @@ function _setupProgressionDisplayEvents(display) {
         
         if (e.target.classList.contains('remove-btn')) {
             removeChord(index);
+            renderProgression();
             return;
         }
 
@@ -391,10 +302,11 @@ function _setupChordButtons() {
         const btn = e.target.closest('.chord-btn');
         if (btn && btn.hasAttribute('data-chord') && !btn.closest('.swap-menu')) {
             const now = Date.now();
-            if (now - lastTapTime < 350 && lastTapId === btn.dataset.chord) {
+            if (now - lastTapTime < CONFIG.DOUBLE_TAP_DELAY_MS && lastTapId === btn.dataset.chord) {
                 e.preventDefault();
                 const targetKey = btn.hasAttribute('data-key') ? parseInt(btn.dataset.key, 10) : state.baseKey;
                 addChord(btn.dataset.chord, targetKey);
+                renderProgression();
                 lastTapTime = 0;
             } else {
                 lastTapTime = now;
@@ -415,7 +327,12 @@ function _setupChordButtons() {
 
 function _setupControlButtons() {
     document.getElementById('btn-undo').addEventListener('click', undo);
-    document.getElementById('btn-clear').addEventListener('click', clearProgression);
+    document.getElementById('btn-clear').addEventListener('click', () => {
+        if (state.currentProgression.length === 0) return;
+        resetTransport();
+        clearProgression();
+        renderProgression();
+    });
     
     const btnExport = document.getElementById('btn-export');
     btnExport.addEventListener('click', () => {
@@ -429,8 +346,8 @@ function _setupControlButtons() {
         const loopDurationMin = (totalBeats / exportState.bpm);
         const totalExportMin = loopDurationMin * exportState.exportPasses;
         
-        if (totalExportMin > 3.0) {
-            const recommendedPasses = Math.max(1, Math.floor(3.0 / loopDurationMin));
+        if (totalExportMin > CONFIG.EXPORT_MINUTE_LIMIT) {
+            const recommendedPasses = Math.max(1, Math.floor(CONFIG.EXPORT_MINUTE_LIMIT / loopDurationMin));
             const confirmMsg = `This export will generate ${totalExportMin.toFixed(1)} minutes of audio/MIDI.\n\nTo prevent massive file sizes and long rendering times, we recommend capping this to ${recommendedPasses} pass(es) (${(loopDurationMin * recommendedPasses).toFixed(1)} mins).\n\nClick OK to proceed with ${recommendedPasses} pass(es), or Cancel to abort.`;
             if (confirm(confirmMsg)) {
                 exportState.exportPasses = recommendedPasses;
@@ -570,68 +487,15 @@ function _setupDragAndDrop(display) {
                 return;
             }
             
-            if (oldIndex !== newIndex) {
-                saveHistoryState();
-                state.temporarySwaps = calculateSwapsOnReorder(state.temporarySwaps, state.currentProgression.length, oldIndex, newIndex);
-                
-                if (state.selectedChordIndex === oldIndex) {
-                    state.selectedChordIndex = newIndex;
-                } else if (state.selectedChordIndex > oldIndex && state.selectedChordIndex <= newIndex) {
-                    state.selectedChordIndex--;
-                } else if (state.selectedChordIndex < oldIndex && state.selectedChordIndex >= newIndex) {
-                    state.selectedChordIndex++;
-                }
-                
-                const itemToMove = state.currentProgression.splice(oldIndex, 1)[0];
-                state.currentProgression.splice(newIndex, 0, itemToMove);
-            } 
-            
-            if (newLoopStart !== null && newLoopEnd !== null) {
-                if (state.loopStart !== newLoopStart || state.loopEnd !== newLoopEnd) saveHistoryState();
-                state.loopStart = newLoopStart;
-                state.loopEnd = newLoopEnd;
-            }
-            
-            applyLoopBounds();
-            persistAppState();
+            reorderProgression(oldIndex, newIndex, newLoopStart, newLoopEnd);
             renderProgression();
         },
         onAddFromSource: (sourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd) => {
-            saveHistoryState();
-            if (insertIndex === null) insertIndex = state.currentProgression.length;
-            
-            const isAtEnd = state.loopEnd === state.currentProgression.length;
-            state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
-            state.selectedChordIndex = insertIndex;
-            state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, ...initPatternSet(), duration: 2 });
-            
-            if (newLoopStart !== null && newLoopEnd !== null) {
-                state.loopStart = newLoopStart;
-                state.loopEnd = newLoopEnd;
-            } else {
-                if (isAtEnd) state.loopEnd = state.currentProgression.length;
-                else if (insertIndex < state.loopEnd) state.loopEnd++;
-                
-                if (insertIndex <= state.loopStart) state.loopStart++;
-            }
-            
-            applyLoopBounds();
-            persistAppState();
+            addChordFromSource(sourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd);
             renderProgression();
         },
         onBracketDrop: (bracketId, insertIndex, newLoopStart, newLoopEnd) => {
-            saveHistoryState();
-            if (newLoopStart !== null && newLoopEnd !== null) {
-                state.loopStart = newLoopStart;
-                state.loopEnd = newLoopEnd;
-            } else {
-                if (insertIndex === null) insertIndex = state.currentProgression.length;
-                if (bracketId === 'bracket-start') state.loopStart = insertIndex;
-                else if (bracketId === 'bracket-end') state.loopEnd = insertIndex;
-            }
-            
-            applyLoopBounds();
-            persistAppState();
+            setProgressionBrackets(bracketId, insertIndex, newLoopStart, newLoopEnd);
             renderProgression();
 
             // Instantly sync audio engine to new loop boundaries by restarting playback
@@ -640,7 +504,7 @@ function _setupDragAndDrop(display) {
                 playBtn.click();
                 setTimeout(() => {
                     if (playBtn && !playBtn.classList.contains('active')) playBtn.click();
-                }, 50);
+                }, CONFIG.UI_STATE_SYNC_TIMEOUT_MS);
             }
         },
         onDragCancel: () => renderProgression(),

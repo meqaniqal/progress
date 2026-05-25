@@ -67,7 +67,7 @@ export function initSongController(callbacks) {
                         _pendingDropdownTimeout = setTimeout(() => {
                             openAddSectionDropdown(btnAddSection);
                             _pendingDropdownTimeout = null;
-                        }, 50); // slight delay to prevent event clashes
+                        }, CONFIG.UI_STATE_SYNC_TIMEOUT_MS); // slight delay to prevent event clashes
                     });
                     return;
                 }
@@ -114,7 +114,7 @@ export function initSongController(callbacks) {
             if (!btn) return;
             
             const now = Date.now();
-            if (now - lastPaletteTapTime < 350 && lastPaletteTapId === btn.dataset.id) {
+            if (now - lastPaletteTapTime < CONFIG.DOUBLE_TAP_DELAY_MS && lastPaletteTapId === btn.dataset.id) {
                 e.preventDefault();
                 appendExistingSection(btn.dataset.id);
                 _activeSequenceIndex = state.songSequence.length - 1;
@@ -225,7 +225,7 @@ export function initSongController(callbacks) {
                     playBtn.click();
                     setTimeout(() => {
                         if (playBtn && !playBtn.classList.contains('active')) playBtn.click();
-                    }, 50);
+                }, CONFIG.UI_STATE_SYNC_TIMEOUT_MS);
                 }
             },
             onDragCancel: () => updateSongUI(),
@@ -347,7 +347,7 @@ function showDropdownMenu(anchorElement, titleText, presets, initialInputValue, 
     const timeoutId = setTimeout(() => {
             document.addEventListener('pointermove', moveHandler, { signal: abortController.signal });
             document.addEventListener('pointerdown', outsideClickHandler, { signal: abortController.signal });
-    }, 50);
+    }, CONFIG.UI_STATE_SYNC_TIMEOUT_MS);
 
     dropdown._cleanup = () => {
         clearTimeout(timeoutId);
@@ -468,7 +468,7 @@ export function toggleSongTray() {
         playBtn.click();
         setTimeout(() => {
             if (playBtn && !playBtn.classList.contains('active')) playBtn.click();
-        }, 50);
+        }, CONFIG.UI_STATE_SYNC_TIMEOUT_MS);
     }
 }
 

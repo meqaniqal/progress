@@ -1,0 +1,23 @@
+# PROGRESS APP - STATE & ARCHITECTURE REFACTOR PLAN
+
+## Phase 1: The Undo/Export Memory Fix (Complete)
+- Target: `exportStateBuilder.js`
+- Action: Replace the blanket `JSON.parse(JSON.stringify(state))` deep copy with a targeted clone that explicitly omits `state.history`.
+- Reason: Currently, hitting export clones up to 50 previous deep-copied application states into memory at once, causing massive GC spikes and potential crashes.
+
+## Phase 2: Architecture Alignment - SSOT Enforcement (Complete)
+- Target: `progressmain.js`, `store.js`
+- Action: Extract all state mutation logic (`addChord`, `removeChord`, `clearProgression`, and all `uiCallbacks`) out of `progressmain.js`. 
+- Action: Move these into centralized action functions inside `store.js` (e.g., `export function addChord(...)`).
+- Reason: Adheres to the AI_CONTEXT.md SSOT rule. Business logic and history saving should not be coupled to UI binding and event listener files.
+
+## Phase 3: State Normalization & structuredClone (Complete)
+- Target: `store.js`, `storage.js`, Downstream Consumers
+- Action: Audit state initialization and hydration to replace `undefined` with `null`.
+- Action: Upgrade remaining `JSON.parse(JSON.stringify())` calls in `store.js` and `stateUtils.js` to modern, highly performant `structuredClone()`.
+- Reason: `JSON.stringify` automatically strips keys with `undefined` values, hiding schema inconsistencies. `structuredClone` preserves them, which broke the app previously. Normalizing the state schema to strictly use `null` for empty/optional values is a prerequisite for this performance upgrade.
+
+## Phase 4: Reference Leak Patching (Complete)
+- Target: `store.js` (`getActiveProgression`)
+- Action: Ensure the merge of `chord` and `swap` creates a deep copy of nested patterns (like `chordPattern` or `bassPattern`) rather than a shallow spread `{...chord, ...swap}`.
+- Reason: Prevents UI actions on auditioned/swapped chords from silently mutating the master state array references.

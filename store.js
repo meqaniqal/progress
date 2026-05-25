@@ -1,5 +1,5 @@
 import { saveState, loadState, clearState } from './storage.js';
-import { calculateLoopBounds } from './stateUtils.js';
+import { calculateLoopBounds, calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder } from './stateUtils.js';
 import { initChordPattern, initDrumPattern, initPatternSet } from './patternUtils.js';
 
 export const state = {
@@ -76,16 +76,18 @@ state.globalPatterns = state.sections[initialSectionId].globalPatterns;
 // Resolves the progression with any active temporary swaps applied
 export function getActiveProgression() {
     return state.currentProgression.map((chord, index) => {
-        if (state.temporarySwaps[index] !== undefined) {
-            // The swap object is an overlay. Start with the original chord's full properties
-            // (like pattern, voicing) and let the swap object override what it needs to (symbol, key, etc.).
+        // Always return a deep copy to prevent downstream mutations from leaking back into the master state.
+        const deepClonedChord = structuredClone(chord);
+
+        if (state.temporarySwaps[index]) {
+            // The swap object is an overlay. Let it override properties on the deep-cloned chord.
             const swap = state.temporarySwaps[index];
             return {
-                ...chord,
+                ...deepClonedChord,
                 ...swap
             };
         }
-        return chord;
+        return deepClonedChord;
     });
 }
 
@@ -100,7 +102,7 @@ export function updatePattern(tab, pattern, activeIndex, isGlobal, markAsOverrid
         if (tab === 'chordPattern') {
             const oldBassPattern = state.globalPatterns['bassPattern'];
             if (!oldBassPattern || !oldBassPattern.isLocalOverride) {
-                const bassCopy = JSON.parse(JSON.stringify(pattern));
+                const bassCopy = structuredClone(pattern);
                 bassCopy.instances.forEach(inst => {
                     inst.id = Math.random().toString(36).substring(2, 10);
                     if (oldBassPattern && Array.isArray(oldBassPattern.instances)) {
@@ -124,7 +126,7 @@ export function updatePattern(tab, pattern, activeIndex, isGlobal, markAsOverrid
             if (tab === 'chordPattern') {
                 const oldBassPattern = chord['bassPattern'];
                 if (!oldBassPattern || !oldBassPattern.isLocalOverride) {
-                    const bassCopy = JSON.parse(JSON.stringify(pattern));
+                    const bassCopy = structuredClone(pattern);
                     bassCopy.instances.forEach(inst => {
                         inst.id = Math.random().toString(36).substring(2, 10);
                         if (oldBassPattern && Array.isArray(oldBassPattern.instances)) {
@@ -143,7 +145,7 @@ export function updatePattern(tab, pattern, activeIndex, isGlobal, markAsOverrid
 }
 
 export function pushPatternToGlobal(tab, pattern, activeIndex) {
-    const globalCopy = JSON.parse(JSON.stringify(pattern));
+    const globalCopy = structuredClone(pattern);
     globalCopy.isLocalOverride = false;
     
     const chord = state.currentProgression[activeIndex];
@@ -160,7 +162,7 @@ export function pushPatternToGlobal(tab, pattern, activeIndex) {
     if (tab === 'chordPattern') {
         const oldGlobalBass = state.globalPatterns['bassPattern'];
         if (!oldGlobalBass || !oldGlobalBass.isLocalOverride) {
-            const bassCopy = JSON.parse(JSON.stringify(globalCopy));
+            const bassCopy = structuredClone(globalCopy);
             bassCopy.instances.forEach(inst => {
                 inst.id = Math.random().toString(36).substring(2, 10);
                 if (oldGlobalBass && Array.isArray(oldGlobalBass.instances)) {
@@ -200,20 +202,215 @@ export function applyMacroLoopBounds() {
     state.macroLoopEnd = bounds.end;
 }
 
+// --- Phase 2: SSOT Action Enforcers ---
+
+export function addChord(numeral, targetKey = state.baseKey) {
+    saveHistoryState();
+    const isAtEnd = state.loopEnd === state.currentProgression.length;
+    state.currentProgression.push({ symbol: numeral, key: targetKey, ...initPatternSet(), duration: 2 });
+    
+    if (isAtEnd) state.loopEnd = state.currentProgression.length;
+    
+    applyLoopBounds();
+    persistAppState();
+}
+
+export function removeChord(index) {
+    saveHistoryState();
+    const isAtEnd = state.loopEnd === state.currentProgression.length;
+    state.temporarySwaps = calculateSwapsOnRemove(state.temporarySwaps, index);
+    
+    if (state.selectedChordIndex > index) {
+        state.selectedChordIndex--;
+    } else if (state.selectedChordIndex === index) {
+        state.selectedChordIndex = null; 
+    }
+    
+    state.currentProgression.splice(index, 1);
+    
+    if (isAtEnd) {
+        state.loopEnd = state.currentProgression.length;
+    } else if (index < state.loopEnd) {
+        state.loopEnd--;
+    }
+    
+    if (index < state.loopStart) {
+        state.loopStart--;
+    }
+    
+    applyLoopBounds();
+    persistAppState();
+}
+
+export function clearProgression() {
+    if (state.currentProgression.length === 0) return;
+    saveHistoryState();
+    state.temporarySwaps = {};
+    state.selectedChordIndex = null;
+    state.currentProgression = [];
+    applyLoopBounds();
+    persistAppState();
+}
+
+export function swapChord(index, altSymbol, originalSymbol) {
+    saveHistoryState();
+    if (altSymbol === originalSymbol) {
+        delete state.temporarySwaps[index];
+    } else {
+        state.temporarySwaps[index] = { symbol: altSymbol };
+    }
+    persistAppState();
+}
+
+export function stepInversion(index, direction) {
+    saveHistoryState();
+    const chordToModify = getActiveProgression()[index];
+    const currentOffset = chordToModify.inversionOffset ?? 0;
+    const newOffset = currentOffset + direction;
+
+    if (state.temporarySwaps[index]) {
+        state.temporarySwaps[index] = { ...state.temporarySwaps[index], inversionOffset: newOffset };
+    } else {
+        state.currentProgression[index].inversionOffset = newOffset;
+    }
+    persistAppState();
+}
+
+export function changeVoicing(index, voicingObj) {
+    saveHistoryState();
+    state.currentProgression[index].voicing = voicingObj;
+    if (state.temporarySwaps[index]) state.temporarySwaps[index] = { ...state.temporarySwaps[index], voicing: voicingObj };
+    persistAppState();
+}
+
+export function changeVoicingType(index, type) {
+    saveHistoryState();
+    state.currentProgression[index].voicingType = type;
+    if (state.temporarySwaps[index]) state.temporarySwaps[index].voicingType = type;
+    persistAppState();
+}
+
+export function setGlobalVoicing(type) {
+    saveHistoryState();
+    state.globalVoicing = type;
+    persistAppState();
+}
+
+export function changeChordKey(index, newKey) {
+    saveHistoryState();
+    state.currentProgression[index].key = newKey;
+    if (state.temporarySwaps[index]) {
+        state.temporarySwaps[index].key = newKey;
+    }
+    persistAppState();
+}
+
+export function transposeChord(index) {
+    saveHistoryState();
+    state.currentProgression[index].key = state.baseKey;
+    if (state.temporarySwaps[index]) state.temporarySwaps[index].key = state.baseKey;
+    persistAppState();
+}
+
+export function changeDuration(index, dur) {
+    saveHistoryState();
+    state.currentProgression[index].duration = dur;
+    if (state.temporarySwaps[index]) state.temporarySwaps[index].duration = dur;
+    persistAppState();
+}
+
+export function addTurnaround(index, altSymbol, key) {
+    saveHistoryState();
+    const insertIndex = index + 1;
+    state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
+    state.currentProgression.splice(insertIndex, 0, { symbol: altSymbol, key: key, ...initPatternSet(), duration: 2 });
+    if (insertIndex <= state.loopEnd) state.loopEnd++;
+    state.selectedChordIndex = insertIndex;
+    applyLoopBounds();
+    persistAppState();
+}
+
+export function reorderProgression(oldIndex, newIndex, newLoopStart, newLoopEnd) {
+    if (oldIndex !== newIndex) {
+        saveHistoryState();
+        state.temporarySwaps = calculateSwapsOnReorder(state.temporarySwaps, state.currentProgression.length, oldIndex, newIndex);
+        
+        if (state.selectedChordIndex === oldIndex) {
+            state.selectedChordIndex = newIndex;
+        } else if (state.selectedChordIndex > oldIndex && state.selectedChordIndex <= newIndex) {
+            state.selectedChordIndex--;
+        } else if (state.selectedChordIndex < oldIndex && state.selectedChordIndex >= newIndex) {
+            state.selectedChordIndex++;
+        }
+        
+        const itemToMove = state.currentProgression.splice(oldIndex, 1)[0];
+        state.currentProgression.splice(newIndex, 0, itemToMove);
+    }
+    
+    if (newLoopStart !== null && newLoopEnd !== null) {
+        if (state.loopStart !== newLoopStart || state.loopEnd !== newLoopEnd) {
+            if (oldIndex === newIndex) saveHistoryState();
+        }
+        state.loopStart = newLoopStart;
+        state.loopEnd = newLoopEnd;
+    }
+    
+    applyLoopBounds();
+    persistAppState();
+}
+
+export function addChordFromSource(sourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd) {
+    saveHistoryState();
+    if (insertIndex === null) insertIndex = state.currentProgression.length;
+    
+    const isAtEnd = state.loopEnd === state.currentProgression.length;
+    state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
+    state.selectedChordIndex = insertIndex;
+    state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, ...initPatternSet(), duration: 2 });
+    
+    if (newLoopStart !== null && newLoopEnd !== null) {
+        state.loopStart = newLoopStart;
+        state.loopEnd = newLoopEnd;
+    } else {
+        if (isAtEnd) state.loopEnd = state.currentProgression.length;
+        else if (insertIndex < state.loopEnd) state.loopEnd++;
+        
+        if (insertIndex <= state.loopStart) state.loopStart++;
+    }
+    
+    applyLoopBounds();
+    persistAppState();
+}
+
+export function setProgressionBrackets(bracketId, insertIndex, newLoopStart, newLoopEnd) {
+    saveHistoryState();
+    if (newLoopStart !== null && newLoopEnd !== null) {
+        state.loopStart = newLoopStart;
+        state.loopEnd = newLoopEnd;
+    } else {
+        if (insertIndex === null) insertIndex = state.currentProgression.length;
+        if (bracketId === 'bracket-start') state.loopStart = insertIndex;
+        else if (bracketId === 'bracket-end') state.loopEnd = insertIndex;
+    }
+    
+    applyLoopBounds();
+    persistAppState();
+}
+
 // --- History & Undo ---
 export function saveHistoryState() {
     // Force a sync of active primitive pointers into the section before capturing history
     if (state.activeSectionId && state.sections[state.activeSectionId]) {
         state.sections[state.activeSectionId].loopStart = state.loopStart;
         state.sections[state.activeSectionId].loopEnd = state.loopEnd;
-        state.sections[state.activeSectionId].temporarySwaps = JSON.parse(JSON.stringify(state.temporarySwaps));
+        state.sections[state.activeSectionId].temporarySwaps = structuredClone(state.temporarySwaps);
     }
 
     state.history.push({
-        sections: JSON.parse(JSON.stringify(state.sections)),
-        songSequence: JSON.parse(JSON.stringify(state.songSequence)),
+        sections: structuredClone(state.sections),
+        songSequence: structuredClone(state.songSequence),
         activeSectionId: state.activeSectionId,
-        temporarySwaps: JSON.parse(JSON.stringify(state.temporarySwaps)),
+        temporarySwaps: structuredClone(state.temporarySwaps),
         loopStart: state.loopStart,
         loopEnd: state.loopEnd,
         macroLoopStart: state.macroLoopStart,
@@ -562,7 +759,7 @@ export function switchActiveSection(sectionId) {
     state.globalPatterns = sec.globalPatterns;
     state.loopStart = sec.loopStart ?? 0;
     state.loopEnd = sec.loopEnd ?? sec.progression.length;
-    state.temporarySwaps = sec.temporarySwaps ? JSON.parse(JSON.stringify(sec.temporarySwaps)) : {};
+    state.temporarySwaps = sec.temporarySwaps ? structuredClone(sec.temporarySwaps) : {};
     
     state.selectedChordIndex = null;
     
@@ -583,7 +780,7 @@ export function createAndAppendSection(name) {
 
     saveHistoryState();
     const currentSec = state.sections[state.activeSectionId];
-    const inheritedPatterns = currentSec ? JSON.parse(JSON.stringify(currentSec.globalPatterns)) : initPatternSet();
+    const inheritedPatterns = currentSec ? structuredClone(currentSec.globalPatterns) : initPatternSet();
     
     const newId = 'sec-' + Math.random().toString(36).substring(2, 10);
     state.sections[newId] = {
@@ -650,7 +847,7 @@ export function inheritSectionData(targetId, sourceId) {
     const sourceSec = state.sections[sourceId];
     
     // Deep copy progression and generate fresh IDs to detach rhythm slices
-    state.sections[targetId].progression = JSON.parse(JSON.stringify(sourceSec.progression));
+    state.sections[targetId].progression = structuredClone(sourceSec.progression);
     state.sections[targetId].progression.forEach(chord => {
         if (chord.chordPattern && chord.chordPattern.instances) chord.chordPattern.instances.forEach(i => i.id = Math.random().toString(36).substring(2, 10));
         if (chord.bassPattern && chord.bassPattern.instances) chord.bassPattern.instances.forEach(i => i.id = Math.random().toString(36).substring(2, 10));
@@ -658,12 +855,12 @@ export function inheritSectionData(targetId, sourceId) {
     });
     
     // Copy global patterns
-    state.sections[targetId].globalPatterns = JSON.parse(JSON.stringify(sourceSec.globalPatterns));
+    state.sections[targetId].globalPatterns = structuredClone(sourceSec.globalPatterns);
     
     // Inherit bounds and swaps!
     state.sections[targetId].loopStart = sourceSec.loopStart ?? 0;
     state.sections[targetId].loopEnd = sourceSec.loopEnd ?? state.sections[targetId].progression.length;
-    state.sections[targetId].temporarySwaps = sourceSec.temporarySwaps ? JSON.parse(JSON.stringify(sourceSec.temporarySwaps)) : {};
+    state.sections[targetId].temporarySwaps = sourceSec.temporarySwaps ? structuredClone(sourceSec.temporarySwaps) : {};
     
     // Sync pointers if we are inheriting into the active section
     if (state.activeSectionId === targetId) {

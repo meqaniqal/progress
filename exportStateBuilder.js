@@ -2,7 +2,9 @@ import { state, getActiveProgression } from './store.js';
 import { resolvePattern } from './patternResolver.js';
 
 export function getExportState(isMacro) {
-    const exportState = JSON.parse(JSON.stringify(state)); // Deep copy
+    // Omit the 'history' array to prevent massive memory usage during export.
+    const { history, ...stateToExport } = state;
+    const exportState = structuredClone(stateToExport); // Deep copy
     
     if (isMacro && exportState.songSequence.length > 0) {
         let flattenedProgression = [];
