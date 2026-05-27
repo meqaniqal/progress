@@ -542,8 +542,8 @@ export function resetSession() {
     };
 }
 
-export function loadAndApplyInitialState() {
-    const savedState = loadState();
+export function loadAndApplyInitialState(explicitState = null) {
+    const savedState = explicitState || loadState();
     if (savedState) {
         // 1. Sanitize Primitives
         if (typeof savedState.baseKey === 'number') state.baseKey = Math.max(0, Math.min(127, savedState.baseKey));

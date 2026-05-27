@@ -2,6 +2,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,6 +15,13 @@ const MIME_TYPES = {
     '.json': 'application/json',
     '.mid': 'audio/midi'
 };
+
+// Automatically bump cache versions before starting the server
+try {
+    execSync('node bump-version.js', { stdio: 'inherit' });
+} catch (error) {
+    console.error('⚠️ Warning: Failed to run auto version bump:', error.message);
+}
 
 http.createServer((req, res) => {
     let reqPath;

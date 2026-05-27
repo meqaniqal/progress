@@ -1,16 +1,17 @@
 import { state, persistAppState, resetSession } from './store.js';
+import { saveProjectToDB, getSavedProjectsFromDB, loadProjectFromDB, deleteProjectFromDB, clearAllProjectsFromDB } from './db.js';
 import { getExportState } from './exportStateBuilder.js';
 import { generateAIPrompt } from './promptGenerator.js';
 import { KEY_NAMES, updateKeyAndModeDisplay } from './ui.js';
 import { setTrackVolume } from './synth.js';
 import { isSongTrayOpen } from './songController.js';
-import { updateMicrotonalSettingsUI } from './progressmain.js';
+import { updateMicrotonalSettingsUI, syncUIToState } from './progressmain.js';
 
 export function initModals({ onResetPlayback, onRenderProgression }) {
     _initSettingsModal(onResetPlayback, onRenderProgression);
     _initAIPromptModal();
     _initManualModal();
-    _initProjectHubModal();
+    _initProjectHubModal(onRenderProgression);
 }
 
 function _initSettingsModal(onResetPlayback, onRenderProgression) {
@@ -137,13 +138,126 @@ function _initAIPromptModal() {
     }
 }
 
-function _initProjectHubModal() {
+function _initProjectHubModal(onRenderProgression) {
     const btnHub = document.getElementById('btn-project-hub');
     const hubModal = document.getElementById('project-hub-modal');
     const closeHubBtn = document.getElementById('btn-close-project-hub');
+    const btnSave = document.getElementById('btn-save-project');
+    const inputName = document.getElementById('project-name-input');
+    const listEl = document.getElementById('saved-projects-list');
+    const btnDownload = document.getElementById('btn-download-project');
+    const btnUpload = document.getElementById('btn-upload-project');
+    const fileInput = document.getElementById('project-file-input');
+    const btnClearAll = document.getElementById('btn-clear-all-projects');
+
+    const renderProjectList = async () => {
+        if (!listEl) return;
+        const projects = await getSavedProjectsFromDB();
+        const names = Object.keys(projects).sort((a, b) => (projects[b]._savedAt || 0) - (projects[a]._savedAt || 0));
+        
+        if (names.length === 0) {
+            listEl.innerHTML = '<div style="opacity: 0.5; font-size: 13px; text-align: center; padding: 10px;">No saved projects.</div>';
+            return;
+        }
+        
+        listEl.innerHTML = names.map(name => `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 6px 10px; border-radius: 4px;">
+                <strong style="font-size: 14px; color: var(--text-main);">${name}</strong>
+                <div style="display: flex; gap: 6px;">
+                    <button class="control-btn primary btn-sm btn-load-project" data-name="${name}">Load</button>
+                    <button class="control-btn secondary btn-sm btn-delete-project" data-name="${name}" style="color: #ef4444; border-color: rgba(239,68,68,0.5); padding: 4px 8px;">🗑</button>
+                </div>
+            </div>
+        `).join('');
+        
+        listEl.querySelectorAll('.btn-load-project').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const name = e.target.dataset.name;
+                const projData = await loadProjectFromDB(name);
+                if (projData) {
+                    if (confirm(`Load project "${name}"? Unsaved changes will be lost.`)) {
+                        resetSession();
+                        syncUIToState(projData);
+                        onRenderProgression();
+                        hubModal.classList.remove('visible');
+                        setTimeout(() => hubModal.style.display = 'none', 200);
+                    }
+                }
+            });
+        });
+
+        listEl.querySelectorAll('.btn-delete-project').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const name = e.target.dataset.name;
+                if (confirm(`Delete project "${name}" forever?`)) {
+                    await deleteProjectFromDB(name);
+                    await renderProjectList();
+                }
+            });
+        });
+    };
+
+    if (btnSave && inputName) {
+        btnSave.addEventListener('click', async () => {
+            const name = inputName.value.trim();
+            if (!name) { alert("Please enter a project name."); return; }
+            await saveProjectToDB(name, state);
+            inputName.value = '';
+            await renderProjectList();
+        });
+    }
+
+    if (btnDownload) {
+        btnDownload.addEventListener('click', () => {
+            const { history, ...stateToSave } = state;
+            const blob = new Blob([JSON.stringify(stateToSave, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const name = inputName.value.trim() || 'progress_project';
+            a.download = `${name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    }
+
+    if (btnUpload && fileInput) {
+        btnUpload.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const projData = JSON.parse(ev.target.result);
+                    if (confirm(`Load project from file? Unsaved changes will be lost.`)) {
+                        resetSession();
+                        syncUIToState(projData);
+                        onRenderProgression();
+                        hubModal.classList.remove('visible');
+                        setTimeout(() => hubModal.style.display = 'none', 200);
+                    }
+                } catch (err) {
+                    alert("Invalid project file.");
+                }
+            };
+            reader.readAsText(file);
+            fileInput.value = ''; // Reset input so the same file can be chosen again
+        });
+    }
+
+    if (btnClearAll) {
+        btnClearAll.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to delete all saved projects from the browser database?')) {
+                await clearAllProjectsFromDB();
+                await renderProjectList();
+            }
+        });
+    }
 
     if (btnHub && hubModal && closeHubBtn) {
-        btnHub.addEventListener('click', () => {
+        btnHub.addEventListener('click', async () => {
+            await renderProjectList();
             hubModal.style.display = 'flex';
             hubModal.offsetHeight; // trigger reflow
             hubModal.classList.add('visible');

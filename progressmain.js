@@ -126,11 +126,9 @@ export function updateMicrotonalSettingsUI() {
 
     const rowAutoPan = document.getElementById('row-auto-pan');
     const rowMidiRouting = document.getElementById('row-midi-routing');
-    const rowTuningFiles = document.getElementById('row-tuning-files');
 
     if (rowAutoPan) rowAutoPan.style.display = isMicrotonal ? 'flex' : 'none';
     if (rowMidiRouting) rowMidiRouting.style.display = isMicrotonal ? 'flex' : 'none';
-    if (rowTuningFiles) rowTuningFiles.style.display = (isMicrotonal && isCleanRouting) ? 'flex' : 'none';
 }
 
 export function updateCustomDrumsUI() {
@@ -141,8 +139,12 @@ export function updateCustomDrumsUI() {
 }
 
 // --- Initialization Helpers ---
-function _loadAndApplyInitialState() {
-    loadAndApplyInitialState();
+export function syncUIToState(explicitState = null) {
+    if (explicitState) {
+        loadAndApplyInitialState(explicitState);
+    } else {
+        loadAndApplyInitialState();
+    }
     
     document.body.classList.toggle('show-helpers', state.showManualOnStartup);
 
@@ -454,23 +456,25 @@ function _setupControlButtons() {
         });
     }
     
-    const btnExportScala = document.getElementById('btn-export-scala');
-    if (btnExportScala) {
-        btnExportScala.addEventListener('click', () => {
-            if (btnExportScala.disabled) return;
-            btnExportScala.disabled = true;
-            setTimeout(() => btnExportScala.disabled = false, 1000);
-            exportScalaFile(state.divisions);
+    const btnHubExportScala = document.getElementById('btn-hub-export-scala');
+    if (btnHubExportScala) {
+        btnHubExportScala.addEventListener('click', () => {
+            if (btnHubExportScala.disabled) return;
+            btnHubExportScala.disabled = true;
+            setTimeout(() => btnHubExportScala.disabled = false, 1000);
+            const div = parseInt(document.getElementById('hub-tuning-selector').value, 10) || 12;
+            exportScalaFile(div);
         });
     }
     
-    const btnExportTun = document.getElementById('btn-export-tun');
-    if (btnExportTun) {
-        btnExportTun.addEventListener('click', () => {
-            if (btnExportTun.disabled) return;
-            btnExportTun.disabled = true;
-            setTimeout(() => btnExportTun.disabled = false, 1000);
-            exportTunFile(state.divisions);
+    const btnHubExportTun = document.getElementById('btn-hub-export-tun');
+    if (btnHubExportTun) {
+        btnHubExportTun.addEventListener('click', () => {
+            if (btnHubExportTun.disabled) return;
+            btnHubExportTun.disabled = true;
+            setTimeout(() => btnHubExportTun.disabled = false, 1000);
+            const div = parseInt(document.getElementById('hub-tuning-selector').value, 10) || 12;
+            exportTunFile(div);
         });
     }
 
@@ -592,7 +596,7 @@ function initApp() {
     window.__progressAppInitialized = true;
     
     const display = document.getElementById('progression-display');
-    _loadAndApplyInitialState();
+    syncUIToState();
     _setupTopBarEvents();
     initRhythmEditor({ 
         state, 
