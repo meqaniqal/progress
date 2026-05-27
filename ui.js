@@ -232,6 +232,11 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         display.removeChild(existingItems[i]);
     }
 
+    // Self-healing: Destroy any orphaned drag placeholders if a drag session was interrupted
+    if (!document.querySelector('.dragging')) {
+        display.querySelectorAll('.bracket-placeholder, .progression-placeholder').forEach(el => el.remove());
+    }
+
     if (state.currentProgression.length > 0 && state.isLooping) {
         let startBr = document.getElementById('bracket-start') || createBracketElement('bracket-start', '[');
         let endBr = document.getElementById('bracket-end') || createBracketElement('bracket-end', ']');
@@ -240,11 +245,15 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         endBr.style.display = 'inline-block';
 
         const updatedItems = display.querySelectorAll('.progression-item');
-        if (updatedItems[state.loopStart]) display.insertBefore(startBr, updatedItems[state.loopStart]);
-        else display.appendChild(startBr);
-
-        if (updatedItems[state.loopEnd]) display.insertBefore(endBr, updatedItems[state.loopEnd]);
-        else display.appendChild(endBr);
+        
+        if (!startBr.classList.contains('dragging')) {
+            if (updatedItems[state.loopStart]) display.insertBefore(startBr, updatedItems[state.loopStart]);
+            else display.appendChild(startBr);
+        }
+        if (!endBr.classList.contains('dragging')) {
+            if (updatedItems[state.loopEnd]) display.insertBefore(endBr, updatedItems[state.loopEnd]);
+            else display.appendChild(endBr);
+        }
     } else {
         const startBr = document.getElementById('bracket-start');
         const endBr = document.getElementById('bracket-end');

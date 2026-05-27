@@ -1,6 +1,7 @@
 import { state, switchActiveSection, createAndAppendSection, renameSection, removeSectionFromSequence, appendExistingSection, reorderSequence, inheritSectionData, saveHistoryState, persistAppState, applyMacroLoopBounds } from './store.js';
 import { initDragAndDrop } from './dragdrop.js';
 import { CONFIG } from './config.js';
+import { restartTransport } from './transportController.js';
 
 let _onRenderProgression = null;
 export let isSongTrayOpen = false;
@@ -220,13 +221,7 @@ export function initSongController(callbacks) {
                 if (_onRenderProgression) _onRenderProgression();
 
                 // Instantly sync audio engine to new macro loop boundaries by restarting playback
-                const playBtn = document.getElementById('btn-play-toggle');
-                if (playBtn && playBtn.classList.contains('active')) {
-                    playBtn.click();
-                    setTimeout(() => {
-                        if (playBtn && !playBtn.classList.contains('active')) playBtn.click();
-                }, CONFIG.UI_STATE_SYNC_TIMEOUT_MS);
-                }
+                restartTransport();
             },
             onDragCancel: () => updateSongUI(),
             getItemText: (index) => state.sections[state.songSequence[index]]?.name || ''
@@ -463,13 +458,7 @@ export function toggleSongTray() {
     updateSongUI();
 
     // Instantly sync audio engine context (Micro vs Macro) by restarting playback
-    const playBtn = document.getElementById('btn-play-toggle');
-    if (playBtn && playBtn.classList.contains('active')) {
-        playBtn.click();
-        setTimeout(() => {
-            if (playBtn && !playBtn.classList.contains('active')) playBtn.click();
-        }, CONFIG.UI_STATE_SYNC_TIMEOUT_MS);
-    }
+    restartTransport();
 }
 
 export function exitSongMode() {
@@ -615,6 +604,11 @@ export function updateSongUI() {
             trayDisplay.removeChild(existingBlocks[i]);
         }
 
+        // Self-healing: Destroy any orphaned drag placeholders if a drag session was interrupted
+        if (!document.querySelector('.dragging')) {
+            trayDisplay.querySelectorAll('.bracket-placeholder, .song-placeholder').forEach(el => el.remove());
+        }
+
         // Render Macro Brackets
         if (state.songSequence.length > 0 && state.isLooping) {
             let startBr = document.getElementById('bracket-macro-start') || createBracketElement('bracket-macro-start', '[');
@@ -629,11 +623,14 @@ export function updateSongUI() {
             let mEnd = state.macroLoopEnd ?? state.songSequence.length;
             if (mEnd === 0 || mEnd > state.songSequence.length) mEnd = state.songSequence.length;
 
-            if (updatedItems[mStart]) trayDisplay.insertBefore(startBr, updatedItems[mStart]);
-            else trayDisplay.appendChild(startBr);
-
-            if (updatedItems[mEnd]) trayDisplay.insertBefore(endBr, updatedItems[mEnd]);
-            else trayDisplay.appendChild(endBr);
+            if (!startBr.classList.contains('dragging')) {
+                if (updatedItems[mStart]) trayDisplay.insertBefore(startBr, updatedItems[mStart]);
+                else trayDisplay.appendChild(startBr);
+            }
+            if (!endBr.classList.contains('dragging')) {
+                if (updatedItems[mEnd]) trayDisplay.insertBefore(endBr, updatedItems[mEnd]);
+                else trayDisplay.appendChild(endBr);
+            }
             
             updatedItems.forEach((block, index) => {
                 if (index >= mStart && index < mEnd) block.classList.add('in-loop');

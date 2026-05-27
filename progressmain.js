@@ -10,7 +10,7 @@ import { state, getActiveProgression, saveHistoryState, undoState, persistAppSta
 import { getExportState } from './exportStateBuilder.js';
 import { initExportUI } from './exportController.js';
 import { initModals } from './modalController.js';
-import { initTransport, resetTransport, isPlaybackActive } from './transportController.js';
+import { initTransport, resetTransport, isPlaybackActive, restartTransport } from './transportController.js';
 import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from './songController.js';
 
         function undo() {
@@ -524,13 +524,7 @@ function _setupDragAndDrop(display) {
             renderProgression();
 
             // Instantly sync audio engine to new loop boundaries by restarting playback
-            const playBtn = document.getElementById('btn-play-toggle');
-            if (playBtn && playBtn.classList.contains('active')) {
-                playBtn.click();
-                setTimeout(() => {
-                    if (playBtn && !playBtn.classList.contains('active')) playBtn.click();
-                }, CONFIG.UI_STATE_SYNC_TIMEOUT_MS);
-            }
+            restartTransport();
         },
         onDragCancel: () => renderProgression(),
         getItemText: (index) => state.currentProgression[index].symbol,

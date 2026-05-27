@@ -13,6 +13,37 @@ export function isPlaybackActive() {
     return isPlaying;
 }
 
+export function restartTransport() {
+    if (isPlaying) {
+        resetTransport();
+        const playToggleBtn = document.getElementById('btn-play-toggle');
+        if (playToggleBtn) {
+            currentPlaybackStopFunction = playProgression(
+                () => state,
+                (index, sectionId, macroIndex) => {
+                    if (macroIndex !== undefined) setActiveSequenceIndex(macroIndex);
+                    if (sectionId && sectionId !== state.activeSectionId) {
+                        switchActiveSection(sectionId);
+                        updateSongUI();
+                        if (_onRenderProgression) _onRenderProgression();
+                    } else if (macroIndex !== undefined) {
+                        updateSongUI();
+                    }
+                    highlightChordInUI(index);
+                },
+                () => {
+                    playToggleBtn.textContent = '▶';
+                    isPlaying = false;
+                    currentPlaybackStopFunction = null;
+                },
+                highlightDrumHit
+            );
+            playToggleBtn.textContent = '■';
+            isPlaying = true;
+        }
+    }
+}
+
 export function resetTransport() {
     if (currentPlaybackStopFunction) currentPlaybackStopFunction();
     stopAllAudio();
