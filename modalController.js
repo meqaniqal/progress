@@ -57,8 +57,6 @@ function _initSettingsModal(onResetPlayback, onRenderProgression) {
                 const multipassInput = document.getElementById('multipass-input');
                 if (multipassInput) multipassInput.value = state.exportPasses;
                 document.getElementById('voice-leading').checked = state.useVoiceLeading;
-                const muteExtremeInput = document.getElementById('mute-extreme-notes');
-                if (muteExtremeInput) muteExtremeInput.checked = state.muteExtremeNotes;
                 
                 const autoPanInput = document.getElementById('auto-pan-leading');
                 if (autoPanInput) autoPanInput.checked = state.autoPanLeading;

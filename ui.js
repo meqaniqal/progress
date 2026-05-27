@@ -1,4 +1,4 @@
-import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getDiatonicChords, SCALE_PREFIXES, deduceSourceMode } from './theory.js';
+import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getDiatonicChords, SCALE_PREFIXES, deduceSourceMode, getEffectiveTuning, getChordSignature } from './theory.js';
 import { getMicrotonalDiatonicChords } from './microtonalDictionary.js';
 import { renderChordInspector } from './inspectorController.js';
 import { CONFIG } from './config.js';
@@ -227,6 +227,33 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
     } else {
         if (modPanel) modPanel.style.display = 'none';
     }
+
+    // --- Enharmonic Context Dimming ---
+    // Calculate signatures for all chords currently in the active progression
+    const activeSignatures = new Set();
+    state.currentProgression.forEach((chord, i) => {
+        const isTemp = state.temporarySwaps[i] !== undefined;
+        const displayC = isTemp ? { ...chord, ...state.temporarySwaps[i] } : chord;
+        const tuning = getEffectiveTuning(displayC.symbol, displayC.divisions || state.divisions || 12);
+        const notes = getChordNotes(displayC.symbol, displayC.key, tuning.divisions);
+        if (notes) activeSignatures.add(getChordSignature(notes, tuning.periodSize));
+    });
+
+    // Dim palette and modulation buttons that are already in the progression
+    document.querySelectorAll('.chord-palette .chord-btn[data-chord], #mod-buttons .chord-btn[data-chord]').forEach(btn => {
+        const btnSymbol = btn.dataset.chord;
+        if (!btnSymbol) return; // Skip invisible placeholder buttons
+        const btnKey = btn.hasAttribute('data-key') ? parseInt(btn.dataset.key, 10) : state.baseKey;
+        const tuning = getEffectiveTuning(btnSymbol, state.divisions || 12);
+        const notes = getChordNotes(btnSymbol, btnKey, tuning.divisions);
+        if (notes && activeSignatures.has(getChordSignature(notes, tuning.periodSize))) {
+            btn.classList.add('dimmed-chord');
+            if (!btn.title) btn.title = "Already in progression";
+        } else {
+            btn.classList.remove('dimmed-chord');
+            if (btn.title === "Already in progression") btn.title = "";
+        }
+    });
 
     for (let i = state.currentProgression.length; i < existingItems.length; i++) {
         display.removeChild(existingItems[i]);

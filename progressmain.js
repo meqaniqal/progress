@@ -182,8 +182,6 @@ export function syncUIToState(explicitState = null) {
     const multipassInput = document.getElementById('multipass-input');
     if (multipassInput) multipassInput.value = state.exportPasses || 1;
     document.getElementById('voice-leading').checked = state.useVoiceLeading;
-    const muteExtremeInput = document.getElementById('mute-extreme-notes');
-    if (muteExtremeInput) muteExtremeInput.checked = state.muteExtremeNotes;
     const autoPanInput = document.getElementById('auto-pan-leading');
     if (autoPanInput) autoPanInput.checked = state.autoPanLeading;
     
@@ -430,14 +428,6 @@ function _setupControlButtons() {
         persistAppState();
     });
     
-    const muteExtremeInput = document.getElementById('mute-extreme-notes');
-    if (muteExtremeInput) {
-        muteExtremeInput.addEventListener('change', (e) => {
-            state.muteExtremeNotes = e.target.checked;
-            persistAppState();
-            renderProgression();
-        });
-    }
     
     const autoPanInput = document.getElementById('auto-pan-leading');
     if (autoPanInput) {

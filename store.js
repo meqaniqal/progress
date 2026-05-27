@@ -13,7 +13,6 @@ export const state = {
     bpm: 120,
     isLooping: true, // Hardcoded to always loop
     useVoiceLeading: true,
-    muteExtremeNotes: false,
     autoPanLeading: true,
     midiExportRouting: 'mpe',
     globalVoicing: 'auto', // 'auto', 'close', 'spread', 'quartal'
@@ -499,7 +498,6 @@ export function resetSession() {
     state.bpm = 120;
     state.isLooping = true;
     state.useVoiceLeading = true;
-    state.muteExtremeNotes = false;
     state.autoPanLeading = true;
     state.midiExportRouting = 'mpe';
     state.globalVoicing = 'auto';
@@ -555,7 +553,6 @@ export function loadAndApplyInitialState(explicitState = null) {
         
         state.isLooping = true; // Hardcoded to always loop
         state.useVoiceLeading = Boolean(savedState.useVoiceLeading ?? savedState.voiceLeading ?? state.useVoiceLeading);
-        state.muteExtremeNotes = savedState.muteExtremeNotes !== undefined ? Boolean(savedState.muteExtremeNotes) : false;
         state.autoPanLeading = savedState.autoPanLeading !== undefined ? Boolean(savedState.autoPanLeading) : true;
         state.midiExportRouting = savedState.midiExportRouting || 'mpe';
         state.globalVoicing = savedState.globalVoicing || 'auto';

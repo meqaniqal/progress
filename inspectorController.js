@@ -1,4 +1,4 @@
-import { getPlayableNotes, getAlternatives, getTurnaroundSuggestions } from './theory.js';
+import { getPlayableNotes, getAlternatives, getTurnaroundSuggestions, getEffectiveTuning, getChordNotes, getChordSignature } from './theory.js';
 import { KEY_NAMES } from './ui.js';
 
 let isInspectorDelegated = false;
@@ -101,6 +101,17 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         panel.addEventListener('input', handleInspectorInput);
     }
 
+    // Get active signatures (excluding the currently edited chord) for context dimming
+    const activeSignatures = new Set();
+    state.currentProgression.forEach((c, i) => {
+        if (i === selectedChordIndex) return; // Skip the active chord
+        const swap = state.temporarySwaps[i];
+        const displayC = swap ? { ...c, ...swap } : c;
+        const tuning = getEffectiveTuning(displayC.symbol, displayC.divisions || state.divisions || 12);
+        const notes = getChordNotes(displayC.symbol, displayC.key, tuning.divisions);
+        if (notes) activeSignatures.add(getChordSignature(notes, tuning.periodSize));
+    });
+
     const index = selectedChordIndex;
     const originalChord = state.currentProgression[index];
     const isTemp = state.temporarySwaps[index] !== undefined;
@@ -151,6 +162,17 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
 
             if (isTemp && i === 0) btn.classList.add('original-swap-option');
             else btn.classList.remove('original-swap-option');
+            
+            // Context Dimming
+            const tuning = getEffectiveTuning(alt, displayChord.divisions || state.divisions || 12);
+            const notes = getChordNotes(alt, displayChord.key, tuning.divisions);
+            if (notes && activeSignatures.has(getChordSignature(notes, tuning.periodSize)) && !btn.classList.contains('original-swap-option')) {
+                btn.classList.add('dimmed-chord');
+                btn.title = "Already elsewhere in progression";
+            } else {
+                btn.classList.remove('dimmed-chord');
+                if (btn.title === "Already elsewhere in progression") btn.title = "";
+            }
         });
 
         for (let i = alts.length; i < existingBtns.length; i++) {
@@ -444,6 +466,17 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
                 btn.dataset.index = index;
                 btn.dataset.alt = alt;
                 btn.dataset.key = firstChord.key;
+                
+                // Context Dimming for turnarounds
+                const tuning = getEffectiveTuning(alt, firstChord.divisions || state.divisions || 12);
+                const notes = getChordNotes(alt, firstChord.key, tuning.divisions);
+                if (notes && activeSignatures.has(getChordSignature(notes, tuning.periodSize))) {
+                    btn.classList.add('dimmed-chord');
+                    btn.title = "Already in progression";
+                } else {
+                    btn.classList.remove('dimmed-chord');
+                    if (btn.title === "Already in progression") btn.title = "";
+                }
             });
 
             for (let i = turnarounds.length; i < existingBtns.length; i++) {

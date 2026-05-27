@@ -5,6 +5,13 @@ h1 { padding-bottom: 0.5rem; margin: 0; }
 .chord-btn:hover { background: var(--btn-hover-bg); border-color: var(--btn-hover-border); color: var(--btn-hover-text); }
 .borrowed { border-style: dashed; border-color: var(--borrowed-border); color: var(--borrowed-text); }
 .borrowed:hover { background: var(--borrowed-hover-bg); border-color: var(--borrowed-border); }
+
+/* Enharmonic Context Dimming */
+.chord-btn.dimmed-chord { opacity: 0.4; }
+.chord-btn.dimmed-chord:hover { opacity: 0.8; }
+.chord-btn.borrowed.dimmed-chord { border-style: dotted; }
+.chord-btn.borrowed.dimmed-chord:hover { border-style: dashed; }
+
 #progression-display { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; min-height: 50px; padding: 10px; background: var(--display-bg); border-radius: 4px; transition: background-color 0.3s ease; }
 .progression-item { 
     position: relative; 

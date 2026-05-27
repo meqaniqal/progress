@@ -51,6 +51,19 @@ export function getBassNote(rootChordNotes, tuning) {
     return bass;
 }
 
+/**
+ * Generates a unique string signature for a chord based purely on its pitch classes.
+ * This allows us to detect enharmonic equivalents regardless of octave or voicing.
+ */
+export function getChordSignature(chordNotes, periodSize = 12.0) {
+    if (!chordNotes || chordNotes.length === 0) return '';
+    return chordNotes.map(n => {
+        let pc = n % periodSize;
+        if (pc < 0) pc += periodSize;
+        return Math.round(pc * 100) / 100; // Round to avoid float math errors in EDO space
+    }).sort((a, b) => a - b).join(',');
+}
+
 export function getChordNotes(symbol, baseKey, divisions = 12) {
     if (!symbol || typeof symbol !== 'string') return null;
 
@@ -501,13 +514,6 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
     // Generate inversions dynamically based on the requested Voicing Type
     let firstInversions = generateInversions(firstTarget, firstOpts.voicingType, firstTuning.periodSize);
     
-    if (globalOptions.muteExtremeNotes) {
-        firstInversions = firstInversions.map(inv => {
-            let filtered = inv.filter(n => n >= firstOpts.extremeLow && n <= firstOpts.extremeHigh);
-            return filtered.length > 0 ? filtered : [inv[0]];
-        });
-    }
-
     let bestFirst = firstInversions[0];
     let bestFirstCost = Infinity;
     
@@ -547,13 +553,6 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
         
         let inversions = generateInversions(targetNotes, opts.voicingType, tuning.periodSize);
         
-        if (globalOptions.muteExtremeNotes) {
-            inversions = inversions.map(inv => {
-                let filtered = inv.filter(n => n >= opts.extremeLow && n <= opts.extremeHigh);
-                return filtered.length > 0 ? filtered : [inv[0]];
-            });
-        }
-
         let bestInversion = inversions[0];
         let smallestCost = Infinity;
 
@@ -620,28 +619,6 @@ export function getPlayableNotes(progression, globalOptions = {}) {
             finalNotes = applyInversion(notes, offset, tuning.periodSize);
         }
         
-        if (globalOptions.muteExtremeNotes) {
-            const extremeLow = globalOptions.extremeLow ?? 36;
-            const extremeHigh = globalOptions.extremeHigh ?? 84;
-            const filtered = finalNotes.filter(n => n >= extremeLow && n <= extremeHigh);
-            
-            if (filtered.length === 0 && finalNotes.length > 0) {
-                // The entire chord fell out of bounds (likely due to extreme manual inversion).
-                // Fold it back into the playable register instead of collapsing to a single sub-bass note.
-                const shiftDir = finalNotes[0] < extremeLow ? 1 : -1;
-                let folded = [...finalNotes];
-                const isMacrotonal = tuning.periodSize > 14;
-                const foldPeriod = isMacrotonal ? 12.0 : tuning.periodSize;
-                while (folded.length > 0 && (folded[0] < extremeLow || folded[folded.length-1] > extremeHigh)) {
-                    folded = folded.map(n => n + (shiftDir * foldPeriod));
-                    if (shiftDir === 1 && folded[0] >= extremeLow) break;
-                    if (shiftDir === -1 && folded[folded.length-1] <= extremeHigh) break;
-                }
-                finalNotes = folded;
-            } else {
-                finalNotes = filtered.length > 0 ? filtered : finalNotes;
-            }
-        }
         return finalNotes;
     });
 
