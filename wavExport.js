@@ -1,4 +1,4 @@
-import { getChordNotes, getPlayableNotes, segmentMicrotonalCluster, snapToGrid } from './theory.js';
+import { getChordNotes, getPlayableNotes, segmentMicrotonalCluster, snapToGrid, getEffectiveTuning, getBassNote, getPitchEditorTuning } from './theory.js';
 import { CONFIG } from './config.js';
 import { audioBufferToWav } from './wavEncoder.js';
 import { generateArpNotes } from './arp.js';
@@ -12,13 +12,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
     let currentTime = 0;
     let currentBeat = 0;
 
-    let notesArray = [];
-    if (useVoiceLeading) {
-        notesArray = getPlayableNotes(progression, globalOptions);
-    } else {
-        // Drop by 1 octave (-12) to match the pad register warmth used in live playback
-        notesArray = progression.map(chord => getChordNotes(chord.symbol, chord.key, chord.divisions || globalOptions.divisions || 12).map(n => n - 12));
-    }
+    const notesArray = getPlayableNotes(progression, globalOptions);
 
     const chordInst = globalOptions.instruments && globalOptions.instruments.chords ? globalOptions.instruments.chords : 'sawtooth';
     const bassInst = globalOptions.instruments && globalOptions.instruments.bass ? globalOptions.instruments.bass : 'sine';
@@ -92,9 +86,10 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
             }
             
             // Add Bass Note
-            const rootChordNotes = getChordNotes(chord.symbol, chord.key, chord.divisions || globalOptions.divisions || 12);
+            const tuning = getEffectiveTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
+            const rootChordNotes = getChordNotes(chord.symbol, chord.key, tuning.divisions);
             if (rootChordNotes) {
-                const bassNote = rootChordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
+                const bassNote = getBassNote(rootChordNotes, tuning);
                 
                 let bPattern = chord.bassPattern;
                 let isGlobalBass = false;
@@ -112,7 +107,9 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     const instanceDuration = instance.duration * duration;
                     const gateDuration = instanceDuration * 0.95;
 
-                    const finalBassNote = snapToGrid(bassNote + (instance.pitchOffset || 0), chord.divisions || globalOptions.divisions || 12);
+                    const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
+                    const snappedOffset = snapToGrid(60 + (instance.pitchOffset || 0), editorTuning) - 60;
+                    const finalBassNote = bassNote + snappedOffset;
 
                     timeline.push({
                         midiNote: finalBassNote,

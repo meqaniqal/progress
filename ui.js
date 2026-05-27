@@ -1,4 +1,4 @@
-import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getDiatonicChords, SCALE_PREFIXES } from './theory.js';
+import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getDiatonicChords, SCALE_PREFIXES, deduceSourceMode } from './theory.js';
 import { getMicrotonalDiatonicChords } from './microtonalDictionary.js';
 import { renderChordInspector } from './inspectorController.js';
 import { CONFIG } from './config.js';
@@ -273,6 +273,31 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
 
     const undoBtn = document.getElementById('btn-undo');
     if (undoBtn) undoBtn.disabled = state.history.length === 0;
+
+    const jumpBtn = document.getElementById('btn-jump-source');
+    if (jumpBtn) {
+        if (selectedChordIndex !== null && state.currentProgression[selectedChordIndex]) {
+            const index = selectedChordIndex;
+            const originalChord = state.currentProgression[index];
+            const isTemp = state.temporarySwaps[index] !== undefined;
+            const displayChord = isTemp ? { ...originalChord, ...state.temporarySwaps[index] } : originalChord;
+            
+            const sourceMode = deduceSourceMode(displayChord.symbol, state.mode);
+            const targetKey = displayChord.key;
+            
+            if (sourceMode && (sourceMode.toLowerCase() !== state.mode.toLowerCase() || targetKey !== state.baseKey)) {
+                const modeStr = sourceMode.charAt(0).toUpperCase() + sourceMode.slice(1).replace(/([A-Z])/g, ' $1').trim();
+                const keyName = KEY_NAMES[Math.round(targetKey)] || targetKey;
+                jumpBtn.textContent = `Jump to ${keyName} ${modeStr}`;
+                jumpBtn.style.display = 'flex';
+                jumpBtn.onclick = () => callbacks.onSetGlobalKeyAndMode(targetKey, sourceMode);
+            } else {
+                jumpBtn.style.display = 'none';
+            }
+        } else {
+            jumpBtn.style.display = 'none';
+        }
+    }
 
     renderChordInspector(state, selectedChordIndex, callbacks);
 }

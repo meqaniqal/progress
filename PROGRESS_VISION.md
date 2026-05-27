@@ -217,6 +217,7 @@ Transitioning from mapping 12-TET math into EDOs towards supporting true, indepe
   - CSS media queries will handle the breakpoint shift seamlessly.
 
 ### 12. Advanced Composition & UX Polish (Phase 9 - Upcoming)
+- **Scale Source Jump (Complete ✅):** Instantly jump the global scale/mode palette to the scale that a selected chord natively belongs to via the Inspector panel.
 - **Enharmonic Context Dimming:** When switching scales, chords in the palette or inspector that are enharmonically equivalent to chords already present in the active section of the chord tray will receive a subdued visual styling. This gently indicates to the user that the chord is already in use.
 - **Loop Block Dragging:** Introduce a draggable macro-block in the chord palette that represents the current loop bounds. Dragging or double-tapping this button will insert the entire sequence of chords currently within the loop brackets into the progression at once.
 - **Polyphonic Slice Pitch Editing:** Expand the Pattern Editor's Pitch Mode (currently limited to Bass) to support Chords. Allow users to adjust the pitch of individual notes within a sliced chord block, essentially creating custom voicings per slice. Includes copy/paste functionality to apply these specific pitch modifications across multiple slices.

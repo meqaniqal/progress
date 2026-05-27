@@ -1,6 +1,6 @@
 import { resolvePattern } from './patternResolver.js';
 import { getAudioCurrentTime, playTone, initAudio, midiToFreq } from './synth.js';
-import { getChordNotes, segmentMicrotonalCluster, snapToGrid } from './theory.js';
+import { getChordNotes, segmentMicrotonalCluster, snapToGrid, getEffectiveTuning, getBassNote, getPitchEditorTuning } from './theory.js';
 import { CONFIG } from './config.js';
 import { GRID_STEPS } from './rhythmConfig.js';
 import { initRhythmControls } from './rhythmControls.js';
@@ -52,7 +52,8 @@ export function auditionSlicePitch(pitchOffset = 0) {
     const chord = swap ? { ...baseChord, ...swap } : baseChord;
     
     if (!chord) return;
-    const notes = getChordNotes(chord.symbol, chord.key, chord.divisions || app.state.divisions || 12);
+    const tuning = getEffectiveTuning(chord.symbol, chord.divisions || app.state.divisions || 12);
+    const notes = getChordNotes(chord.symbol, chord.key, tuning.divisions);
     if (!notes) return;
     
     const now = getAudioCurrentTime();
@@ -62,12 +63,16 @@ export function auditionSlicePitch(pitchOffset = 0) {
     const panR = app.state.autoPanLeading !== false ? 0.75 : 0;
     
     // Play chord pad and bass note together
-    const segmented = segmentMicrotonalCluster(notes.map(n => n - 12));
+    const dropSize = tuning.periodSize > 14 ? 12.0 : tuning.periodSize;
+    const segmented = segmentMicrotonalCluster(notes.map(n => n - dropSize));
     segmented.core.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', 0));
     segmented.frictionLeft.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', panL));
     segmented.frictionRight.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', panR));
 
-    const finalBassNote = snapToGrid(notes[0] + CONFIG.BASS_OCTAVE_DROP + pitchOffset, chord.divisions || app.state.divisions || 12);
+    const rootBassNote = getBassNote(notes, tuning);
+    const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || app.state.divisions || 12);
+    const snappedOffset = snapToGrid(60 + pitchOffset, editorTuning) - 60;
+    const finalBassNote = rootBassNote + snappedOffset;
     playTone(midiToFreq(finalBassNote), now, duration, 'sine');
 }
 

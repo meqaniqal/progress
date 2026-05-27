@@ -1,4 +1,4 @@
-import { getChordNotes, getPlayableNotes, segmentMicrotonalCluster, snapToGrid } from './theory.js';
+import { getChordNotes, getPlayableNotes, segmentMicrotonalCluster, snapToGrid, getEffectiveTuning, getBassNote, getPitchEditorTuning } from './theory.js';
 import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators, playDrum } from './synth.js';
@@ -13,12 +13,14 @@ export function auditionChord(chordSymbol, baseKey, specificNotes = null, divisi
     
     initAudio();
 
-    const chordNotes = getChordNotes(chordSymbol, baseKey, divisions || state.divisions || 12);
+    const tuning = getEffectiveTuning(chordSymbol, divisions || state.divisions || 12);
+    const chordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
     if (!chordNotes) return;
 
-    const rootNoteMidi = chordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
+    const rootNoteMidi = getBassNote(chordNotes, tuning);
     const now = getAudioCurrentTime();
-    const notesToPlay = specificNotes || chordNotes.map(n => n - 12);
+    const dropSize = tuning.periodSize > 14 ? 12.0 : tuning.periodSize;
+    const notesToPlay = specificNotes || chordNotes.map(n => n - dropSize);
 
     const chordInst = state.instruments && state.instruments.chords ? state.instruments.chords : 'sawtooth';
     const bassInst = state.instruments && state.instruments.bass ? state.instruments.bass : 'sine';
@@ -154,15 +156,9 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
 
         const absIndex = bounds.start + chordIndexRel;
         
-        let notesToPlay = [];
-        if (state.useVoiceLeading) {
-            // Must calculate from the full progression to get proper voice leading context
-            const allPlayableNotes = getPlayableNotes(activeProg, state);
-            notesToPlay = allPlayableNotes[absIndex];
-        } else {
-            // Drop by 1 octave (-12) to match standard audition and pad register warmth
-            notesToPlay = getChordNotes(activeProg[absIndex].symbol, activeProg[absIndex].key, activeProg[absIndex].divisions || state.divisions || 12).map(n => n - 12);
-        }
+        // Must calculate from the full progression to get proper voice leading and inversion context
+        const allPlayableNotes = getPlayableNotes(activeProg, state);
+        const notesToPlay = allPlayableNotes[absIndex];
         
         if (!notesToPlay) return;
 
@@ -214,9 +210,10 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         
         const rootSymbol = chordObj.symbol;
         const rootKey = chordObj.key;
-        const rootChordNotes = getChordNotes(rootSymbol, rootKey, chordObj.divisions || state.divisions || 12);
+        const tuning = getEffectiveTuning(rootSymbol, chordObj.divisions || state.divisions || 12);
+        const rootChordNotes = getChordNotes(rootSymbol, rootKey, tuning.divisions);
         if (rootChordNotes) {
-            const rootNoteMidi = rootChordNotes[0] + CONFIG.BASS_OCTAVE_DROP;
+            const rootNoteMidi = getBassNote(rootChordNotes, tuning);
             
             let bPattern = chordObj.bassPattern;
             let isGlobalBass = false;
@@ -233,7 +230,9 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                 const instanceStartTime = time + (instance.startTime * chordSlotDuration);
                 const instanceDuration = instance.duration * chordSlotDuration;
                 const gateDuration = instanceDuration * 0.95;
-                const finalBassNote = snapToGrid(rootNoteMidi + (instance.pitchOffset || 0), chordObj.divisions || state.divisions || 12);
+                const editorTuning = getPitchEditorTuning(rootSymbol, chordObj.divisions || state.divisions || 12);
+                const snappedOffset = snapToGrid(60 + (instance.pitchOffset || 0), editorTuning) - 60;
+                const finalBassNote = rootNoteMidi + snappedOffset;
                 playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, bassInst, 'bass');
                 playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, 'sawtooth-bass', 'bassHarmonic');
             });

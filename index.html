@@ -7,7 +7,7 @@
     
     <!-- 1. CSS loaded first to block render until styles are ready -->
     <link rel="stylesheet" href="theme.css?v=1.0">
-    <link rel="stylesheet" href="style.css?v=1.0">
+    <link rel="stylesheet" href="style.css?v=1.1">
     <link rel="stylesheet" href="drum-grid.css?v=1.0">
     <link rel="stylesheet" href="rhythm-editor.css?v=1.0">
     <link rel="stylesheet" href="song-mode.css?v=1.0">
@@ -96,6 +96,7 @@
                     <option value="edo24Rast">24-EDO Rast (Maqam)</option>
                 </optgroup>
             </select>
+            <button id="btn-jump-source" class="control-btn primary btn-sm" style="display: none; margin-left: 8px;" title="Match global Key and Scale to the selected chord"></button>
         </div>
         
         <div class="beginner-helper">
@@ -345,6 +346,11 @@
                 <div class="settings-row" title="Calculates the shortest melodic distance between chords for smooth transitions">
                     <strong class="settings-label info">Voice Leading ℹ️</strong>
                     <input type="checkbox" id="voice-leading" checked class="settings-checkbox">
+                </div>
+                <!-- Mute Extreme Notes -->
+                <div class="settings-row" title="Mute notes that fall outside the typical musical register, preventing wide microtonal chords from being forced into awkward octaves.">
+                    <strong class="settings-label info">Mute Extreme Notes ℹ️</strong>
+                    <input type="checkbox" id="mute-extreme-notes" class="settings-checkbox">
                 </div>
                 <!-- Auto Pan-Leading -->
                 <div class="settings-row" id="row-auto-pan" title="Automatically pans highly dissonant microtonal clusters wide left and right to prevent center channel muddiness">

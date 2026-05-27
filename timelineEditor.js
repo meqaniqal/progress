@@ -1,5 +1,6 @@
 import { editorState, app, getCurrentPattern, setCurrentPattern, hasValidContext, getTimelineRect, getActiveGridValue, auditionSlicePitch, renderRhythmTimeline } from './rhythmEditor.js';
 import { exclusiveSelect, moveInstance, fillGapInstance, expandInstance, resizeInstance, drawPatternBlock, sliceInstance, updateInstance } from './patternUtils.js';
+import { getEffectiveTuning, getPitchEditorTuning } from './theory.js';
 
 export function initTimelineInteractions(timeline) {
     let dragStartX = 0;
@@ -300,16 +301,26 @@ export function initTimelineInteractions(timeline) {
         if (editorState.isPitchModeEnabled && editorState.activeTab === 'bassPattern') {
             const deltaY = e.clientY - dragStartY;
             const rect = cachedTimelineRect || getTimelineRect();
-            const semitonePx = rect.height * 0.03;
-            const deltaPitch = -Math.round(deltaY / semitonePx);
-            const newPitch = Math.max(-12, Math.min(12, editorState.dragStartPitchOffset + deltaPitch));
+            
+            // Dynamically calculate the step size based on active microtonal divisions
+            const chord = app.state.currentProgression[editorState.activeIndex];
+            const tuning = getPitchEditorTuning(chord ? chord.symbol : null, app.state.divisions);
+            const stepSize = tuning.periodSize / tuning.divisions;
+            
+            // Adjust physical drag sensitivity so high EDOs don't require dragging off the screen
+            const stepPx = Math.max(3, (rect.height * 0.4) / tuning.divisions); 
+            const deltaSteps = -Math.round(deltaY / stepPx);
+            
+            const newPitchOffset = editorState.dragStartPitchOffset + (deltaSteps * stepSize);
+            const maxPitch = tuning.periodSize;
+            const clampedPitch = Math.max(-maxPitch, Math.min(maxPitch, newPitchOffset));
             
             const pattern = getCurrentPattern();
             const inst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
-            if (inst && newPitch !== (inst.pitchOffset || 0)) {
-                setCurrentPattern(updateInstance(pattern, editorState.draggedInstanceId, { pitchOffset: newPitch }));
+            if (inst && Math.abs(clampedPitch - (inst.pitchOffset || 0)) > 0.01) {
+                setCurrentPattern(updateInstance(pattern, editorState.draggedInstanceId, { pitchOffset: clampedPitch }));
                 renderRhythmTimeline();
-                auditionSlicePitch(newPitch);
+                auditionSlicePitch(clampedPitch);
             }
             return; 
         }

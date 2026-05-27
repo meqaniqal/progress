@@ -1,4 +1,4 @@
-import { getChordNotes, getPlayableNotes } from './theory.js';
+import { getChordNotes, getPlayableNotes, getEffectiveTuning, snapToGrid, getBassNote, getPitchEditorTuning } from './theory.js';
 import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
 import { resolvePattern } from './patternResolver.js';
@@ -15,16 +15,10 @@ function getMpePitchBend(floatPitch, bendRange = 2) {
     };
 }
 
-function getLinearMidiKey(floatPitch, divisions) {
-    let periodMidiSize = 12.0;
-    if (divisions === 13) {
-        periodMidiSize = 12 * Math.log2(3);
-    }
-    
-    let key = 60 + Math.round((floatPitch - 60) * (divisions / periodMidiSize));
-    
-    while (key < 0) key += divisions;
-    while (key > 127) key -= divisions;
+function getLinearMidiKey(floatPitch, tuning) {
+    let key = 60 + Math.round((floatPitch - 60) * (tuning.divisions / tuning.periodSize));
+    while (key < 0) key += tuning.divisions;
+    while (key > 127) key -= tuning.divisions;
     
     return key;
 }
@@ -102,23 +96,17 @@ export function exportToMidi(state) {
 
     let midiNotesToWrite = [];
 
-    if (state.useVoiceLeading) {
-        let currentChunk = [];
-        for (let i = 0; i < state.currentProgression.length; i++) {
-            const chord = state.currentProgression[i];
-            if (chord._isSectionStart && currentChunk.length > 0) {
-                midiNotesToWrite = midiNotesToWrite.concat(getPlayableNotes(currentChunk, state));
-                currentChunk = [];
-            }
-            currentChunk.push(chord);
-        }
-        if (currentChunk.length > 0) {
+    let currentChunk = [];
+    for (let i = 0; i < state.currentProgression.length; i++) {
+        const chord = state.currentProgression[i];
+        if (chord._isSectionStart && currentChunk.length > 0) {
             midiNotesToWrite = midiNotesToWrite.concat(getPlayableNotes(currentChunk, state));
+            currentChunk = [];
         }
-    } else {
-        // Just use block root position chords
-        // Drop by 1 octave (-12) to match the pad register warmth used in audio playback
-        midiNotesToWrite = state.currentProgression.map(chord => getChordNotes(chord.symbol, chord.key, chord.divisions || state.divisions || 12).map(n => n - 12));
+        currentChunk.push(chord);
+    }
+    if (currentChunk.length > 0) {
+        midiNotesToWrite = midiNotesToWrite.concat(getPlayableNotes(currentChunk, state));
     }
 
     const isMultiTrack = state.midiExportRouting === 'multi-track';
@@ -193,8 +181,9 @@ export function exportToMidi(state) {
                         const noteDurationTicks = Math.max(1, Math.round(event.duration * (state.bpm / 60) * 128));
                         const { intNote, bendValue } = getMpePitchBend(event.note);
 
+                        const tuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
                         let arpPitch = intNote;
-                        if (isClean) arpPitch = getLinearMidiKey(event.note, state.divisions || 12);
+                        if (isClean) arpPitch = getLinearMidiKey(event.note, tuning);
 
                         const targetTrack = getChordTrack(0);
                         const targetChannel = isMultiTrack ? 1 : currentChannel;
@@ -230,8 +219,9 @@ export function exportToMidi(state) {
                             const waitTicks = Math.max(0, noteStartTick - currentChordTicks[noteIdx]);
                             const { intNote, bendValue } = getMpePitchBend(floatNote);
                             
+                            const tuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
                             let multiPitch = intNote;
-                            if (isClean) multiPitch = getLinearMidiKey(floatNote, state.divisions || 12);
+                            if (isClean) multiPitch = getLinearMidiKey(floatNote, tuning);
 
                             const events = [];
                             if (!isClean) {
@@ -251,7 +241,8 @@ export function exportToMidi(state) {
                         const events = [];
 
                         if (isClean) {
-                            const pitches = chordNotes.map(n => getLinearMidiKey(n, state.divisions || 12));
+                            const tuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
+                            const pitches = chordNotes.map(n => getLinearMidiKey(n, tuning));
                             events.push(new MidiWriter.NoteEvent({
                                 pitch: pitches,
                                 duration: `T${actualNoteDurationTicks}`,
@@ -296,7 +287,10 @@ export function exportToMidi(state) {
     for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
         state.currentProgression.forEach((chord, index) => {
             const isLastMacroChord = pass === (state.exportPasses || 1) - 1 && index === state.currentProgression.length - 1;
-            const rootNote = getChordNotes(chord.symbol, chord.key, chord.divisions || state.divisions || 12)[0] + CONFIG.BASS_OCTAVE_DROP; 
+            const tuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
+            const rootChordNotes = getChordNotes(chord.symbol, chord.key, tuning.divisions);
+            if (!rootChordNotes) return;
+            const rootNote = getBassNote(rootChordNotes, tuning); 
             const beats = Number(chord.duration) || 2;
             const slotTicks = beats * 128;
             
@@ -321,11 +315,13 @@ export function exportToMidi(state) {
                 const instanceDurationTicks = useFullDuration ? Math.round(instance.duration * slotTicks) : Math.round(instance.duration * slotTicks * 0.95);
                 const waitTicks = Math.max(0, instanceStartTick - currentBassGlobalTick);
 
-                const finalBassNote = rootNote + (instance.pitchOffset || 0);
+                const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || state.divisions || 12);
+                const snappedOffset = snapToGrid(60 + (instance.pitchOffset || 0), editorTuning) - 60;
+                const finalBassNote = rootNote + snappedOffset;
                 const { intNote, bendValue } = getMpePitchBend(finalBassNote);
 
                 let bassPitch = intNote;
-                if (isClean) bassPitch = getLinearMidiKey(finalBassNote, state.divisions || 12);
+                if (isClean) bassPitch = getLinearMidiKey(finalBassNote, tuning);
 
                 const events = [];
                 if (!isClean) {

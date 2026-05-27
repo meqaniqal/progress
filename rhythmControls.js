@@ -13,6 +13,7 @@ import {
     auditionSlicePitch, 
     renderRhythmTimeline 
 } from './rhythmEditor.js';
+import { getEffectiveTuning, getPitchEditorTuning } from './theory.js';
 
 /** Sets up the 'Chords' | 'Bass' | 'Drums' tabs and the 'Global' | 'Local' toggle. */
 function _setupTabsAndToggles() {
@@ -212,9 +213,15 @@ function _setupPropertiesControls() {
         let newPattern = pattern;
         app.saveHistoryState();
         let lastNewPitch = 0;
+        
+        const chord = app.state.currentProgression[editorState.activeIndex];
+        const tuning = getPitchEditorTuning(chord ? chord.symbol : null, app.state.divisions);
+        const stepSize = tuning.periodSize / tuning.divisions;
+        const maxPitch = tuning.periodSize; // Span a full octave/period up and down
+
         selectedInsts.forEach(inst => {
             const currentPitch = inst.pitchOffset || 0;
-            const newPitch = Math.max(-12, Math.min(12, currentPitch + delta));
+            const newPitch = Math.max(-maxPitch, Math.min(maxPitch, currentPitch + (delta * stepSize)));
             newPattern = updateInstance(newPattern, inst.id, { pitchOffset: newPitch });
             lastNewPitch = newPitch;
         });

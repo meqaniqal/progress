@@ -6,7 +6,7 @@ import { initDragAndDrop } from './dragdrop.js';
 import { exportToMidi, exportScalaFile, exportTunFile } from './midi.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
 import { KEY_NAMES, highlightChordInUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
-import { state, getActiveProgression, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal, addChord, removeChord, clearProgression, swapChord, stepInversion, changeVoicing, changeVoicingType, setGlobalVoicing, changeChordKey, transposeChord, changeDuration, addTurnaround, reorderProgression, addChordFromSource, setProgressionBrackets } from './store.js';
+import { state, getActiveProgression, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal, addChord, removeChord, clearProgression, swapChord, stepInversion, changeVoicing, changeVoicingType, setGlobalVoicing, changeChordKey, transposeChord, changeDuration, addTurnaround, reorderProgression, addChordFromSource, setProgressionBrackets, setGlobalMode, setGlobalKeyAndMode } from './store.js';
 import { getExportState } from './exportStateBuilder.js';
 import { initExportUI } from './exportController.js';
 import { initModals } from './modalController.js';
@@ -82,6 +82,16 @@ import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from '
             onAddTurnaround: (index, altSymbol, key) => {
                 addTurnaround(index, altSymbol, key);
                 auditionChord(altSymbol, key);
+                renderProgression();
+            },
+            onSetGlobalMode: (mode) => {
+                setGlobalMode(mode);
+                updateKeyAndModeDisplay(state);
+                renderProgression();
+            },
+            onSetGlobalKeyAndMode: (key, mode) => {
+                setGlobalKeyAndMode(key, mode);
+                updateKeyAndModeDisplay(state);
                 renderProgression();
             }
         };
@@ -170,6 +180,8 @@ function _loadAndApplyInitialState() {
     const multipassInput = document.getElementById('multipass-input');
     if (multipassInput) multipassInput.value = state.exportPasses || 1;
     document.getElementById('voice-leading').checked = state.useVoiceLeading;
+    const muteExtremeInput = document.getElementById('mute-extreme-notes');
+    if (muteExtremeInput) muteExtremeInput.checked = state.muteExtremeNotes;
     const autoPanInput = document.getElementById('auto-pan-leading');
     if (autoPanInput) autoPanInput.checked = state.autoPanLeading;
     
@@ -415,6 +427,15 @@ function _setupControlButtons() {
         state.useVoiceLeading = e.target.checked;
         persistAppState();
     });
+    
+    const muteExtremeInput = document.getElementById('mute-extreme-notes');
+    if (muteExtremeInput) {
+        muteExtremeInput.addEventListener('change', (e) => {
+            state.muteExtremeNotes = e.target.checked;
+            persistAppState();
+            renderProgression();
+        });
+    }
     
     const autoPanInput = document.getElementById('auto-pan-leading');
     if (autoPanInput) {

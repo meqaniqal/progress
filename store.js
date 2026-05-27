@@ -13,6 +13,7 @@ export const state = {
     bpm: 120,
     isLooping: true, // Hardcoded to always loop
     useVoiceLeading: true,
+    muteExtremeNotes: false,
     autoPanLeading: true,
     midiExportRouting: 'mpe',
     globalVoicing: 'auto', // 'auto', 'close', 'spread', 'quartal'
@@ -296,6 +297,19 @@ export function setGlobalVoicing(type) {
     persistAppState();
 }
 
+export function setGlobalMode(mode) {
+    saveHistoryState();
+    state.mode = mode;
+    persistAppState();
+}
+
+export function setGlobalKeyAndMode(key, mode) {
+    saveHistoryState();
+    state.baseKey = key;
+    state.mode = mode;
+    persistAppState();
+}
+
 export function changeChordKey(index, newKey) {
     saveHistoryState();
     state.currentProgression[index].key = newKey;
@@ -485,6 +499,7 @@ export function resetSession() {
     state.bpm = 120;
     state.isLooping = true;
     state.useVoiceLeading = true;
+    state.muteExtremeNotes = false;
     state.autoPanLeading = true;
     state.midiExportRouting = 'mpe';
     state.globalVoicing = 'auto';
@@ -540,6 +555,7 @@ export function loadAndApplyInitialState() {
         
         state.isLooping = true; // Hardcoded to always loop
         state.useVoiceLeading = Boolean(savedState.useVoiceLeading ?? savedState.voiceLeading ?? state.useVoiceLeading);
+        state.muteExtremeNotes = savedState.muteExtremeNotes !== undefined ? Boolean(savedState.muteExtremeNotes) : false;
         state.autoPanLeading = savedState.autoPanLeading !== undefined ? Boolean(savedState.autoPanLeading) : true;
         state.midiExportRouting = savedState.midiExportRouting || 'mpe';
         state.globalVoicing = savedState.globalVoicing || 'auto';

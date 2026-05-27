@@ -7,7 +7,7 @@ import {
     getDurationBeats 
 } from './rhythmEditor.js';
 import { generateArpNotes } from './arp.js';
-import { getChordNotes } from './theory.js';
+import { getChordNotes, getEffectiveTuning, getPitchEditorTuning } from './theory.js';
 
 const PITCH_LABELS = {
     '-12': '-8ve', '-11': '-M7', '-10': '-m7', '-9': '-M6', '-8': '-m6', '-7': '-P5', '-6': '-TT', '-5': '-P4', '-4': '-M3', '-3': '-m3', '-2': '-M2', '-1': '-m2',
@@ -239,7 +239,16 @@ export function renderRhythmTimeline() {
                 if (editorState.activeTab === 'bassPattern' && editorState.isPitchModeEnabled) {
                     if (pitchWrapper) pitchWrapper.style.display = 'flex';
                     const pOff = selectedInsts[0].pitchOffset || 0;
-                    if (pitchDisplay) pitchDisplay.textContent = PITCH_LABELS[pOff] || pOff;
+                    if (pitchDisplay) {
+                        const chord = app.state.currentProgression[editorState.activeIndex];
+                        const tuning = getPitchEditorTuning(chord ? chord.symbol : null, app.state.divisions);
+                        if (tuning.divisions === 12) {
+                            pitchDisplay.textContent = PITCH_LABELS[Math.round(pOff)] || pOff;
+                        } else {
+                            const steps = Math.round(pOff / (tuning.periodSize / tuning.divisions));
+                            pitchDisplay.textContent = steps === 0 ? 'Root' : (steps > 0 ? `+${steps}s` : `${steps}s`);
+                        }
+                    }
                 } else if (pitchWrapper) {
                     pitchWrapper.style.display = 'none';
                 }
@@ -413,7 +422,15 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
                 pitchLabel.style.textShadow = '0 1px 2px rgba(0,0,0,0.8)';
                 el.appendChild(pitchLabel);
             }
-            pitchLabel.textContent = PITCH_LABELS[pOffset] || pOffset;
+            
+            const chordObj = app.state.currentProgression[editorState.activeIndex];
+            const tuning = getPitchEditorTuning(chordObj ? chordObj.symbol : null, app.state.divisions);
+            if (tuning.divisions === 12) {
+                pitchLabel.textContent = PITCH_LABELS[Math.round(pOffset)] || pOffset;
+            } else {
+                const steps = Math.round(pOffset / (tuning.periodSize / tuning.divisions));
+                pitchLabel.textContent = steps === 0 ? 'R' : (steps > 0 ? `+${steps}` : `${steps}`);
+            }
         } else {
             el.style.top = '10%';
             el.style.height = '80%';

@@ -1,5 +1,5 @@
 import { CHORD_INTERVALS } from './chordDictionary.js';
-import { getMicrotonalChord, getMicrotonalDiatonicChords } from './microtonalDictionary.js';
+import { getMicrotonalChord, getMicrotonalDiatonicChords, MICRO_TUNINGS } from './microtonalDictionary.js';
 import { getMicrotonalAlternatives, getMicrotonalTurnarounds } from './microtonalSuggestions.js';
 
 export const SCALES = {
@@ -39,8 +39,23 @@ export const TUNING_SYSTEMS = {
     EDO31: 31, // 31-Tone Equal Temperament (excellent Just Intonation approx)
 };
 
+export function getBassNote(rootChordNotes, tuning) {
+    if (!rootChordNotes || rootChordNotes.length === 0) return 0;
+    let bass = rootChordNotes[0];
+    
+    // Normalize bass to the 36-47 range (C2 to B2) to ensure a consistent sub-bass pocket
+    // and prevent macrotonal roots from overlapping with the pad register.
+    while (bass >= 48) bass -= 12.0;
+    while (bass < 36) bass += 12.0;
+    
+    return bass;
+}
+
 export function getChordNotes(symbol, baseKey, divisions = 12) {
     if (!symbol || typeof symbol !== 'string') return null;
+
+    const tuning = getEffectiveTuning(symbol, divisions);
+    const periodMidiSize = tuning.periodSize;
 
     let intervals = CHORD_INTERVALS[symbol];
     
@@ -117,12 +132,11 @@ export function getChordNotes(symbol, baseKey, divisions = 12) {
     if (!intervals) return null;
     
     return intervals.map(interval => {
-        if (divisions === 12) return baseKey + interval;
+        if (tuning.divisions === 12) return baseKey + interval;
         // Find the absolute semitone distance from the global anchor (MIDI 60)
         const absoluteSemitones = (baseKey - 60) + interval;
-        let periodMidiSize = 12.0;
-        const edoStep = Math.round(absoluteSemitones * (divisions / periodMidiSize));
-        return 60 + (edoStep * (periodMidiSize / divisions));
+        const edoStep = Math.round(absoluteSemitones * (tuning.divisions / periodMidiSize));
+        return 60 + (edoStep * (periodMidiSize / tuning.divisions));
     });
 }
 
@@ -214,6 +228,43 @@ export function getDiatonicChords(scaleType = 'major') {
         results.push(symbol);
     }
     return results;
+}
+
+/**
+ * Deduces the most likely native mode/scale for a given chord symbol.
+ * Used as a fallback for legacy chords without a strict sourceMode.
+ */
+export function deduceSourceMode(chordSymbol, currentMode = 'major') {
+    const microMatch = chordSymbol.match(/^([A-Z0-9]+?)([A-Z][a-z]+)(\d+)$/);
+    if (microMatch) {
+        return microMatch[1].toLowerCase() + microMatch[2];
+    }
+
+    const safeMode = currentMode.trim();
+    const baseFunc = chordSymbol.replace(/maj9|maj7|sus4|7#9|7b13|11|13|9|7/g, '').trim();
+
+    const diatonicArr = getDiatonicChords(safeMode) || [];
+    const currentDiatonic = diatonicArr.map(sym => sym.replace(/maj9|maj7|sus4|7#9|7b13|11|13|9|7/g, '').trim());
+    
+    if (currentDiatonic.includes(baseFunc)) {
+        return safeMode;
+    }
+
+    let fallbackModes = ['major', 'minor', 'harmonicMinor', 'dorian', 'mixolydian', 'lydian', 'phrygian', 'melodicMinor'];
+    if (safeMode.toLowerCase() === 'major') fallbackModes = ['minor', 'mixolydian', 'lydian', 'dorian', 'harmonicMinor', 'phrygian', 'melodicMinor'];
+    if (safeMode.toLowerCase() === 'minor') fallbackModes = ['harmonicMinor', 'dorian', 'major', 'phrygian', 'melodicMinor', 'mixolydian', 'lydian'];
+
+    for (const mode of fallbackModes) {
+        if (mode === safeMode) continue;
+        const diatonicChords = getDiatonicChords(mode);
+        if (!diatonicChords) continue;
+        const baseDiatonic = diatonicChords.map(sym => sym.replace(/maj9|maj7|sus4|7#9|7b13|11|13|9|7/g, '').trim());
+        if (baseDiatonic.includes(baseFunc)) {
+            return mode;
+        }
+    }
+    
+    return null;
 }
 
 /**
@@ -436,19 +487,27 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
     const getOptions = (chord) => ({
         centerGravity: globalOptions.centerGravity ?? 54,
         gravityWeight: globalOptions.gravityWeight ?? 0.5,
-        extremeHigh: globalOptions.extremeHigh ?? 72,
-        extremeLow: globalOptions.extremeLow ?? 42,
+        extremeHigh: globalOptions.extremeHigh ?? 84, // Widened to allow high exotic extensions
+        extremeLow: globalOptions.extremeLow ?? 36,   // Lowered to C2 to allow wide BP roots to breathe
         extremeWeight: globalOptions.extremeWeight ?? 5,
         voicingType: chord.voicingType && chord.voicingType !== 'global' ? chord.voicingType : (globalOptions.globalVoicing ?? 'auto')
     });
 
     // 1. Smart Anchoring for the First Chord
     const firstOpts = getOptions(validProgression[0]);
+    const firstTuning = getEffectiveTuning(validProgression[0].symbol, getDivisions(validProgression[0]));
     let firstTarget = optimizeVoicing(getChordNotes(validProgression[0].symbol, validProgression[0].key, getDivisions(validProgression[0])));
     
     // Generate inversions dynamically based on the requested Voicing Type
-    let firstInversions = generateInversions(firstTarget, firstOpts.voicingType);
+    let firstInversions = generateInversions(firstTarget, firstOpts.voicingType, firstTuning.periodSize);
     
+    if (globalOptions.muteExtremeNotes) {
+        firstInversions = firstInversions.map(inv => {
+            let filtered = inv.filter(n => n >= firstOpts.extremeLow && n <= firstOpts.extremeHigh);
+            return filtered.length > 0 ? filtered : [inv[0]];
+        });
+    }
+
     let bestFirst = firstInversions[0];
     let bestFirstCost = Infinity;
     
@@ -461,7 +520,9 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
         if (inv[inv.length - 1] > firstOpts.extremeHigh) extremePenalty += (inv[inv.length - 1] - firstOpts.extremeHigh) * firstOpts.extremeWeight;
         
         let rootPenalty = 0;
-        const isRootMismatch = Math.abs((inv[0] % 12) - (firstTarget[0] % 12)) > 0.15;
+        const invMod = ((inv[0] % firstTuning.periodSize) + firstTuning.periodSize) % firstTuning.periodSize;
+        const tgtMod = ((firstTarget[0] % firstTuning.periodSize) + firstTuning.periodSize) % firstTuning.periodSize;
+        const isRootMismatch = Math.abs(invMod - tgtMod) > 0.15 && Math.abs(invMod - tgtMod) < firstTuning.periodSize - 0.15;
         if ((firstOpts.voicingType === 'auto' || firstOpts.voicingType === 'close') && isRootMismatch) {
             rootPenalty = 15; // Strongly bias towards root position for the opening chord stability
         }
@@ -479,11 +540,20 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
     for (let i = 1; i < validProgression.length; i++) {
         let prevChord = processed[i - 1];
         let opts = getOptions(validProgression[i]);
+        let prevTuning = getEffectiveTuning(validProgression[i-1].symbol, getDivisions(validProgression[i-1]));
+        let tuning = getEffectiveTuning(validProgression[i].symbol, getDivisions(validProgression[i]));
         let targetNotes = getChordNotes(validProgression[i].symbol, validProgression[i].key, getDivisions(validProgression[i]));
         targetNotes = optimizeVoicing(targetNotes);
         
-        let inversions = generateInversions(targetNotes, opts.voicingType);
+        let inversions = generateInversions(targetNotes, opts.voicingType, tuning.periodSize);
         
+        if (globalOptions.muteExtremeNotes) {
+            inversions = inversions.map(inv => {
+                let filtered = inv.filter(n => n >= opts.extremeLow && n <= opts.extremeHigh);
+                return filtered.length > 0 ? filtered : [inv[0]];
+            });
+        }
+
         let bestInversion = inversions[0];
         let smallestCost = Infinity;
 
@@ -492,6 +562,12 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
             
             let avgPitch = inv.reduce((sum, val) => sum + val, 0) / inv.length;
             let gravityPenalty = Math.abs(avgPitch - opts.centerGravity) * opts.gravityWeight;
+            
+            // If crossing tuning system boundaries (e.g., 12-TET to BP), strongly prioritize register matching over voice leading.
+            if (Math.abs(tuning.periodSize - prevTuning.periodSize) > 0.1) {
+                let prevAvg = prevChord.reduce((sum, val) => sum + val, 0) / prevChord.length;
+                gravityPenalty += Math.abs(avgPitch - prevAvg) * 10; // Tether to the previous chord's register
+            }
             
             let extremePenalty = 0;
             if (inv[0] < opts.extremeLow) extremePenalty += (opts.extremeLow - inv[0]) * opts.extremeWeight;
@@ -517,25 +593,72 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
 export function getPlayableNotes(progression, globalOptions = {}) {
     if (!progression || progression.length === 0) return [];
 
-    // 1. Get the smoothest voice-led progression first.
-    const voiceLedProgression = applyVoiceLeading(progression, globalOptions);
+    let baseProgression;
+    
+    if (globalOptions.useVoiceLeading !== false) {
+        // 1. Get the smoothest voice-led progression first.
+        baseProgression = applyVoiceLeading(progression, globalOptions);
+    } else {
+        // 1b. Just use root position (dropped one period for warmth)
+        baseProgression = progression.map(chord => {
+            const tuning = getEffectiveTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
+            const notes = getChordNotes(chord.symbol, chord.key, tuning.divisions);
+            const dropSize = tuning.periodSize > 14 ? 12.0 : tuning.periodSize;
+            return notes ? notes.map(n => n - dropSize) : [];
+        });
+    }
 
     // 2. Apply manual inversion offsets post-math.
-    const finalProgression = voiceLedProgression.map((notes, index) => {
+    const finalProgression = baseProgression.map((notes, index) => {
         const chord = progression[index];
         const offset = chord.inversionOffset;
+        const tuning = getEffectiveTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
+
+        let finalNotes = notes;
 
         if (typeof offset === 'number' && offset !== 0) {
-            return applyInversion(notes, offset);
+            finalNotes = applyInversion(notes, offset, tuning.periodSize);
         }
-        return notes;
+        
+        if (globalOptions.muteExtremeNotes) {
+            const extremeLow = globalOptions.extremeLow ?? 36;
+            const extremeHigh = globalOptions.extremeHigh ?? 84;
+            const filtered = finalNotes.filter(n => n >= extremeLow && n <= extremeHigh);
+            
+            if (filtered.length === 0 && finalNotes.length > 0) {
+                // The entire chord fell out of bounds (likely due to extreme manual inversion).
+                // Fold it back into the playable register instead of collapsing to a single sub-bass note.
+                const shiftDir = finalNotes[0] < extremeLow ? 1 : -1;
+                let folded = [...finalNotes];
+                const isMacrotonal = tuning.periodSize > 14;
+                const foldPeriod = isMacrotonal ? 12.0 : tuning.periodSize;
+                while (folded.length > 0 && (folded[0] < extremeLow || folded[folded.length-1] > extremeHigh)) {
+                    folded = folded.map(n => n + (shiftDir * foldPeriod));
+                    if (shiftDir === 1 && folded[0] >= extremeLow) break;
+                    if (shiftDir === -1 && folded[folded.length-1] <= extremeHigh) break;
+                }
+                finalNotes = folded;
+            } else {
+                finalNotes = filtered.length > 0 ? filtered : finalNotes;
+            }
+        }
+        return finalNotes;
     });
 
     return finalProgression;
 }
 
-export function applyInversion(notes, offset = 0) {
+export function applyInversion(notes, offset = 0, periodSize = 12.0) {
     if (offset === 0 || !notes || notes.length === 0) return notes;
+
+    const isMacrotonal = periodSize > 14;
+
+    // Macrotonal protection: internal inversions shatter wide-period chords.
+    // We shift the entire chord block by a standard octave (12.0) instead of the Tritave.
+    // This preserves the tight microtonal cluster while keeping it in a musical register.
+    if (isMacrotonal) {
+        return [...notes].map(n => n + (offset * 12.0)).sort((a, b) => a - b);
+    }
 
     const numNotes = notes.length;
     const effectiveOffset = ((offset % numNotes) + numNotes) % numNotes;
@@ -544,32 +667,44 @@ export function applyInversion(notes, offset = 0) {
     let inverted = [...notes].sort((a, b) => a - b);
 
     for (let i = 0; i < effectiveOffset; i++) {
-        inverted.push(inverted.shift() + 12);
+        inverted.push(inverted.shift() + periodSize);
     }
     
-    return inverted.map(n => n + (octaveShift * 12)).sort((a, b) => a - b);
+    return inverted.map(n => n + (octaveShift * periodSize)).sort((a, b) => a - b);
 }
 
-export function generateInversions(chord, voicingType = 'auto') {
+export function generateInversions(chord, voicingType = 'auto', periodSize = 12.0) {
     const inversions = [];
+    const isMacrotonal = periodSize > 14;
     
-    for (let oct of [-24, -12, 0, 12]) {
-        const base = chord.map(n => n + oct);
+    // Macrotonal protection: internal inversions and spread voicings shatter wide-period chords.
+    // Force 'close' voicing to preserve the tight microtonal cluster identity.
+    const safeVoicingType = isMacrotonal ? 'close' : voicingType;
+    const shiftPeriod = isMacrotonal ? 12.0 : periodSize;
+
+    for (let oct of [-3, -2, -1, 0, 1, 2]) { // Expanded search space to prevent boundary trapping
+        const shift = oct * shiftPeriod;
+        const base = chord.map(n => n + shift);
         
-        if (voicingType === 'quartal') {
-            inversions.push(_buildQuartalVoicing(base));
+        if (safeVoicingType === 'quartal') {
+            inversions.push(_buildQuartalVoicing(base, periodSize));
             continue; // Quartal is a strict mathematical layout, skip standard inversions
         }
 
-        if (voicingType === 'close' || voicingType === 'auto') {
+        if (safeVoicingType === 'close' || safeVoicingType === 'auto') {
             inversions.push([...base]); // Root Position Close
         }
         
+        // For macrotonal scales (BP), internal inversions shatter the chord with huge gaps.
+        if (isMacrotonal) {
+            continue;
+        }
+        
         // Generate Drop 2 for root position (Spread voicings)
-        if (base.length >= 4 && (voicingType === 'spread' || voicingType === 'auto')) {
+        if (base.length >= 4 && (safeVoicingType === 'spread' || safeVoicingType === 'auto')) {
             const drop2 = [...base];
             const secondFromTop = drop2.splice(drop2.length - 2, 1)[0];
-            drop2.unshift(secondFromTop - 12);
+            drop2.unshift(secondFromTop - periodSize);
             inversions.push(drop2);
         }
         
@@ -577,31 +712,31 @@ export function generateInversions(chord, voicingType = 'auto') {
         for (let i = 1; i < chord.length; i++) {
             const inv = [...base];
             for (let j = 0; j < i; j++) {
-                inv[j] += 12; // Shift bottom notes up an octave
+                inv[j] += periodSize; // Shift bottom notes up a period
             }
             const sortedInv = inv.sort((a, b) => a - b);
             
-            if (voicingType === 'close' || voicingType === 'auto') {
+            if (safeVoicingType === 'close' || safeVoicingType === 'auto') {
                 inversions.push([...sortedInv]);
             }
             
-            if (sortedInv.length >= 4 && (voicingType === 'spread' || voicingType === 'auto')) {
+            if (sortedInv.length >= 4 && (safeVoicingType === 'spread' || safeVoicingType === 'auto')) {
                 const drop2 = [...sortedInv];
                 const secondFromTop = drop2.splice(drop2.length - 2, 1)[0];
-                drop2.unshift(secondFromTop - 12); // Drop the 2nd highest note an octave
+                drop2.unshift(secondFromTop - periodSize); // Drop the 2nd highest note a period
                 inversions.push(drop2);
             }
         }
 
-        if (base.length === 3 && voicingType === 'spread') {
+        if (base.length === 3 && safeVoicingType === 'spread') {
             // Open triad (Drop 1) for massive spread 3-note chords
             for (let i = 0; i < 3; i++) {
                 const inv = [...base];
-                for (let j = 0; j < i; j++) inv[j] += 12;
+                for (let j = 0; j < i; j++) inv[j] += periodSize;
                 const sortedInv = inv.sort((a,b)=>a-b);
                 const openTriad = [...sortedInv];
                 const mid = openTriad.splice(1, 1)[0];
-                openTriad.unshift(mid - 12);
+                openTriad.unshift(mid - periodSize);
                 inversions.push(openTriad);
             }
         }
@@ -610,7 +745,7 @@ export function generateInversions(chord, voicingType = 'auto') {
     return inversions;
 }
 
-function _buildQuartalVoicing(notes) {
+function _buildQuartalVoicing(notes, periodSize = 12.0) {
     // Finds the permutation of notes that maximizes Perfect 4ths and 5ths between adjacent voices
     let sorted = [...notes].sort((a,b)=>a-b);
     let quartal = [sorted[0]];
@@ -620,13 +755,13 @@ function _buildQuartalVoicing(notes) {
         let bestIdx = 0;
         let bestScore = Infinity;
         for (let i=0; i<remaining.length; i++) {
-            let interval = (remaining[i] - lastNote) % 12;
-            if (interval < 0) interval += 12;
-            let score = Math.min(Math.abs(interval - 5), Math.abs(interval - 7));
+            let interval = (remaining[i] - lastNote) % periodSize;
+            if (interval < 0) interval += periodSize;
+            let score = Math.min(Math.abs(interval - (periodSize * 5/12)), Math.abs(interval - (periodSize * 7/12)));
             if (score < bestScore) { bestScore = score; bestIdx = i; }
         }
         let nextNote = remaining.splice(bestIdx, 1)[0];
-        while (nextNote <= lastNote) nextNote += 12; // Force upward stacking
+        while (nextNote <= lastNote) nextNote += periodSize; // Force upward stacking
         quartal.push(nextNote);
     }
     return quartal;
@@ -685,14 +820,48 @@ export function freqToMidi(frequency, a4Freq = 440.0) {
     return 69 + 12 * Math.log2(frequency / a4Freq);
 }
 
-export function snapToGrid(floatPitch, divisions = 12) {
-    if (!divisions || divisions === 12) return floatPitch;
-    let periodMidiSize = 12.0;
-    if (divisions === 13) periodMidiSize = 12 * Math.log2(3);
-    else if (divisions === 5) periodMidiSize = 12.0;
+/**
+ * Determines the active tuning parameters (Divisions and Period Size).
+ * If a chord symbol explicitly belongs to a microtonal scale (e.g., BP), it forces that native tuning.
+ */
+export function getEffectiveTuning(chordSymbol, globalDivisions = 12) {
+    if (chordSymbol) {
+        const match = chordSymbol.match(/^([A-Z0-9]+?)([A-Z][a-z]+)(\d+)$/);
+        if (match) {
+            const tuningKey = match[1].toUpperCase();
+            const nativeTuning = MICRO_TUNINGS[tuningKey];
+            if (nativeTuning) {
+                return { divisions: nativeTuning.divisions, periodSize: nativeTuning.periodSize };
+            }
+        }
+    }
+    let periodSize = 12.0;
+    if (globalDivisions === 13) periodSize = 12 * Math.log2(3); // Global BP Fallback
+    else if (globalDivisions === 5) periodSize = 12.0;
+    return { divisions: globalDivisions || 12, periodSize };
+}
+
+/**
+ * Determines the tuning grid used by the Pitch Editor UI and Bass Snapping.
+ * Prioritizes the Global Tuning if it is microtonal, granting the user maximum
+ * resolution to interweave exotic chords into the active global grid.
+ */
+export function getPitchEditorTuning(chordSymbol, globalDivisions = 12) {
+    if (globalDivisions && globalDivisions !== 12) {
+        return getEffectiveTuning(null, globalDivisions);
+    }
+    return getEffectiveTuning(chordSymbol, globalDivisions);
+}
+
+export function snapToGrid(floatPitch, tuningObjOrDivisions = 12) {
+    const tuning = typeof tuningObjOrDivisions === 'number' 
+        ? getEffectiveTuning(null, tuningObjOrDivisions) 
+        : tuningObjOrDivisions;
+        
+    if (tuning.divisions === 12) return Math.round(floatPitch); // Enforce rigid integer snapping for standard 12-TET
     
-    const edoStep = Math.round((floatPitch - 60) * (divisions / periodMidiSize));
-    return 60 + (edoStep * (periodMidiSize / divisions));
+    const edoStep = Math.round((floatPitch - 60) * (tuning.divisions / tuning.periodSize));
+    return 60 + (edoStep * (tuning.periodSize / tuning.divisions));
 }
 
 /**
