@@ -56,10 +56,9 @@ export function renderRhythmTimeline() {
     const experimentalPushPull = document.getElementById('experimental-push-pull');
     const btnLegacyReset = document.getElementById('btn-rhythm-reset');
 
-    const isExperimental = app.state.enableExperimentalDrawMode;
     const isChordOrBass = editorState.activeTab === 'chordPattern' || editorState.activeTab === 'bassPattern';
 
-    if (isExperimental && isChordOrBass) {
+    if (isChordOrBass) {
         editorState.isGlobal = false; // Force edit-in-place local behavior
         if (legacyToggle) legacyToggle.style.display = 'none';
         if (experimentalPushPull) {
@@ -134,14 +133,14 @@ export function renderRhythmTimeline() {
         container.style.cursor = 'ns-resize';
     } else {
         if (btnDrawToggle) {
-            btnDrawToggle.style.display = (isExperimental && isChordOrBass) ? 'inline-block' : 'none';
+            btnDrawToggle.style.display = isChordOrBass ? 'inline-block' : 'none';
             btnDrawToggle.classList.toggle('active', editorState.isDrawModeEnabled);
         }
-        container.style.cursor = (isExperimental && isChordOrBass && editorState.isDrawModeEnabled) ? 'crosshair' : 'default';
+        container.style.cursor = (isChordOrBass && editorState.isDrawModeEnabled) ? 'crosshair' : 'default';
     }
 
     // Sync the legacy toggle's visual state
-    if (legacyToggle && (!isExperimental || !isChordOrBass)) {
+    if (legacyToggle && !isChordOrBass) {
         const toggles = legacyToggle.querySelectorAll('.toggle-btn');
         toggles.forEach(b => {
             if ((b.dataset.mode === 'global' && editorState.isGlobal) || 

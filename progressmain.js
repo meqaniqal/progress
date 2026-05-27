@@ -126,9 +126,23 @@ export function updateMicrotonalSettingsUI() {
 
     const rowAutoPan = document.getElementById('row-auto-pan');
     const rowMidiRouting = document.getElementById('row-midi-routing');
+    const hubTuningFilesSection = document.getElementById('hub-tuning-files-section');
 
     if (rowAutoPan) rowAutoPan.style.display = isMicrotonal ? 'flex' : 'none';
     if (rowMidiRouting) rowMidiRouting.style.display = isMicrotonal ? 'flex' : 'none';
+    
+    if (hubTuningFilesSection) {
+        const btnScala = document.getElementById('btn-hub-export-scala');
+        const btnTun = document.getElementById('btn-hub-export-tun');
+        const selector = document.getElementById('hub-tuning-selector');
+        
+        const enabled = isMicrotonal && isCleanRouting;
+        if (btnScala) btnScala.disabled = !enabled;
+        if (btnTun) btnTun.disabled = !enabled;
+        if (selector) selector.disabled = !enabled;
+        
+        hubTuningFilesSection.style.opacity = enabled ? '1' : '0.5';
+    }
 }
 
 export function updateCustomDrumsUI() {
@@ -189,9 +203,6 @@ export function syncUIToState(explicitState = null) {
     if (midiExportSelector) midiExportSelector.value = state.midiExportRouting || 'mpe';
     
     updateMicrotonalSettingsUI();
-
-    const expDrawInput = document.getElementById('experimental-draw-mode');
-    if (expDrawInput) expDrawInput.checked = state.enableExperimentalDrawMode;
 
     document.body.classList.toggle('beginner-mode', !state.isAdvancedMode);
     const btnModeToggle = document.getElementById('btn-mode-toggle');
@@ -468,14 +479,6 @@ function _setupControlButtons() {
         });
     }
 
-    const expDrawInput = document.getElementById('experimental-draw-mode');
-    if (expDrawInput) {
-        expDrawInput.addEventListener('change', (e) => {
-            state.enableExperimentalDrawMode = e.target.checked;
-            persistAppState();
-            renderProgression(); // Sync UI immediately
-        });
-    }
 
     const multipassInput = document.getElementById('multipass-input');
     if (multipassInput) {

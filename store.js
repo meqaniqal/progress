@@ -29,7 +29,6 @@ export const state = {
     selectedChordIndex: null,
     globalPatterns: initPatternSet(),
     showManualOnStartup: true,
-    enableExperimentalDrawMode: true,
     isAdvancedMode: true,
     editorState: {
         activeIndex: null,
@@ -513,7 +512,6 @@ export function resetSession() {
     state.instruments = { chords: 'sawtooth', bass: 'sine' };
     state.selectedChordIndex = null;
     state.showManualOnStartup = true;
-    state.enableExperimentalDrawMode = true;
     state.isAdvancedMode = true;
     state.editorState = {
         activeIndex: null,
@@ -575,7 +573,6 @@ export function loadAndApplyInitialState(explicitState = null) {
         }
         
         state.showManualOnStartup = savedState.showManualOnStartup !== undefined ? Boolean(savedState.showManualOnStartup) : true;
-        state.enableExperimentalDrawMode = Boolean(savedState.enableExperimentalDrawMode);
         state.isAdvancedMode = savedState.isAdvancedMode !== undefined ? Boolean(savedState.isAdvancedMode) : true;
         
         if (savedState.volumes) {

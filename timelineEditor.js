@@ -63,10 +63,9 @@ export function initTimelineInteractions(timeline) {
             return;
         }
 
-        const isExperimental = app.state.enableExperimentalDrawMode;
         const isChordOrBass = editorState.activeTab === 'chordPattern' || editorState.activeTab === 'bassPattern';
 
-        if (isExperimental && isChordOrBass && editorState.isDrawModeEnabled) {
+        if (isChordOrBass && editorState.isDrawModeEnabled) {
             if (!hasValidContext()) return;
             cachedTimelineRect = getTimelineRect();
             const rect = cachedTimelineRect;

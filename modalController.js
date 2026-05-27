@@ -68,9 +68,6 @@ function _initSettingsModal(onResetPlayback, onRenderProgression) {
                 if (tuningSelector) tuningSelector.value = state.divisions || 12;
                 
                 updateMicrotonalSettingsUI();
-
-                const expDrawInput = document.getElementById('experimental-draw-mode');
-                if (expDrawInput) expDrawInput.checked = state.enableExperimentalDrawMode;
                 
                 const themeSelector = document.getElementById('theme-selector');
                 if (themeSelector) themeSelector.value = state.theme;

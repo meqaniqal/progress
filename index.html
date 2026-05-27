@@ -11,11 +11,11 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- 1. CSS loaded first to block render until styles are ready -->
-    <link rel="stylesheet" href="theme.css?v=1779850519338">
-    <link rel="stylesheet" href="style.css?v=1779850519338">
-    <link rel="stylesheet" href="drum-grid.css?v=1779850519338">
-    <link rel="stylesheet" href="rhythm-editor.css?v=1779850519338">
-    <link rel="stylesheet" href="song-mode.css?v=1779850519338">
+    <link rel="stylesheet" href="theme.css?v=1779853383272">
+    <link rel="stylesheet" href="style.css?v=1779853383272">
+    <link rel="stylesheet" href="drum-grid.css?v=1779853383272">
+    <link rel="stylesheet" href="rhythm-editor.css?v=1779853383272">
+    <link rel="stylesheet" href="song-mode.css?v=1779853383272">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
     
     <!-- Hide body and show spinner to prevent Flash of Unstyled Content (FOUC) while scripts load -->
@@ -39,7 +39,7 @@
     <!-- 2. Scripts deferred to prevent HTML parsing blocks -->
     <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@2.1.4/browser/midiwriter.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js" defer></script>
-    <script src="init.js?v=1779850519338" defer></script>
+    <script src="init.js?v=1779853383272" defer></script>
 </head>
 <body>
     <div id="top-header">
@@ -345,45 +345,6 @@
                     <strong class="settings-label info">Auto Pan-Leading ℹ️</strong>
                     <input type="checkbox" id="auto-pan-leading" checked class="settings-checkbox">
                 </div>
-                <!-- MIDI Export Mode -->
-                <div class="settings-row" id="row-midi-routing" title="How microtonal pitch bends are exported to MIDI">
-                    <strong class="settings-label info">MIDI Export Routing ℹ️</strong>
-                    <select id="midi-export-routing" class="rhythm-select settings-select">
-                        <option value="mpe">Pitch Bends (MPE Standard)</option>
-                        <option value="multi-track">Pitch Bends (Multi-Track)</option>
-                        <option value="clean">Tuning Files (Clean MIDI)</option>
-                    </select>
-                </div>
-                <!-- Experimental Draw Mode -->
-                <div class="settings-row" title="Enable the new edit-in-place workflow and pencil draw tool">
-                    <strong class="settings-label info">Experimental Draw Mode ℹ️</strong>
-                    <input type="checkbox" id="experimental-draw-mode" class="settings-checkbox">
-                </div>
-                <!-- Instruments -->
-                <div style="margin-top: 15px;">
-                    <strong class="settings-label settings-section-title">Instruments</strong>
-                    <div class="settings-row">
-                        <span class="settings-label-sm">🎹 Chords Synth</span>
-                        <select id="inst-chords" class="rhythm-select settings-select">
-                            <option value="sawtooth">Lush Sawpad</option>
-                            <option value="sine">Pure Sine</option>
-                            <option value="fm">FM Electric Piano</option>
-                            <option value="plucked-square">Plucked Square</option>
-                        </select>
-                    </div>
-                    <div class="settings-row">
-                        <span class="settings-label-sm">🎸 Sub Bass</span>
-                        <select id="inst-bass" class="rhythm-select settings-select">
-                            <option value="sine">Deep Sine</option>
-                            <option value="sawtooth">Gritty Saw</option>
-                            <option value="fm">FM Sub</option>
-                            <option value="plucked-square">Square Bass</option>
-                        </select>
-                    </div>
-                <div id="custom-drums-panel" style="display: none;">
-                    <button class="control-btn btn-danger-sm" id="btn-clear-custom-drums">🗑 Clear Custom Samples</button>
-                </div>
-                </div>
                 <!-- Mixer -->
                 <div style="margin-top: 5px;">
                     <strong class="settings-label settings-section-title">Mixer</strong>
@@ -393,23 +354,36 @@
                             <input type="range" id="vol-master" min="0" max="2.0" step="0.05" value="1.0" class="mixer-slider">
                         </label>
                         <div class="mixer-divider"></div>
-                        <label class="mixer-row">
-                            <span class="settings-label-sm">🎹 Chords</span>
+                        <div class="mixer-row">
+                            <select id="inst-chords" class="rhythm-select" style="width: 120px; padding: 4px; font-size: 13px; font-weight: bold; border-radius: 4px; background: var(--bg-body); border: 1px solid var(--border-main); cursor: pointer;" title="Select Chords Synth">
+                                <option value="sawtooth">🎹 Sawpad</option>
+                                <option value="sine">🎹 Sine</option>
+                                <option value="fm">🎹 FM EP</option>
+                                <option value="plucked-square">🎹 Pluck</option>
+                            </select>
                             <input type="range" id="vol-chords" min="0" max="1.5" step="0.05" value="0.8" class="mixer-slider">
-                        </label>
-                        <label class="mixer-row">
-                            <span class="settings-label-sm">🎸 Bass</span>
+                        </div>
+                        <div class="mixer-row">
+                            <select id="inst-bass" class="rhythm-select" style="width: 120px; padding: 4px; font-size: 13px; font-weight: bold; border-radius: 4px; background: var(--bg-body); border: 1px solid var(--border-main); cursor: pointer;" title="Select Sub Bass Synth">
+                                <option value="sine">🎸 Sine</option>
+                                <option value="sawtooth">🎸 Saw</option>
+                                <option value="fm">🎸 FM Sub</option>
+                                <option value="plucked-square">🎸 Square</option>
+                            </select>
                             <input type="range" id="vol-bass" min="0" max="1.5" step="0.05" value="0.8" class="mixer-slider">
-                        </label>
+                        </div>
                         <label class="mixer-row">
-                            <span class="settings-label-sm">〰️ Bass Enhance</span>
+                            <span class="settings-label-sm" style="display: inline-block; width: 120px; padding: 4px;">〰️ Bass Enh</span>
                             <input type="range" id="vol-bassHarmonic" min="0" max="1.5" step="0.05" value="0.0" class="mixer-slider">
                         </label>
                         <label class="mixer-row">
-                            <span class="settings-label-sm">🥁 Drums</span>
+                            <span class="settings-label-sm" style="display: inline-block; width: 120px; padding: 4px;">🥁 Drums</span>
                             <input type="range" id="vol-drums" min="0" max="1.5" step="0.05" value="0.8" class="mixer-slider">
                         </label>
                     </div>
+                </div>
+                <div id="custom-drums-panel" style="display: none; margin-top: 10px;">
+                    <button class="control-btn btn-danger-sm" id="btn-clear-custom-drums">🗑 Clear Custom Samples</button>
                 </div>
             </div>
             <div class="settings-row" style="margin-top: 10px;">
@@ -422,15 +396,17 @@
     <!-- Project Hub Modal -->
     <div id="project-hub-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content" style="max-width: 550px;">
-            <h3>🗂️ Project Export & Hub</h3>
+            <h3>🗂️ Export/Import Settings</h3>
             
             <div class="settings-group" style="margin-top: 15px;">
                 <strong class="settings-label settings-section-title">Save & Load Projects</strong>
-                <div class="settings-row" style="gap: 10px;">
-                    <input type="text" id="project-name-input" class="rhythm-select settings-select" style="flex: 1;" placeholder="Enter project name...">
-                    <button class="control-btn primary btn-md" id="btn-save-project">💾 Save</button>
-                    <button class="control-btn secondary btn-md" id="btn-download-project" title="Download current project as file">⬇️ File</button>
-                    <button class="control-btn secondary btn-md" id="btn-upload-project" title="Load project from file">⬆️ File</button>
+                <div class="settings-row" style="gap: 10px; flex-wrap: wrap;">
+                    <input type="text" id="project-name-input" class="rhythm-select settings-select" style="flex: 1; min-width: 150px;" placeholder="Enter project name...">
+                    <button class="control-btn primary btn-md" id="btn-save-project">Store ⬇</button>
+                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                        <button class="control-btn secondary btn-md" id="btn-download-project" title="Download current project as file">Export 💾</button>
+                        <button class="control-btn secondary btn-md" id="btn-upload-project" title="Load project from file">Import 📁</button>
+                    </div>
                     <!-- Hidden file input for uploading projects -->
                     <input type="file" id="project-file-input" style="display: none;" accept=".json">
                 </div>
@@ -438,41 +414,52 @@
                     <div style="opacity: 0.5; font-size: 13px; text-align: center;">No saved projects.</div>
                 </div>
                 <div style="text-align: right; margin-top: 5px;">
-                    <button class="control-btn secondary btn-sm" id="btn-clear-all-projects" style="color: #ef4444; border-color: rgba(239,68,68,0.5);">🗑 Clear DB Saves</button>
+                    <button class="control-btn secondary btn-sm" id="btn-clear-all-projects" style="color: #ef4444; border-color: rgba(239,68,68,0.5);">Clear Storage ⬆</button>
                 </div>
             </div>
 
             <div class="settings-group" style="margin-top: 20px;">
-                <strong class="settings-label settings-section-title">Export Current Progression</strong>
-                <div class="settings-row">
-                    <label class="export-passes-label">
-                        <strong>Export Passes:</strong>
-                        <input type="number" id="multipass-input" min="1" max="32" value="1" class="export-passes-input" style="background: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-main); border-radius: 4px;" title="Number of loopthroughs to export">
-                    </label>
-                </div>
-                <div class="settings-row" style="justify-content: flex-start; gap: 10px; flex-wrap: wrap;">
-                    <button class="control-btn primary btn-md" id="btn-export">💾 MIDI</button>
-                    <div id="export-wav-container" title="Drag left/right to toggle mode, Click to export">
-                        <button class="control-btn primary" id="btn-export-wav-switch">💾 WAV</button>
+                <strong class="settings-label settings-section-title">Export Audio & MIDI</strong>
+                <div style="background: rgba(0,0,0,0.1); border: 1px solid var(--border-main); border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+                    <div class="settings-row">
+                        <label class="export-passes-label">
+                            <strong>Export Passes:</strong>
+                            <input type="number" id="multipass-input" min="1" max="32" value="1" class="export-passes-input" style="background: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-main); border-radius: 4px;" title="Number of loopthroughs to export">
+                        </label>
                     </div>
-                    <button class="control-btn secondary btn-md" id="btn-ai-prompt">🤖 AI Prompt</button>
+                    
+                    <div class="settings-row" id="row-midi-routing" style="display: flex; justify-content: flex-start; align-items: center; gap: 10px; flex-wrap: wrap;" title="How microtonal pitch bends are exported to MIDI">
+                        <strong class="settings-label info">Midi export options: ℹ️</strong>
+                        <select id="midi-export-routing" class="rhythm-select settings-select" style="width: auto;">
+                            <option value="mpe">Pitch Bends (MPE Standard)</option>
+                            <option value="multi-track">Pitch Bends (Multi-Track)</option>
+                            <option value="clean">Tuning Files (Clean MIDI)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="settings-row" id="hub-tuning-files-section" style="display: flex; justify-content: flex-start; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <strong class="settings-label">Export tuning files:</strong>
+                        <select id="hub-tuning-selector" class="rhythm-select settings-select" style="width: auto;">
+                            <option value="19">19-EDO</option>
+                            <option value="24">24-EDO (Quarter Tones)</option>
+                            <option value="31">31-EDO (Just Approx)</option>
+                        </select>
+                        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                            <button class="control-btn secondary btn-md" id="btn-hub-export-scala">💾 .scl</button>
+                            <button class="control-btn secondary btn-md" id="btn-hub-export-tun">💾 .tun</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-row" style="justify-content: flex-start; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
+                        <button class="control-btn primary btn-md" id="btn-export">💾 MIDI</button>
+                        <div id="export-wav-container" title="Drag left/right to toggle mode, Click to export">
+                            <button class="control-btn primary" id="btn-export-wav-switch">💾 WAV</button>
+                        </div>
+                        <button class="control-btn secondary btn-md" id="btn-ai-prompt">🤖 AI Prompt</button>
+                    </div>
                 </div>
             </div>
 
-            <div class="settings-group" style="margin-top: 20px;">
-                <strong class="settings-label settings-section-title">Decoupled Tuning Export</strong>
-                <div class="settings-row" style="justify-content: flex-start; gap: 10px; flex-wrap: wrap;">
-                    <select id="hub-tuning-selector" class="rhythm-select settings-select">
-                        <option value="12">12-TET (Standard)</option>
-                        <option value="19">19-EDO</option>
-                        <option value="24">24-EDO (Quarter Tones)</option>
-                        <option value="31">31-EDO (Just Approx)</option>
-                    </select>
-                    <button class="control-btn secondary btn-md" id="btn-hub-export-scala">💾 .scl</button>
-                    <button class="control-btn secondary btn-md" id="btn-hub-export-tun">💾 .tun</button>
-                </div>
-            </div>
-            
             <div class="controls modal-controls">
                 <button class="control-btn secondary" id="btn-close-project-hub">Close</button>
             </div>
