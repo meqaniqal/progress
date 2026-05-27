@@ -12,7 +12,19 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
     let currentTime = 0;
     let currentBeat = 0;
 
-    const notesArray = getPlayableNotes(progression, globalOptions);
+    let notesArray = [];
+    let currentChunk = [];
+    for (let i = 0; i < progression.length; i++) {
+        const chord = progression[i];
+        if (chord._isSectionStart && currentChunk.length > 0) {
+            notesArray = notesArray.concat(getPlayableNotes(currentChunk, globalOptions));
+            currentChunk = [];
+        }
+        currentChunk.push(chord);
+    }
+    if (currentChunk.length > 0) {
+        notesArray = notesArray.concat(getPlayableNotes(currentChunk, globalOptions));
+    }
 
     const chordInst = globalOptions.instruments && globalOptions.instruments.chords ? globalOptions.instruments.chords : 'sawtooth';
     const bassInst = globalOptions.instruments && globalOptions.instruments.bass ? globalOptions.instruments.bass : 'sine';
@@ -42,6 +54,10 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     
                     const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
                     const adjustedChordNotes = chordNotes.map((n, i) => n + snapToGrid(60 + (instance.pitchOffsets?.[i] || 0), editorTuning) - 60);
+
+                    if (pass === 0) {
+                        console.log(`[WAV Render] Chord ${chord.symbol} - Float Pitches (MIDI scale):`, adjustedChordNotes.map(n => Number(n.toFixed(3))));
+                    }
 
                     if (instance.arpSettings) {
                         const arpEvents = generateArpNotes({
@@ -113,6 +129,10 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
                     const snappedOffset = snapToGrid(60 + (instance.pitchOffset || 0), editorTuning) - 60;
                     const finalBassNote = bassNote + snappedOffset;
+
+                    if (pass === 0) {
+                        console.log(`[WAV Render] Bass ${chord.symbol} - Float Pitch:`, Number(finalBassNote.toFixed(3)));
+                    }
 
                     timeline.push({
                         midiNote: finalBassNote,

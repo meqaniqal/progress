@@ -254,6 +254,17 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
             if (btn.title === "Already in progression") btn.title = "";
         }
     });
+    
+    const btnDragLoop = document.getElementById('btn-drag-loop');
+    if (btnDragLoop) {
+        if (state.currentProgression.length === 0 || state.loopStart >= state.loopEnd) {
+            btnDragLoop.style.opacity = '0.3';
+            btnDragLoop.style.pointerEvents = 'none';
+        } else {
+            btnDragLoop.style.opacity = '1';
+            btnDragLoop.style.pointerEvents = 'auto';
+        }
+    }
 
     for (let i = state.currentProgression.length; i < existingItems.length; i++) {
         display.removeChild(existingItems[i]);

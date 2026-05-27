@@ -16,11 +16,7 @@ function getMpePitchBend(floatPitch, bendRange = 2) {
 }
 
 function getLinearMidiKey(floatPitch, tuning) {
-    let key = 60 + Math.round((floatPitch - 60) * (tuning.divisions / tuning.periodSize));
-    while (key < 0) key += tuning.divisions;
-    while (key > 127) key -= tuning.divisions;
-    
-    return key;
+    return 60 + Math.round((floatPitch - 60) * (tuning.divisions / tuning.periodSize));
 }
 
 export function exportScalaFile(divisions) {
@@ -142,6 +138,10 @@ export function exportToMidi(state) {
             const isLastMacroChord = pass === (state.exportPasses || 1) - 1 && index === state.currentProgression.length - 1;
             const chordNotes = midiNotesToWrite[index];
             
+            const globalTuning = getEffectiveTuning(null, state.divisions || 12);
+            const chordTuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
+            const cleanTuning = globalTuning; // Clean MIDI must map all chords to the global .tun file grid
+            
             let pattern = chord.chordPattern;
             let isGlobalChord = false;
             if (pattern && !pattern.isLocalOverride && state.globalPatterns && state.globalPatterns.chordPattern) {
@@ -184,9 +184,11 @@ export function exportToMidi(state) {
                         const noteDurationTicks = Math.max(1, Math.round(event.duration * (state.bpm / 60) * 128));
                         const { intNote, bendValue } = getMpePitchBend(event.note);
 
-                        const tuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
                         let arpPitch = intNote;
-                        if (isClean) arpPitch = getLinearMidiKey(event.note, tuning);
+                        if (isClean) {
+                            arpPitch = getLinearMidiKey(event.note, cleanTuning);
+                            arpPitch = Math.max(0, Math.min(127, arpPitch));
+                        }
 
                         const targetTrack = getChordTrack(0);
                         const targetChannel = isMultiTrack ? 1 : currentChannel;
@@ -222,9 +224,11 @@ export function exportToMidi(state) {
                             const waitTicks = Math.max(0, noteStartTick - currentChordTicks[noteIdx]);
                             const { intNote, bendValue } = getMpePitchBend(floatNote);
                             
-                            const tuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
                             let multiPitch = intNote;
-                            if (isClean) multiPitch = getLinearMidiKey(floatNote, tuning);
+                            if (isClean) {
+                                multiPitch = getLinearMidiKey(floatNote, cleanTuning);
+                                multiPitch = Math.max(0, Math.min(127, multiPitch));
+                            }
 
                             const events = [];
                             if (!isClean) {
@@ -244,8 +248,20 @@ export function exportToMidi(state) {
                         const events = [];
 
                         if (isClean) {
-                            const tuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
-                            const pitches = adjustedChordNotes.map(n => getLinearMidiKey(n, tuning));
+                            const pitches = adjustedChordNotes.map(n => {
+                                let p = getLinearMidiKey(n, cleanTuning);
+                                return Math.max(0, Math.min(127, p));
+                            });
+                            
+                            if (pass === 0) {
+                                console.log(`\n[MIDI Export] Chord ${chord.symbol} (Clean)`);
+                                adjustedChordNotes.forEach((floatPitch, i) => {
+                                    const midiKey = pitches[i];
+                                    const tunCents = 6000 + (midiKey - 60) * (cleanTuning.periodSize * 100 / cleanTuning.divisions);
+                                    console.log(`  Float Pitch: ${floatPitch.toFixed(3)} -> Linear MIDI Key: ${midiKey} -> App's .tun interprets as: ${(tunCents/100).toFixed(3)}`);
+                                });
+                            }
+
                             events.push(new MidiWriter.NoteEvent({
                                 pitch: pitches,
                                 duration: `T${actualNoteDurationTicks}`,
@@ -264,12 +280,11 @@ export function exportToMidi(state) {
                                 events.push(new MidiWriter.NoteEvent({
                                     pitch: [intNote], duration: `T${actualNoteDurationTicks}`, wait: `T${waitTicks}`,
                                     velocity: Math.min(127, Math.round(CONFIG.MIDI_CHORD_VELOCITY * (chordsVol / 0.8))), channel: targetChannel,
-                                    sequential: !isLast ? false : true
                                 }));
                             });
                         }
                         
-                        targetTrack.addEvent(events);
+                        targetTrack.addEvent(events, {sequential: false});
                         currentChordTicks[0] += waitTicks + actualNoteDurationTicks;
                     }
                 }
@@ -290,10 +305,13 @@ export function exportToMidi(state) {
     for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
         state.currentProgression.forEach((chord, index) => {
             const isLastMacroChord = pass === (state.exportPasses || 1) - 1 && index === state.currentProgression.length - 1;
-            const tuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
-            const rootChordNotes = getChordNotes(chord.symbol, chord.key, tuning.divisions);
+            
+            const chordTuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
+            const cleanTuning = getEffectiveTuning(null, state.divisions || 12);
+            
+            const rootChordNotes = getChordNotes(chord.symbol, chord.key, chordTuning.divisions);
             if (!rootChordNotes) return;
-            const rootNote = getBassNote(rootChordNotes, tuning); 
+            const rootNote = getBassNote(rootChordNotes, chordTuning); 
             const beats = Number(chord.duration) || 2;
             const slotTicks = beats * 128;
             
@@ -324,7 +342,19 @@ export function exportToMidi(state) {
                 const { intNote, bendValue } = getMpePitchBend(finalBassNote);
 
                 let bassPitch = intNote;
-                if (isClean) bassPitch = getLinearMidiKey(finalBassNote, tuning);
+                if (isClean) {
+                    // Shift the float pitch up exactly 2 octaves (+24.0) to guarantee positive MIDI keys.
+                    // This perfectly preserves the linear intervals. The user simply lowers Serum by -2 Octaves.
+                    const safeFloatPitch = finalBassNote + 24.0;
+                    bassPitch = getLinearMidiKey(safeFloatPitch, cleanTuning);
+                    bassPitch = Math.max(0, Math.min(127, bassPitch));
+                    
+                    if (pass === 0) {
+                        const tunCents = 6000 + (bassPitch - 60) * (cleanTuning.periodSize * 100 / cleanTuning.divisions);
+                        console.log(`\n[MIDI Export] Bass (Clean)`);
+                        console.log(`  Float Pitch: ${finalBassNote.toFixed(3)} -> Shifted Float (+24.0) -> MIDI Key: ${bassPitch} -> App's .tun interprets as: ${(tunCents/100).toFixed(3)}`);
+                    }
+                }
 
                 const events = [];
                 if (!isClean) {

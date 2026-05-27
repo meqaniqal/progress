@@ -394,6 +394,44 @@ export function addChordFromSource(sourceChord, sourceKey, insertIndex, newLoopS
     persistAppState();
 }
 
+export function insertLoopedSequence(insertIndex, newLoopStart, newLoopEnd) {
+    if (state.currentProgression.length === 0) return;
+    
+    let start = state.loopStart;
+    let end = state.loopEnd;
+    if (start >= end) return;
+
+    saveHistoryState();
+
+    const activeProgression = getActiveProgression();
+    const loopSlice = activeProgression.slice(start, end).map(chord => {
+        const newChord = structuredClone(chord);
+        if (newChord.chordPattern && newChord.chordPattern.instances) newChord.chordPattern.instances.forEach(i => i.id = Math.random().toString(36).substring(2, 10));
+        if (newChord.bassPattern && newChord.bassPattern.instances) newChord.bassPattern.instances.forEach(i => i.id = Math.random().toString(36).substring(2, 10));
+        if (newChord.drumPattern && newChord.drumPattern.hits) newChord.drumPattern.hits.forEach(h => h.id = Math.random().toString(36).substring(2, 10));
+        return newChord;
+    });
+
+    if (insertIndex === null) insertIndex = state.currentProgression.length;
+    
+    const shiftAmt = loopSlice.length;
+    state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex, shiftAmt);
+
+    state.currentProgression.splice(insertIndex, 0, ...loopSlice);
+    state.selectedChordIndex = insertIndex + shiftAmt - 1;
+
+    if (newLoopStart !== null && newLoopEnd !== null) {
+        state.loopStart = newLoopStart;
+        state.loopEnd = newLoopEnd;
+    } else {
+        if (insertIndex < state.loopEnd) state.loopEnd += shiftAmt;
+        if (insertIndex <= state.loopStart) state.loopStart += shiftAmt;
+    }
+
+    applyLoopBounds();
+    persistAppState();
+}
+
 export function setProgressionBrackets(bracketId, insertIndex, newLoopStart, newLoopEnd) {
     saveHistoryState();
     if (newLoopStart !== null && newLoopEnd !== null) {

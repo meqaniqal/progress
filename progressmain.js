@@ -6,7 +6,7 @@ import { initDragAndDrop } from './dragdrop.js';
 import { exportToMidi, exportScalaFile, exportTunFile } from './midi.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
 import { KEY_NAMES, highlightChordInUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
-import { state, getActiveProgression, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal, addChord, removeChord, clearProgression, swapChord, stepInversion, changeVoicing, changeVoicingType, setGlobalVoicing, changeChordKey, transposeChord, changeDuration, addTurnaround, reorderProgression, addChordFromSource, setProgressionBrackets, setGlobalMode, setGlobalKeyAndMode } from './store.js';
+import { state, getActiveProgression, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal, addChord, removeChord, clearProgression, swapChord, stepInversion, changeVoicing, changeVoicingType, setGlobalVoicing, changeChordKey, transposeChord, changeDuration, addTurnaround, reorderProgression, addChordFromSource, setProgressionBrackets, setGlobalMode, setGlobalKeyAndMode, insertLoopedSequence } from './store.js';
 import { getExportState } from './exportStateBuilder.js';
 import { initExportUI } from './exportController.js';
 import { initModals } from './modalController.js';
@@ -327,8 +327,12 @@ function _setupChordButtons() {
             const now = Date.now();
             if (now - lastTapTime < CONFIG.DOUBLE_TAP_DELAY_MS && lastTapId === btn.dataset.chord) {
                 e.preventDefault();
-                const targetKey = btn.hasAttribute('data-key') ? parseInt(btn.dataset.key, 10) : state.baseKey;
-                addChord(btn.dataset.chord, targetKey);
+                if (btn.dataset.chord === 'LOOP_BLOCK') {
+                    insertLoopedSequence(null, null, null);
+                } else {
+                    const targetKey = btn.hasAttribute('data-key') ? parseInt(btn.dataset.key, 10) : state.baseKey;
+                    addChord(btn.dataset.chord, targetKey);
+                }
                 renderProgression();
                 lastTapTime = 0;
             } else {
@@ -490,6 +494,31 @@ function _setupControlButtons() {
             }
         });
     }
+
+    const btnLoopInfo = document.getElementById('btn-loop-info');
+    if (btnLoopInfo) {
+        btnLoopInfo.addEventListener('click', (e) => {
+            e.preventDefault();
+            alert("Loop Block:\n\nDrag this button into your progression tray or double-tap it to instantly insert a copy of all the chords currently within your [ loop brackets ].");
+        });
+    }
+
+    const btnMidiExportInfo = document.getElementById('btn-midi-export-info');
+    if (btnMidiExportInfo) {
+        btnMidiExportInfo.addEventListener('click', (e) => {
+            e.preventDefault();
+            alert("Midi Export Options:\n\n- Pitch Bends (MPE Standard): Exports microtonal pitch bends per note on channels 2-15.\n- Pitch Bends (Multi-Track): Exports each chord note to a separate MIDI track.\n- Clean MIDI: Ignores microtonal pitch bends and exports standard 12-TET notes (useful when applying .scl/.tun files inside your DAW).");
+        });
+    }
+
+    // Generic fallback for any native tooltips so they work as alerts on mobile touch
+    document.querySelectorAll('.settings-label.info').forEach(label => {
+        label.addEventListener('click', (e) => {
+            e.preventDefault();
+            const parent = label.closest('[title]');
+            if (parent) alert(parent.title);
+        });
+    });
 }
 
 function _setupDragAndDrop(display) {
@@ -509,7 +538,11 @@ function _setupDragAndDrop(display) {
             renderProgression();
         },
         onAddFromSource: (sourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd) => {
-            addChordFromSource(sourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd);
+            if (sourceChord === 'LOOP_BLOCK') {
+                insertLoopedSequence(insertIndex, newLoopStart, newLoopEnd);
+            } else {
+                addChordFromSource(sourceChord, sourceKey, insertIndex, newLoopStart, newLoopEnd);
+            }
             renderProgression();
         },
         onBracketDrop: (bracketId, insertIndex, newLoopStart, newLoopEnd) => {

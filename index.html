@@ -11,11 +11,11 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- 1. CSS loaded first to block render until styles are ready -->
-    <link rel="stylesheet" href="theme.css?v=1779860047536">
-    <link rel="stylesheet" href="style.css?v=1779860047536">
-    <link rel="stylesheet" href="drum-grid.css?v=1779860047536">
-    <link rel="stylesheet" href="rhythm-editor.css?v=1779860047536">
-    <link rel="stylesheet" href="song-mode.css?v=1779860047536">
+    <link rel="stylesheet" href="theme.css?v=1779896763390">
+    <link rel="stylesheet" href="style.css?v=1779896763390">
+    <link rel="stylesheet" href="drum-grid.css?v=1779896763390">
+    <link rel="stylesheet" href="rhythm-editor.css?v=1779896763390">
+    <link rel="stylesheet" href="song-mode.css?v=1779896763390">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
     
     <!-- Hide body and show spinner to prevent Flash of Unstyled Content (FOUC) while scripts load -->
@@ -39,7 +39,7 @@
     <!-- 2. Scripts deferred to prevent HTML parsing blocks -->
     <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@2.1.4/browser/midiwriter.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js" defer></script>
-    <script src="init.js?v=1779860047536" defer></script>
+    <script src="init.js?v=1779896763390" defer></script>
 </head>
 <body>
     <div id="top-header">
@@ -102,8 +102,12 @@
             <button id="btn-jump-source" class="control-btn primary btn-sm" style="display: none; margin-left: 8px;" title="Match global Key and Scale to the selected chord"></button>
         </div>
         
-        <div class="beginner-helper">
-            💡 (Drag chords ⬇️ or double-tap to add to progression)
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-right: 5px; margin-top: -5px; margin-bottom: 10px;">
+            <span class="beginner-helper" style="margin: 0;">💡 (Drag chords ⬇️ or double-tap to add)</span>
+            <div style="margin: 0 0 0 auto; display: flex; align-items: center; gap: 4px;">
+                <button class="chord-btn" id="btn-drag-loop" data-chord="LOOP_BLOCK" title="Drag or double-tap to insert the currently looped sequence" style="margin: 0; padding: 2px 8px; font-size: 13px; border-color: var(--bracket-color); color: var(--text-main);">+[looped]</button>
+                <button id="btn-loop-info" class="icon-btn" style="cursor: pointer; opacity: 0.8; font-size: 14px; padding: 0;" title="Info">ℹ️</button>
+            </div>
         </div>
 
         <div id="palette-diatonic" class="chord-palette">
@@ -428,12 +432,15 @@
                         </label>
                     </div>
                     
-                    <div class="settings-row" id="row-midi-routing" style="display: flex; justify-content: flex-start; align-items: center; gap: 10px; flex-wrap: wrap;" title="How microtonal pitch bends are exported to MIDI">
-                        <strong class="settings-label info">Midi export options: ℹ️</strong>
+                    <div class="settings-row" id="row-midi-routing" style="display: flex; justify-content: flex-start; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <strong class="settings-label">Midi export options:</strong>
+                            <button id="btn-midi-export-info" class="icon-btn" style="cursor: pointer; opacity: 0.8; font-size: 14px; padding: 0;" title="Info">ℹ️</button>
+                        </div>
                         <select id="midi-export-routing" class="rhythm-select settings-select" style="width: auto;">
                             <option value="mpe">Pitch Bends (MPE Standard)</option>
                             <option value="multi-track">Pitch Bends (Multi-Track)</option>
-                            <option value="clean">Tuning Files (Clean MIDI)</option>
+                            <option value="clean">Clean MIDI</option>
                         </select>
                     </div>
                     

@@ -13,12 +13,12 @@ export function calculateSwapsOnRemove(currentSwaps, removedIndex) {
     return newSwaps;
 }
 
-export function calculateSwapsOnInsert(currentSwaps, insertIndex) {
+export function calculateSwapsOnInsert(currentSwaps, insertIndex, count = 1) {
     const newSwaps = {};
     const sortedKeys = Object.keys(currentSwaps).map(Number).sort((a, b) => b - a);
     for (const i of sortedKeys) {
         if (i >= insertIndex) {
-            newSwaps[i + 1] = currentSwaps[i];
+            newSwaps[i + count] = currentSwaps[i];
         } else {
             newSwaps[i] = currentSwaps[i];
         }
