@@ -111,12 +111,17 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - [x] **Isolated Microtonal Sandbox:** Created `microtonalDictionary.js` to define true microtonal scales (e.g., Bohlen-Pierce, Pelog) outside the 12-TET Roman Numeral parser.
 - [x] **Float-Based Suggestions:** Created `microtonalSuggestions.js` to calculate harmonic swaps via Cent-based interval arrays and Least Squares Distance, completely replacing `modulo 12` integer logic.
 - [x] **Exotic UI Bridge:** Updated the scale selector to dynamically generate custom micro-chord badges (e.g., `BP1`) instead of diatonic numerals.
+- [x] Macrotonal Protection Engine: Math engine safeguards wide-period scales (e.g. Tritave) from shattering during inversions and protects the sub-bass register from overlapping with the pad register.
 
-**Phase 9: Advanced Composition & UX Polish (Upcoming)**
+**Phase 9: Project Management & UX Polish (Upcoming)**
+- [ ] **Project Load/Save Hub:** A dedicated Export/Import modal (with isolated HTML) to save and load full project states, allowing users to switch between multiple songs without losing work.
+- [ ] **Decoupled Tuning Export:** Move `.tun` and `.scl` export buttons into the Export modal, accompanied by a dedicated dropdown so users can export tuning files independent of the global playback tuning.
+- [ ] **Relocate Global Tuning UI:** Move the Global Tuning (EDO) dropdown from the Settings modal directly into the Chord Chooser panel for seamless, on-the-fly microtonal auditioning. Ensure tuning states are perfectly preserved when switching.
 - [ ] **Enharmonic Context Dimming:** Subdue palette/inspector chords that are identical to chords already in the active progression.
 - [ ] **Loop Block Dragging:** A new button representing the current loop bounds that allows drag-and-dropping the entire looped sequence at once.
 - [ ] **Polyphonic Slice Pitch Editing:** Expand Pitch Mode in the Pattern Editor to allow pitch adjustments of individual notes within a chord slice, plus copy/pasting of these modifications.
 - [ ] **Intelligent Bassline Enhancements:** Refine generation logic to produce interesting, multi-note rhythms instead of overly strict short slices, accounting for surrounding chord context.
+
 
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.
