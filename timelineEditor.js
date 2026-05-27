@@ -113,6 +113,7 @@ export function initTimelineInteractions(timeline) {
                     originalStartTime = currentInst.startTime;
                     originalDuration = currentInst.duration;
                     editorState.dragStartPitchOffset = currentInst.pitchOffset || 0;
+                    editorState.draggedNoteIndex = null; // Ignore individual notes when grabbing a resize handle
                     
                     if (!currentInst.isSelected) {
                         setCurrentPattern(exclusiveSelect(pattern, editorState.draggedInstanceId));
@@ -179,10 +180,20 @@ export function initTimelineInteractions(timeline) {
         if (inst) {
             originalStartTime = inst.startTime;
             originalDuration = inst.duration;
-            editorState.dragStartPitchOffset = inst.pitchOffset || 0;
             
-            if (editorState.activeTab === 'bassPattern' || editorState.activeTab === 'chordPattern') {
+            const noteBlock = e.target.closest('.chord-note-block');
+            if (noteBlock && editorState.activeTab === 'chordPattern' && editorState.isPitchModeEnabled) {
+                editorState.draggedNoteIndex = parseInt(noteBlock.dataset.noteIndex, 10);
+                editorState.dragStartPitchOffset = inst.pitchOffsets?.[editorState.draggedNoteIndex] || 0;
+            } else {
+                editorState.draggedNoteIndex = null;
+                editorState.dragStartPitchOffset = inst.pitchOffset || 0;
+            }
+            
+            if (editorState.activeTab === 'bassPattern') {
                 auditionSlicePitch(inst.pitchOffset || 0);
+            } else if (editorState.activeTab === 'chordPattern') {
+                auditionSlicePitch(0, inst.pitchOffsets || []);
             }
             
             let requiresRender = false;
@@ -237,7 +248,7 @@ export function initTimelineInteractions(timeline) {
             if (!hasValidContext()) return;
 
             // ESCAPE HATCH: If dragging vertically in Pitch Mode, assume the user meant to change pitch, not resize.
-            if (editorState.isPitchModeEnabled && editorState.activeTab === 'bassPattern') {
+            if (editorState.isPitchModeEnabled && (editorState.activeTab === 'bassPattern' || editorState.activeTab === 'chordPattern')) {
                 const deltaY = e.clientY - dragStartY;
                 const deltaX = e.clientX - dragStartX;
                 
@@ -272,7 +283,7 @@ export function initTimelineInteractions(timeline) {
         }
 
         if (editorState.draggedInstanceId && !editorState.isDragging) {
-            const isPitchDrag = editorState.isPitchModeEnabled && editorState.activeTab === 'bassPattern';
+            const isPitchDrag = editorState.isPitchModeEnabled && (editorState.activeTab === 'bassPattern' || editorState.activeTab === 'chordPattern');
             const thresholdY = isPitchDrag ? 3 : 10;
             
             if (Math.abs(e.clientX - dragStartX) > 10 || Math.abs(e.clientY - dragStartY) > thresholdY) {
@@ -297,7 +308,7 @@ export function initTimelineInteractions(timeline) {
         if (!editorState.isDragging || !editorState.draggedInstanceId) return;
         if (!hasValidContext()) return;
         
-        if (editorState.isPitchModeEnabled && editorState.activeTab === 'bassPattern') {
+        if (editorState.isPitchModeEnabled && (editorState.activeTab === 'bassPattern' || editorState.activeTab === 'chordPattern')) {
             const deltaY = e.clientY - dragStartY;
             const rect = cachedTimelineRect || getTimelineRect();
             
@@ -311,15 +322,26 @@ export function initTimelineInteractions(timeline) {
             const deltaSteps = -Math.round(deltaY / stepPx);
             
             const newPitchOffset = editorState.dragStartPitchOffset + (deltaSteps * stepSize);
-            const maxPitch = tuning.periodSize;
+            const maxPitch = tuning.periodSize * 2; // Allow moving up to 2 octaves
             const clampedPitch = Math.max(-maxPitch, Math.min(maxPitch, newPitchOffset));
             
             const pattern = getCurrentPattern();
             const inst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
-            if (inst && Math.abs(clampedPitch - (inst.pitchOffset || 0)) > 0.01) {
-                setCurrentPattern(updateInstance(pattern, editorState.draggedInstanceId, { pitchOffset: clampedPitch }));
-                renderRhythmTimeline();
-                auditionSlicePitch(clampedPitch);
+            
+            if (editorState.activeTab === 'bassPattern') {
+                if (inst && Math.abs(clampedPitch - (inst.pitchOffset || 0)) > 0.01) {
+                    setCurrentPattern(updateInstance(pattern, editorState.draggedInstanceId, { pitchOffset: clampedPitch }));
+                    renderRhythmTimeline();
+                    auditionSlicePitch(clampedPitch);
+                }
+            } else if (editorState.activeTab === 'chordPattern' && editorState.draggedNoteIndex !== null) {
+                if (inst && Math.abs(clampedPitch - (inst.pitchOffsets?.[editorState.draggedNoteIndex] || 0)) > 0.01) {
+                    const newOffsets = [...(inst.pitchOffsets || [])];
+                    newOffsets[editorState.draggedNoteIndex] = clampedPitch;
+                    setCurrentPattern(updateInstance(pattern, editorState.draggedInstanceId, { pitchOffsets: newOffsets }));
+                    renderRhythmTimeline();
+                    auditionSlicePitch(0, newOffsets);
+                }
             }
             return; 
         }

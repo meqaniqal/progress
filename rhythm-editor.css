@@ -111,6 +111,16 @@
     z-index: 10;
 }
 
+.rhythm-instance.pitch-mode-chord {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+}
+.rhythm-instance.pitch-mode-chord.selected {
+    background: rgba(74, 222, 128, 0.1);
+    border: 1px dashed var(--original-chord-highlight);
+}
+.chord-note-block { display: flex; align-items: center; justify-content: center; }
+
 .rhythm-instance.animate-paste {
     transition: filter 0.15s ease, border-color 0.15s ease, left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
 }

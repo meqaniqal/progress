@@ -42,7 +42,7 @@ export function getCurrentPattern() {
     return localPat;
 }
 
-export function auditionSlicePitch(pitchOffset = 0) {
+export function auditionSlicePitch(pitchOffset = 0, pitchOffsets = []) {
     if (!hasValidContext()) return;
     initAudio();
     
@@ -64,15 +64,25 @@ export function auditionSlicePitch(pitchOffset = 0) {
     
     // Play chord pad and bass note together
     const dropSize = tuning.periodSize > 14 ? 12.0 : tuning.periodSize;
-    const segmented = segmentMicrotonalCluster(notes.map(n => n - dropSize));
+    let finalChordNotes = notes.map(n => n - dropSize);
+    
+    if (editorState.activeTab === 'chordPattern') {
+        const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || app.state.divisions || 12);
+        finalChordNotes = finalChordNotes.map((n, i) => n + snapToGrid(60 + (pitchOffsets[i] || 0), editorTuning) - 60);
+    }
+
+    const segmented = segmentMicrotonalCluster(finalChordNotes);
     segmented.core.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', 0));
     segmented.frictionLeft.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', panL));
     segmented.frictionRight.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', panR));
 
     const rootBassNote = getBassNote(notes, tuning);
-    const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || app.state.divisions || 12);
-    const snappedOffset = snapToGrid(60 + pitchOffset, editorTuning) - 60;
-    const finalBassNote = rootBassNote + snappedOffset;
+    let finalBassNote = rootBassNote;
+    if (editorState.activeTab === 'bassPattern') {
+        const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || app.state.divisions || 12);
+        const snappedOffset = snapToGrid(60 + pitchOffset, editorTuning) - 60;
+        finalBassNote = rootBassNote + snappedOffset;
+    }
     playTone(midiToFreq(finalBassNote), now, duration, 'sine');
 }
 

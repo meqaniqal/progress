@@ -184,10 +184,13 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
 
             const instanceStartTime = time + (instance.startTime * chordSlotDuration);
             const instanceDuration = instance.duration * chordSlotDuration;
+            
+            const editorTuning = getPitchEditorTuning(chordObj.symbol, chordObj.divisions || state.divisions || 12);
+            const adjustedNotesToPlay = notesToPlay.map((n, i) => n + snapToGrid(60 + (instance.pitchOffsets?.[i] || 0), editorTuning) - 60);
 
             if (instance.arpSettings) {
                 const arpEvents = generateArpNotes({
-                    notesToPlay,
+                    notesToPlay: adjustedNotesToPlay,
                     arpSettings: instance.arpSettings,
                     instanceDuration,
                     bpm: Number(state.bpm)
@@ -198,7 +201,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                 });
             } else {
                 const gateDuration = instanceDuration * 0.95; // Slight gate so contiguous chops are distinctly audible
-                const segmented = segmentMicrotonalCluster(notesToPlay);
+                const segmented = segmentMicrotonalCluster(adjustedNotesToPlay);
                 const panL = state.autoPanLeading ? -0.75 : 0;
                 const panR = state.autoPanLeading ? 0.75 : 0;
                 

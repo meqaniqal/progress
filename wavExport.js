@@ -39,10 +39,13 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
 
                     const instanceStartTime = currentTime + (instance.startTime * duration);
                     const instanceDuration = instance.duration * duration;
+                    
+                    const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
+                    const adjustedChordNotes = chordNotes.map((n, i) => n + snapToGrid(60 + (instance.pitchOffsets?.[i] || 0), editorTuning) - 60);
 
                     if (instance.arpSettings) {
                         const arpEvents = generateArpNotes({
-                            notesToPlay: chordNotes,
+                            notesToPlay: adjustedChordNotes,
                             arpSettings: instance.arpSettings,
                             instanceDuration: instanceDuration,
                             bpm: Number(bpm)
@@ -61,7 +64,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                         });
                     } else {
                         const gateDuration = instanceDuration * 0.95; // Slight gate
-                        const segmented = segmentMicrotonalCluster(chordNotes);
+                        const segmented = segmentMicrotonalCluster(adjustedChordNotes);
                         
                         const panL = globalOptions.autoPanLeading !== false ? -0.75 : 0;
                         const panR = globalOptions.autoPanLeading !== false ? 0.75 : 0;

@@ -28,6 +28,7 @@ export function initChordPattern(isLocalOverride = false) {
                 duration: 1.0, // Full length of the chord slot
                 type: 'chord', // 'chord' means it plays all notes. Later 'note' can represent single isolated pitches.
                 pitchOffset: 0, // Chromatic offset from the root (-12 to +12)
+                pitchOffsets: [], // Polyphonic offsets for individual chord notes
                 isSelected: true,
                 arpSettings: null, // e.g., { style: 'up', rate: 0.25, gate: 0.8 }
                 probability: 1.0 // 1.0 = 100% chance to play
@@ -110,6 +111,11 @@ export function sliceInstance(pattern, instanceId, splitRatio = 0.5) {
 
     const newInstances = pattern.instances.map(inst => ({ ...inst, isSelected: false }));
     newInstances.splice(index, 1, inst1, inst2);
+
+    if (target.pitchOffsets) {
+        inst1.pitchOffsets = [...target.pitchOffsets];
+        inst2.pitchOffsets = [...target.pitchOffsets];
+    }
 
     return { ...pattern, instances: newInstances };
 }
@@ -274,6 +280,7 @@ export function fillGapInstance(pattern, clickRatio) {
             duration: gapEnd - gapStart,
             type: 'chord',
             pitchOffset: 0,
+            pitchOffsets: [],
             isSelected: true,
             arpSettings: null,
             probability: 1.0

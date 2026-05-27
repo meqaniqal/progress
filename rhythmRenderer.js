@@ -107,6 +107,7 @@ export function renderRhythmTimeline() {
     }
     
     const isBassTab = editorState.activeTab === 'bassPattern';
+    const isChordTab = editorState.activeTab === 'chordPattern';
     const btnPitchToggle = document.getElementById('btn-pitch-toggle');
     const btnDrawToggle = document.getElementById('btn-draw-toggle');
     const bassGenGroup = document.getElementById('bass-gen-group');
@@ -123,11 +124,12 @@ export function renderRhythmTimeline() {
     }
 
     if (btnPitchToggle) {
-        btnPitchToggle.style.display = isBassTab ? 'inline-block' : 'none';
+        btnPitchToggle.style.display = (isBassTab || isChordTab) ? 'inline-block' : 'none';
         btnPitchToggle.classList.toggle('active', editorState.isPitchModeEnabled);
     }
 
-    if (isBassTab && editorState.isPitchModeEnabled) {
+    const isPitchMode = (isBassTab || isChordTab) && editorState.isPitchModeEnabled;
+    if (isPitchMode) {
         editorState.isDrawModeEnabled = false; // Disable draw mode when pitching
         if (btnDrawToggle) btnDrawToggle.style.display = 'none';
         container.style.cursor = 'ns-resize';
@@ -164,7 +166,6 @@ export function renderRhythmTimeline() {
     }
 
     const applyArpBtn = document.getElementById('btn-apply-arp');
-    const isChordTab = editorState.activeTab === 'chordPattern';
     if (applyArpBtn) {
         applyArpBtn.style.display = isChordTab ? 'inline-block' : 'none';
         if (isChordTab) {
@@ -276,7 +277,7 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
     const leftoverDrumGrid = container.querySelector('.drum-grid');
     if (leftoverDrumGrid) leftoverDrumGrid.remove();
     
-    const isPitchMode = editorState.activeTab === 'bassPattern' && editorState.isPitchModeEnabled;
+    const isPitchMode = (editorState.activeTab === 'bassPattern' || isChordTab) && editorState.isPitchModeEnabled;
 
     // Draw Piano Roll Root Line
     let prGrid = container.querySelector('.piano-roll-grid');
@@ -290,12 +291,13 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             prGrid.style.right = '0';
             prGrid.style.bottom = '0';
             prGrid.style.pointerEvents = 'none';
-            for (let i = -12; i <= 12; i++) {
+            const baseLineY = isChordTab ? 75 : 50;
+            for (let i = -12; i <= 24; i++) {
                 const line = document.createElement('div');
                 line.style.position = 'absolute';
                 line.style.left = '0';
                 line.style.right = '0';
-                line.style.top = `${50 - (i * 3)}%`;
+                line.style.top = `${baseLineY - (i * 3)}%`;
                 line.style.height = i === 0 ? '2px' : '1px';
                 line.style.background = i === 0 ? 'rgba(128, 128, 128, 0.4)' : 'rgba(128, 128, 128, 0.15)';
                 prGrid.appendChild(line);
@@ -398,7 +400,45 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             el.style.background = ''; // Restore default background
         }
 
-        if (isPitchMode) {
+        if (isPitchMode && isChordTab) {
+            el.classList.add('pitch-mode-chord');
+            el.style.top = '0';
+            el.style.height = '100%';
+            el.style.background = ''; // Allow CSS classes to handle selection colors
+            
+            let noteContainer = el.querySelector('.note-container');
+            if (!noteContainer) {
+                noteContainer = document.createElement('div');
+                noteContainer.className = 'note-container';
+                noteContainer.style.position = 'absolute';
+                noteContainer.style.width = '100%';
+                noteContainer.style.height = '100%';
+                el.appendChild(noteContainer);
+            }
+            
+            const offsets = inst.pitchOffsets || [];
+            const root = chordNotes[0];
+            
+            let html = '';
+            chordNotes.forEach((note, idx) => {
+                const pOffset = offsets[idx] || 0;
+                const interval = note - root;
+                const totalSteps = interval + pOffset;
+                const blockHeight = 16;
+                const topPercent = 75 - (totalSteps * 3) - (blockHeight / 2);
+                
+                const labelText = pOffset === 0 ? (idx+1) : (pOffset > 0 ? `+${pOffset}` : pOffset);
+                
+                html += `<div class="chord-note-block" data-note-index="${idx}" style="position: absolute; left: 0; width: 100%; top: ${topPercent}%; height: ${blockHeight}%; background: var(--bracket-color); border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; pointer-events: auto;"><span style="font-size:10px; font-weight:bold; color:#fff; pointer-events:none; text-shadow:0 1px 2px rgba(0,0,0,0.8);">${labelText}</span></div>`;
+            });
+            noteContainer.innerHTML = html;
+            
+            const pitchLabel = el.querySelector('.pitch-label');
+            if (pitchLabel) pitchLabel.remove();
+            
+        } else if (isPitchMode) {
+            const noteContainer = el.querySelector('.note-container');
+            if (noteContainer) noteContainer.remove();
             const pOffset = inst.pitchOffset || 0;
             const blockHeight = 16;
             const topPercent = 50 - (pOffset * 3) - (blockHeight / 2);
@@ -431,8 +471,11 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
                 pitchLabel.textContent = steps === 0 ? 'R' : (steps > 0 ? `+${steps}` : `${steps}`);
             }
         } else {
+            el.classList.remove('pitch-mode-chord');
             el.style.top = '10%';
             el.style.height = '80%';
+            const noteContainer = el.querySelector('.note-container');
+            if (noteContainer) noteContainer.remove();
             const pitchLabel = el.querySelector('.pitch-label');
             if (pitchLabel) pitchLabel.remove();
         }

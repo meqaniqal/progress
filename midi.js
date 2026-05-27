@@ -167,10 +167,13 @@ export function exportToMidi(state) {
                 const instanceStartTick = slotStartTick + Math.round(instance.startTime * slotTicks);
                 const instanceDurationTicks = Math.round(instance.duration * slotTicks);
                 const instanceDurationSec = instance.duration * chordDurationSec;
+                
+                const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || state.divisions || 12);
+                const adjustedChordNotes = chordNotes.map((n, i) => n + snapToGrid(60 + (instance.pitchOffsets?.[i] || 0), editorTuning) - 60);
 
                 if (instance.arpSettings) {
                     const arpEvents = generateArpNotes({
-                        notesToPlay: chordNotes,
+                        notesToPlay: adjustedChordNotes,
                         arpSettings: instance.arpSettings,
                         instanceDuration: instanceDurationSec,
                         bpm: Number(state.bpm)
@@ -214,7 +217,7 @@ export function exportToMidi(state) {
                     const actualNoteDurationTicks = useFullDuration ? instanceDurationTicks : Math.round(instanceDurationTicks * 0.95);
 
                     if (isMultiTrack) {
-                        chordNotes.forEach((floatNote, noteIdx) => {
+                        adjustedChordNotes.forEach((floatNote, noteIdx) => {
                             const targetTrack = getChordTrack(noteIdx);
                             const waitTicks = Math.max(0, noteStartTick - currentChordTicks[noteIdx]);
                             const { intNote, bendValue } = getMpePitchBend(floatNote);
@@ -242,7 +245,7 @@ export function exportToMidi(state) {
 
                         if (isClean) {
                             const tuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
-                            const pitches = chordNotes.map(n => getLinearMidiKey(n, tuning));
+                            const pitches = adjustedChordNotes.map(n => getLinearMidiKey(n, tuning));
                             events.push(new MidiWriter.NoteEvent({
                                 pitch: pitches,
                                 duration: `T${actualNoteDurationTicks}`,
@@ -251,11 +254,11 @@ export function exportToMidi(state) {
                                 channel: 1
                             }));
                         } else {
-                            chordNotes.forEach((floatNote, idx) => {
+                            adjustedChordNotes.forEach((floatNote, idx) => {
                                 const { intNote, bendValue } = getMpePitchBend(floatNote);
                                 const targetChannel = currentChannel;
                                 currentChannel = currentChannel >= 15 ? 2 : currentChannel + 1;
-                                const isLast = idx === chordNotes.length - 1;
+                                const isLast = idx === adjustedChordNotes.length - 1;
 
                                 events.push(new MidiWriter.PitchBendEvent({ bend: bendValue, channel: targetChannel, wait: `T${waitTicks}` }));
                                 events.push(new MidiWriter.NoteEvent({
