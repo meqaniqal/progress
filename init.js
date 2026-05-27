@@ -43,5 +43,5 @@ document.head.appendChild(mapScript);
 
 const script = document.createElement('script');
 script.type = 'module';
-script.src = `./progressmain.js`; // The import map will append the version automatically
+script.src = `./progressmain.js?v=${version}`; // Explicitly append the version for the entry script
 document.head.appendChild(script);

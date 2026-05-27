@@ -10,6 +10,7 @@ export function initModals({ onResetPlayback, onRenderProgression }) {
     _initSettingsModal(onResetPlayback, onRenderProgression);
     _initAIPromptModal();
     _initManualModal();
+    _initProjectHubModal();
 }
 
 function _initSettingsModal(onResetPlayback, onRenderProgression) {
@@ -132,6 +133,25 @@ function _initAIPromptModal() {
                 copyBtn.textContent = 'Copied!';
                 setTimeout(() => copyBtn.textContent = originalText, 2000);
             });
+        });
+    }
+}
+
+function _initProjectHubModal() {
+    const btnHub = document.getElementById('btn-project-hub');
+    const hubModal = document.getElementById('project-hub-modal');
+    const closeHubBtn = document.getElementById('btn-close-project-hub');
+
+    if (btnHub && hubModal && closeHubBtn) {
+        btnHub.addEventListener('click', () => {
+            hubModal.style.display = 'flex';
+            hubModal.offsetHeight; // trigger reflow
+            hubModal.classList.add('visible');
+        });
+
+        closeHubBtn.addEventListener('click', () => {
+            hubModal.classList.remove('visible');
+            setTimeout(() => hubModal.style.display = 'none', 200);
         });
     }
 }
