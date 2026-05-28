@@ -142,8 +142,8 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - [x] **Smart Drag-and-Drop:** Dynamically collapse inactive chord palettes during drag operations to instantly bring the chord tray drop-zone into the mobile viewport.
 - **Experimental Draw Mode & Workflow Refactor (Complete ✅):** Shifted to an "Edit-in-Place" Push/Pull workflow. Added a new Pencil Draw tool with Boolean overlap math for rapid sequence painting and gating.
 
-### 6. Advanced Modular Synthesis & Sound Design (Future Goal)
-- **Editable AI-Targeted Synths:** The default sine/sawtooth engines will become options among multiple modular synths. Planned are highly customizable synths specifically geared toward producing maximum clarity for AI audio recognition or direct integration into professional DAW projects via WAV export.
+### 6. Advanced Modular Synthesis & Sound Design (In Progress / Complete ✅)
+- **Editable AI-Targeted Synths (Complete ✅):** The default sine/sawtooth engines have been upgraded with multiple modular synths (FM, Pluck). Features a foldaway "Synth Editor" panel to deeply customize Modulation, Envelopes, Cutoff, and Decay directly in the UI.
 - **Bass-Geared Synthesizers:** A dedicated, modular synth for the bassline layer, featuring editable parameters for sub-harmonics and drive to anchor AI generations.
 - **Professional Generative Drums:** A drum editor that uses professional-grade sampling or synthesis to produce high-quality drum exports.
 - **Modular UI Architecture:** Each of these engines (Synth, Bass, Drums) will exist as entirely decoupled modules with their own localized UI logic to ensure the app remains performant, testable, and clean.
