@@ -55,10 +55,6 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
                     const adjustedChordNotes = chordNotes.map((n, i) => n + snapToGrid(60 + (instance.pitchOffsets?.[i] || 0), editorTuning) - 60);
 
-                    if (pass === 0) {
-                        console.log(`[WAV Render] Chord ${chord.symbol} - Float Pitches (MIDI scale):`, adjustedChordNotes.map(n => Number(n.toFixed(3))));
-                    }
-
                     if (instance.arpSettings) {
                         const arpEvents = generateArpNotes({
                             notesToPlay: adjustedChordNotes,
@@ -129,10 +125,6 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
                     const snappedOffset = snapToGrid(60 + (instance.pitchOffset || 0), editorTuning) - 60;
                     const finalBassNote = bassNote + snappedOffset;
-
-                    if (pass === 0) {
-                        console.log(`[WAV Render] Bass ${chord.symbol} - Float Pitch:`, Number(finalBassNote.toFixed(3)));
-                    }
 
                     timeline.push({
                         midiNote: finalBassNote,

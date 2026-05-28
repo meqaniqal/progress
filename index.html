@@ -11,11 +11,11 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- 1. CSS loaded first to block render until styles are ready -->
-    <link rel="stylesheet" href="theme.css?v=1779896763390">
-    <link rel="stylesheet" href="style.css?v=1779896763390">
-    <link rel="stylesheet" href="drum-grid.css?v=1779896763390">
-    <link rel="stylesheet" href="rhythm-editor.css?v=1779896763390">
-    <link rel="stylesheet" href="song-mode.css?v=1779896763390">
+    <link rel="stylesheet" href="theme.css?v=1779917000125">
+    <link rel="stylesheet" href="style.css?v=1779917000125">
+    <link rel="stylesheet" href="drum-grid.css?v=1779917000125">
+    <link rel="stylesheet" href="rhythm-editor.css?v=1779917000125">
+    <link rel="stylesheet" href="song-mode.css?v=1779917000125">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
     
     <!-- Hide body and show spinner to prevent Flash of Unstyled Content (FOUC) while scripts load -->
@@ -39,7 +39,7 @@
     <!-- 2. Scripts deferred to prevent HTML parsing blocks -->
     <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@2.1.4/browser/midiwriter.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js" defer></script>
-    <script src="init.js?v=1779896763390" defer></script>
+    <script src="init.js?v=1779917000125" defer></script>
 </head>
 <body>
     <div id="top-header">
@@ -98,6 +98,7 @@
                 <option value="19">19-EDO</option>
                 <option value="24">24-EDO (Quarter Tones)</option>
                 <option value="31">31-EDO (Just Approx)</option>
+                <option value="72">72-EDO (1/12th Tones)</option>
             </select>
             <button id="btn-jump-source" class="control-btn primary btn-sm" style="display: none; margin-left: 8px;" title="Match global Key and Scale to the selected chord"></button>
         </div>
@@ -277,6 +278,14 @@
                         <label for="pattern-avoid-kick" class="fx-label">Avoid Kick</label>
                     </div>
                     
+                    <div id="pitch-reset-group" class="fx-prop-group" style="display: none; position: relative; cursor: pointer;">
+                        <span class="fx-label" id="btn-pitch-reset-menu">Reset Pitch ▾</span>
+                        <div id="pitch-reset-dropdown" class="swap-menu" style="display: none; top: 100%; left: 0; margin-top: 8px; padding: 8px; min-width: 140px; z-index: 200;">
+                            <button class="chord-btn" id="btn-reset-pitch-slice" style="margin: 0 0 6px 0; padding: 6px 10px; font-size: 12px; text-align: left;">Selected Slice(s)</button>
+                            <button class="chord-btn" id="btn-reset-pitch-all" style="margin: 0; padding: 6px 10px; font-size: 12px; text-align: left;">All Slices</button>
+                        </div>
+                    </div>
+                    
                     <div id="item-properties-group" class="fx-prop-group" style="display: none; gap: 10px;">
                         <div id="prop-pitch-wrapper" class="prop-pitch-wrapper" style="display: none;">
                             <button class="control-btn secondary icon-btn prop-pitch-btn" id="btn-pitch-down">-</button>
@@ -450,6 +459,7 @@
                             <option value="19">19-EDO</option>
                             <option value="24">24-EDO (Quarter Tones)</option>
                             <option value="31">31-EDO (Just Approx)</option>
+                            <option value="72">72-EDO (1/12th Tones)</option>
                         </select>
                         <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                             <button class="control-btn secondary btn-md" id="btn-hub-export-scala">💾 .scl</button>

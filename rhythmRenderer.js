@@ -7,7 +7,7 @@ import {
     getDurationBeats 
 } from './rhythmEditor.js';
 import { generateArpNotes } from './arp.js';
-import { getChordNotes, getEffectiveTuning, getPitchEditorTuning } from './theory.js';
+import { getChordNotes, getEffectiveTuning, getPitchEditorTuning, getPlayableNotes } from './theory.js';
 
 const PITCH_LABELS = {
     '-12': '-8ve', '-11': '-M7', '-10': '-m7', '-9': '-M6', '-8': '-m6', '-7': '-P5', '-6': '-TT', '-5': '-P4', '-4': '-M3', '-3': '-m3', '-2': '-M2', '-1': '-m2',
@@ -129,6 +129,12 @@ export function renderRhythmTimeline() {
     }
 
     const isPitchMode = (isBassTab || isChordTab) && editorState.isPitchModeEnabled;
+    
+    const pitchResetGroup = document.getElementById('pitch-reset-group');
+    if (pitchResetGroup) {
+        pitchResetGroup.style.display = isPitchMode ? 'flex' : 'none';
+    }
+    
     if (isPitchMode) {
         editorState.isDrawModeEnabled = false; // Disable draw mode when pitching
         if (btnDrawToggle) btnDrawToggle.style.display = 'none';
@@ -249,11 +255,13 @@ export function renderRhythmTimeline() {
                             pitchDisplay.textContent = steps === 0 ? 'Root' : (steps > 0 ? `+${steps}s` : `${steps}s`);
                         }
                     }
-                } else if (pitchWrapper) {
-                    pitchWrapper.style.display = 'none';
+                } else if (editorState.activeTab === 'chordPattern' && editorState.isPitchModeEnabled) {
+                    if (pitchWrapper) pitchWrapper.style.display = 'none';
+                } else {
+                    if (pitchWrapper) pitchWrapper.style.display = 'none';
                 }
-            } else if (pitchWrapper) {
-                pitchWrapper.style.display = 'none';
+            } else {
+                if (pitchWrapper) pitchWrapper.style.display = 'none';
             }
         }
 
@@ -291,8 +299,8 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             prGrid.style.right = '0';
             prGrid.style.bottom = '0';
             prGrid.style.pointerEvents = 'none';
-            const baseLineY = isChordTab ? 75 : 50;
-            for (let i = -12; i <= 24; i++) {
+            const baseLineY = 50;
+            for (let i = -18; i <= 24; i++) {
                 const line = document.createElement('div');
                 line.style.position = 'absolute';
                 line.style.left = '0';
@@ -310,10 +318,13 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
         
     let chordNotes = [60, 64, 67, 71]; // Default dummy sequence for the Global Editor
     if (!editorState.isGlobal && editorState.activeIndex !== null) {
-        const chord = app.state.currentProgression[editorState.activeIndex];
-        if (chord) {
-            const notes = getChordNotes(chord.symbol, chord.key, chord.divisions || app.state.divisions || 12);
-            if (notes) chordNotes = notes;
+        const mockProg = app.state.currentProgression.map((c, i) => {
+            const swap = app.state.temporarySwaps ? app.state.temporarySwaps[i] : null;
+            return swap ? { ...c, ...swap } : c;
+        });
+        const playable = getPlayableNotes(mockProg, app.state);
+        if (playable[editorState.activeIndex]) {
+            chordNotes = playable[editorState.activeIndex];
         }
     }
     const bpm = app.state.bpm || 120;
@@ -417,19 +428,33 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             }
             
             const offsets = inst.pitchOffsets || [];
-            const root = chordNotes[0];
+            
+            const chordObj = app.state.currentProgression[editorState.activeIndex];
+            const tuning = getPitchEditorTuning(chordObj ? chordObj.symbol : null, app.state.divisions);
+
+            // Calculate a horizontal staggered "deck of cards" layout to prevent overlapping block touches
+            const maxStagger = Math.min(50, (chordNotes.length - 1) * 12);
+            const staggerStep = chordNotes.length > 1 ? maxStagger / (chordNotes.length - 1) : 0;
+            const widthPercent = 80 - maxStagger; // Always leave the right 20% completely empty for bulk slice dragging
             
             let html = '';
             chordNotes.forEach((note, idx) => {
                 const pOffset = offsets[idx] || 0;
-                const interval = note - root;
-                const totalSteps = interval + pOffset;
+                const absoluteSteps = (note - 60) + pOffset;
                 const blockHeight = 16;
-                const topPercent = 75 - (totalSteps * 3) - (blockHeight / 2);
+                const topPercent = 50 - (absoluteSteps * 3) - (blockHeight / 2);
+                const leftPercent = idx * staggerStep;
                 
-                const labelText = pOffset === 0 ? (idx+1) : (pOffset > 0 ? `+${pOffset}` : pOffset);
+                let labelText;
+                if (tuning.divisions === 12) {
+                    const rounded = Math.round(pOffset);
+                    labelText = rounded === 0 ? (idx+1) : (rounded > 0 ? `+${rounded}` : rounded);
+                } else {
+                    const steps = Math.round(pOffset / (tuning.periodSize / tuning.divisions));
+                    labelText = steps === 0 ? (idx+1) : (steps > 0 ? `+${steps}s` : `${steps}s`);
+                }
                 
-                html += `<div class="chord-note-block" data-note-index="${idx}" style="position: absolute; left: 0; width: 100%; top: ${topPercent}%; height: ${blockHeight}%; background: var(--bracket-color); border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; pointer-events: auto;"><span style="font-size:10px; font-weight:bold; color:#fff; pointer-events:none; text-shadow:0 1px 2px rgba(0,0,0,0.8);">${labelText}</span></div>`;
+                html += `<div class="chord-note-block" data-note-index="${idx}" style="position: absolute; left: ${leftPercent}%; width: ${widthPercent}%; top: ${topPercent}%; height: ${blockHeight}%; background: var(--bracket-color); border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; pointer-events: auto; z-index: ${idx + 1};"><span style="font-size:10px; font-weight:bold; color:#fff; pointer-events:none; text-shadow:0 1px 2px rgba(0,0,0,0.8);">${labelText}</span></div>`;
             });
             noteContainer.innerHTML = html;
             

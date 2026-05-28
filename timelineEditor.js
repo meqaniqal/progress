@@ -1,6 +1,6 @@
 import { editorState, app, getCurrentPattern, setCurrentPattern, hasValidContext, getTimelineRect, getActiveGridValue, auditionSlicePitch, renderRhythmTimeline } from './rhythmEditor.js';
 import { exclusiveSelect, moveInstance, fillGapInstance, expandInstance, resizeInstance, drawPatternBlock, sliceInstance, updateInstance } from './patternUtils.js';
-import { getEffectiveTuning, getPitchEditorTuning } from './theory.js';
+import { getEffectiveTuning, getPitchEditorTuning, getChordNotes, getPlayableNotes } from './theory.js';
 
 export function initTimelineInteractions(timeline) {
     let dragStartX = 0;
@@ -12,6 +12,10 @@ export function initTimelineInteractions(timeline) {
     let lastTapId = null; 
     let cachedTimelineRect = null;
     let selectionChangedOnDown = false;
+    let lastAuditionTime = 0;
+    let auditionTimeout = null;
+    let dragStartPitchOffset = 0;
+    let dragStartPitchOffsets = [];
     
     // Prevent context menu (right-click) which interferes with dragging interactions
     timeline.addEventListener('contextmenu', e => e.preventDefault());
@@ -112,8 +116,11 @@ export function initTimelineInteractions(timeline) {
                 if (currentInst) {
                     originalStartTime = currentInst.startTime;
                     originalDuration = currentInst.duration;
-                    editorState.dragStartPitchOffset = currentInst.pitchOffset || 0;
+                    dragStartPitchOffset = currentInst.pitchOffset || 0;
                     editorState.draggedNoteIndex = null; // Ignore individual notes when grabbing a resize handle
+                    if (editorState.activeTab === 'chordPattern' && editorState.isPitchModeEnabled) {
+                        dragStartPitchOffsets = [...(currentInst.pitchOffsets || [])];
+                    }
                     
                     if (!currentInst.isSelected) {
                         setCurrentPattern(exclusiveSelect(pattern, editorState.draggedInstanceId));
@@ -181,13 +188,17 @@ export function initTimelineInteractions(timeline) {
             originalStartTime = inst.startTime;
             originalDuration = inst.duration;
             
+            if (editorState.activeTab === 'chordPattern' && editorState.isPitchModeEnabled) {
+                dragStartPitchOffsets = [...(inst.pitchOffsets || [])];
+            }
+
             const noteBlock = e.target.closest('.chord-note-block');
             if (noteBlock && editorState.activeTab === 'chordPattern' && editorState.isPitchModeEnabled) {
                 editorState.draggedNoteIndex = parseInt(noteBlock.dataset.noteIndex, 10);
-                editorState.dragStartPitchOffset = inst.pitchOffsets?.[editorState.draggedNoteIndex] || 0;
+                dragStartPitchOffset = dragStartPitchOffsets[editorState.draggedNoteIndex] || 0;
             } else {
                 editorState.draggedNoteIndex = null;
-                editorState.dragStartPitchOffset = inst.pitchOffset || 0;
+                dragStartPitchOffset = inst.pitchOffset || 0;
             }
             
             if (editorState.activeTab === 'bassPattern') {
@@ -216,7 +227,7 @@ export function initTimelineInteractions(timeline) {
         } else {
             originalStartTime = 0;
             originalDuration = 0;
-            editorState.dragStartPitchOffset = 0;
+            dragStartPitchOffset = 0;
         }
 
         longPressTimer = setTimeout(() => {
@@ -321,7 +332,7 @@ export function initTimelineInteractions(timeline) {
             const stepPx = Math.max(3, (rect.height * 0.4) / tuning.divisions); 
             const deltaSteps = -Math.round(deltaY / stepPx);
             
-            const newPitchOffset = editorState.dragStartPitchOffset + (deltaSteps * stepSize);
+            const newPitchOffset = dragStartPitchOffset + (deltaSteps * stepSize);
             const maxPitch = tuning.periodSize * 2; // Allow moving up to 2 octaves
             const clampedPitch = Math.max(-maxPitch, Math.min(maxPitch, newPitchOffset));
             
@@ -332,15 +343,83 @@ export function initTimelineInteractions(timeline) {
                 if (inst && Math.abs(clampedPitch - (inst.pitchOffset || 0)) > 0.01) {
                     setCurrentPattern(updateInstance(pattern, editorState.draggedInstanceId, { pitchOffset: clampedPitch }));
                     renderRhythmTimeline();
-                    auditionSlicePitch(clampedPitch);
+                    
+                    const now = Date.now();
+                    if (now - lastAuditionTime > 150) {
+                        auditionSlicePitch(clampedPitch);
+                        lastAuditionTime = now;
+                        if (auditionTimeout) clearTimeout(auditionTimeout);
+                    } else {
+                        if (auditionTimeout) clearTimeout(auditionTimeout);
+                        auditionTimeout = setTimeout(() => {
+                            auditionSlicePitch(clampedPitch);
+                            lastAuditionTime = Date.now();
+                        }, 150);
+                    }
                 }
             } else if (editorState.activeTab === 'chordPattern' && editorState.draggedNoteIndex !== null) {
                 if (inst && Math.abs(clampedPitch - (inst.pitchOffsets?.[editorState.draggedNoteIndex] || 0)) > 0.01) {
-                    const newOffsets = [...(inst.pitchOffsets || [])];
+                    const newOffsets = [...dragStartPitchOffsets];
                     newOffsets[editorState.draggedNoteIndex] = clampedPitch;
                     setCurrentPattern(updateInstance(pattern, editorState.draggedInstanceId, { pitchOffsets: newOffsets }));
                     renderRhythmTimeline();
-                    auditionSlicePitch(0, newOffsets);
+                    
+                    const now = Date.now();
+                    if (now - lastAuditionTime > 150) {
+                        auditionSlicePitch(0, newOffsets);
+                        lastAuditionTime = now;
+                        if (auditionTimeout) clearTimeout(auditionTimeout);
+                    } else {
+                        if (auditionTimeout) clearTimeout(auditionTimeout);
+                        auditionTimeout = setTimeout(() => {
+                            auditionSlicePitch(0, newOffsets);
+                            lastAuditionTime = Date.now();
+                        }, 150);
+                    }
+                }
+            } else if (editorState.activeTab === 'chordPattern' && editorState.draggedNoteIndex === null) {
+                const shiftAmount = deltaSteps * stepSize;
+                
+                let numNotes = 4;
+                if (!editorState.isGlobal && editorState.activeIndex !== null) {
+                    const mockProg = app.state.currentProgression.map((c, i) => {
+                        const swap = app.state.temporarySwaps ? app.state.temporarySwaps[i] : null;
+                        return swap ? { ...c, ...swap } : c;
+                    });
+                    const playable = getPlayableNotes(mockProg, app.state);
+                    if (playable[editorState.activeIndex]) {
+                        numNotes = playable[editorState.activeIndex].length;
+                    }
+                }
+                
+                let hasChanges = false;
+                const newOffsets = [...dragStartPitchOffsets];
+                for (let i = 0; i < numNotes; i++) {
+                    const startOffset = dragStartPitchOffsets[i] || 0;
+                    const shiftedPitch = startOffset + shiftAmount;
+                    const clampedShifted = Math.max(-maxPitch, Math.min(maxPitch, shiftedPitch));
+                    newOffsets[i] = clampedShifted;
+                    if (Math.abs(clampedShifted - (inst.pitchOffsets?.[i] || 0)) > 0.01) {
+                        hasChanges = true;
+                    }
+                }
+
+                if (inst && hasChanges) {
+                    setCurrentPattern(updateInstance(pattern, editorState.draggedInstanceId, { pitchOffsets: newOffsets }));
+                    renderRhythmTimeline();
+                    
+                    const now = Date.now();
+                    if (now - lastAuditionTime > 150) {
+                        auditionSlicePitch(0, newOffsets);
+                        lastAuditionTime = now;
+                        if (auditionTimeout) clearTimeout(auditionTimeout);
+                    } else {
+                        if (auditionTimeout) clearTimeout(auditionTimeout);
+                        auditionTimeout = setTimeout(() => {
+                            auditionSlicePitch(0, newOffsets);
+                            lastAuditionTime = Date.now();
+                        }, 150);
+                    }
                 }
             }
             return; 

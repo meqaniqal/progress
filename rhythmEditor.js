@@ -1,6 +1,6 @@
 import { resolvePattern } from './patternResolver.js';
 import { getAudioCurrentTime, playTone, initAudio, midiToFreq } from './synth.js';
-import { getChordNotes, segmentMicrotonalCluster, snapToGrid, getEffectiveTuning, getBassNote, getPitchEditorTuning } from './theory.js';
+import { getChordNotes, segmentMicrotonalCluster, snapToGrid, getEffectiveTuning, getBassNote, getPitchEditorTuning, getPlayableNotes } from './theory.js';
 import { CONFIG } from './config.js';
 import { GRID_STEPS } from './rhythmConfig.js';
 import { initRhythmControls } from './rhythmControls.js';
@@ -47,13 +47,17 @@ export function auditionSlicePitch(pitchOffset = 0, pitchOffsets = []) {
     initAudio();
     
     // Merge active temporary swaps so auditioning matches the true playback root
-    const baseChord = app.state.currentProgression[editorState.activeIndex];
-    const swap = app.state.temporarySwaps ? app.state.temporarySwaps[editorState.activeIndex] : null;
-    const chord = swap ? { ...baseChord, ...swap } : baseChord;
+    const mockProg = app.state.currentProgression.map((c, i) => {
+        const swap = app.state.temporarySwaps ? app.state.temporarySwaps[i] : null;
+        return swap ? { ...c, ...swap } : c;
+    });
     
+    const chord = mockProg[editorState.activeIndex];
     if (!chord) return;
     const tuning = getEffectiveTuning(chord.symbol, chord.divisions || app.state.divisions || 12);
-    const notes = getChordNotes(chord.symbol, chord.key, tuning.divisions);
+    
+    const allPlayable = getPlayableNotes(mockProg, app.state);
+    const notes = allPlayable[editorState.activeIndex];
     if (!notes) return;
     
     const now = getAudioCurrentTime();
@@ -61,10 +65,12 @@ export function auditionSlicePitch(pitchOffset = 0, pitchOffsets = []) {
     
     const panL = app.state.autoPanLeading !== false ? -0.75 : 0;
     const panR = app.state.autoPanLeading !== false ? 0.75 : 0;
+
+    const chordInst = app.state.instruments && app.state.instruments.chords ? app.state.instruments.chords : 'sawtooth';
+    const bassInst = app.state.instruments && app.state.instruments.bass ? app.state.instruments.bass : 'sine';
     
     // Play chord pad and bass note together
-    const dropSize = tuning.periodSize > 14 ? 12.0 : tuning.periodSize;
-    let finalChordNotes = notes.map(n => n - dropSize);
+    let finalChordNotes = [...notes];
     
     if (editorState.activeTab === 'chordPattern') {
         const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || app.state.divisions || 12);
@@ -72,24 +78,78 @@ export function auditionSlicePitch(pitchOffset = 0, pitchOffsets = []) {
     }
 
     const segmented = segmentMicrotonalCluster(finalChordNotes);
-    segmented.core.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', 0));
-    segmented.frictionLeft.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', panL));
-    segmented.frictionRight.forEach(n => playTone(midiToFreq(n), now, duration, 'sawtooth', 'chords', panR));
+    segmented.core.forEach(n => playTone(midiToFreq(n), now, duration, chordInst, 'chords', 0));
+    segmented.frictionLeft.forEach(n => playTone(midiToFreq(n), now, duration, chordInst, 'chords', panL));
+    segmented.frictionRight.forEach(n => playTone(midiToFreq(n), now, duration, chordInst, 'chords', panR));
 
-    const rootBassNote = getBassNote(notes, tuning);
-    let finalBassNote = rootBassNote;
-    if (editorState.activeTab === 'bassPattern') {
-        const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || app.state.divisions || 12);
-        const snappedOffset = snapToGrid(60 + pitchOffset, editorTuning) - 60;
-        finalBassNote = rootBassNote + snappedOffset;
+    const rootChordNotes = getChordNotes(chord.symbol, chord.key, tuning.divisions);
+    if (rootChordNotes) {
+        const rootBassNote = getBassNote(rootChordNotes, tuning);
+        let finalBassNote = rootBassNote;
+        if (editorState.activeTab === 'bassPattern') {
+            const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || app.state.divisions || 12);
+            const snappedOffset = snapToGrid(60 + pitchOffset, editorTuning) - 60;
+            finalBassNote = rootBassNote + snappedOffset;
+        }
+        playTone(midiToFreq(finalBassNote), now, duration, bassInst, 'bass');
     }
-    playTone(midiToFreq(finalBassNote), now, duration, 'sine');
 }
 
 export function setCurrentPattern(newPattern, markAsOverride = true) {
     if (app.updatePattern) {
         app.updatePattern(editorState.activeTab, newPattern, editorState.activeIndex, editorState.isGlobal, markAsOverride);
     }
+}
+
+function initPitchResetControl() {
+    const menuBtn = document.getElementById('btn-pitch-reset-menu');
+    const dropdown = document.getElementById('pitch-reset-dropdown');
+    const btnSlice = document.getElementById('btn-reset-pitch-slice');
+    const btnAll = document.getElementById('btn-reset-pitch-all');
+
+    if (!menuBtn || !dropdown || !btnSlice || !btnAll) return;
+
+    menuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = dropdown.style.display === 'flex';
+        dropdown.style.display = isVisible ? 'none' : 'flex';
+    });
+
+    const executeReset = (mode) => {
+        dropdown.style.display = 'none';
+        const pattern = getCurrentPattern();
+        if (!pattern) return;
+
+        let hasChanges = false;
+        let newInstances = pattern.instances.map(inst => {
+            if (mode === 'all' || inst.isSelected) {
+                hasChanges = true;
+                return { ...inst, pitchOffset: 0, pitchOffsets: inst.pitchOffsets ? inst.pitchOffsets.map(() => 0) : [] };
+            }
+            return inst;
+        });
+
+        if (hasChanges) {
+            app.saveHistoryState();
+            setCurrentPattern({ ...pattern, instances: newInstances });
+            app.persistAppState();
+            renderRhythmTimeline();
+        }
+    };
+
+    btnSlice.addEventListener('click', (e) => {
+        e.stopPropagation();
+        executeReset('slice');
+    });
+    
+    btnAll.addEventListener('click', (e) => {
+        e.stopPropagation();
+        executeReset('all');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#pitch-reset-group')) dropdown.style.display = 'none';
+    });
 }
 
 export function getTimelineRect() {
@@ -127,6 +187,7 @@ export function initRhythmEditor(config) {
         initTimelineInteractions(timeline);
         initDrumInteractions(timeline);
     }
+    initPitchResetControl();
 }
 
 export function openRhythmEditor(index) {

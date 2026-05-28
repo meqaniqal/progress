@@ -253,15 +253,6 @@ export function exportToMidi(state) {
                                 return Math.max(0, Math.min(127, p));
                             });
                             
-                            if (pass === 0) {
-                                console.log(`\n[MIDI Export] Chord ${chord.symbol} (Clean)`);
-                                adjustedChordNotes.forEach((floatPitch, i) => {
-                                    const midiKey = pitches[i];
-                                    const tunCents = 6000 + (midiKey - 60) * (cleanTuning.periodSize * 100 / cleanTuning.divisions);
-                                    console.log(`  Float Pitch: ${floatPitch.toFixed(3)} -> Linear MIDI Key: ${midiKey} -> App's .tun interprets as: ${(tunCents/100).toFixed(3)}`);
-                                });
-                            }
-
                             events.push(new MidiWriter.NoteEvent({
                                 pitch: pitches,
                                 duration: `T${actualNoteDurationTicks}`,
@@ -348,12 +339,6 @@ export function exportToMidi(state) {
                     const safeFloatPitch = finalBassNote + 24.0;
                     bassPitch = getLinearMidiKey(safeFloatPitch, cleanTuning);
                     bassPitch = Math.max(0, Math.min(127, bassPitch));
-                    
-                    if (pass === 0) {
-                        const tunCents = 6000 + (bassPitch - 60) * (cleanTuning.periodSize * 100 / cleanTuning.divisions);
-                        console.log(`\n[MIDI Export] Bass (Clean)`);
-                        console.log(`  Float Pitch: ${finalBassNote.toFixed(3)} -> Shifted Float (+24.0) -> MIDI Key: ${bassPitch} -> App's .tun interprets as: ${(tunCents/100).toFixed(3)}`);
-                    }
                 }
 
                 const events = [];

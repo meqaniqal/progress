@@ -37,6 +37,7 @@ export const TUNING_SYSTEMS = {
     EDO19: 19, // 19-Tone Equal Temperament
     EDO24: 24, // Quarter-tone EDO
     EDO31: 31, // 31-Tone Equal Temperament (excellent Just Intonation approx)
+    EDO72: 72, // 72-Tone Equal Temperament (1/12th tones, ultra-fine resolution)
 };
 
 export function getBassNote(rootChordNotes, tuning) {
