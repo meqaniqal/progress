@@ -42,7 +42,7 @@ export function getCurrentPattern() {
     return localPat;
 }
 
-export function auditionSlicePitch(pitchOffset = 0, pitchOffsets = []) {
+export function auditionSlicePitch(pitchOffset = 0, pitchOffsets = [], activeNoteIndex = -1) {
     if (!hasValidContext()) return;
     initAudio();
     
@@ -77,10 +77,16 @@ export function auditionSlicePitch(pitchOffset = 0, pitchOffsets = []) {
         finalChordNotes = finalChordNotes.map((n, i) => n + snapToGrid(60 + (pitchOffsets[i] || 0), editorTuning) - 60);
     }
 
+    const getVol = (n) => {
+        if (activeNoteIndex === -1) return 1.0;
+        const idx = finalChordNotes.indexOf(n);
+        return idx === activeNoteIndex ? 1.0 : 0.3;
+    };
+
     const segmented = segmentMicrotonalCluster(finalChordNotes);
-    segmented.core.forEach(n => playTone(midiToFreq(n), now, duration, chordInst, 'chords', 0));
-    segmented.frictionLeft.forEach(n => playTone(midiToFreq(n), now, duration, chordInst, 'chords', panL));
-    segmented.frictionRight.forEach(n => playTone(midiToFreq(n), now, duration, chordInst, 'chords', panR));
+    segmented.core.forEach(n => playTone(midiToFreq(n), now, duration, chordInst, 'chords', 0, getVol(n)));
+    segmented.frictionLeft.forEach(n => playTone(midiToFreq(n), now, duration, chordInst, 'chords', panL, getVol(n)));
+    segmented.frictionRight.forEach(n => playTone(midiToFreq(n), now, duration, chordInst, 'chords', panR, getVol(n)));
 
     const rootChordNotes = getChordNotes(chord.symbol, chord.key, tuning.divisions);
     if (rootChordNotes) {
@@ -91,7 +97,10 @@ export function auditionSlicePitch(pitchOffset = 0, pitchOffsets = []) {
             const snappedOffset = snapToGrid(60 + pitchOffset, editorTuning) - 60;
             finalBassNote = rootBassNote + snappedOffset;
         }
-        playTone(midiToFreq(finalBassNote), now, duration, bassInst, 'bass');
+        
+        // Dim the bass as well if we are actively adjusting a chord note
+        const bassVol = (editorState.activeTab === 'chordPattern' && activeNoteIndex !== -1) ? 0.3 : 1.0;
+        playTone(midiToFreq(finalBassNote), now, duration, bassInst, 'bass', 0, bassVol);
     }
 }
 

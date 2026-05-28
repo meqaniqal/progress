@@ -5,7 +5,8 @@ import { generateAIPrompt } from './promptGenerator.js';
 import { KEY_NAMES, updateKeyAndModeDisplay } from './ui.js';
 import { setTrackVolume } from './synth.js';
 import { isSongTrayOpen } from './songController.js';
-import { updateMicrotonalSettingsUI, syncUIToState } from './progressmain.js';
+import { syncUIToState } from './progressmain.js';
+import { updateMicrotonalSettingsUI } from './settingsController.js';
 
 export function initModals({ onResetPlayback, onRenderProgression }) {
     _initSettingsModal(onResetPlayback, onRenderProgression);

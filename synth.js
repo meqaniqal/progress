@@ -11,6 +11,16 @@ let masterCompressor; // Module-scoped, but only initialized once
 let masterGain, chordsGain, bassGain, bassHarmonicGain, drumsGain;
 let trackVolumes = { master: 1.0, chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 };
 
+export let currentSynthParams = { 
+    fm: { ratio: 2, modIndex: 3, attack: 0.1, release: 0.5 },
+    'plucked-square': { cutoff: 4, resonance: 1.5, decay: 0.4 }
+};
+
+export function setSynthParam(synthType, paramName, value) {
+    if (!currentSynthParams[synthType]) currentSynthParams[synthType] = {};
+    currentSynthParams[synthType][paramName] = value;
+}
+
 export function setTrackVolume(track, vol) {
     trackVolumes[track] = vol;
     if (audioCtx) {
@@ -173,7 +183,7 @@ export function midiToFreq(m) {
     return Math.pow(2, (m - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ;
 }
 
-export function playTone(freq, startTime, duration, type = 'sine', destBus = null, pan = 0) {
+export function playTone(freq, startTime, duration, type = 'sine', destBus = null, pan = 0, vol = 1.0) {
     const engine = SYNTH_REGISTRY[type];
     if (!engine) return;
 
@@ -197,10 +207,11 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
         finalDest = panner;
     }
 
+    const engineParams = { ...(currentSynthParams[type] || {}), vol };
     const osc = engine(audioCtx, freq, startTime, duration, finalDest, (deadOsc) => {
         activeOscillators = activeOscillators.filter(o => o !== deadOsc);
         if (panner) panner.disconnect();
-    });
+    }, engineParams);
     
     if (osc) activeOscillators.push(osc);
 }

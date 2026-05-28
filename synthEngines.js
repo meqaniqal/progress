@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
 
 export const SYNTH_REGISTRY = {
-    'sine': (ctx, freq, startTime, duration, dest, onCleanup) => {
+    'sine': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
         const osc = ctx.createOscillator();
         const gainNode = ctx.createGain();
         osc.type = 'sine';
@@ -9,10 +9,12 @@ export const SYNTH_REGISTRY = {
 
         const safeAttack = Math.min(CONFIG.ATTACK_TIME, duration * 0.3);
         const safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
+        const vol = params.vol !== undefined ? params.vol : 1.0;
+        const sustain = CONFIG.SUSTAIN_LEVEL * vol;
 
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + safeAttack);
-        gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + duration - safeRelease);
+        gainNode.gain.linearRampToValueAtTime(sustain, startTime + safeAttack);
+        gainNode.gain.linearRampToValueAtTime(sustain, startTime + duration - safeRelease);
         gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
 
         osc.connect(gainNode);
@@ -28,7 +30,7 @@ export const SYNTH_REGISTRY = {
         };
         return osc;
     },
-    'sawtooth': (ctx, freq, startTime, duration, dest, onCleanup) => {
+    'sawtooth': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
         const osc = ctx.createOscillator();
         const gainNode = ctx.createGain();
         const filterNode = ctx.createBiquadFilter();
@@ -38,10 +40,12 @@ export const SYNTH_REGISTRY = {
 
         const safeAttack = Math.min(CONFIG.ATTACK_TIME, duration * 0.3);
         const safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
+        const vol = params.vol !== undefined ? params.vol : 1.0;
+        const sustain = CONFIG.SUSTAIN_LEVEL * vol;
 
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + safeAttack);
-        gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + duration - safeRelease);
+        gainNode.gain.linearRampToValueAtTime(sustain, startTime + safeAttack);
+        gainNode.gain.linearRampToValueAtTime(sustain, startTime + duration - safeRelease);
         gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
 
         filterNode.type = 'lowpass';
@@ -64,7 +68,7 @@ export const SYNTH_REGISTRY = {
         };
         return osc;
     },
-    'sawtooth-bass': (ctx, freq, startTime, duration, dest, onCleanup) => {
+    'sawtooth-bass': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
         const osc = ctx.createOscillator();
         const gainNode = ctx.createGain();
         const filterNode = ctx.createBiquadFilter();
@@ -74,10 +78,12 @@ export const SYNTH_REGISTRY = {
 
         const safeAttack = Math.min(CONFIG.ATTACK_TIME, duration * 0.3);
         const safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
+        const vol = params.vol !== undefined ? params.vol : 1.0;
+        const sustain = CONFIG.SUSTAIN_LEVEL * 0.8 * vol;
 
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL * 0.8, startTime + safeAttack);
-        gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL * 0.8, startTime + duration - safeRelease);
+        gainNode.gain.linearRampToValueAtTime(sustain, startTime + safeAttack);
+        gainNode.gain.linearRampToValueAtTime(sustain, startTime + duration - safeRelease);
         gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
 
         filterNode.type = 'lowpass';
@@ -98,31 +104,38 @@ export const SYNTH_REGISTRY = {
         };
         return osc;
     },
-    'fm': (ctx, freq, startTime, duration, dest, onCleanup) => {
+    'fm': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
         const carrier = ctx.createOscillator();
         const modulator = ctx.createOscillator();
         const modGain = ctx.createGain();
         const mainGain = ctx.createGain();
+
+        const ratio = params.ratio !== undefined ? params.ratio : 2;
+        const modIndexMultiplier = params.modIndex !== undefined ? params.modIndex : 3;
+        const attackTime = params.attack !== undefined ? params.attack : CONFIG.ATTACK_TIME;
+        const releaseTime = params.release !== undefined ? params.release : CONFIG.RELEASE_TIME;
+        const vol = params.vol !== undefined ? params.vol : 1.0;
+        const sustain = CONFIG.SUSTAIN_LEVEL * vol;
 
         carrier.type = 'sine';
         carrier.frequency.value = freq;
 
         // 2:1 ratio creates classic FM electric piano/bell timbres
         modulator.type = 'sine';
-        modulator.frequency.value = freq * 2; 
+        modulator.frequency.value = freq * ratio; 
 
-        const maxModIndex = freq * 3; // Modulation depth
+        const maxModIndex = freq * modIndexMultiplier; // Modulation depth
         modGain.gain.setValueAtTime(0, startTime);
-        modGain.gain.linearRampToValueAtTime(maxModIndex, startTime + Math.min(CONFIG.ATTACK_TIME, duration * 0.1));
+        modGain.gain.linearRampToValueAtTime(maxModIndex, startTime + Math.min(attackTime, duration * 0.1));
         // Use Math.max to prevent exponentialRamp from crashing on 0
         modGain.gain.exponentialRampToValueAtTime(Math.max(0.01, maxModIndex * 0.1), startTime + duration);
 
-        const safeAttack = Math.min(CONFIG.ATTACK_TIME, duration * 0.3);
-        const safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
+        const safeAttack = Math.min(attackTime, duration * 0.3);
+        const safeRelease = Math.min(releaseTime, duration * 0.5);
 
         mainGain.gain.setValueAtTime(0, startTime);
-        mainGain.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL, startTime + safeAttack);
-        mainGain.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL * 0.8, startTime + duration - safeRelease);
+        mainGain.gain.linearRampToValueAtTime(sustain, startTime + safeAttack);
+        mainGain.gain.linearRampToValueAtTime(sustain * 0.8, startTime + duration - safeRelease);
         mainGain.gain.linearRampToValueAtTime(0, startTime + duration);
 
         modulator.connect(modGain);
@@ -145,26 +158,32 @@ export const SYNTH_REGISTRY = {
         };
         return carrier;
     },
-    'plucked-square': (ctx, freq, startTime, duration, dest, onCleanup) => {
+    'plucked-square': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
         const osc = ctx.createOscillator();
         const gainNode = ctx.createGain();
         const filterNode = ctx.createBiquadFilter();
         
-        osc.type = 'square';
+        const waveform = params.waveform || 'square';
+        const cutoffMultiplier = params.cutoff !== undefined ? params.cutoff : 4;
+        const resonance = params.resonance !== undefined ? params.resonance : 1.5;
+        const decayTime = params.decay !== undefined ? params.decay : 0.4;
+        const vol = params.vol !== undefined ? params.vol : 1.0;
+
+        osc.type = waveform;
         osc.frequency.value = freq;
 
         const safeAttack = Math.min(CONFIG.ATTACK_TIME * 0.5, duration * 0.1);
         const safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
 
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL * 0.7, startTime + safeAttack);
-        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.01, CONFIG.SUSTAIN_LEVEL * 0.1), startTime + Math.min(0.4, duration * 0.5));
+        gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL * 0.7 * vol, startTime + safeAttack);
+        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.01, CONFIG.SUSTAIN_LEVEL * 0.1 * vol), startTime + Math.min(decayTime, duration * 0.5));
         gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
 
         filterNode.type = 'lowpass';
-        filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 4, startTime);
-        filterNode.frequency.exponentialRampToValueAtTime(Math.max(20, CONFIG.SYNTH_LPF_CUTOFF * 0.5), startTime + Math.min(0.3, duration * 0.4));
-        filterNode.Q.value = 1.5; // Slight resonance for the pluck
+        filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * cutoffMultiplier, startTime);
+        filterNode.frequency.exponentialRampToValueAtTime(Math.max(20, CONFIG.SYNTH_LPF_CUTOFF * 0.5), startTime + Math.min(decayTime * 0.75, duration * 0.4));
+        filterNode.Q.value = resonance;
 
         osc.connect(filterNode);
         filterNode.connect(gainNode);

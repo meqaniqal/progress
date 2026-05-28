@@ -1,9 +1,9 @@
 import { CONFIG } from './config.js';
-import { getChordNotes, getPlayableNotes } from './theory.js';
-import { initAudio, getAudioCurrentTime, midiToFreq, playTone, setTrackVolume, loadPersistedDrumSamples, clearCustomDrumSamples, hasCustomDrumSamples } from './synth.js';
+import { getChordNotes, getPlayableNotes, getPitchEditorTuning, snapToGrid } from './theory.js';
+import { initAudio, getAudioCurrentTime, midiToFreq, playTone, loadPersistedDrumSamples } from './synth.js';
 import { auditionChord, playProgression, stopAllAudio } from './sequencer.js';
 import { initDragAndDrop } from './dragdrop.js';
-import { exportToMidi, exportScalaFile, exportTunFile } from './midi.js';
+import { exportToMidi } from './midi.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
 import { KEY_NAMES, highlightChordInUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
 import { state, getActiveProgression, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal, addChord, removeChord, clearProgression, swapChord, stepInversion, changeVoicing, changeVoicingType, setGlobalVoicing, changeChordKey, transposeChord, changeDuration, addTurnaround, reorderProgression, addChordFromSource, setProgressionBrackets, setGlobalMode, setGlobalKeyAndMode, insertLoopedSequence } from './store.js';
@@ -12,6 +12,28 @@ import { initExportUI } from './exportController.js';
 import { initModals } from './modalController.js';
 import { initTransport, resetTransport, isPlaybackActive, restartTransport } from './transportController.js';
 import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from './songController.js';
+import { initSettingsUI, syncSettingsUI, updateCustomDrumsUI } from './settingsController.js';
+
+        function getAuditionNotes(progression, index, appState) {
+            let notesToPlay = getPlayableNotes(progression, appState)[index];
+            if (!notesToPlay) return null;
+            
+            const chord = progression[index];
+            let pattern = chord.chordPattern;
+            if (pattern && !pattern.isLocalOverride && appState.globalPatterns && appState.globalPatterns.chordPattern) {
+                pattern = appState.globalPatterns.chordPattern;
+            }
+            
+            if (pattern && pattern.instances && pattern.instances.length > 0) {
+                const instances = [...pattern.instances].sort((a, b) => a.startTime - b.startTime);
+                const firstInstance = instances[0];
+                if (firstInstance && firstInstance.pitchOffsets) {
+                    const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || appState.divisions || 12);
+                    notesToPlay = notesToPlay.map((n, i) => n + snapToGrid(60 + (firstInstance.pitchOffsets[i] || 0), editorTuning) - 60);
+                }
+            }
+            return notesToPlay;
+        }
 
         function undo() {
             if (undoState()) {
@@ -36,10 +58,7 @@ import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from '
                 
                 const chordToAudition = getActiveProgression()[index];
                 if (!isPlaybackActive()) {
-                    let notesToPlay = null;
-                    if (state.useVoiceLeading) {
-                        notesToPlay = getPlayableNotes(getActiveProgression(), state)[index];
-                    }
+                    const notesToPlay = getAuditionNotes(getActiveProgression(), index, state);
                     auditionChord(chordToAudition.symbol, chordToAudition.key, notesToPlay, chordToAudition.divisions);
                 }
                 
@@ -48,8 +67,8 @@ import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from '
             onStepInversion: (index, direction) => {
                 stepInversion(index, direction);
                 const newlyActiveProg = getActiveProgression();
-                const notesToPlay = getPlayableNotes(newlyActiveProg, state)[index];
-            auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay, newlyActiveProg[index].divisions);
+                const notesToPlay = getAuditionNotes(newlyActiveProg, index, state);
+                auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay, newlyActiveProg[index].divisions);
                 renderProgression();
             },
             onChangeVoicing: (index, voicingObj) => {
@@ -59,8 +78,8 @@ import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from '
             onChangeVoicingType: (index, type) => {
                 changeVoicingType(index, type);
                 const newlyActiveProg = getActiveProgression();
-                const notesToPlay = getPlayableNotes(newlyActiveProg, state)[index];
-            auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay, newlyActiveProg[index].divisions);
+                const notesToPlay = getAuditionNotes(newlyActiveProg, index, state);
+                auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay, newlyActiveProg[index].divisions);
                 renderProgression();
             },
             onSetGlobalVoicing: (type) => {
@@ -120,38 +139,6 @@ import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from '
             }
         }
 
-export function updateMicrotonalSettingsUI() {
-    const isMicrotonal = state.divisions !== 12;
-    const isCleanRouting = state.midiExportRouting === 'clean';
-
-    const rowAutoPan = document.getElementById('row-auto-pan');
-    const rowMidiRouting = document.getElementById('row-midi-routing');
-    const hubTuningFilesSection = document.getElementById('hub-tuning-files-section');
-
-    if (rowAutoPan) rowAutoPan.style.display = isMicrotonal ? 'flex' : 'none';
-    if (rowMidiRouting) rowMidiRouting.style.display = isMicrotonal ? 'flex' : 'none';
-    
-    if (hubTuningFilesSection) {
-        const btnScala = document.getElementById('btn-hub-export-scala');
-        const btnTun = document.getElementById('btn-hub-export-tun');
-        const selector = document.getElementById('hub-tuning-selector');
-        
-        const enabled = isMicrotonal && isCleanRouting;
-        if (btnScala) btnScala.disabled = !enabled;
-        if (btnTun) btnTun.disabled = !enabled;
-        if (selector) selector.disabled = !enabled;
-        
-        hubTuningFilesSection.style.opacity = enabled ? '1' : '0.5';
-    }
-}
-
-export function updateCustomDrumsUI() {
-    const customDrumsPanel = document.getElementById('custom-drums-panel');
-    if (customDrumsPanel) {
-        customDrumsPanel.style.display = hasCustomDrumSamples() ? 'block' : 'none';
-    }
-}
-
 // --- Initialization Helpers ---
 export function syncUIToState(explicitState = null) {
     if (explicitState) {
@@ -165,44 +152,8 @@ export function syncUIToState(explicitState = null) {
     // Sync UI to State
     document.getElementById('key-selector').value = state.baseKey;
     updateKeyAndModeDisplay(state);
-    document.getElementById('bpm-slider').value = state.bpm;
-    
-    const tuningSelector = document.getElementById('tuning-selector');
-    if (tuningSelector) tuningSelector.value = state.divisions || 12;
-    
-    // Ensure bassHarmonic volume state exists (default 0.0 for silent)
-    if (state.volumes.bassHarmonic === undefined) {
-        state.volumes.bassHarmonic = 0.0;
-    }
-    if (state.volumes.master === undefined) {
-        state.volumes.master = 1.0;
-    }
-    
-    ['master', 'chords', 'bass', 'bassHarmonic', 'drums'].forEach(track => {
-        const el = document.getElementById(`vol-${track}`);
-        if (el) {
-            el.value = state.volumes[track];
-            setTrackVolume(track, state.volumes[track]);
-        }
-    });
-    
-    ['chords', 'bass'].forEach(track => {
-        const el = document.getElementById(`inst-${track}`);
-        if (el) el.value = state.instruments[track] || 'sawtooth';
-    });
-    
-    updateCustomDrumsUI();
-    
-    const multipassInput = document.getElementById('multipass-input');
-    if (multipassInput) multipassInput.value = state.exportPasses || 1;
-    document.getElementById('voice-leading').checked = state.useVoiceLeading;
-    const autoPanInput = document.getElementById('auto-pan-leading');
-    if (autoPanInput) autoPanInput.checked = state.autoPanLeading;
-    
-    const midiExportSelector = document.getElementById('midi-export-routing');
-    if (midiExportSelector) midiExportSelector.value = state.midiExportRouting || 'mpe';
-    
-    updateMicrotonalSettingsUI();
+
+    syncSettingsUI();
 
     document.body.classList.toggle('beginner-mode', !state.isAdvancedMode);
     const btnModeToggle = document.getElementById('btn-mode-toggle');
@@ -214,25 +165,7 @@ export function syncUIToState(explicitState = null) {
 function _setupTopBarEvents() {
     document.documentElement.setAttribute('data-theme', state.theme);
     
-    const themeSelector = document.getElementById('theme-selector');
-    if (themeSelector) {
-        themeSelector.value = state.theme;
-        themeSelector.addEventListener('change', (e) => {
-            state.theme = e.target.value;
-            document.documentElement.setAttribute('data-theme', state.theme);
-            persistAppState();
-        });
-    }
-    
-    const tuningSelector = document.getElementById('tuning-selector');
-    if (tuningSelector) {
-        tuningSelector.addEventListener('change', (e) => {
-            state.divisions = parseInt(e.target.value, 10) || 12;
-            persistAppState();
-            updateMicrotonalSettingsUI();
-            renderProgression();
-        });
-    }
+    initSettingsUI({ onRenderProgression: renderProgression });
     
 
     initModals({
@@ -244,7 +177,26 @@ function _setupTopBarEvents() {
 }
 
 function _setupKeyAndModeSelectors() {
-    document.getElementById('key-selector').addEventListener('change', (e) => {
+    const keySelector = document.getElementById('key-selector');
+    
+    const updateGlobalKey = (delta) => {
+        let currentVal = parseInt(keySelector.value, 10);
+        let newVal = currentVal + delta;
+        // Wrap around the 12 available keys (60 = C, 71 = B)
+        if (newVal < 60) newVal = 71; 
+        if (newVal > 71) newVal = 60; 
+        
+        state.baseKey = newVal;
+        keySelector.value = newVal;
+        updateKeyAndModeDisplay(state);
+        persistAppState();
+        renderProgression();
+    };
+
+    document.getElementById('btn-global-key-down')?.addEventListener('click', () => updateGlobalKey(-1));
+    document.getElementById('btn-global-key-up')?.addEventListener('click', () => updateGlobalKey(1));
+
+    keySelector.addEventListener('change', (e) => {
         const newKey = parseInt(e.target.value, 10);
         state.baseKey = newKey;
         updateKeyAndModeDisplay(state);
@@ -297,11 +249,8 @@ function _setupProgressionDisplayEvents(display) {
         // Clicked the chord badge itself
         const displayChord = getActiveProgression()[index];
         if (!isPlaybackActive()) {
-            let notesToPlay = null;
-            if (state.useVoiceLeading) {
-                notesToPlay = getPlayableNotes(getActiveProgression(), state)[index];
-            }
-        auditionChord(displayChord.symbol, displayChord.key, notesToPlay, displayChord.divisions);
+            const notesToPlay = getAuditionNotes(getActiveProgression(), index, state);
+            auditionChord(displayChord.symbol, displayChord.key, notesToPlay, displayChord.divisions);
         }
 
         // Always select the clicked chord (no toggling off)
@@ -384,116 +333,6 @@ function _setupControlButtons() {
             exportToMidi(exportState);
         }
     });
-
-    const btnModeToggle = document.getElementById('btn-mode-toggle');
-    if (btnModeToggle) {
-        btnModeToggle.addEventListener('click', () => {
-            state.isAdvancedMode = !state.isAdvancedMode;
-            document.body.classList.toggle('beginner-mode', !state.isAdvancedMode);
-            btnModeToggle.textContent = state.isAdvancedMode ? '🎓 Advanced' : '🌱 Beginner';
-            persistAppState();
-            
-            // Ensure Song Mode exits if switching to beginner to clean up the UI
-            if (!state.isAdvancedMode) {
-                exitSongMode();
-            }
-        });
-    }
-    
-    document.getElementById('bpm-slider').addEventListener('input', (e) => {
-        state.bpm = parseInt(e.target.value, 10);
-        persistAppState();
-    });
-    
-    ['master', 'chords', 'bass', 'bassHarmonic', 'drums'].forEach(track => {
-        const el = document.getElementById(`vol-${track}`);
-        if (el) {
-            el.addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
-                state.volumes[track] = val;
-                try { setTrackVolume(track, val); } catch (err) { console.warn(`Failed to set volume for ${track}: Audio engine may not be ready.`, err); }
-                persistAppState();
-            });
-        }
-    });
-    
-    ['chords', 'bass'].forEach(track => {
-        const el = document.getElementById(`inst-${track}`);
-        if (el) {
-            el.addEventListener('change', (e) => {
-                state.instruments[track] = e.target.value;
-                persistAppState();
-            });
-        }
-    });
-    
-
-
-    const btnClearDrums = document.getElementById('btn-clear-custom-drums');
-    if (btnClearDrums) {
-        btnClearDrums.addEventListener('click', async () => {
-            await clearCustomDrumSamples();
-            updateCustomDrumsUI();
-            renderProgression();
-        });
-    }
-
-    document.getElementById('voice-leading').addEventListener('change', (e) => {
-        state.useVoiceLeading = e.target.checked;
-        persistAppState();
-    });
-    
-    
-    const autoPanInput = document.getElementById('auto-pan-leading');
-    if (autoPanInput) {
-        autoPanInput.addEventListener('change', (e) => {
-            state.autoPanLeading = e.target.checked;
-            persistAppState();
-        });
-    }
-    
-    const midiExportSelector = document.getElementById('midi-export-routing');
-    if (midiExportSelector) {
-        midiExportSelector.addEventListener('change', (e) => {
-            state.midiExportRouting = e.target.value;
-            persistAppState();
-            updateMicrotonalSettingsUI();
-        });
-    }
-    
-    const btnHubExportScala = document.getElementById('btn-hub-export-scala');
-    if (btnHubExportScala) {
-        btnHubExportScala.addEventListener('click', () => {
-            if (btnHubExportScala.disabled) return;
-            btnHubExportScala.disabled = true;
-            setTimeout(() => btnHubExportScala.disabled = false, 1000);
-            const div = parseInt(document.getElementById('hub-tuning-selector').value, 10) || 12;
-            exportScalaFile(div);
-        });
-    }
-    
-    const btnHubExportTun = document.getElementById('btn-hub-export-tun');
-    if (btnHubExportTun) {
-        btnHubExportTun.addEventListener('click', () => {
-            if (btnHubExportTun.disabled) return;
-            btnHubExportTun.disabled = true;
-            setTimeout(() => btnHubExportTun.disabled = false, 1000);
-            const div = parseInt(document.getElementById('hub-tuning-selector').value, 10) || 12;
-            exportTunFile(div);
-        });
-    }
-
-
-    const multipassInput = document.getElementById('multipass-input');
-    if (multipassInput) {
-        multipassInput.addEventListener('input', (e) => {
-            const val = parseInt(e.target.value, 10);
-            if (!isNaN(val)) {
-                state.exportPasses = Math.max(1, Math.min(32, val));
-                persistAppState();
-            }
-        });
-    }
 
     const btnLoopInfo = document.getElementById('btn-loop-info');
     if (btnLoopInfo) {

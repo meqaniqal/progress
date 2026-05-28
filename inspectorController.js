@@ -37,6 +37,14 @@ function handleInspectorClick(e) {
         case 'set-global-voicing':
             currentUICallbacks.onSetGlobalVoicing(btn.dataset.val);
             break;
+        case 'change-chord-key-step':
+            const currKey = parseInt(btn.dataset.currentKey, 10);
+            const step = parseInt(btn.dataset.direction, 10);
+            let newKey = currKey + step;
+            if (newKey < 60) newKey = 71;
+            if (newKey > 71) newKey = 60;
+            currentUICallbacks.onChangeChordKey(index, newKey);
+            break;
     }
 }
 
@@ -194,16 +202,42 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         modBlock.style.alignItems = 'center';
         modBlock.style.gap = '2px';
         modBlock.innerHTML = `<strong class="inspector-label">Transpose:</strong>`;
+        
+        const modSelectWrapper = document.createElement('div');
+        modSelectWrapper.style.display = 'inline-flex';
+        modSelectWrapper.style.alignItems = 'center';
+        
+        const modDownBtn = document.createElement('button');
+        modDownBtn.className = 'control-btn secondary icon-btn mod-key-down';
+        modDownBtn.style.padding = '2px 6px';
+        modDownBtn.style.borderRight = 'none';
+        modDownBtn.style.borderTopRightRadius = '0';
+        modDownBtn.style.borderBottomRightRadius = '0';
+        modDownBtn.textContent = '<';
+        
         const modSelect = document.createElement('select');
         modSelect.className = 'rhythm-select mod-select';
         modSelect.style.padding = '4px 8px';
+        modSelect.style.borderRadius = '0';
         Object.entries(KEY_NAMES).forEach(([val, name]) => {
             const opt = document.createElement('option');
             opt.value = val;
             opt.textContent = name;
             modSelect.appendChild(opt);
         });
-        modBlock.appendChild(modSelect);
+        
+        const modUpBtn = document.createElement('button');
+        modUpBtn.className = 'control-btn secondary icon-btn mod-key-up';
+        modUpBtn.style.padding = '2px 6px';
+        modUpBtn.style.borderLeft = 'none';
+        modUpBtn.style.borderTopLeftRadius = '0';
+        modUpBtn.style.borderBottomLeftRadius = '0';
+        modUpBtn.textContent = '>';
+        
+        modSelectWrapper.appendChild(modDownBtn);
+        modSelectWrapper.appendChild(modSelect);
+        modSelectWrapper.appendChild(modUpBtn);
+        modBlock.appendChild(modSelectWrapper);
         toolsRow.appendChild(modBlock);
 
         // --- Voicing Type Slider ---
@@ -259,16 +293,16 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         const buttonContainer = document.createElement('div');
         buttonContainer.className = 'inv-btn-container';
 
-        const upBtn = document.createElement('button');
-        upBtn.className = 'chord-btn inv-up-btn';
-        upBtn.textContent = '▲';
+        const invUpBtn = document.createElement('button');
+        invUpBtn.className = 'chord-btn inv-up-btn';
+        invUpBtn.textContent = '▲';
 
-        const downBtn = document.createElement('button');
-        downBtn.className = 'chord-btn inv-down-btn';
-        downBtn.textContent = '▼';
+        const invDownBtn = document.createElement('button');
+        invDownBtn.className = 'chord-btn inv-down-btn';
+        invDownBtn.textContent = '▼';
 
-        buttonContainer.appendChild(upBtn);
-        buttonContainer.appendChild(downBtn);
+        buttonContainer.appendChild(invUpBtn);
+        buttonContainer.appendChild(invDownBtn);
 
         stepperContainer.appendChild(displaySpan);
         stepperContainer.appendChild(buttonContainer);
@@ -310,6 +344,18 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     modSelect.dataset.action = 'changeChordKey';
     modSelect.dataset.index = index;
     modSelect.value = displayChord.key;
+        
+        const downBtnMod = toolsRow.querySelector('.mod-key-down');
+        downBtnMod.dataset.action = 'change-chord-key-step';
+        downBtnMod.dataset.index = index;
+        downBtnMod.dataset.direction = '-1';
+        downBtnMod.dataset.currentKey = displayChord.key;
+
+        const upBtnMod = toolsRow.querySelector('.mod-key-up');
+        upBtnMod.dataset.action = 'change-chord-key-step';
+        upBtnMod.dataset.index = index;
+        upBtnMod.dataset.direction = '1';
+        upBtnMod.dataset.currentKey = displayChord.key;
 
     // 2. Voicing Type Slider Update
     const currentType = displayChord.voicingType || 'global';

@@ -86,6 +86,9 @@ export function updateKeyAndModeDisplay(state) {
     const borrowedContainer = document.getElementById('palette-borrowed');
     if (borrowedContainer) borrowedContainer.style.display = isExotic ? 'none' : 'block';
     
+    const seventhsContainer = document.getElementById('palette-7ths');
+    if (seventhsContainer) seventhsContainer.style.display = isExotic ? 'none' : 'block';
+    
     const extendedContainer = document.getElementById('palette-extended');
     if (extendedContainer) extendedContainer.style.display = isExotic ? 'none' : 'block';
 }

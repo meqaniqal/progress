@@ -58,7 +58,9 @@
             <button class="control-btn secondary btn-sm" id="btn-undo" title="Undo" disabled>↩ Undo</button>
             <button class="control-btn secondary btn-sm" id="btn-clear" title="Clear Progression">🗑 Clear</button>
             <strong class="key-display-label">Key: <span id="key-display">C Major</span></strong>
-            <select id="key-selector" class="rhythm-select select-sm">
+            <div style="display: inline-flex; align-items: center;">
+                <button id="btn-global-key-down" class="control-btn secondary icon-btn" style="padding: 2px 6px; border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0;" title="Key Down">&lt;</button>
+                <select id="key-selector" class="rhythm-select select-sm" style="border-radius: 0;">
                 <option value="60">C</option>
                 <option value="61">C♯/D♭</option>
                 <option value="62">D</option>
@@ -72,6 +74,8 @@
                 <option value="70">A♯/B♭</option>
                 <option value="71">B</option>
             </select>
+                <button id="btn-global-key-up" class="control-btn secondary icon-btn" style="padding: 2px 6px; border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0;" title="Key Up">&gt;</button>
+            </div>
             <select id="mode-selector" class="rhythm-select select-sm">
                 <option value="major">Major</option>
                 <option value="minor">Natural Minor</option>
@@ -133,6 +137,21 @@
             <button class="chord-btn borrowed" data-chord="iv">iv</button>
             <button class="chord-btn borrowed" data-chord="bVI">♭VI</button>
             <button class="chord-btn borrowed" data-chord="bVII">♭VII</button>
+        </div>
+        <div id="palette-7ths" class="chord-palette">
+            <strong>7ths:</strong>
+            <button class="chord-btn" data-chord="Imaj7">Imaj7</button>
+            <button class="chord-btn" data-chord="ii7">ii7</button>
+            <button class="chord-btn" data-chord="iii7">iii7</button>
+            <button class="chord-btn" data-chord="IVmaj7">IVmaj7</button>
+            <button class="chord-btn" data-chord="V7">V7</button>
+            <button class="chord-btn" data-chord="vi7">vi7</button>
+            <button class="chord-btn" data-chord="vii°7">vii°7</button>
+            <button class="chord-btn borrowed" data-chord="i7">i7</button>
+            <button class="chord-btn borrowed" data-chord="iv7">iv7</button>
+            <button class="chord-btn borrowed" data-chord="v7">v7</button>
+            <button class="chord-btn borrowed" data-chord="bVImaj7">♭VImaj7</button>
+            <button class="chord-btn borrowed" data-chord="bVII7">♭VII7</button>
         </div>
         <div id="palette-extended" class="chord-palette">
             <strong>Extended & Altered:</strong>
@@ -374,8 +393,45 @@
                                 <option value="fm">🎹 FM EP</option>
                                 <option value="plucked-square">🎹 Pluck</option>
                             </select>
+                        <button id="btn-edit-chords-synth" class="icon-btn" style="cursor: pointer; opacity: 0.8; font-size: 14px; padding: 0 4px;" title="Edit Synth Parameters">⚙️</button>
                             <input type="range" id="vol-chords" min="0" max="1.5" step="0.05" value="0.8" class="mixer-slider">
                         </div>
+                    <div id="synth-editor-chords" class="synth-editor-panel" style="display: none; background: rgba(0,0,0,0.1); border: 1px solid var(--border-main); border-radius: 4px; padding: 8px; margin: 4px 0 8px 0;">
+                        <div id="fm-params-section">
+                        <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: var(--text-muted);">FM PARAMETERS</div>
+                        <div class="mixer-row" style="margin-bottom: 4px;">
+                            <span class="settings-label-sm" style="width: 80px;">Mod Ratio</span>
+                            <input type="range" id="fm-ratio-slider" min="0.5" max="10" step="0.5" value="2" class="mixer-slider">
+                        </div>
+                        <div class="mixer-row" style="margin-bottom: 4px;">
+                            <span class="settings-label-sm" style="width: 80px;">Mod Index</span>
+                            <input type="range" id="fm-index-slider" min="0" max="10" step="0.1" value="3" class="mixer-slider">
+                        </div>
+                        <div class="mixer-row" style="margin-bottom: 4px;">
+                            <span class="settings-label-sm" style="width: 80px;">Attack</span>
+                            <input type="range" id="fm-attack-slider" min="0.01" max="1.0" step="0.01" value="0.1" class="mixer-slider">
+                        </div>
+                        <div class="mixer-row">
+                            <span class="settings-label-sm" style="width: 80px;">Release</span>
+                            <input type="range" id="fm-release-slider" min="0.01" max="3.0" step="0.01" value="0.5" class="mixer-slider">
+                        </div>
+                        </div>
+                        <div id="pluck-params-section" style="display: none;">
+                            <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: var(--text-muted);">PLUCK PARAMETERS</div>
+                            <div class="mixer-row" style="margin-bottom: 4px;">
+                                <span class="settings-label-sm" style="width: 80px;">Cutoff</span>
+                                <input type="range" id="pluck-cutoff-slider" min="0.5" max="10" step="0.5" value="4" class="mixer-slider">
+                            </div>
+                            <div class="mixer-row" style="margin-bottom: 4px;">
+                                <span class="settings-label-sm" style="width: 80px;">Resonance</span>
+                                <input type="range" id="pluck-resonance-slider" min="0" max="10" step="0.1" value="1.5" class="mixer-slider">
+                            </div>
+                            <div class="mixer-row">
+                                <span class="settings-label-sm" style="width: 80px;">Decay</span>
+                                <input type="range" id="pluck-decay-slider" min="0.05" max="2.0" step="0.05" value="0.4" class="mixer-slider">
+                            </div>
+                        </div>
+                    </div>
                         <div class="mixer-row">
                             <select id="inst-bass" class="rhythm-select" style="width: 120px; padding: 4px; font-size: 13px; font-weight: bold; border-radius: 4px; background: var(--bg-body); border: 1px solid var(--border-main); cursor: pointer;" title="Select Sub Bass Synth">
                                 <option value="sine">🎸 Sine</option>

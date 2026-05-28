@@ -204,7 +204,7 @@ export function initTimelineInteractions(timeline) {
             if (editorState.activeTab === 'bassPattern') {
                 auditionSlicePitch(inst.pitchOffset || 0);
             } else if (editorState.activeTab === 'chordPattern') {
-                auditionSlicePitch(0, inst.pitchOffsets || []);
+                auditionSlicePitch(0, inst.pitchOffsets || [], editorState.draggedNoteIndex !== null ? editorState.draggedNoteIndex : -1);
             }
             
             let requiresRender = false;
@@ -366,13 +366,13 @@ export function initTimelineInteractions(timeline) {
                     
                     const now = Date.now();
                     if (now - lastAuditionTime > 150) {
-                        auditionSlicePitch(0, newOffsets);
+                        auditionSlicePitch(0, newOffsets, editorState.draggedNoteIndex);
                         lastAuditionTime = now;
                         if (auditionTimeout) clearTimeout(auditionTimeout);
                     } else {
                         if (auditionTimeout) clearTimeout(auditionTimeout);
                         auditionTimeout = setTimeout(() => {
-                            auditionSlicePitch(0, newOffsets);
+                            auditionSlicePitch(0, newOffsets, editorState.draggedNoteIndex);
                             lastAuditionTime = Date.now();
                         }, 150);
                     }
@@ -410,13 +410,13 @@ export function initTimelineInteractions(timeline) {
                     
                     const now = Date.now();
                     if (now - lastAuditionTime > 150) {
-                        auditionSlicePitch(0, newOffsets);
+                        auditionSlicePitch(0, newOffsets, -1);
                         lastAuditionTime = now;
                         if (auditionTimeout) clearTimeout(auditionTimeout);
                     } else {
                         if (auditionTimeout) clearTimeout(auditionTimeout);
                         auditionTimeout = setTimeout(() => {
-                            auditionSlicePitch(0, newOffsets);
+                            auditionSlicePitch(0, newOffsets, -1);
                             lastAuditionTime = Date.now();
                         }, 150);
                     }
