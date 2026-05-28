@@ -419,10 +419,19 @@
                         <div id="pluck-params-section" style="display: none;">
                             <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: var(--text-muted);">PLUCK PARAMETERS</div>
                             <div class="mixer-row" style="margin-bottom: 4px;">
+                                <span class="settings-label-sm" style="width: 80px;">Waveform</span>
+                                <select id="pluck-waveform-select" class="rhythm-select" style="flex: 1; padding: 2px 4px; font-size: 12px;">
+                                    <option value="square">Square</option>
+                                    <option value="sawtooth">Sawtooth</option>
+                                    <option value="sine">Sine</option>
+                                    <option value="triangle">Triangle</option>
+                                </select>
+                            </div>
+                            <div id="pluck-cutoff-row" class="mixer-row" style="margin-bottom: 4px;">
                                 <span class="settings-label-sm" style="width: 80px;">Cutoff</span>
                                 <input type="range" id="pluck-cutoff-slider" min="0.5" max="10" step="0.5" value="4" class="mixer-slider">
                             </div>
-                            <div class="mixer-row" style="margin-bottom: 4px;">
+                            <div id="pluck-resonance-row" class="mixer-row" style="margin-bottom: 4px;">
                                 <span class="settings-label-sm" style="width: 80px;">Resonance</span>
                                 <input type="range" id="pluck-resonance-slider" min="0" max="10" step="0.1" value="1.5" class="mixer-slider">
                             </div>

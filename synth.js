@@ -13,7 +13,7 @@ let trackVolumes = { master: 1.0, chords: 0.8, bass: 0.8, bassHarmonic: 0.0, dru
 
 export let currentSynthParams = { 
     fm: { ratio: 2, modIndex: 3, attack: 0.1, release: 0.5 },
-    'plucked-square': { cutoff: 4, resonance: 1.5, decay: 0.4 }
+    'plucked-square': { waveform: 'square', cutoff: 4, resonance: 1.5, decay: 0.4 }
 };
 
 export function setSynthParam(synthType, paramName, value) {

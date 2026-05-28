@@ -31,7 +31,7 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 **Phase 10: Advanced Synthesis & Melody (Upcoming / Brainstorming)**
 - [ ] **Melody Editor:** Introduce a dedicated timeline for drawing and generating lead melodies over the chord progression.
 - [x] **Advanced Modular Synthesis:** Expand sound design capabilities with pluggable, editable synths (e.g., FM, Pluck) tailored for AI audio recognition, controlled via a dedicated Synth Editor UI.
-- [ ] **Smart Voice Tweaking:** Algorithmic, macro-level controls to alter inner voices (e.g., injecting passing tones or suspensions) rather than manual piano-roll micro-editing.
+- [ ] **Smart Voice Tweaking:** Algorithmic controls to alter inner voices (e.g., passing tones, suspensions) via a new Voice Tweak Mode in the Chords tab. See `smart_voice_tweaking_plan.md` for the strict SSOT implementation plan.
 
 
 ## SHORTHANDS

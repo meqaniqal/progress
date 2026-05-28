@@ -26,6 +26,14 @@ export function updateSynthEditorVisibility(track, synthType) {
     }
 }
 
+export function updatePluckParamsVisibility(waveform) {
+    const cutoffRow = document.getElementById('pluck-cutoff-row');
+    const resonanceRow = document.getElementById('pluck-resonance-row');
+    const isSine = waveform === 'sine';
+    if (cutoffRow) cutoffRow.style.display = isSine ? 'none' : '';
+    if (resonanceRow) resonanceRow.style.display = isSine ? 'none' : '';
+}
+
 export function updateMicrotonalSettingsUI() {
     const isMicrotonal = state.divisions !== 12;
     const isCleanRouting = state.midiExportRouting === 'clean';
@@ -82,8 +90,9 @@ export function syncSettingsUI() {
     });
     
     // Sync FM params to UI and Audio Engine
-    if (!state.synthParams) state.synthParams = { fm: { ratio: 2, modIndex: 3, attack: 0.1, release: 0.5 }, 'plucked-square': { cutoff: 4, resonance: 1.5, decay: 0.4 } };
-    if (!state.synthParams['plucked-square']) state.synthParams['plucked-square'] = { cutoff: 4, resonance: 1.5, decay: 0.4 };
+    if (!state.synthParams) state.synthParams = { fm: { ratio: 2, modIndex: 3, attack: 0.1, release: 0.5 }, 'plucked-square': { waveform: 'square', cutoff: 4, resonance: 1.5, decay: 0.4 } };
+    if (!state.synthParams['plucked-square']) state.synthParams['plucked-square'] = { waveform: 'square', cutoff: 4, resonance: 1.5, decay: 0.4 };
+    if (!state.synthParams['plucked-square'].waveform) state.synthParams['plucked-square'].waveform = 'square';
     
     const fm = state.synthParams.fm;
     const sliderMap = { 'ratio': fm.ratio, 'index': fm.modIndex, 'attack': fm.attack, 'release': fm.release };
@@ -94,12 +103,14 @@ export function syncSettingsUI() {
     }
     
     const pluck = state.synthParams['plucked-square'];
-    const pluckMap = { 'cutoff': pluck.cutoff, 'resonance': pluck.resonance, 'decay': pluck.decay };
+    const pluckMap = { 'waveform': pluck.waveform, 'cutoff': pluck.cutoff, 'resonance': pluck.resonance, 'decay': pluck.decay };
     for (const [key, val] of Object.entries(pluckMap)) {
-        const slider = document.getElementById(`pluck-${key}-slider`);
-        if (slider) slider.value = val;
+        const el = document.getElementById(`pluck-${key}-${key === 'waveform' ? 'select' : 'slider'}`);
+        if (el) el.value = val;
         setSynthParam('plucked-square', key, val);
     }
+    
+    updatePluckParamsVisibility(pluck.waveform);
     
     updateCustomDrumsUI();
     
@@ -237,6 +248,34 @@ export function initSettingsUI({ onRenderProgression }) {
             });
         }
     });
+
+    const pluckWaveformSelect = document.getElementById('pluck-waveform-select');
+    if (pluckWaveformSelect) {
+        pluckWaveformSelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (!state.synthParams) state.synthParams = { fm: {}, 'plucked-square': {} };
+            if (!state.synthParams['plucked-square']) state.synthParams['plucked-square'] = {};
+            
+            state.synthParams['plucked-square']['waveform'] = val;
+            setSynthParam('plucked-square', 'waveform', val);
+            persistAppState();
+            
+            updatePluckParamsVisibility(val);
+
+            // Safely audition the changes
+            if (!isPlaybackActive()) {
+                if (synthAuditionTimeout) clearTimeout(synthAuditionTimeout);
+                synthAuditionTimeout = setTimeout(() => {
+                    let chordToPlay = { symbol: 'I', key: state.baseKey, divisions: state.divisions };
+                    if (state.selectedChordIndex !== null && state.currentProgression.length > 0) {
+                        const activeProg = getActiveProgression();
+                        chordToPlay = activeProg[state.selectedChordIndex] || activeProg[0];
+                    }
+                    auditionChord(chordToPlay.symbol, chordToPlay.key, null, chordToPlay.divisions);
+                }, 100);
+            }
+        });
+    }
     const btnClearDrums = document.getElementById('btn-clear-custom-drums');
     if (btnClearDrums) {
         btnClearDrums.addEventListener('click', async () => {

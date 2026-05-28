@@ -9,6 +9,7 @@ This file provides a compact, LLM-friendly overview of the project's file struct
 - `microtonal_implementation_guide.md`: Technical design document for implementing microtonal harmony.
 - `PROGRESS_VISION.md`: High-level product vision, feature roadmap, and music theory concepts.
 - `README.md`: Project overview, feature list, development roadmap, and local setup instructions.
+- `smart_voice_tweaking_plan.md`: Architectural plan for the generative Voice Tweaking and transitions feature.
 - `PROJECT_STRUCTURE.txt`: This file. A manifest of all project files and their purpose.
 
 ### Core Application & State
