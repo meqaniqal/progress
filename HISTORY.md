@@ -91,3 +91,13 @@
 - [x] **`microtonalDictionary.js`:** Built a sandbox for true microtonal scales (Bohlen-Pierce, Pelog, 24-EDO Maqams) safely isolated from the Roman Numeral engine.
 - [x] **`microtonalSuggestions.js`:** Implemented continuous float-based (cents) Least Squares Distance math for context-aware swaps and turnarounds.
 - [x] **Scale Dropdown UI Bridge:** Dynamically populated chord palettes with custom microtonal syntax.
+
+## Phase 9: Project Management & UX Polish (Complete)
+- [x] **Project Management Hub:** A dedicated Export/Import modal to save/load project states as files.
+- [x] **Decoupled Tuning Export:** Ability to export `.tun` and `.scl` files directly from the Export modal.
+- [x] **On-The-Fly Microtonality:** Relocated Global Tuning dropdown to the main Chord Chooser UI.
+- [x] **Scale Source Jump:** Instantly jump the global scale/mode palette to a selected chord's native scale.
+- [x] **Enharmonic Context Dimming:** Subdued visual styling for chords already in use.
+- [x] **Loop Block Dragging:** Draggable macro-block representing the current loop bounds.
+- [x] **Polyphonic Slice Pitch Editing:** Pitch Mode expanded to support custom voicings per slice in Chords.
+- [x] **Intelligent Bassline Enhancements:** Multi-note rhythmic walking bass patterns and context-aware generation.

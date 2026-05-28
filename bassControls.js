@@ -36,6 +36,7 @@ export function initBassControls() {
                 <option value="root">Root Driving</option>
                 <option value="octaves">Octave Bounce</option>
                 <option value="fifths">Root-Fifth</option>
+                <option value="walking">Walking (Passing Tones)</option>
             </select>
             <button id="btn-generate-bass" class="control-btn primary" style="padding: 4px 10px; font-size: 12px;">🪄 Generate</button>
         `;
@@ -53,8 +54,31 @@ export function initBassControls() {
             const style = document.getElementById('bass-style-select').value;
             const avoidKick = document.getElementById('pattern-avoid-kick').checked;
 
+            let currentChord = null;
+            let nextChord = null;
+            
+            if (!editorState.isGlobal && editorState.activeIndex !== null) {
+                const prog = app.state.currentProgression;
+                const idx = editorState.activeIndex;
+                const swap = app.state.temporarySwaps ? app.state.temporarySwaps[idx] : null;
+                currentChord = swap ? { ...prog[idx], ...swap } : prog[idx];
+                
+                if (prog.length > 0) {
+                    const nextIdx = (idx + 1) % prog.length;
+                    const nextSwap = app.state.temporarySwaps ? app.state.temporarySwaps[nextIdx] : null;
+                    nextChord = nextSwap ? { ...prog[nextIdx], ...nextSwap } : prog[nextIdx];
+                }
+            }
+
             app.saveHistoryState();
-            const newBass = generateIntelligentBassline(drumPat, chordTabPat, { avoidKick, pitchStyle: style, lengthBeats: getDurationBeats() });
+            const newBass = generateIntelligentBassline(drumPat, chordTabPat, { 
+                avoidKick, 
+                pitchStyle: style, 
+                lengthBeats: getDurationBeats(),
+                currentChord,
+                nextChord,
+                globalDivisions: app.state.divisions
+            });
             setCurrentPattern(newBass, !editorState.isGlobal);
             app.persistAppState();
             renderRhythmTimeline();
