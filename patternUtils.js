@@ -20,6 +20,7 @@ export function initChordPattern(isLocalOverride = false) {
             mode: 'off', // 'off', 'one-shot', 'continuous'
             history: []  // Captures recent multi-pass MIDI events for export
         },
+        transitions: [],
         // Instances represent sliced blocks on the timeline
         instances: [
             {

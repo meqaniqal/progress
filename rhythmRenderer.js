@@ -1,4 +1,5 @@
 import { renderDrumGrid } from './drumRenderer.js';
+import { renderTransitionsTimeline } from './transitionsRenderer.js';
 import { 
     editorState, 
     app, 
@@ -110,6 +111,7 @@ export function renderRhythmTimeline() {
     const isChordTab = editorState.activeTab === 'chordPattern';
     const btnPitchToggle = document.getElementById('btn-pitch-toggle');
     const btnDrawToggle = document.getElementById('btn-draw-toggle');
+    const btnTransitionsToggle = document.getElementById('btn-transitions-toggle');
     const bassGenGroup = document.getElementById('bass-gen-group');
     
     const patternFxGroup = document.getElementById('pattern-fx-group');
@@ -123,22 +125,28 @@ export function renderRhythmTimeline() {
         bassGenGroup.style.display = isBassTab ? 'flex' : 'none';
     }
 
+    const isTransitionsMode = isChordTab && editorState.isTransitionsModeEnabled;
+    const isPitchMode = (isBassTab || isChordTab) && editorState.isPitchModeEnabled && !isTransitionsMode;
+
     if (btnPitchToggle) {
         btnPitchToggle.style.display = (isBassTab || isChordTab) ? 'inline-block' : 'none';
-        btnPitchToggle.classList.toggle('active', editorState.isPitchModeEnabled);
+        btnPitchToggle.classList.toggle('active', isPitchMode);
     }
 
-    const isPitchMode = (isBassTab || isChordTab) && editorState.isPitchModeEnabled;
+    if (btnTransitionsToggle) {
+        btnTransitionsToggle.style.display = isChordTab ? 'inline-block' : 'none';
+        btnTransitionsToggle.classList.toggle('active', isTransitionsMode);
+    }
     
     const pitchResetGroup = document.getElementById('pitch-reset-group');
     if (pitchResetGroup) {
         pitchResetGroup.style.display = isPitchMode ? 'flex' : 'none';
     }
     
-    if (isPitchMode) {
-        editorState.isDrawModeEnabled = false; // Disable draw mode when pitching
+    if (isPitchMode || isTransitionsMode) {
+        editorState.isDrawModeEnabled = false; 
         if (btnDrawToggle) btnDrawToggle.style.display = 'none';
-        container.style.cursor = 'ns-resize';
+        container.style.cursor = isTransitionsMode ? 'default' : 'ns-resize';
     } else {
         if (btnDrawToggle) {
             btnDrawToggle.style.display = isChordOrBass ? 'inline-block' : 'none';
@@ -221,6 +229,7 @@ export function renderRhythmTimeline() {
     const probWrapper = document.getElementById('prop-probability-wrapper');
     const velSlider = document.getElementById('prop-velocity-slider');
     const probSlider = document.getElementById('prop-probability-slider');
+    const btnFocusSlice = document.getElementById('btn-focus-slice');
 
     if (propsGroup && velWrapper && probWrapper && velSlider && probSlider) {
         let showProps = false;
@@ -233,6 +242,7 @@ export function renderRhythmTimeline() {
                 showVel = true;
                 velSlider.value = selectedHit.velocity !== undefined ? selectedHit.velocity : 1.0;
                 probSlider.value = selectedHit.probability !== undefined ? selectedHit.probability : 1.0;
+                if (btnFocusSlice) btnFocusSlice.style.display = 'none';
             }
         } else if (editorState.activeTab !== 'drumPattern' && pattern && pattern.instances) {
             const selectedInsts = pattern.instances.filter(i => i.isSelected);
@@ -241,6 +251,18 @@ export function renderRhythmTimeline() {
                 showVel = false;
                 // If multiple are selected, mirror the probability of the first selected block
                 probSlider.value = selectedInsts[0].probability !== undefined ? selectedInsts[0].probability : 1.0;
+                
+                if (btnFocusSlice) {
+                    if (selectedInsts.length === 1 && isPitchMode) {
+                        const isCurrentlyFocused = editorState.focusedSliceId === selectedInsts[0].id;
+                        btnFocusSlice.style.display = 'flex';
+                        btnFocusSlice.innerHTML = isCurrentlyFocused ? '🔍−' : '🔍+';
+                        btnFocusSlice.dataset.id = selectedInsts[0].id;
+                        btnFocusSlice.classList.toggle('active', isCurrentlyFocused);
+                    } else {
+                        btnFocusSlice.style.display = 'none';
+                    }
+                }
                 
                 if (editorState.activeTab === 'bassPattern' && editorState.isPitchModeEnabled) {
                     if (pitchWrapper) pitchWrapper.style.display = 'flex';
@@ -271,6 +293,8 @@ export function renderRhythmTimeline() {
 
     if (editorState.activeTab === 'drumPattern') {
         renderDrumGrid(container, pattern);
+    } else if (isTransitionsMode) {
+        renderTransitionsTimeline(container, pattern, editorState, app);
     } else {
         _renderSliceTimeline(container, pattern, isChordTab);
     }
@@ -285,10 +309,66 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
     const leftoverDrumGrid = container.querySelector('.drum-grid');
     if (leftoverDrumGrid) leftoverDrumGrid.remove();
     
+    const leftoverTransitions = container.querySelector('.transitions-container');
+    if (leftoverTransitions) leftoverTransitions.remove();
+    
     const isPitchMode = (editorState.activeTab === 'bassPattern' || isChordTab) && editorState.isPitchModeEnabled;
 
+    let sliceInner = container.querySelector('.slice-timeline-inner');
+    if (!sliceInner) {
+        sliceInner = document.createElement('div');
+        sliceInner.className = 'slice-timeline-inner';
+        sliceInner.style.position = 'absolute';
+        sliceInner.style.top = '0';
+        sliceInner.style.left = '0';
+        sliceInner.style.height = '100%';
+        container.appendChild(sliceInner);
+
+        // Migrate existing elements seamlessly to prevent dragging logic failures
+        Array.from(container.children).forEach(child => {
+            if (child.classList.contains('piano-roll-grid') || child.classList.contains('rhythm-instance')) {
+                sliceInner.appendChild(child);
+            }
+        });
+    }
+
+    let focusedInst = null;
+    if (editorState.focusedSliceId) {
+        focusedInst = pattern.instances.find(i => i.id === editorState.focusedSliceId);
+        if (!focusedInst) {
+            editorState.focusedSliceId = null;
+            delete sliceInner.dataset.lockedZoom;
+        }
+    }
+
+    if (focusedInst) {
+        let zoomFactor = 1;
+        // Freeze zoom recalculation during a boundary drag to prevent an infinite acceleration loop
+        if (editorState.isResizing && editorState.draggedInstanceId === focusedInst.id && sliceInner.dataset.lockedZoom) {
+            zoomFactor = parseFloat(sliceInner.dataset.lockedZoom);
+        } else {
+            zoomFactor = 1 / Math.max(0.01, focusedInst.duration);
+            sliceInner.dataset.lockedZoom = zoomFactor;
+        }
+        
+        sliceInner.style.width = `${zoomFactor * 100}%`;
+        container.style.overflowX = 'auto';
+        container.style.touchAction = 'pan-x pinch-zoom';
+        
+        if (!editorState.isDragging && !editorState.isResizing) {
+            setTimeout(() => {
+                if (container && sliceInner) container.scrollLeft = focusedInst.startTime * sliceInner.scrollWidth;
+            }, 0);
+        }
+    } else {
+        sliceInner.style.width = '100%';
+        container.style.overflowX = 'hidden';
+        container.style.touchAction = 'none';
+        delete sliceInner.dataset.lockedZoom;
+    }
+
     // Draw Piano Roll Root Line
-    let prGrid = container.querySelector('.piano-roll-grid');
+    let prGrid = sliceInner.querySelector('.piano-roll-grid');
     if (isPitchMode) {
         if (!prGrid) {
             prGrid = document.createElement('div');
@@ -310,7 +390,7 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
                 line.style.background = i === 0 ? 'rgba(128, 128, 128, 0.4)' : 'rgba(128, 128, 128, 0.15)';
                 prGrid.appendChild(line);
             }
-            container.insertBefore(prGrid, container.firstChild);
+            sliceInner.insertBefore(prGrid, sliceInner.firstChild);
         }
     } else if (prGrid) {
         prGrid.remove();
@@ -331,7 +411,7 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
     const totalDurationSec = (60 / bpm) * getDurationBeats();
 
     // 1. Remove obsolete nodes to prevent memory leaks and ghost elements
-    const existingNodes = Array.from(container.querySelectorAll('.rhythm-instance'));
+    const existingNodes = Array.from(sliceInner.querySelectorAll('.rhythm-instance'));
     const newIds = new Set(pattern.instances.map(i => i.id));
     existingNodes.forEach(node => {
         if (!newIds.has(node.dataset.id)) node.remove();
@@ -339,7 +419,9 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
 
     // 2. Update existing nodes or create new ones
     pattern.instances.forEach(inst => {
-        let el = container.querySelector(`.rhythm-instance[data-id="${inst.id}"]`);
+        const isFocused = editorState.focusedSliceId === inst.id;
+        
+        let el = sliceInner.querySelector(`.rhythm-instance[data-id="${inst.id}"]`);
         
         if (!el) {
             el = document.createElement('div');
@@ -353,7 +435,7 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             rightHandle.className = 'resize-handle right';
             el.appendChild(rightHandle);
             
-            container.appendChild(el);
+            sliceInner.appendChild(el);
         }
 
         el.className = 'rhythm-instance';
@@ -371,6 +453,11 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
         el.style.left = `${inst.startTime * 100}%`;
         el.style.width = `${inst.duration * 100}%`;
         
+        const leftHandle = el.querySelector('.resize-handle.left');
+        const rightHandle = el.querySelector('.resize-handle.right');
+        if (leftHandle) leftHandle.style.display = isFocused ? 'none' : '';
+        if (rightHandle) rightHandle.style.display = isFocused ? 'none' : '';
+
         // --- Arpeggiator Visualization Engine ---
         if (inst.arpSettings && isChordTab) {
             let arpVisContainer = el.querySelector('.arp-vis-container');
@@ -432,10 +519,13 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             const chordObj = app.state.currentProgression[editorState.activeIndex];
             const tuning = getPitchEditorTuning(chordObj ? chordObj.symbol : null, app.state.divisions);
 
+            const maxStaggerVal = isFocused ? 70 : 50;
+            const rightMargin = isFocused ? 5 : 20;
+
             // Calculate a horizontal staggered "deck of cards" layout to prevent overlapping block touches
-            const maxStagger = Math.min(50, (chordNotes.length - 1) * 12);
+            const maxStagger = Math.min(maxStaggerVal, (chordNotes.length - 1) * 15);
             const staggerStep = chordNotes.length > 1 ? maxStagger / (chordNotes.length - 1) : 0;
-            const widthPercent = 80 - maxStagger; // Always leave the right 20% completely empty for bulk slice dragging
+            const widthPercent = (100 - rightMargin) - maxStagger;
             
             let html = '';
             chordNotes.forEach((note, idx) => {
@@ -543,11 +633,16 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             }
 
             // Only update innerHTML if structural conditions changed to preserve native slider drag state
-            if (overlay.dataset.canFill !== String(canFill) || overlay.dataset.hasSlider !== String(hasSlider)) {
+            const currentFocusedStr = String(isFocused);
+            if (overlay.dataset.canFill !== String(canFill) || overlay.dataset.hasSlider !== String(hasSlider) || overlay.dataset.isFocused !== currentFocusedStr) {
                 let html = '';
                 if (hasSlider) html += `<input type="range" class="slice-range" min="5" max="95" value="50" data-id="${inst.id}">`;
                 
                 let actionsHtml = '';
+                const isNarrow = inst.duration < 0.25;
+                if (isNarrow || isFocused) {
+                    actionsHtml += `<button class="slice-overlay-btn btn-do-focus" data-id="${inst.id}">🔍 ${isFocused ? 'Zoom Out' : 'Zoom In'}</button>`;
+                }
                 if (hasSlider) actionsHtml += `<button class="slice-overlay-btn btn-do-slice" data-id="${inst.id}">✂ Split</button>`;
                 if (canFill) actionsHtml += `<button class="slice-overlay-btn btn-do-fill" data-id="${inst.id}">↔ Fill</button>`;
                 if (actionsHtml !== '') html += `<div class="slice-actions">${actionsHtml}</div>`;
@@ -555,6 +650,7 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
                 overlay.innerHTML = html;
                 overlay.dataset.canFill = String(canFill);
                 overlay.dataset.hasSlider = String(hasSlider);
+                overlay.dataset.isFocused = currentFocusedStr;
             }
         } else if (overlay) {
             overlay.remove();

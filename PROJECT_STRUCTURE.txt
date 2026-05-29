@@ -9,7 +9,7 @@ This file provides a compact, LLM-friendly overview of the project's file struct
 - `microtonal_implementation_guide.md`: Technical design document for implementing microtonal harmony.
 - `PROGRESS_VISION.md`: High-level product vision, feature roadmap, and music theory concepts.
 - `README.md`: Project overview, feature list, development roadmap, and local setup instructions.
-- `smart_voice_tweaking_plan.md`: Architectural plan for the generative Voice Tweaking and transitions feature.
+- `transitions_plan.md`: Architectural plan for the generative Transitions feature.
 - `PROJECT_STRUCTURE.txt`: This file. A manifest of all project files and their purpose.
 
 ### Core Application & State
@@ -27,6 +27,8 @@ This file provides a compact, LLM-friendly overview of the project's file struct
 
 - `theory.js`: Core music theory engine. Pure functions for chord generation, voice leading, tension analysis, etc.
 - `chordDictionary.js`: Data module containing the dictionary of chord symbols and their corresponding semitone intervals.
+- `microtonalDictionary.js`: Data module containing non-12-TET scales and tuning mappings (e.g., Bohlen-Pierce, EDOs).
+- `microtonalSuggestions.js`: Logic for continuous float-based harmonic substitutions and turnarounds in microtonal spaces.
 - `bassGenerator.js`: Generates intelligent bassline patterns that algorithmically respond to drum and chord rhythms.
 - `arp.js`: Generates arpeggiated note sequences based on style, rate, and gate settings.
 
@@ -47,6 +49,7 @@ This file provides a compact, LLM-friendly overview of the project's file struct
 - `rhythmControls.js`: Initializes all toolbar controls within the rhythm editor (copy, paste, grid, etc.).
 - `arpControls.js`: Initializes UI controls for applying arpeggiator settings.
 - `bassControls.js`: Initializes UI controls for the bassline generator.
+- `transitionsRenderer.js`: Renders the continuous voice lanes for the Transitions Mode.
 - `timelineEditor.js`: Handles user interactions (drag, resize, slice) for the generic slice-based timeline.
 - `drumEditor.js`: Handles user interactions (add, move, delete hits) for the drum grid.
 - `drumRenderer.js`: Renders the drum grid UI, including grid lines, hits, and custom sample waveforms.

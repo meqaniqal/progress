@@ -324,9 +324,13 @@
                 </div>
 
                 <div id="editor-mode-toggles" class="editor-mode-toggles" style="display: flex; gap: 4px;">
-                    <button id="btn-draw-toggle" class="tool-btn draw-pitch-btn" style="display: none;" title="Toggle Pencil Draw Tool">✏️ Draw Mode</button>
-                    <button id="btn-pitch-toggle" class="tool-btn draw-pitch-btn" style="display: none;" title="Toggle Pitch Mode (Piano Roll)">🎹 Pitch Mode</button>
+                    <button id="btn-draw-toggle" class="tool-btn draw-pitch-btn" style="display: none;" title="Toggle Pencil Draw Tool">✏️ Draw</button>
+                    <button id="btn-pitch-toggle" class="tool-btn draw-pitch-btn" style="display: none;" title="Toggle Pitch Mode (Piano Roll)">🎹 Pitch</button>
+                    <button id="btn-transitions-toggle" class="tool-btn draw-pitch-btn" style="display: none;" title="Toggle Transitions Mode">🎹→🎹</button>
                 </div>
+            </div>
+            <div style="position: relative; width: 100%; z-index: 20;">
+                <button id="btn-focus-slice" class="slice-zoom-fab" style="display: none;" title="Zoom into selected slice">🔍+</button>
             </div>
             <div class="rhythm-timeline-container" id="rhythm-timeline">
                 <!-- Instances rendered here dynamically -->

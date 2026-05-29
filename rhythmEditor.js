@@ -164,7 +164,9 @@ function initPitchResetControl() {
 export function getTimelineRect() {
     const timeline = document.getElementById('rhythm-timeline');
     const drumLines = timeline.querySelector('.drum-grid-lines');
-    return drumLines ? drumLines.getBoundingClientRect() : timeline.getBoundingClientRect();
+    if (drumLines) return drumLines.getBoundingClientRect();
+    const sliceInner = timeline.querySelector('.slice-timeline-inner');
+    return sliceInner ? sliceInner.getBoundingClientRect() : timeline.getBoundingClientRect();
 }
 
 export function getActiveGridValue() {

@@ -500,6 +500,38 @@ body:not(.beginner-mode) #btn-manual {
 .prop-pitch-btn { font-size: 10px; padding: 2px 6px; line-height: 1; }
 .draw-pitch-btn { border-radius: 6px 6px 0 0; border-bottom: none; padding: 0 10px; height: 26px; }
 
+/* --- Focus Slice FAB --- */
+.slice-zoom-fab {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-main);
+    border-top: none;
+    border-radius: 0 0 16px 16px;
+    padding: 2px 8px 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+.slice-zoom-fab:hover {
+    background: var(--ctrl-secondary-hover);
+}
+.slice-zoom-fab.active {
+    background: var(--ctrl-primary-bg);
+    color: #ffffff;
+    border-color: var(--ctrl-primary-bg);
+}
+.slice-zoom-fab:active {
+    transform: translateX(-50%) scale(0.95);
+}
+
 .modal-description { font-size: 14px; opacity: 0.8; margin-bottom: 12px; }
 .modal-controls { margin-top: 15px; justify-content: flex-end; gap: 10px; display: flex; }
 

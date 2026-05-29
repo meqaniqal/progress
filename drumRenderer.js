@@ -99,6 +99,8 @@ export function renderDrumGrid(container, pattern) {
     container.querySelectorAll('.rhythm-instance').forEach(el => el.remove());
     const leftoverPianoGrid = container.querySelector('.piano-roll-grid');
     if (leftoverPianoGrid) leftoverPianoGrid.remove();
+    const leftoverSliceInner = container.querySelector('.slice-timeline-inner');
+    if (leftoverSliceInner) leftoverSliceInner.remove();
 
     let gridEl = container.querySelector('.drum-grid');
     if (!gridEl) {

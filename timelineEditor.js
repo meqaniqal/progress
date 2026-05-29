@@ -136,6 +136,11 @@ export function initTimelineInteractions(timeline) {
         const now = Date.now();
 
         if (!instanceEl) {
+            if (editorState.focusedSliceId) {
+                editorState.focusedSliceId = null;
+                app.persistAppState();
+                renderRhythmTimeline();
+            }
             if (!hasValidContext()) return;
             if (now - lastTapTime < 300 && lastTapId === 'empty') {
                 const pattern = getCurrentPattern();
@@ -188,6 +193,10 @@ export function initTimelineInteractions(timeline) {
             originalStartTime = inst.startTime;
             originalDuration = inst.duration;
             
+            if (editorState.focusedSliceId && editorState.focusedSliceId !== instId) {
+                editorState.focusedSliceId = null;
+            }
+
             if (editorState.activeTab === 'chordPattern' && editorState.isPitchModeEnabled) {
                 dragStartPitchOffsets = [...(inst.pitchOffsets || [])];
             }
@@ -564,7 +573,17 @@ export function initTimelineInteractions(timeline) {
     });
 
     timeline.addEventListener('click', (e) => {
-        if (e.target.classList.contains('btn-do-slice')) {
+        if (e.target.classList.contains('btn-do-focus')) {
+            e.stopPropagation();
+            const instId = e.target.dataset.id;
+            if (editorState.focusedSliceId === instId) {
+                editorState.focusedSliceId = null;
+            } else {
+                editorState.focusedSliceId = instId;
+            }
+            app.persistAppState();
+            renderRhythmTimeline();
+        } else if (e.target.classList.contains('btn-do-slice')) {
             e.stopPropagation();
             const instId = e.target.dataset.id;
             const slider = document.querySelector(`.slice-range[data-id="${instId}"]`);

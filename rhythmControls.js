@@ -204,6 +204,20 @@ function _setupPropertiesControls() {
     const btnPitchUp = document.getElementById('btn-pitch-up');
     const btnPitchDown = document.getElementById('btn-pitch-down');
 
+    const btnFocusSlice = document.getElementById('btn-focus-slice');
+    if (btnFocusSlice) {
+        btnFocusSlice.addEventListener('click', (e) => {
+            const instId = e.currentTarget.dataset.id;
+            if (editorState.focusedSliceId === instId) {
+                editorState.focusedSliceId = null;
+            } else {
+                editorState.focusedSliceId = instId;
+            }
+            app.persistAppState();
+            renderRhythmTimeline();
+        });
+    }
+
     const adjustPitch = (delta) => {
         if (editorState.activeTab !== 'bassPattern' || !editorState.isPitchModeEnabled) return;
         const pattern = getCurrentPattern();
@@ -348,11 +362,26 @@ function _setupToolbarButtons() {
         });
     }
 
+    // --- Transitions Mode Toggle ---
+    const btnTransitionsToggle = document.getElementById('btn-transitions-toggle');
+    if (btnTransitionsToggle) {
+        btnTransitionsToggle.addEventListener('click', () => {
+            editorState.isTransitionsModeEnabled = !editorState.isTransitionsModeEnabled;
+            if (editorState.isTransitionsModeEnabled) {
+                editorState.isPitchModeEnabled = false;
+                editorState.isDrawModeEnabled = false;
+            }
+            editorState.activeOverlayId = null;
+            renderRhythmTimeline();
+        });
+    }
+
     // --- Pitch Mode Toggle ---
     const btnPitchToggle = document.getElementById('btn-pitch-toggle');
     if (btnPitchToggle) {
         btnPitchToggle.addEventListener('click', () => {
             editorState.isPitchModeEnabled = !editorState.isPitchModeEnabled;
+            if (editorState.isPitchModeEnabled) editorState.isTransitionsModeEnabled = false;
             editorState.activeOverlayId = null; // Clear overlay when toggling pitch mode
             btnPitchToggle.blur();
             btnPitchToggle.style.pointerEvents = 'none';
