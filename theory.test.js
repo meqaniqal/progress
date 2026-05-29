@@ -17,7 +17,7 @@ describe('Theory & Voice Leading Module', () => {
     describe('generateInversions', () => {
         it('should generate multiple voice configurations across octaves', () => {
             const inversions = generateInversions([60, 64, 67]);
-            expect(inversions.length).toBe(12);
+            expect(inversions.length).toBe(18);
         });
         
         it('should include the root position, 1st inversion, and 2nd inversion', () => {

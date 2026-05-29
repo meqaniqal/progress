@@ -5,6 +5,9 @@ import { generateArpNotes } from './arp.js';
 import { resolvePattern } from './patternResolver.js';
 import { playDrum, initAudio } from './synth.js';
 import { SYNTH_REGISTRY } from './synthEngines.js';
+import { sliceInstancesByTransitions } from './transitionEvaluator.js';
+import { state as appState, getActiveProgression } from './store.js';
+import { isSongTrayOpen } from './songController.js';
 
 // --- Layer 1: Pure Timeline Calculator (Testable) ---
 export function calculateAudioTimeline(progression, bpm, useVoiceLeading, exportPasses = 1, globalOptions = {}) {
@@ -13,25 +16,43 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
     let currentBeat = 0;
 
     let notesArray = [];
-    let currentChunk = [];
-    for (let i = 0; i < progression.length; i++) {
-        const chord = progression[i];
-        if (chord._isSectionStart && currentChunk.length > 0) {
-            notesArray = notesArray.concat(getPlayableNotes(currentChunk, globalOptions));
-            currentChunk = [];
+    let exportProgression = [];
+    let trueStartIndex = 0;
+    let trueProgressionLength = progression.length;
+
+    if (!isSongTrayOpen && globalOptions.currentProgression) {
+        const fullProgression = getActiveProgression();
+        notesArray = getPlayableNotes(fullProgression, globalOptions);
+        trueStartIndex = appState.loopStart ?? 0;
+        trueProgressionLength = fullProgression.length;
+        exportProgression = progression;
+    } else {
+        let currentChunk = [];
+        for (let i = 0; i < progression.length; i++) {
+            const chord = progression[i];
+            if (chord._isSectionStart && currentChunk.length > 0) {
+                notesArray = notesArray.concat(getPlayableNotes(currentChunk, globalOptions));
+                currentChunk = [];
+            }
+            currentChunk.push(chord);
         }
-        currentChunk.push(chord);
-    }
-    if (currentChunk.length > 0) {
-        notesArray = notesArray.concat(getPlayableNotes(currentChunk, globalOptions));
+        if (currentChunk.length > 0) {
+            notesArray = notesArray.concat(getPlayableNotes(currentChunk, globalOptions));
+        }
+        const startIndex = globalOptions.loopStart ?? 0;
+        const endIndex = (globalOptions.loopEnd > startIndex) ? globalOptions.loopEnd : progression.length;
+        exportProgression = progression.slice(startIndex, endIndex);
+        trueStartIndex = startIndex;
+        trueProgressionLength = progression.length;
     }
 
     const chordInst = globalOptions.instruments && globalOptions.instruments.chords ? globalOptions.instruments.chords : 'sawtooth';
     const bassInst = globalOptions.instruments && globalOptions.instruments.bass ? globalOptions.instruments.bass : 'sine';
 
     for (let pass = 0; pass < exportPasses; pass++) {
-        progression.forEach((chord, index) => {
-            const chordNotes = notesArray[index];
+        exportProgression.forEach((chord, index) => {
+            const absIndex = trueStartIndex + index;
+            const chordNotes = notesArray[absIndex];
             
             let pattern = chord.chordPattern;
             let isGlobalChord = false;
@@ -46,14 +67,25 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
             const duration = (60.0 / Number(bpm)) * beats;
 
             if (chordNotes) {
-                pattern.instances.forEach(instance => {
+                const prevNotes = notesArray[(absIndex - 1 + trueProgressionLength) % trueProgressionLength] || chordNotes;
+                const nextNotes = notesArray[(absIndex + 1) % trueProgressionLength] || chordNotes;
+
+                const slicedInstances = sliceInstancesByTransitions(
+                    pattern.instances,
+                    pattern.transitions || [],
+                    chordNotes,
+                    prevNotes,
+                    nextNotes
+                );
+
+                slicedInstances.forEach((instance, idx) => {
                     if (instance.probability !== undefined && Math.random() > instance.probability) return;
 
                     const instanceStartTime = currentTime + (instance.startTime * duration);
                     const instanceDuration = instance.duration * duration;
                     
                     const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
-                    const adjustedChordNotes = chordNotes.map((n, i) => n + snapToGrid(60 + (instance.pitchOffsets?.[i] || 0), editorTuning) - 60);
+                    const adjustedChordNotes = instance.notesToPlay.map(n => snapToGrid(n, editorTuning));
 
                     if (instance.arpSettings) {
                         const arpEvents = generateArpNotes({
@@ -223,7 +255,9 @@ export async function exportToWav(state, buttonElement) {
         const timeline = calculateAudioTimeline(state.currentProgression, state.bpm, state.useVoiceLeading, state.exportPasses, state);
         if (timeline.length === 0) return;
 
-        const totalBeats = state.currentProgression.reduce((sum, chord) => sum + (Number(chord.duration) || 2), 0) * (state.exportPasses || 1);
+        const startIndex = state.loopStart ?? 0;
+        const endIndex = (state.loopEnd > startIndex) ? state.loopEnd : state.currentProgression.length;
+        const totalBeats = state.currentProgression.slice(startIndex, endIndex).reduce((sum, chord) => sum + (Number(chord.duration) || 2), 0) * (state.exportPasses || 1);
         const exactRenderDurationSec = (60.0 / state.bpm) * totalBeats;
         
         const sampleRate = 44100;

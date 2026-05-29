@@ -897,3 +897,25 @@ export function segmentMicrotonalCluster(floatMidiNotes) {
 
     return { core, frictionLeft, frictionRight };
 }
+
+/**
+ * Prevents a Passing Tone from creating a muddy minor-second clash.
+ * If the target note is within 0.5 to 1.5 semitones of any stationary note, it nudges it safely away.
+ */
+export function resolveVoiceCollision(targetNote, stationaryNotes) {
+    let safeNote = targetNote;
+    let maxIterations = 3;
+    while (maxIterations > 0) {
+        let clashing = false;
+        for (const other of stationaryNotes) {
+            const diff = Math.abs(safeNote - other);
+            if (diff >= 0.5 && diff <= 1.5) {
+                safeNote += (safeNote > other) ? 0.5 : -0.5; // Nudge by a quarter tone
+                clashing = true;
+            }
+        }
+        if (!clashing) break;
+        maxIterations--;
+    }
+    return safeNote;
+}

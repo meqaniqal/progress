@@ -1,5 +1,5 @@
 import { renderDrumGrid } from './drumRenderer.js';
-import { renderTransitionsTimeline } from './transitionsRenderer.js';
+import { renderTransitionsTimeline, TRANS_COLORS } from './transitionsRenderer.js';
 import { 
     editorState, 
     app, 
@@ -109,6 +109,7 @@ export function renderRhythmTimeline() {
     
     const isBassTab = editorState.activeTab === 'bassPattern';
     const isChordTab = editorState.activeTab === 'chordPattern';
+    const isTransitionsMode = isChordTab && editorState.isTransitionsModeEnabled;
     const btnPitchToggle = document.getElementById('btn-pitch-toggle');
     const btnDrawToggle = document.getElementById('btn-draw-toggle');
     const btnTransitionsToggle = document.getElementById('btn-transitions-toggle');
@@ -116,7 +117,7 @@ export function renderRhythmTimeline() {
     
     const patternFxGroup = document.getElementById('pattern-fx-group');
     if (patternFxGroup) {
-        patternFxGroup.style.display = isChordOrBass ? 'flex' : 'none';
+        patternFxGroup.style.display = (isChordOrBass && !isTransitionsMode) ? 'flex' : 'none';
         const akCheck = document.getElementById('pattern-avoid-kick');
         if (akCheck && pattern) akCheck.checked = !!pattern.avoidKick;
     }
@@ -125,7 +126,6 @@ export function renderRhythmTimeline() {
         bassGenGroup.style.display = isBassTab ? 'flex' : 'none';
     }
 
-    const isTransitionsMode = isChordTab && editorState.isTransitionsModeEnabled;
     const isPitchMode = (isBassTab || isChordTab) && editorState.isPitchModeEnabled && !isTransitionsMode;
 
     if (btnPitchToggle) {
@@ -181,16 +181,19 @@ export function renderRhythmTimeline() {
 
     const applyArpBtn = document.getElementById('btn-apply-arp');
     if (applyArpBtn) {
-        applyArpBtn.style.display = isChordTab ? 'inline-block' : 'none';
-        if (isChordTab) {
+        applyArpBtn.style.display = (isChordTab && !isTransitionsMode) ? 'inline-block' : 'none';
+        if (isChordTab && !isTransitionsMode) {
             const selectedInsts = pattern.instances ? pattern.instances.filter(i => i.isSelected) : [];
             const hasArp = selectedInsts.length > 0 && selectedInsts[0].arpSettings !== null;
             applyArpBtn.textContent = hasArp ? '✨ Arp: ON' : '✨ Arp: OFF';
         }
     }
-    if (styleSelect) styleSelect.style.display = isChordTab ? 'inline-block' : 'none';
-    if (rateSelect) rateSelect.style.display = isChordTab ? 'inline-block' : 'none';
+    if (styleSelect) styleSelect.style.display = (isChordTab && !isTransitionsMode) ? 'inline-block' : 'none';
+    if (rateSelect) rateSelect.style.display = (isChordTab && !isTransitionsMode) ? 'inline-block' : 'none';
     
+    const btnClear = document.getElementById('btn-rhythm-clear');
+    if (btnClear) btnClear.style.display = isTransitionsMode ? 'none' : 'inline-block';
+
     const btnDelete = document.getElementById('btn-rhythm-delete');
     const isDrumTab = editorState.activeTab === 'drumPattern';
     if (btnDelete) btnDelete.style.display = (isDrumTab && !editorState.selectedHitId) ? 'none' : 'inline-block';
@@ -199,8 +202,8 @@ export function renderRhythmTimeline() {
     const btnPaste = document.getElementById('btn-rhythm-paste');
     const isGlobalDrums = editorState.activeTab === 'drumPattern' && editorState.isGlobal;
     
-    if (btnCopy) btnCopy.style.display = isGlobalDrums ? 'none' : 'inline-block';
-    if (btnPaste) btnPaste.style.display = isGlobalDrums ? 'none' : 'inline-block';
+    if (btnCopy) btnCopy.style.display = (isGlobalDrums || isTransitionsMode) ? 'none' : 'inline-block';
+    if (btnPaste) btnPaste.style.display = (isGlobalDrums || isTransitionsMode) ? 'none' : 'inline-block';
 
     const zoomGroup = document.getElementById('zoom-controls-group');
     const zoomSlider = document.getElementById('zoom-slider');
@@ -230,10 +233,13 @@ export function renderRhythmTimeline() {
     const velSlider = document.getElementById('prop-velocity-slider');
     const probSlider = document.getElementById('prop-probability-slider');
     const btnFocusSlice = document.getElementById('btn-focus-slice');
+    const transWrapper = document.getElementById('prop-transition-wrapper');
+    const transDisplay = document.getElementById('prop-transition-display');
 
     if (propsGroup && velWrapper && probWrapper && velSlider && probSlider) {
         let showProps = false;
         let showVel = false;
+        if (transWrapper) transWrapper.style.display = 'none';
 
         if (editorState.activeTab === 'drumPattern' && editorState.selectedHitId && pattern && pattern.hits) {
             const selectedHit = pattern.hits.find(h => h.id === editorState.selectedHitId);
@@ -244,7 +250,7 @@ export function renderRhythmTimeline() {
                 probSlider.value = selectedHit.probability !== undefined ? selectedHit.probability : 1.0;
                 if (btnFocusSlice) btnFocusSlice.style.display = 'none';
             }
-        } else if (editorState.activeTab !== 'drumPattern' && pattern && pattern.instances) {
+        } else if (editorState.activeTab !== 'drumPattern' && pattern && pattern.instances && !isTransitionsMode) {
             const selectedInsts = pattern.instances.filter(i => i.isSelected);
             if (selectedInsts.length > 0) {
                 showProps = true;
@@ -284,6 +290,22 @@ export function renderRhythmTimeline() {
                 }
             } else {
                 if (pitchWrapper) pitchWrapper.style.display = 'none';
+            }
+        } else if (isTransitionsMode && pattern && pattern.transitions) {
+            const selectedTrans = pattern.transitions.filter(t => t.isSelected);
+            if (selectedTrans.length > 0) {
+                showProps = true;
+                showVel = false;
+                probSlider.value = selectedTrans[0].probability !== undefined ? selectedTrans[0].probability : 1.0;
+                if (pitchWrapper) pitchWrapper.style.display = 'none';
+                if (transWrapper) {
+                    transWrapper.style.display = 'flex';
+                    const tDef = TRANS_COLORS[selectedTrans[0].type];
+                    if (transDisplay) transDisplay.textContent = tDef ? tDef.text : selectedTrans[0].type;
+                }
+            } else {
+                if (pitchWrapper) pitchWrapper.style.display = 'none';
+                if (transWrapper) transWrapper.style.display = 'none';
             }
         }
 

@@ -2,6 +2,9 @@ import { getChordNotes, getPlayableNotes, getEffectiveTuning, snapToGrid, getBas
 import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
 import { resolvePattern } from './patternResolver.js';
+import { sliceInstancesByTransitions } from './transitionEvaluator.js';
+import { state as appState, getActiveProgression } from './store.js';
+import { isSongTrayOpen } from './songController.js';
 
 function getMpePitchBend(floatPitch, bendRange = 2) {
     const intNote = Math.round(floatPitch);
@@ -91,18 +94,34 @@ export function exportToMidi(state) {
     }
 
     let midiNotesToWrite = [];
+    let exportProgression = [];
+    let trueStartIndex = 0;
+    let trueProgressionLength = state.currentProgression.length;
 
-    let currentChunk = [];
-    for (let i = 0; i < state.currentProgression.length; i++) {
-        const chord = state.currentProgression[i];
-        if (chord._isSectionStart && currentChunk.length > 0) {
-            midiNotesToWrite = midiNotesToWrite.concat(getPlayableNotes(currentChunk, state));
-            currentChunk = [];
+    if (!isSongTrayOpen) {
+        const fullProgression = getActiveProgression();
+        midiNotesToWrite = getPlayableNotes(fullProgression, state);
+        trueStartIndex = appState.loopStart ?? 0;
+        trueProgressionLength = fullProgression.length;
+        exportProgression = state.currentProgression;
+    } else {
+        let currentChunk = [];
+        for (let i = 0; i < state.currentProgression.length; i++) {
+            const chord = state.currentProgression[i];
+            if (chord._isSectionStart && currentChunk.length > 0) {
+                midiNotesToWrite = midiNotesToWrite.concat(getPlayableNotes(currentChunk, state));
+                currentChunk = [];
+            }
+            currentChunk.push(chord);
         }
-        currentChunk.push(chord);
-    }
-    if (currentChunk.length > 0) {
-        midiNotesToWrite = midiNotesToWrite.concat(getPlayableNotes(currentChunk, state));
+        if (currentChunk.length > 0) {
+            midiNotesToWrite = midiNotesToWrite.concat(getPlayableNotes(currentChunk, state));
+        }
+        const startIndex = state.loopStart ?? 0;
+        const endIndex = (state.loopEnd > startIndex) ? state.loopEnd : state.currentProgression.length;
+        exportProgression = state.currentProgression.slice(startIndex, endIndex);
+        trueStartIndex = startIndex;
+        trueProgressionLength = state.currentProgression.length;
     }
 
     const isMultiTrack = state.midiExportRouting === 'multi-track';
@@ -134,9 +153,10 @@ export function exportToMidi(state) {
 
     for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
         // Add polyrhythmic chords and arpeggios to track
-        state.currentProgression.forEach((chord, index) => {
-            const isLastMacroChord = pass === (state.exportPasses || 1) - 1 && index === state.currentProgression.length - 1;
-            const chordNotes = midiNotesToWrite[index];
+        exportProgression.forEach((chord, index) => {
+            const isLastMacroChord = pass === (state.exportPasses || 1) - 1 && index === exportProgression.length - 1;
+            const absIndex = trueStartIndex + index;
+            const chordNotes = midiNotesToWrite[absIndex];
             
             const globalTuning = getEffectiveTuning(null, state.divisions || 12);
             const chordTuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
@@ -155,8 +175,19 @@ export function exportToMidi(state) {
             const slotTicks = beats * 128;
             const chordDurationSec = (60.0 / Number(state.bpm)) * beats;
 
+            const prevNotes = midiNotesToWrite[(absIndex - 1 + trueProgressionLength) % trueProgressionLength] || chordNotes;
+            const nextNotes = midiNotesToWrite[(absIndex + 1) % trueProgressionLength] || chordNotes;
+
+            const slicedInstances = sliceInstancesByTransitions(
+                pattern.instances,
+                pattern.transitions || [],
+                chordNotes,
+                prevNotes,
+                nextNotes
+            );
+
             // Sort instances by startTime to ensure sequential MIDI rendering
-            const instances = [...pattern.instances].sort((a, b) => a.startTime - b.startTime);
+            const instances = [...slicedInstances].sort((a, b) => a.startTime - b.startTime);
 
             let currentChannel = 2; // MPE Channels 2-15
 
@@ -169,7 +200,7 @@ export function exportToMidi(state) {
                 const instanceDurationSec = instance.duration * chordDurationSec;
                 
                 const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || state.divisions || 12);
-                const adjustedChordNotes = chordNotes.map((n, i) => n + snapToGrid(60 + (instance.pitchOffsets?.[i] || 0), editorTuning) - 60);
+                const adjustedChordNotes = instance.notesToPlay.map(n => snapToGrid(n, editorTuning));
 
                 if (instance.arpSettings) {
                     const arpEvents = generateArpNotes({
@@ -294,8 +325,8 @@ export function exportToMidi(state) {
     let hasBassNotes = false;
 
     for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
-        state.currentProgression.forEach((chord, index) => {
-            const isLastMacroChord = pass === (state.exportPasses || 1) - 1 && index === state.currentProgression.length - 1;
+        exportProgression.forEach((chord, index) => {
+            const isLastMacroChord = pass === (state.exportPasses || 1) - 1 && index === exportProgression.length - 1;
             
             const chordTuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
             const cleanTuning = getEffectiveTuning(null, state.divisions || 12);
@@ -383,7 +414,7 @@ export function exportToMidi(state) {
     };
 
     for (let pass = 0; pass < (state.exportPasses || 1); pass++) {
-        state.currentProgression.forEach(chord => {
+        exportProgression.forEach(chord => {
             const beats = Number(chord.duration) || 2;
             const slotTicks = beats * 128;
             const drumPat = chord.drumPattern;

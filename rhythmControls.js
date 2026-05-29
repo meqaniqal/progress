@@ -14,6 +14,7 @@ import {
     renderRhythmTimeline 
 } from './rhythmEditor.js';
 import { getEffectiveTuning, getPitchEditorTuning } from './theory.js';
+import { updateTransition } from './transitionUtils.js';
 
 /** Sets up the 'Chords' | 'Bass' | 'Drums' tabs and the 'Global' | 'Local' toggle. */
 function _setupTabsAndToggles() {
@@ -277,6 +278,15 @@ function _setupPropertiesControls() {
             
             if (editorState.activeTab === 'drumPattern' && editorState.selectedHitId) {
                 setCurrentPattern(updateDrumHit(pattern, editorState.selectedHitId, { probability: newProb }));
+            } else if (editorState.activeTab === 'chordPattern' && editorState.isTransitionsModeEnabled) {
+                const selectedTrans = (pattern.transitions || []).filter(t => t.isSelected);
+                if (selectedTrans.length > 0) {
+                    let newPattern = pattern;
+                    selectedTrans.forEach(trans => {
+                        newPattern = updateTransition(newPattern, trans.id, { probability: newProb });
+                    });
+                    setCurrentPattern(newPattern);
+                }
             } else if (editorState.activeTab !== 'drumPattern') {
                 const selectedInsts = pattern.instances.filter(i => i.isSelected);
                 if (selectedInsts.length > 0) {
@@ -460,6 +470,12 @@ function _setupToolbarButtons() {
                 editorState.selectedHitId = null;
                 hasChanges = true;
             }
+            } else if (editorState.activeTab === 'chordPattern' && editorState.isTransitionsModeEnabled) {
+                if (pattern.transitions) {
+                    const remaining = pattern.transitions.filter(t => !t.isSelected);
+                    newPattern = { ...pattern, transitions: remaining };
+                    hasChanges = true;
+                }
         } else if (pattern.instances) {
             let remaining = pattern.instances.filter(i => !i.isSelected);
             if (remaining.length > 0 && !remaining.some(i => i.isSelected)) {
@@ -531,6 +547,12 @@ function _setupKeyboardShortcuts() {
                         const newHits = pattern.hits.filter(h => h.id !== editorState.selectedHitId);
                         newPattern = { ...pattern, hits: newHits };
                         editorState.selectedHitId = null;
+                        hasChanges = true;
+                    }
+                } else if (editorState.activeTab === 'chordPattern' && editorState.isTransitionsModeEnabled) {
+                    if (pattern.transitions) {
+                        const remaining = pattern.transitions.filter(t => !t.isSelected);
+                        newPattern = { ...pattern, transitions: remaining };
                         hasChanges = true;
                     }
                 } else if (pattern.instances) {

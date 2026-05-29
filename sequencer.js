@@ -5,6 +5,7 @@ import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators, 
 import { resolvePattern } from './patternResolver.js';
 import { state } from './store.js';
 import { isSongTrayOpen, getActiveSequenceIndex } from './songController.js';
+import { sliceInstancesByTransitions } from './transitionEvaluator.js';
 
 let uiTimeouts = [];
 
@@ -178,15 +179,31 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         const chordInst = state.instruments && state.instruments.chords ? state.instruments.chords : 'sawtooth';
         const bassInst = state.instruments && state.instruments.bass ? state.instruments.bass : 'sine';
 
-        // Render each rhythmic slice instance inside the chord slot
-        pattern.instances.forEach(instance => {
+        // Evaluate prev/next context for transitions
+        const prevAbsIndex = (absIndex - 1 + activeProg.length) % activeProg.length;
+        const nextAbsIndex = (absIndex + 1) % activeProg.length;
+
+        const prevNotes = allPlayableNotes[prevAbsIndex] || notesToPlay;
+        const nextNotes = allPlayableNotes[nextAbsIndex] || notesToPlay;
+
+        // Slice rhythmic instances dynamically to handle passing tones, suspensions, etc.
+        const slicedInstances = sliceInstancesByTransitions(
+            pattern.instances,
+            pattern.transitions || [],
+            notesToPlay,
+            prevNotes,
+            nextNotes
+        );
+
+        // Render each generated instance slice inside the chord slot
+        slicedInstances.forEach((instance, idx) => {
             if (instance.probability != null && Math.random() > instance.probability) return;
 
             const instanceStartTime = time + (instance.startTime * chordSlotDuration);
             const instanceDuration = instance.duration * chordSlotDuration;
             
             const editorTuning = getPitchEditorTuning(chordObj.symbol, chordObj.divisions || state.divisions || 12);
-            const adjustedNotesToPlay = notesToPlay.map((n, i) => n + snapToGrid(60 + (instance.pitchOffsets?.[i] || 0), editorTuning) - 60);
+            const adjustedNotesToPlay = instance.notesToPlay.map(n => snapToGrid(n, editorTuning));
 
             if (instance.arpSettings) {
                 const arpEvents = generateArpNotes({

@@ -1,5 +1,13 @@
 import { getPlayableNotes } from './theory.js';
 
+export const TRANS_COLORS = {
+    'auto-smooth': { bg: 'rgba(59, 130, 246, 0.4)', border: 'rgba(59, 130, 246, 0.8)', active: 'var(--ctrl-primary-bg)', text: '〰️ Auto' },
+    'passing': { bg: 'rgba(34, 197, 94, 0.4)', border: 'rgba(34, 197, 94, 0.8)', active: '#16a34a', text: '↗️ Pass' },
+    'suspend': { bg: 'rgba(234, 179, 8, 0.4)', border: 'rgba(234, 179, 8, 0.8)', active: '#ca8a04', text: '⏸️ Sus' },
+    'anticipate': { bg: 'rgba(168, 85, 247, 0.4)', border: 'rgba(168, 85, 247, 0.8)', active: '#9333ea', text: '⏪ Ant' },
+    'suspend-all': { bg: 'rgba(234, 179, 8, 0.4)', border: 'rgba(234, 179, 8, 0.8)', active: '#ca8a04', text: '⏸️ Sus All' }
+};
+
 export function renderTransitionsTimeline(container, pattern, editorState, app) {
     container.style.overflowX = 'hidden';
     container.style.touchAction = 'none';
@@ -44,6 +52,39 @@ export function renderTransitionsTimeline(container, pattern, editorState, app) 
             </div>
         `;
     });
+
+    if (pattern && pattern.transitions) {
+        pattern.transitions.forEach(trans => {
+            let topPct = 0;
+            if (trans.voiceIndex === 'master') {
+                topPct = 0;
+            } else {
+                const vIdx = parseInt(trans.voiceIndex, 10);
+                topPct = (vIdx + 1) * laneHeight;
+            }
+            
+            const typeDef = TRANS_COLORS[trans.type] || TRANS_COLORS['passing'];
+            const isSelected = trans.isSelected;
+            const bg = isSelected ? typeDef.active : typeDef.bg;
+            const border = isSelected ? '1px solid #fff' : `1px solid ${typeDef.border}`;
+            const blockHeight = `calc(${laneHeight}% - 4px)`;
+            const blockTop = `calc(${topPct}% + 2px)`;
+            
+            let labelText = typeDef.text;
+            if (trans.duration < 0.08) {
+                labelText = ''; // Strip text if unreadably small, showing only color
+            } else if (trans.duration < 0.15) {
+                labelText = typeDef.text.split(' ')[0]; // Show icon only if somewhat narrow
+            }
+            
+            html += `
+                <div class="transition-block" data-id="${trans.id}" style="position: absolute; left: ${trans.startTime * 100}%; top: ${blockTop}; width: ${trans.duration * 100}%; height: ${blockHeight}; background: ${bg}; border: ${border}; border-radius: 4px; z-index: 10; cursor: pointer; display: flex; align-items: center;">
+                    <span style="font-size: 10px; font-weight: bold; color: #fff; padding-left: 4px; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.8); white-space: nowrap; overflow: hidden; text-overflow: clip;">${labelText}</span>
+                    <div class="transition-resize-handle right" style="position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize;"></div>
+                </div>
+            `;
+        });
+    }
 
     let laneContainer = container.querySelector('.transitions-container');
     if (!laneContainer) {

@@ -1,5 +1,6 @@
 import { editorState, app, getCurrentPattern, setCurrentPattern, hasValidContext, getTimelineRect, getActiveGridValue, auditionSlicePitch, renderRhythmTimeline } from './rhythmEditor.js';
 import { exclusiveSelect, moveInstance, fillGapInstance, expandInstance, resizeInstance, drawPatternBlock, sliceInstance, updateInstance } from './patternUtils.js';
+import { addTransition, resizeTransition, moveTransition, updateTransition } from './transitionUtils.js';
 import { getEffectiveTuning, getPitchEditorTuning, getChordNotes, getPlayableNotes } from './theory.js';
 
 export function initTimelineInteractions(timeline) {
@@ -16,6 +17,8 @@ export function initTimelineInteractions(timeline) {
     let auditionTimeout = null;
     let dragStartPitchOffset = 0;
     let dragStartPitchOffsets = [];
+    let dragStartTransType = null;
+    let dragStartTransVoice = null;
     
     // Prevent context menu (right-click) which interferes with dragging interactions
     timeline.addEventListener('contextmenu', e => e.preventDefault());
@@ -62,9 +65,81 @@ export function initTimelineInteractions(timeline) {
         if (editorState.activeTab === 'drumPattern') return;
 
         // Ignore interactions if we click inside the active overlay
-        if (e.target.closest('.slice-overlay')) {
+        if (e.target.closest('.slice-overlay') || e.target.closest('.transition-overlay-menu')) {
             e.stopPropagation();
             return;
+        }
+
+        const isTransitionsMode = editorState.activeTab === 'chordPattern' && editorState.isTransitionsModeEnabled;
+
+        if (isTransitionsMode) {
+            if (!hasValidContext()) return;
+            const laneEl = e.target.closest('.transition-lane');
+            const transitionBlockEl = e.target.closest('.transition-block');
+            
+            if (transitionBlockEl) {
+                e.stopPropagation();
+                const transId = transitionBlockEl.dataset.id;
+                
+                editorState.draggedTransitionId = transId;
+                
+                const resizeHandle = e.target.closest('.transition-resize-handle');
+                if (resizeHandle) {
+                    editorState.isResizing = resizeHandle.classList.contains('left') ? 'left' : 'right';
+                } else {
+                    editorState.isResizing = null;
+                }
+                
+                cachedTimelineRect = getTimelineRect();
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+
+                let pattern = getCurrentPattern();
+                const trans = (pattern.transitions || []).find(t => t.id === transId);
+                if (trans) {
+                    originalStartTime = trans.startTime;
+                    originalDuration = trans.duration;
+                    dragStartTransType = trans.type;
+                    dragStartTransVoice = trans.voiceIndex;
+                }
+
+                timeline.setPointerCapture(e.pointerId);
+                
+                const newTransitions = (pattern.transitions || []).map(t => ({...t, isSelected: t.id === transId}));
+                app.saveHistoryState();
+                setCurrentPattern({...pattern, transitions: newTransitions});
+                app.persistAppState();
+                renderRhythmTimeline();
+                return;
+            } else if (laneEl) {
+                e.stopPropagation();
+                editorState.activeOverlayId = null; // Clear overlay when creating new
+                cachedTimelineRect = getTimelineRect();
+                const rect = cachedTimelineRect;
+                let clickRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                
+                const actualGridValue = getActiveGridValue();
+                if (actualGridValue > 0 && !e.shiftKey) {
+                    clickRatio = Math.floor(clickRatio / actualGridValue) * actualGridValue;
+                }
+
+                const voiceIndex = laneEl.dataset.voice; 
+                
+                let pattern = getCurrentPattern();
+                
+                app.saveHistoryState();
+                const newPattern = addTransition(pattern, voiceIndex, clickRatio, actualGridValue > 0 ? actualGridValue : 0.05);
+                setCurrentPattern(newPattern);
+                
+                const addedTransition = newPattern.transitions[newPattern.transitions.length - 1];
+                editorState.draggedTransitionId = addedTransition.id;
+                editorState.isResizing = 'right'; 
+                
+                timeline.setPointerCapture(e.pointerId);
+                app.persistAppState();
+                renderRhythmTimeline();
+                return;
+            }
         }
 
         const isChordOrBass = editorState.activeTab === 'chordPattern' || editorState.activeTab === 'bassPattern';
@@ -262,6 +337,75 @@ export function initTimelineInteractions(timeline) {
             const currentRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
             applyDrawMath(editorState.drawStartRatio, currentRatio);
             return;
+        }
+
+        const isTransitionsMode = editorState.activeTab === 'chordPattern' && editorState.isTransitionsModeEnabled;
+
+        if (isTransitionsMode && editorState.draggedTransitionId) {
+            const rect = cachedTimelineRect || getTimelineRect();
+            
+            
+            if (editorState.isResizing) {
+                let newTime = (e.clientX - rect.left) / rect.width;
+                
+                const actualGridValue = getActiveGridValue();
+                if (actualGridValue > 0 && !e.shiftKey) {
+                    newTime = Math.round(newTime / actualGridValue) * actualGridValue;
+                }
+                
+                const pattern = getCurrentPattern();
+                const newPattern = resizeTransition(pattern, editorState.draggedTransitionId, editorState.isResizing, newTime);
+                setCurrentPattern(newPattern);
+                renderRhythmTimeline();
+                return;
+            } else {
+                const deltaY = e.clientY - dragStartY;
+                const deltaX = e.clientX - dragStartX;
+                
+                let pattern = getCurrentPattern();
+                let requiresRender = false;
+                
+                // Vertical drag determines Type (Requires ~25px per step to prevent jitters)
+                if (Math.abs(deltaY) > 15) {
+                    const types = dragStartTransVoice === 'master'
+                        ? ['auto-smooth', 'suspend-all']
+                        : ['passing', 'suspend', 'anticipate'];
+                        
+                    const startIdx = types.indexOf(dragStartTransType);
+                    if (startIdx !== -1) {
+                        const step = Math.round(-deltaY / 25); // Drag up (negative Y) = positive step
+                        let newIdx = startIdx + step;
+                        newIdx = Math.max(0, Math.min(types.length - 1, newIdx));
+                        const newType = types[newIdx];
+                        
+                        const trans = (pattern.transitions || []).find(t => t.id === editorState.draggedTransitionId);
+                        if (trans && trans.type !== newType) {
+                            pattern = updateTransition(pattern, editorState.draggedTransitionId, { type: newType });
+                            requiresRender = true;
+                        }
+                    }
+                }
+                
+                const deltaRatio = deltaX / rect.width;
+                let newStartTime = originalStartTime + deltaRatio;
+
+                const actualGridValue = getActiveGridValue();
+                if (actualGridValue > 0 && !e.shiftKey) {
+                    newStartTime = Math.round(newStartTime / actualGridValue) * actualGridValue;
+                }
+
+                const trans = (pattern.transitions || []).find(t => t.id === editorState.draggedTransitionId);
+                if (trans && Math.abs(trans.startTime - newStartTime) > 0.001) {
+                    pattern = moveTransition(pattern, editorState.draggedTransitionId, newStartTime, originalDuration);
+                    requiresRender = true;
+                }
+                
+                if (requiresRender) {
+                    setCurrentPattern(pattern);
+                    renderRhythmTimeline();
+                }
+                return;
+            }
         }
 
         if (editorState.isResizing && editorState.draggedInstanceId) {
@@ -470,6 +614,15 @@ export function initTimelineInteractions(timeline) {
             return;
         }
 
+        if (editorState.draggedTransitionId) {
+            editorState.draggedTransitionId = null;
+            editorState.isResizing = null;
+            timeline.releasePointerCapture(e.pointerId);
+            app.persistAppState();
+            renderRhythmTimeline();
+            return;
+        }
+
         if (longPressTimer) {
             clearTimeout(longPressTimer);
             longPressTimer = null;
@@ -523,6 +676,14 @@ export function initTimelineInteractions(timeline) {
         if (editorState.isDrawing) {
             editorState.isDrawing = false;
             editorState.drawStartPattern = null;
+            timeline.releasePointerCapture(e.pointerId);
+            renderRhythmTimeline();
+            return;
+        }
+
+        if (editorState.draggedTransitionId) {
+            editorState.draggedTransitionId = null;
+            editorState.isResizing = null;
             timeline.releasePointerCapture(e.pointerId);
             renderRhythmTimeline();
             return;
