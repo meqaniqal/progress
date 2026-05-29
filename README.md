@@ -19,6 +19,7 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Per-Chord Rhythm Editor:** Timeline view for slicing, moving, and generating complex rhythms within individual chord slots.
 - **Polyrhythmic Arpeggiation:** Apply localized arpeggiator settings to slices of your chord to create intricate polyrhythms.
 - **Variable Chord Durations:** Adjust individual chord lengths (1, 2, 4, or 8 beats) directly from the UI, scaling playback, exports, and timeline grids dynamically.
+- **Algorithmic Transitions:** Inject passing tones, suspensions, and anticipations to mathematically smooth the voice-leading between chords.
 
 ## 🗺️ Development Roadmap
 

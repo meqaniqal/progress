@@ -101,3 +101,12 @@
 - [x] **Loop Block Dragging:** Draggable macro-block representing the current loop bounds.
 - [x] **Polyphonic Slice Pitch Editing:** Pitch Mode expanded to support custom voicings per slice in Chords.
 - [x] **Intelligent Bassline Enhancements:** Multi-note rhythmic walking bass patterns and context-aware generation.
+
+## Phase 10: Advanced Composition Tools (In Progress)
+- **Transitions Mode (Phase 1 Complete):** Implemented a dedicated "Transitions" mode in the Pattern Editor to algorithmically program inner voice movement between chords.
+- **Voice Lanes UI:** Added horizontal continuous voice lanes and a "Master All Notes" lane for macro-tweaking.
+- **Interactive Transition Blocks:** Click and drag to insert, resize, and move transition blocks. Vertical dragging seamlessly swaps the transition type (Passing, Suspend, Anticipate, Auto-Smooth).
+- **Transition Audio Engine:** Built `transitionEvaluator.js` to dynamically slice instances and bend pitches during playback based on adjacent chord context.
+- **Collision Physics:** Added real-time collision detection to nudge passing tones away from muddy minor-second clashes.
+- **Generative Transitions:** Wired the probability slider to transition blocks for chance-based harmonic flourishes.
+- **Export Integration:** Seamlessly integrated transition math into both `.mid` (MidiWriterJS) and `.wav` (OfflineAudioContext) offline export engines with perfect loop-boundary context wrapping.
