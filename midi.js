@@ -2,7 +2,7 @@ import { getChordNotes, getPlayableNotes, getEffectiveTuning, snapToGrid, getBas
 import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
 import { resolvePattern } from './patternResolver.js';
-import { sliceInstancesByTransitions } from './transitionEvaluator.js';
+import { evaluateVerticalSlices } from './transitionEvaluator.js';
 import { state as appState, getActiveProgression } from './store.js';
 import { isSongTrayOpen } from './songController.js';
 
@@ -178,12 +178,14 @@ export function exportToMidi(state) {
             const prevNotes = midiNotesToWrite[(absIndex - 1 + trueProgressionLength) % trueProgressionLength] || chordNotes;
             const nextNotes = midiNotesToWrite[(absIndex + 1) % trueProgressionLength] || chordNotes;
 
-            const slicedInstances = sliceInstancesByTransitions(
+            const slicedInstances = evaluateVerticalSlices(
                 pattern.instances,
                 pattern.transitions || [],
                 chordNotes,
                 prevNotes,
-                nextNotes
+                nextNotes,
+                editorTuning,
+                false
             );
 
             // Sort instances by startTime to ensure sequential MIDI rendering
@@ -192,6 +194,7 @@ export function exportToMidi(state) {
             let currentChannel = 2; // MPE Channels 2-15
 
             instances.forEach(instance => {
+                if (!instance.willPlay) return;
                 const isLastInstance = instance === instances[instances.length - 1];
                 const useFullDuration = isLastMacroChord && isLastInstance;
 
@@ -199,8 +202,7 @@ export function exportToMidi(state) {
                 const instanceDurationTicks = Math.round(instance.duration * slotTicks);
                 const instanceDurationSec = instance.duration * chordDurationSec;
                 
-                const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || state.divisions || 12);
-                const adjustedChordNotes = instance.notesToPlay.map(n => snapToGrid(n, editorTuning));
+                const adjustedChordNotes = instance.adjustedNotes;
 
                 if (instance.arpSettings) {
                     const arpEvents = generateArpNotes({

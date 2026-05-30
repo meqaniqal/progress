@@ -39,6 +39,14 @@ We will introduce a `transitions` array to the chord state. This acts as a set o
 4. **The Macro Tweak (High-Level):** 
    - Clicking the "All notes" lane allows selecting "Auto-Smooth" or "Add Suspensions". The engine calculates the optimal moves and auto-populates the individual voice lanes below, revealing the algorithmic decisions so the user can modify them.
 
+## Phase 1.5: UI/UX Refinements & Audio Fixes (Complete ✅)
+**Goal:** Polish the Phase 1 implementation based on immediate testing feedback.
+- **UI State Leaks (Complete ✅):** Fix transition blocks remaining visible when switching to the Drum Pattern tab, and failing to re-render when returning to Transitions mode.
+- **Audio Envelope Clicking (Complete ✅):** Implement brief crossfades/de-clicking envelopes at transition slice boundaries, especially noticeable when the grid is off.
+- **Independent Voice Sustain (Complete ✅):** Modify the audio scheduler so that transition slices *only* re-trigger/affect the specific voice lane being modified. Currently, a transition rhythmically slices the entire chord; non-transitioned notes should sustain smoothly.
+- **Lane Layout Shift (Complete ✅):** Offset the transition block rendering and interaction area so it starts *after* the voice lane label, preventing blocks from covering the text.
+- **Micro-Slicing/Zoom Tool (Complete ✅):** Evaluate enabling the magnifying glass focus tool for transition lanes, or enforce a strict minimum block length to prevent unusable micro-slices.
+
 ## Phase 2: Generative Intelligence & Cross-Layer Physics
 **Goal:** Make the transitions react to the rest of the track and evolve over time (hooking into Multi-Pass Export).
 

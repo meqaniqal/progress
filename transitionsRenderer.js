@@ -12,16 +12,6 @@ export function renderTransitionsTimeline(container, pattern, editorState, app) 
     container.style.overflowX = 'hidden';
     container.style.touchAction = 'none';
 
-    // Clean up nodes belonging to other modules
-    const leftoverDrumGrid = container.querySelector('.drum-grid');
-    if (leftoverDrumGrid) leftoverDrumGrid.remove();
-    const existingNodes = Array.from(container.querySelectorAll('.rhythm-instance'));
-    existingNodes.forEach(node => node.remove());
-    const prGrid = container.querySelector('.piano-roll-grid');
-    if (prGrid) prGrid.remove();
-    const sliceInner = container.querySelector('.slice-timeline-inner');
-    if (sliceInner) sliceInner.remove();
-
     let chordNotes = [60, 64, 67, 71]; 
     if (!editorState.isGlobal && editorState.activeIndex !== null) {
         const mockProg = app.state.currentProgression.map((c, i) => {
@@ -38,20 +28,23 @@ export function renderTransitionsTimeline(container, pattern, editorState, app) 
     const laneCount = uniqueNotes.length + 1; // Voices + Master
     const laneHeight = 100 / laneCount;
 
-    let html = `
+    let lanesHtml = `
         <div class="transition-lane master-lane" data-voice="master" style="position: absolute; top: 0; left: 0; width: 100%; height: ${laneHeight}%; border-bottom: 1px solid var(--border-main); background: rgba(255, 255, 255, 0.05); display: flex; align-items: center; padding-left: 10px; box-sizing: border-box;">
-            <span style="font-size: 11px; font-weight: bold; color: var(--text-main); opacity: 0.8; pointer-events: none;">All notes</span>
+            <span class="transition-lane-label" style="font-size: 11px; font-weight: bold; color: var(--text-main); opacity: 0.8; pointer-events: none; width: 58px; flex-shrink: 0;">All notes</span>
         </div>
     `;
 
     uniqueNotes.forEach((note, idx) => {
         const topPct = (idx + 1) * laneHeight;
-        html += `
+        lanesHtml += `
             <div class="transition-lane voice-lane" data-voice="${idx}" style="position: absolute; top: ${topPct}%; left: 0; width: 100%; height: ${laneHeight}%; border-bottom: 1px solid var(--border-main); background: transparent; display: flex; align-items: center; padding-left: 10px; box-sizing: border-box; cursor: pointer;">
-                <span style="font-size: 11px; font-weight: bold; color: var(--text-main); opacity: 0.6; pointer-events: none;">Note ${idx + 1}</span>
+                <span class="transition-lane-label" style="font-size: 11px; font-weight: bold; color: var(--text-main); opacity: 0.6; pointer-events: none; width: 58px; flex-shrink: 0;">Note ${idx + 1}</span>
             </div>
         `;
     });
+
+    // Create a strict bounds container for the blocks to match the getTimelineRect() math in rhythmEditor.js
+    let trackAreaHtml = `<div class="transition-track-area" style="position: absolute; left: 68px; right: 16px; top: 0; bottom: 0; pointer-events: none;">`;
 
     if (pattern && pattern.transitions) {
         pattern.transitions.forEach(trans => {
@@ -77,14 +70,19 @@ export function renderTransitionsTimeline(container, pattern, editorState, app) 
                 labelText = typeDef.text.split(' ')[0]; // Show icon only if somewhat narrow
             }
             
-            html += `
-                <div class="transition-block" data-id="${trans.id}" style="position: absolute; left: ${trans.startTime * 100}%; top: ${blockTop}; width: ${trans.duration * 100}%; height: ${blockHeight}; background: ${bg}; border: ${border}; border-radius: 4px; z-index: 10; cursor: pointer; display: flex; align-items: center;">
+            // Set pointer-events: auto to override the track area's passthrough
+            trackAreaHtml += `
+                <div class="transition-block" data-id="${trans.id}" style="position: absolute; left: ${trans.startTime * 100}%; top: ${blockTop}; width: ${trans.duration * 100}%; height: ${blockHeight}; background: ${bg}; border: ${border}; border-radius: 4px; z-index: 10; cursor: pointer; display: flex; align-items: center; pointer-events: auto;">
                     <span style="font-size: 10px; font-weight: bold; color: #fff; padding-left: 4px; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.8); white-space: nowrap; overflow: hidden; text-overflow: clip;">${labelText}</span>
                     <div class="transition-resize-handle right" style="position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize;"></div>
                 </div>
             `;
         });
     }
+
+    trackAreaHtml += `</div>`;
+
+    let html = lanesHtml + trackAreaHtml;
 
     let laneContainer = container.querySelector('.transitions-container');
     if (!laneContainer) {

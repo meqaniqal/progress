@@ -5,7 +5,7 @@ import { generateArpNotes } from './arp.js';
 import { resolvePattern } from './patternResolver.js';
 import { playDrum, initAudio } from './synth.js';
 import { SYNTH_REGISTRY } from './synthEngines.js';
-import { sliceInstancesByTransitions } from './transitionEvaluator.js';
+import { evaluateVoiceEvents } from './transitionEvaluator.js';
 import { state as appState, getActiveProgression } from './store.js';
 import { isSongTrayOpen } from './songController.js';
 
@@ -70,26 +70,26 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                 const prevNotes = notesArray[(absIndex - 1 + trueProgressionLength) % trueProgressionLength] || chordNotes;
                 const nextNotes = notesArray[(absIndex + 1) % trueProgressionLength] || chordNotes;
 
-                const slicedInstances = sliceInstancesByTransitions(
+                const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
+
+                const voiceEvents = evaluateVoiceEvents(
                     pattern.instances,
                     pattern.transitions || [],
                     chordNotes,
                     prevNotes,
-                    nextNotes
+                    nextNotes,
+                    editorTuning,
+                    globalOptions.autoPanLeading !== false
                 );
 
-                slicedInstances.forEach((instance, idx) => {
-                    if (instance.probability !== undefined && Math.random() > instance.probability) return;
-
-                    const instanceStartTime = currentTime + (instance.startTime * duration);
-                    const instanceDuration = instance.duration * duration;
-                    
-                    const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
-                    const adjustedChordNotes = instance.notesToPlay.map(n => snapToGrid(n, editorTuning));
-
-                    if (instance.arpSettings) {
+                voiceEvents.forEach(ev => {
+                    if (ev.type === 'arp_slice') {
+                        const instance = ev.slice;
+                        const instanceStartTime = currentTime + (instance.startTime * duration);
+                        const instanceDuration = instance.duration * duration;
+                        
                         const arpEvents = generateArpNotes({
-                            notesToPlay: adjustedChordNotes,
+                            notesToPlay: instance.adjustedNotes,
                             arpSettings: instance.arpSettings,
                             instanceDuration: instanceDuration,
                             bpm: Number(bpm)
@@ -107,27 +107,19 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                             });
                         });
                     } else {
+                        const instanceStartTime = currentTime + (ev.startTime * duration);
+                        const instanceDuration = ev.duration * duration;
                         const gateDuration = instanceDuration * 0.95; // Slight gate
-                        const segmented = segmentMicrotonalCluster(adjustedChordNotes);
                         
-                        const panL = globalOptions.autoPanLeading !== false ? -0.75 : 0;
-                        const panR = globalOptions.autoPanLeading !== false ? 0.75 : 0;
-                        
-                        const addTimelineEvent = (note, panValue) => {
-                            timeline.push({
-                                midiNote: note,
-                                freq: Math.pow(2, (note - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
-                                startTime: instanceStartTime,
-                                duration: gateDuration,
-                                type: chordInst,
-                                track: 'chords',
-                                pan: panValue
-                            });
-                        };
-                        
-                        segmented.core.forEach(note => addTimelineEvent(note, 0));
-                        segmented.frictionLeft.forEach(note => addTimelineEvent(note, panL));
-                        segmented.frictionRight.forEach(note => addTimelineEvent(note, panR));
+                        timeline.push({
+                            midiNote: ev.pitch,
+                            freq: Math.pow(2, (ev.pitch - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
+                            startTime: instanceStartTime,
+                            duration: gateDuration,
+                            type: chordInst,
+                            track: 'chords',
+                            pan: ev.pan
+                        });
                     }
                 });
             }

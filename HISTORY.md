@@ -103,7 +103,8 @@
 - [x] **Intelligent Bassline Enhancements:** Multi-note rhythmic walking bass patterns and context-aware generation.
 
 ## Phase 10: Advanced Composition Tools (In Progress)
-- **Transitions Mode (Phase 1 Complete):** Implemented a dedicated "Transitions" mode in the Pattern Editor to algorithmically program inner voice movement between chords.
+- **Transitions Mode (Phase 1 & 1.5 Complete):** Implemented a dedicated "Transitions" mode in the Pattern Editor to algorithmically program inner voice movement between chords.
+- **Independent Voice Sustain:** Re-engineered the transition evaluator to output discrete voice events, allowing static chord tones to sustain continuously while adjacent voices perform passing tones or suspensions.
 - **Voice Lanes UI:** Added horizontal continuous voice lanes and a "Master All Notes" lane for macro-tweaking.
 - **Interactive Transition Blocks:** Click and drag to insert, resize, and move transition blocks. Vertical dragging seamlessly swaps the transition type (Passing, Suspend, Anticipate, Auto-Smooth).
 - **Transition Audio Engine:** Built `transitionEvaluator.js` to dynamically slice instances and bend pitches during playback based on adjacent chord context.

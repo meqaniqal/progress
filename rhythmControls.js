@@ -31,6 +31,8 @@ function _setupTabsAndToggles() {
                 if (!chord || !chord.drumPattern || !chord.drumPattern.isLocalOverride) {
                     editorState.isGlobal = true;
                 }
+            } else if (editorState.activeTab === 'chordPattern' || editorState.activeTab === 'bassPattern') {
+                editorState.isGlobal = false; // Force edit-in-place local behavior immediately
             }
 
             app.persistAppState();

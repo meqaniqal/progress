@@ -5,7 +5,7 @@ import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators, 
 import { resolvePattern } from './patternResolver.js';
 import { state } from './store.js';
 import { isSongTrayOpen, getActiveSequenceIndex } from './songController.js';
-import { sliceInstancesByTransitions } from './transitionEvaluator.js';
+import { evaluateVoiceEvents } from './transitionEvaluator.js';
 
 let uiTimeouts = [];
 
@@ -186,28 +186,26 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
         const prevNotes = allPlayableNotes[prevAbsIndex] || notesToPlay;
         const nextNotes = allPlayableNotes[nextAbsIndex] || notesToPlay;
 
-        // Slice rhythmic instances dynamically to handle passing tones, suspensions, etc.
-        const slicedInstances = sliceInstancesByTransitions(
+        const editorTuning = getPitchEditorTuning(chordObj.symbol, chordObj.divisions || state.divisions || 12);
+
+        const voiceEvents = evaluateVoiceEvents(
             pattern.instances,
             pattern.transitions || [],
             notesToPlay,
             prevNotes,
-            nextNotes
+            nextNotes,
+            editorTuning,
+            state.autoPanLeading
         );
 
-        // Render each generated instance slice inside the chord slot
-        slicedInstances.forEach((instance, idx) => {
-            if (instance.probability != null && Math.random() > instance.probability) return;
-
-            const instanceStartTime = time + (instance.startTime * chordSlotDuration);
-            const instanceDuration = instance.duration * chordSlotDuration;
-            
-            const editorTuning = getPitchEditorTuning(chordObj.symbol, chordObj.divisions || state.divisions || 12);
-            const adjustedNotesToPlay = instance.notesToPlay.map(n => snapToGrid(n, editorTuning));
-
-            if (instance.arpSettings) {
+        voiceEvents.forEach(ev => {
+            if (ev.type === 'arp_slice') {
+                const instance = ev.slice;
+                const instanceStartTime = time + (instance.startTime * chordSlotDuration);
+                const instanceDuration = instance.duration * chordSlotDuration;
+                
                 const arpEvents = generateArpNotes({
-                    notesToPlay: adjustedNotesToPlay,
+                    notesToPlay: instance.adjustedNotes,
                     arpSettings: instance.arpSettings,
                     instanceDuration,
                     bpm: Number(state.bpm)
@@ -217,14 +215,10 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
                     playTone(midiToFreq(event.note), instanceStartTime + event.startTime, event.duration, chordInst, 'chords');
                 });
             } else {
+                const instanceStartTime = time + (ev.startTime * chordSlotDuration);
+                const instanceDuration = ev.duration * chordSlotDuration;
                 const gateDuration = instanceDuration * 0.95; // Slight gate so contiguous chops are distinctly audible
-                const segmented = segmentMicrotonalCluster(adjustedNotesToPlay);
-                const panL = state.autoPanLeading ? -0.75 : 0;
-                const panR = state.autoPanLeading ? 0.75 : 0;
-                
-                segmented.core.forEach(note => playTone(midiToFreq(note), instanceStartTime, gateDuration, chordInst, 'chords', 0));
-                segmented.frictionLeft.forEach(note => playTone(midiToFreq(note), instanceStartTime, gateDuration, chordInst, 'chords', panL));
-                segmented.frictionRight.forEach(note => playTone(midiToFreq(note), instanceStartTime, gateDuration, chordInst, 'chords', panR));
+                playTone(midiToFreq(ev.pitch), instanceStartTime, gateDuration, chordInst, 'chords', ev.pan);
             }
         });
         

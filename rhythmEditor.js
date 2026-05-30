@@ -165,6 +165,11 @@ export function getTimelineRect() {
     const timeline = document.getElementById('rhythm-timeline');
     const drumLines = timeline.querySelector('.drum-grid-lines');
     if (drumLines) return drumLines.getBoundingClientRect();
+
+    // Target the specific track area to exclude the lane label from our click ratio math
+    const transTrack = timeline.querySelector('.transition-track-area');
+    if (transTrack) return transTrack.getBoundingClientRect();
+
     const sliceInner = timeline.querySelector('.slice-timeline-inner');
     return sliceInner ? sliceInner.getBoundingClientRect() : timeline.getBoundingClientRect();
 }

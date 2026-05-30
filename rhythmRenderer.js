@@ -18,6 +18,12 @@ const PITCH_LABELS = {
 
 export function renderRhythmTimeline() {
     const container = document.getElementById('rhythm-timeline');
+
+    const isChordOrBass = editorState.activeTab === 'chordPattern' || editorState.activeTab === 'bassPattern';
+    if (isChordOrBass) {
+        editorState.isGlobal = false; // Force edit-in-place local behavior
+    }
+
     if (!editorState.isGlobal && editorState.activeIndex === null) {
         container.innerHTML = '';
         return;
@@ -57,10 +63,7 @@ export function renderRhythmTimeline() {
     const experimentalPushPull = document.getElementById('experimental-push-pull');
     const btnLegacyReset = document.getElementById('btn-rhythm-reset');
 
-    const isChordOrBass = editorState.activeTab === 'chordPattern' || editorState.activeTab === 'bassPattern';
-
     if (isChordOrBass) {
-        editorState.isGlobal = false; // Force edit-in-place local behavior
         if (legacyToggle) legacyToggle.style.display = 'none';
         if (experimentalPushPull) {
             const chord = app.state.currentProgression[editorState.activeIndex];
@@ -313,11 +316,22 @@ export function renderRhythmTimeline() {
         velWrapper.style.display = showVel ? 'flex' : 'none';
     }
 
+    const leftoverDrumGrid = container.querySelector('.drum-grid');
+    const leftoverTransitions = container.querySelector('.transitions-container');
+    const sliceInner = container.querySelector('.slice-timeline-inner');
+
     if (editorState.activeTab === 'drumPattern') {
+        if (leftoverTransitions) leftoverTransitions.remove();
+        if (sliceInner) sliceInner.style.display = 'none';
         renderDrumGrid(container, pattern);
     } else if (isTransitionsMode) {
+        if (leftoverDrumGrid) leftoverDrumGrid.remove();
+        if (sliceInner) sliceInner.style.display = 'none';
         renderTransitionsTimeline(container, pattern, editorState, app);
     } else {
+        if (leftoverDrumGrid) leftoverDrumGrid.remove();
+        if (leftoverTransitions) leftoverTransitions.remove();
+        if (sliceInner) sliceInner.style.display = 'block';
         _renderSliceTimeline(container, pattern, isChordTab);
     }
 }
@@ -326,13 +340,6 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
     // Enforce default timeline container behavior
     container.style.overflowX = 'hidden';
     container.style.touchAction = 'none';
-
-    // Remove the drum grid if it was left over from the Drums tab
-    const leftoverDrumGrid = container.querySelector('.drum-grid');
-    if (leftoverDrumGrid) leftoverDrumGrid.remove();
-    
-    const leftoverTransitions = container.querySelector('.transitions-container');
-    if (leftoverTransitions) leftoverTransitions.remove();
     
     const isPitchMode = (editorState.activeTab === 'bassPattern' || isChordTab) && editorState.isPitchModeEnabled;
 

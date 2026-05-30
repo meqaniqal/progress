@@ -112,6 +112,9 @@ export function initTimelineInteractions(timeline) {
                 renderRhythmTimeline();
                 return;
             } else if (laneEl) {
+                // Ignore clicks directly on the lane label
+                if (e.target.closest('.transition-lane-label')) return;
+
                 e.stopPropagation();
                 editorState.activeOverlayId = null; // Clear overlay when creating new
                 cachedTimelineRect = getTimelineRect();

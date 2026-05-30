@@ -1,4 +1,4 @@
-import { resolveVoiceCollision } from './theory.js';
+import { resolveVoiceCollision, segmentMicrotonalCluster, snapToGrid } from './theory.js';
 
 export function getTransitionPitch(transition, voiceIndex, currentNotes, prevNotes, nextNotes) {
     const current = currentNotes[voiceIndex];
@@ -95,4 +95,102 @@ export function sliceInstancesByTransitions(instances, transitions, currentNotes
     }
     
     return slicedInstances;
+}
+
+export function evaluateVerticalSlices(instances, transitions, currentNotes, prevNotes, nextNotes, editorTuning, autoPanLeading) {
+    const sliced = sliceInstancesByTransitions(instances, transitions, currentNotes, prevNotes, nextNotes);
+
+    sliced.forEach(slice => {
+        slice.willPlay = (slice.probability === undefined || Math.random() <= slice.probability);
+        
+        // Pre-snap notes
+        const adjustedNotes = slice.notesToPlay.map(n => snapToGrid(n, editorTuning));
+        slice.adjustedNotes = adjustedNotes;
+
+        if (autoPanLeading && !slice.arpSettings) {
+            const segmented = segmentMicrotonalCluster(adjustedNotes);
+            slice.voicePans = [];
+            adjustedNotes.forEach(note => {
+                let pan = 0;
+                if (segmented.frictionLeft.includes(note)) pan = -0.75;
+                else if (segmented.frictionRight.includes(note)) pan = 0.75;
+                slice.voicePans.push(pan);
+            });
+        } else {
+            slice.voicePans = adjustedNotes.map(() => 0);
+        }
+    });
+
+    return sliced;
+}
+
+export function evaluateVoiceEvents(instances, transitions, currentNotes, prevNotes, nextNotes, editorTuning, autoPanLeading) {
+    const sliced = evaluateVerticalSlices(instances, transitions, currentNotes, prevNotes, nextNotes, editorTuning, autoPanLeading);
+
+    const events = [];
+    const instancesById = {};
+    sliced.forEach(slice => {
+        if (!instancesById[slice.id]) instancesById[slice.id] = [];
+        instancesById[slice.id].push(slice);
+    });
+
+    for (const id in instancesById) {
+        const slices = instancesById[id];
+        const firstSlice = slices[0];
+
+        if (firstSlice.arpSettings) {
+            slices.forEach(slice => {
+                if (!slice.willPlay) return;
+                events.push({
+                    type: 'arp_slice',
+                    slice: slice
+                });
+            });
+        } else {
+            for (let v = 0; v < currentNotes.length; v++) {
+                let currentEvent = null;
+
+                slices.forEach(slice => {
+                    if (!slice.willPlay) {
+                        if (currentEvent) {
+                            events.push(currentEvent);
+                            currentEvent = null;
+                        }
+                        return;
+                    }
+
+                    const pitch = slice.adjustedNotes[v];
+                    const pan = slice.voicePans[v];
+
+                    if (!currentEvent) {
+                        currentEvent = {
+                            type: 'chord_note',
+                            voiceIndex: v,
+                            pitch: pitch,
+                            pan: pan,
+                            startTime: slice.startTime,
+                            duration: slice.duration
+                        };
+                    } else {
+                        if (Math.abs(currentEvent.pitch - pitch) < 0.001) {
+                            currentEvent.duration += slice.duration;
+                        } else {
+                            events.push(currentEvent);
+                            currentEvent = {
+                                type: 'chord_note',
+                                voiceIndex: v,
+                                pitch: pitch,
+                                pan: pan,
+                                startTime: slice.startTime,
+                                duration: slice.duration
+                            };
+                        }
+                    }
+                });
+                if (currentEvent) events.push(currentEvent);
+            }
+        }
+    }
+
+    return events;
 }
