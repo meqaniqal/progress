@@ -10,7 +10,7 @@ export function addTransition(pattern, voiceIndex, startTime, duration = 0.05) {
         voiceIndex,
         startTime,
         duration: safeDuration,
-        type: voiceIndex === 'master' ? 'auto-smooth' : 'passing',
+        type: voiceIndex === 'master' ? (startTime < 0.5 ? 'suspend' : 'auto-smooth') : 'passing',
         probability: 1.0,
         isSelected: true
     };

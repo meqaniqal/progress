@@ -5,7 +5,10 @@ export const TRANS_COLORS = {
     'passing': { bg: 'rgba(34, 197, 94, 0.4)', border: 'rgba(34, 197, 94, 0.8)', active: '#16a34a', text: '↗️ Pass' },
     'suspend': { bg: 'rgba(234, 179, 8, 0.4)', border: 'rgba(234, 179, 8, 0.8)', active: '#ca8a04', text: '⏸️ Sus' },
     'anticipate': { bg: 'rgba(168, 85, 247, 0.4)', border: 'rgba(168, 85, 247, 0.8)', active: '#9333ea', text: '⏪ Ant' },
-    'suspend-all': { bg: 'rgba(234, 179, 8, 0.4)', border: 'rgba(234, 179, 8, 0.8)', active: '#ca8a04', text: '⏸️ Sus All' }
+    'suspend-all': { bg: 'rgba(234, 179, 8, 0.4)', border: 'rgba(234, 179, 8, 0.8)', active: '#ca8a04', text: '⏸️ Sus All' },
+    'enclosure': { bg: 'rgba(236, 72, 153, 0.4)', border: 'rgba(236, 72, 153, 0.8)', active: '#db2777', text: '🔀 Enclose' },
+    'run-up': { bg: 'rgba(14, 165, 233, 0.4)', border: 'rgba(14, 165, 233, 0.8)', active: '#0284c7', text: '🎢 Run Up' },
+    'run-down': { bg: 'rgba(249, 115, 22, 0.4)', border: 'rgba(249, 115, 22, 0.8)', active: '#ea580c', text: '🎢 Run Dn' }
 };
 
 export function renderTransitionsTimeline(container, pattern, editorState, app) {
@@ -73,6 +76,7 @@ export function renderTransitionsTimeline(container, pattern, editorState, app) 
             // Set pointer-events: auto to override the track area's passthrough
             trackAreaHtml += `
                 <div class="transition-block" data-id="${trans.id}" style="position: absolute; left: ${trans.startTime * 100}%; top: ${blockTop}; width: ${trans.duration * 100}%; height: ${blockHeight}; background: ${bg}; border: ${border}; border-radius: 4px; z-index: 10; cursor: pointer; display: flex; align-items: center; pointer-events: auto;">
+                    <div class="transition-resize-handle left" style="position: absolute; left: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize;"></div>
                     <span style="font-size: 10px; font-weight: bold; color: #fff; padding-left: 4px; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.8); white-space: nowrap; overflow: hidden; text-overflow: clip;">${labelText}</span>
                     <div class="transition-resize-handle right" style="position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize;"></div>
                 </div>

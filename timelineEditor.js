@@ -357,7 +357,30 @@ export function initTimelineInteractions(timeline) {
                 }
                 
                 const pattern = getCurrentPattern();
-                const newPattern = resizeTransition(pattern, editorState.draggedTransitionId, editorState.isResizing, newTime);
+                let newPattern = resizeTransition(pattern, editorState.draggedTransitionId, editorState.isResizing, newTime);
+                
+                let trans = (newPattern.transitions || []).find(t => t.id === editorState.draggedTransitionId);
+                
+                // Auto-swap type if resized across the 0.5 boundary
+                if (trans) {
+                    const isNowEarly = trans.startTime < 0.5;
+                    let autoSwitchedType = trans.type;
+                    
+                    if (isNowEarly) {
+                        if (['anticipate', 'auto-smooth'].includes(trans.type)) autoSwitchedType = 'suspend';
+                        else if (['run-up', 'run-down'].includes(trans.type)) autoSwitchedType = 'passing';
+                    } else {
+                        if (trans.type === 'suspend' || trans.type === 'suspend-all') {
+                            autoSwitchedType = trans.voiceIndex === 'master' ? 'auto-smooth' : 'anticipate';
+                        }
+                    }
+                    
+                    if (autoSwitchedType !== trans.type) {
+                        newPattern = updateTransition(newPattern, trans.id, { type: autoSwitchedType });
+                        dragStartTransType = autoSwitchedType; // Update just in case
+                    }
+                }
+                
                 setCurrentPattern(newPattern);
                 renderRhythmTimeline();
                 return;
@@ -368,27 +391,6 @@ export function initTimelineInteractions(timeline) {
                 let pattern = getCurrentPattern();
                 let requiresRender = false;
                 
-                // Vertical drag determines Type (Requires ~25px per step to prevent jitters)
-                if (Math.abs(deltaY) > 15) {
-                    const types = dragStartTransVoice === 'master'
-                        ? ['auto-smooth', 'suspend-all']
-                        : ['passing', 'suspend', 'anticipate'];
-                        
-                    const startIdx = types.indexOf(dragStartTransType);
-                    if (startIdx !== -1) {
-                        const step = Math.round(-deltaY / 25); // Drag up (negative Y) = positive step
-                        let newIdx = startIdx + step;
-                        newIdx = Math.max(0, Math.min(types.length - 1, newIdx));
-                        const newType = types[newIdx];
-                        
-                        const trans = (pattern.transitions || []).find(t => t.id === editorState.draggedTransitionId);
-                        if (trans && trans.type !== newType) {
-                            pattern = updateTransition(pattern, editorState.draggedTransitionId, { type: newType });
-                            requiresRender = true;
-                        }
-                    }
-                }
-                
                 const deltaRatio = deltaX / rect.width;
                 let newStartTime = originalStartTime + deltaRatio;
 
@@ -397,12 +399,66 @@ export function initTimelineInteractions(timeline) {
                     newStartTime = Math.round(newStartTime / actualGridValue) * actualGridValue;
                 }
 
-                const trans = (pattern.transitions || []).find(t => t.id === editorState.draggedTransitionId);
+                let trans = (pattern.transitions || []).find(t => t.id === editorState.draggedTransitionId);
                 if (trans && Math.abs(trans.startTime - newStartTime) > 0.001) {
                     pattern = moveTransition(pattern, editorState.draggedTransitionId, newStartTime, originalDuration);
                     requiresRender = true;
                 }
                 
+                trans = (pattern.transitions || []).find(t => t.id === editorState.draggedTransitionId);
+                
+                // Auto-swap type if dragged across the 0.5 boundary
+                if (trans) {
+                    const isNowEarly = trans.startTime < 0.5;
+                    let autoSwitchedType = trans.type;
+                    
+                    if (isNowEarly) {
+                        if (['anticipate', 'auto-smooth'].includes(trans.type)) autoSwitchedType = 'suspend';
+                        else if (['run-up', 'run-down'].includes(trans.type)) autoSwitchedType = 'passing';
+                    } else {
+                        if (trans.type === 'suspend' || trans.type === 'suspend-all') {
+                            autoSwitchedType = trans.voiceIndex === 'master' ? 'auto-smooth' : 'anticipate';
+                        }
+                    }
+                    
+                    if (autoSwitchedType !== trans.type) {
+                        pattern = updateTransition(pattern, trans.id, { type: autoSwitchedType });
+                        dragStartTransType = autoSwitchedType; // Reset the vertical drag base
+                        requiresRender = true;
+                        trans = (pattern.transitions || []).find(t => t.id === editorState.draggedTransitionId);
+                    }
+                }
+                
+                // Vertical drag determines Type (Requires ~25px per step to prevent jitters)
+                if (Math.abs(deltaY) > 15 && trans) {
+                    let types = [];
+                    const isEarly = trans.startTime < 0.5;
+                    
+                    if (dragStartTransVoice === 'master') {
+                        types = ['auto-smooth', 'passing', 'enclosure'];
+                        if (isEarly) types.push('suspend');
+                        else types.push('anticipate', 'run-up', 'run-down');
+                    } else {
+                        types = ['passing', 'enclosure'];
+                        if (isEarly) {
+                            types.push('suspend');
+                        } else {
+                            types.push('anticipate', 'run-up', 'run-down');
+                        }
+                    }
+                        
+                    const startIdx = types.indexOf(dragStartTransType) !== -1 ? types.indexOf(dragStartTransType) : 0;
+                    const step = Math.round(-deltaY / 25); // Drag up (negative Y) = positive step
+                    let newIdx = startIdx + step;
+                    newIdx = Math.max(0, Math.min(types.length - 1, newIdx));
+                    const newType = types[newIdx];
+                        
+                    if (trans.type !== newType) {
+                        pattern = updateTransition(pattern, trans.id, { type: newType });
+                        requiresRender = true;
+                    }
+                }
+
                 if (requiresRender) {
                     setCurrentPattern(pattern);
                     renderRhythmTimeline();
@@ -733,6 +789,11 @@ export function initTimelineInteractions(timeline) {
 
             e.target.value = ((splitGlobal - inst.startTime) / inst.duration) * 100;
             e.target.dataset.splitGlobal = splitGlobal; 
+            
+            const floater = document.getElementById(`floater-${instId}`);
+            if (floater) {
+                floater.style.left = `${e.target.value}%`;
+            }
         }
     });
 

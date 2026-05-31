@@ -26,12 +26,15 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 7. CORRECTION PROTOCOL: If a mistake is pointed out, acknowledge the correct pattern and do not repeat the error. The user may provide a `// CORRECT_PATTERN: <description>` comment to reinforce a rule.
 
 ## CURRENT STATE & ROADMAP
-**Current State:** Phase 9 Complete. The core application features, macro-arrangement, and project management are stable. The next phase (Phase 10) will focus on advanced composition tools and synthesis.
+**Current State:** Phase 10 (Transitions Core) is stable. The core transitions engine, UI, voice sustain, contextual morphing, melodic flourishes (enclosures, run-ups), and dynamic slice UI are complete.
 
-**Phase 10: Advanced Synthesis & Melody (Upcoming / Brainstorming)**
+**Phase 10: Advanced Composition Tools (Pending)**
 - [ ] **Melody Editor:** Introduce a dedicated timeline for drawing and generating lead melodies over the chord progression.
-- [x] **Advanced Modular Synthesis:** Expand sound design capabilities with pluggable, editable synths (e.g., FM, Pluck) tailored for AI audio recognition, controlled via a dedicated Synth Editor UI.
-- [ ] **Transitions:** Algorithmic controls to program transitions and alter inner voices (e.g., passing tones, suspensions) via a new Transitions Mode in the Chords tab. See `transitions_plan.md` for the strict SSOT implementation plan.
+- [ ] **Transitions - Generative Personas:** Probabilistic behaviors (e.g., Restless Voice, Lazy Voice) evaluated per loop.
+- [ ] **Transitions - Rhythmic Anchoring:** Sync transition trigger timing to specific drum hits in the `drumPattern`.
+- [ ] **Transitions - Hierarchical Collision:** Temporal priority queue (Melody > Bass > Inner Voices) so inner voices yield in a clash.
+- [ ] **Transitions - Tension Triggers:** Activate transitions based on the chord's Tension score.
+- [ ] **Transitions - UI Polish:** Zoom/Scroll slider for the transitions grid, Flourish Rate/Type Slider, and smoothly fluctuating random rates.
 
 
 ## SHORTHANDS

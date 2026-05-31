@@ -1,6 +1,6 @@
 import { resolveVoiceCollision, segmentMicrotonalCluster, snapToGrid } from './theory.js';
 
-export function getTransitionPitch(transition, voiceIndex, currentNotes, prevNotes, nextNotes) {
+export function getTransitionPitch(transition, voiceIndex, currentNotes, prevNotes, nextNotes, midPoint = 0) {
     const current = currentNotes[voiceIndex];
     const prev = prevNotes ? prevNotes[voiceIndex] : current;
     const next = nextNotes ? nextNotes[voiceIndex] : current;
@@ -11,18 +11,38 @@ export function getTransitionPitch(transition, voiceIndex, currentNotes, prevNot
     const n = next !== undefined ? next : c;
 
     const isStart = transition.startTime < 0.5;
+    const progress = Math.max(0, Math.min(1, (midPoint - transition.startTime) / transition.duration));
+    
+    const target = isStart ? c : n; // 'target' is what the flourish resolves INTO
+    const stationary = currentNotes.filter((_, i) => i !== voiceIndex);
 
     switch (transition.type) {
         case 'passing': {
-            // Pass from Previous note if early in the slot, pass to Next note if late
-            const target = isStart ? (p + c) / 2 : (c + n) / 2;
-            const stationary = currentNotes.filter((_, i) => i !== voiceIndex);
-            return resolveVoiceCollision(target, stationary);
+            const passPitch = isStart ? (p + c) / 2 : (c + n) / 2;
+            return resolveVoiceCollision(passPitch, stationary);
         }
         case 'anticipate':
             return isStart ? c : n;
         case 'suspend':
             return isStart ? p : c;
+        case 'run-up': {
+            // Approaches the target from below via 3 steps
+            if (progress < 0.33) return resolveVoiceCollision(target - 4, stationary);
+            if (progress < 0.66) return resolveVoiceCollision(target - 2, stationary);
+            return resolveVoiceCollision(target - 1, stationary);
+        }
+        case 'run-down': {
+            // Approaches the target from above via 3 steps
+            if (progress < 0.33) return resolveVoiceCollision(target + 4, stationary);
+            if (progress < 0.66) return resolveVoiceCollision(target + 2, stationary);
+            return resolveVoiceCollision(target + 1, stationary);
+        }
+        case 'enclosure': {
+            // Standard Jazz Enclosure: Above, Below, Target (resolves on the downbeat outside the block)
+            if (progress < 0.33) return resolveVoiceCollision(target + 2, stationary);
+            if (progress < 0.66) return resolveVoiceCollision(target - 1, stationary);
+            return resolveVoiceCollision(target + 1, stationary);
+        }
         default:
             return c;
     }
@@ -30,25 +50,36 @@ export function getTransitionPitch(transition, voiceIndex, currentNotes, prevNot
 
 export function expandMasterTransitions(transitions, currentNotes, prevNotes, nextNotes) {
     const expanded = [];
-    transitions.forEach(t => {
-        if (t.voiceIndex === 'master') {
+    const voiceTransitions = transitions.filter(t => t.voiceIndex !== 'master');
+    const masterTransitions = transitions.filter(t => t.voiceIndex === 'master');
+
+    masterTransitions.forEach(t => {
+        currentNotes.forEach((note, i) => {
+            // Priority check: Individual voice lanes override the master lane if they overlap in time
+            const hasExplicitOverride = voiceTransitions.some(vt => 
+                parseInt(vt.voiceIndex, 10) === i && 
+                vt.startTime < t.startTime + t.duration && 
+                vt.startTime + vt.duration > t.startTime
+            );
+
+            if (hasExplicitOverride) return;
+
             if (t.type === 'auto-smooth') {
-                currentNotes.forEach((note, i) => {
-                    const nextNote = nextNotes ? nextNotes[i] : note;
-                    if (nextNote !== undefined && Math.abs(nextNote - note) >= 2) {
-                        expanded.push({ ...t, voiceIndex: i, type: 'passing', startTime: 0.8, duration: 0.2 });
-                    }
-                });
+                const nextNote = nextNotes ? nextNotes[i] : note;
+                if (nextNote !== undefined && Math.abs(nextNote - note) >= 2) {
+                    expanded.push({ ...t, voiceIndex: i, type: 'passing', startTime: 0.8, duration: 0.2 });
+                }
             } else if (t.type === 'suspend-all') {
-                currentNotes.forEach((note, i) => {
-                    expanded.push({ ...t, voiceIndex: i, type: 'suspend', startTime: 0.0, duration: 0.2 });
-                });
+                expanded.push({ ...t, voiceIndex: i, type: 'suspend' }); // Legacy compatibility
+            } else {
+                // Map all standard flourishes (enclosures, run-ups) directly to the individual voices
+                expanded.push({ ...t, voiceIndex: i });
             }
-        } else {
-            expanded.push(t);
-        }
+        });
     });
-    return expanded;
+
+    // Return explicit voice transitions first so they take ultimate priority
+    return [...voiceTransitions, ...expanded];
 }
 
 export function sliceInstancesByTransitions(instances, transitions, currentNotes, prevNotes, nextNotes) {
@@ -59,12 +90,24 @@ export function sliceInstancesByTransitions(instances, transitions, currentNotes
         }));
     }
 
-    const activeTrans = expandMasterTransitions(transitions, currentNotes, prevNotes, nextNotes);
+    // Evaluate probability once per block to ensure multi-note flourishes play in their entirety or not at all
+    const activeTrans = expandMasterTransitions(transitions, currentNotes, prevNotes, nextNotes)
+        .filter(t => t.probability == null || Math.random() <= t.probability);
     
     // Deduplicate all time boundaries from both instances and transitions
     const boundaries = new Set([0, 1]);
     instances.forEach(inst => { boundaries.add(inst.startTime); boundaries.add(inst.startTime + inst.duration); });
-    activeTrans.forEach(t => { boundaries.add(t.startTime); boundaries.add(t.startTime + t.duration); });
+    activeTrans.forEach(t => { 
+        boundaries.add(t.startTime); 
+        boundaries.add(t.startTime + t.duration); 
+        
+        // Subdivide time boundaries for multi-note flourishes
+        if (['run-up', 'run-down', 'enclosure'].includes(t.type)) {
+            const stepDur = t.duration / 3.0; // 3-note sequences
+            boundaries.add(Math.round((t.startTime + stepDur) * 1000) / 1000);
+            boundaries.add(Math.round((t.startTime + (stepDur * 2)) * 1000) / 1000);
+        }
+    });
 
     const sortedBoundaries = Array.from(boundaries).sort((a, b) => a - b);
     const slicedInstances = [];
@@ -83,8 +126,8 @@ export function sliceInstancesByTransitions(instances, transitions, currentNotes
             for (let v = 0; v < currentNotes.length; v++) {
                 const activeT = activeTrans.find(t => parseInt(t.voiceIndex, 10) === v && midPoint >= t.startTime && midPoint <= t.startTime + t.duration);
                 
-                if (activeT && (activeT.probability == null || Math.random() <= activeT.probability)) {
-                    sliceNotes.push(getTransitionPitch(activeT, v, currentNotes, prevNotes, nextNotes));
+                if (activeT) {
+                    sliceNotes.push(getTransitionPitch(activeT, v, currentNotes, prevNotes, nextNotes, midPoint));
                 } else {
                     sliceNotes.push(currentNotes[v] + (activeInst.pitchOffsets?.[v] || activeInst.pitchOffset || 0));
                 }

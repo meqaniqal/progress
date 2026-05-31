@@ -19,7 +19,7 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Per-Chord Rhythm Editor:** Timeline view for slicing, moving, and generating complex rhythms within individual chord slots.
 - **Polyrhythmic Arpeggiation:** Apply localized arpeggiator settings to slices of your chord to create intricate polyrhythms.
 - **Variable Chord Durations:** Adjust individual chord lengths (1, 2, 4, or 8 beats) directly from the UI, scaling playback, exports, and timeline grids dynamically.
-- **Algorithmic Transitions:** Inject passing tones, suspensions, and anticipations to mathematically smooth the voice-leading between chords.
+- **Algorithmic Transitions:** Inject passing tones, suspensions, and anticipations to mathematically smooth the voice-leading between chords. Now includes multi-note generative flourishes like enclosures and scalar runs.
 
 ## 🗺️ Development Roadmap
 
@@ -83,6 +83,14 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **State Manager Purification:** Extracted macro-baking logic into dedicated utility modules.
 - **Memory Leak Resolution:** Audited and patched dynamic UI injections.
 - **High-Performance Visual Sync:** Refactored the sequencer's highlighting engine to a `requestAnimationFrame` event queue, ensuring butter-smooth V-Sync rendering and eliminating background-tab audio blasts.
+
+### Phase 10: Advanced Composition Tools (In Progress 🚧)
+- **Transitions Mode (Phase 1, 1.5, & 2 Complete):** Implemented a dedicated "Transitions" mode in the Pattern Editor to algorithmically program inner voice movement between chords.
+- **Voice Lanes UI:** Added horizontal continuous voice lanes and a "Master All Notes" lane for macro-tweaking.
+- **Interactive Transition Blocks:** Click and drag to insert, resize, and move transition blocks. Vertical dragging now contextually swaps transition types based on timeline position.
+- **Independent Voice Sustain:** Rhythmically decoupled voices allow static chord tones to sustain continuously while adjacent voices perform transitions.
+- **Melodic Flourishes:** Generative multi-note patterns (Run Up, Run Down, Enclosure) intelligently subdivide block time boundaries to lead into target chords.
+- **Dynamic Slice UI:** The 'Split' button now visually attaches to the slider thumb and tracks horizontally for intuitive slicing.
 
 ## 🛠️ Local Development
 

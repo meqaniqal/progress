@@ -178,6 +178,8 @@ export function exportToMidi(state) {
             const prevNotes = midiNotesToWrite[(absIndex - 1 + trueProgressionLength) % trueProgressionLength] || chordNotes;
             const nextNotes = midiNotesToWrite[(absIndex + 1) % trueProgressionLength] || chordNotes;
 
+            const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || state.divisions || 12);
+
             const slicedInstances = evaluateVerticalSlices(
                 pattern.instances,
                 pattern.transitions || [],
