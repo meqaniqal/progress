@@ -1,20 +1,88 @@
 import { resolveVoiceCollision, segmentMicrotonalCluster, snapToGrid } from './theory.js';
 
-export function getTransitionPitch(transition, voiceIndex, currentNotes, prevNotes, nextNotes, midPoint = 0) {
+function getTransitionPitchForStep(transition, step, voiceIndex, currentNotes, prevNotes, nextNotes) {
     const current = currentNotes[voiceIndex];
     const prev = prevNotes ? prevNotes[voiceIndex] : current;
     const next = nextNotes ? nextNotes[voiceIndex] : current;
 
-    // Safe fallbacks for unequal voicing arrays
     const c = current !== undefined ? current : (prev !== undefined ? prev : (next !== undefined ? next : 60));
     const p = prev !== undefined ? prev : c;
     const n = next !== undefined ? next : c;
 
-    const isStart = transition.startTime < 0.5;
-    const progress = Math.max(0, Math.min(1, (midPoint - transition.startTime) / transition.duration));
-    
-    const target = isStart ? c : n; // 'target' is what the flourish resolves INTO
+    // A flourish resolves into the chord it touches at its right edge.
+    const isResolvingToNext = (transition.startTime + transition.duration) > 0.5;
+    const target = isResolvingToNext ? n : c; 
     const stationary = currentNotes.filter((_, i) => i !== voiceIndex);
+    const rate = transition.flourishRate;
+
+    switch (transition.type) {
+        case 'run-up': {
+            const offset = (step - rate);
+            return resolveVoiceCollision(target + offset, stationary);
+        }
+        case 'run-down': {
+            const offset = (rate - step);
+            return resolveVoiceCollision(target + offset, stationary);
+        }
+        case 'enclosure': {
+            let offset = 0;
+            if (step % 2 === 0) {
+                offset = Math.ceil((rate - step) / 2);
+            } else {
+                offset = -Math.ceil((rate - step) / 2);
+            }
+            return resolveVoiceCollision(target + offset, stationary);
+        }
+        case 'random': {
+            if (transition.startTime < 0.01 && step === 0) {
+                const startPool = [p + 1, p - 1, p + 2, p - 2, Math.round((p + c) / 2)];
+                return resolveVoiceCollision(startPool[Math.floor(Math.random() * startPool.length)], stationary);
+            }
+            
+            if (transition.startTime + transition.duration > 0.99 && step === rate - 1) {
+                const endPool = [n + 1, n - 1, n + 2, n - 2, Math.round((c + n) / 2)];
+                return resolveVoiceCollision(endPool[Math.floor(Math.random() * endPool.length)], stationary);
+            }
+
+            const origin = (transition.startTime < 0.01) ? p : c;
+            const pool = [
+                origin, target, 
+                Math.round((origin + target) / 2), 
+                origin + 2, 
+                target - 1
+            ];
+            return resolveVoiceCollision(pool[Math.floor(Math.random() * pool.length)], stationary);
+        }
+        default:
+            return c;
+    }
+}
+
+export function getTransitionPitch(transition, voiceIndex, currentNotes, prevNotes, nextNotes, midPoint = 0) {
+    if (transition.stepPitches) {
+        const progress = Math.max(0, Math.min(1, (midPoint - transition.startTime) / transition.duration));
+        const rate = transition.flourishRate;
+        const step = Math.min(rate - 1, Math.floor(progress * rate));
+        return transition.stepPitches[step];
+    }
+
+    const current = currentNotes[voiceIndex];
+    const prev = prevNotes ? prevNotes[voiceIndex] : current;
+    const next = nextNotes ? nextNotes[voiceIndex] : current;
+
+    const c = current !== undefined ? current : 60;
+    const p = prev !== undefined ? prev : c;
+    const n = next !== undefined ? next : c;
+
+    const isStart = transition.startTime < 0.5;
+    const stationary = currentNotes.filter((_, i) => i !== voiceIndex);
+
+    if (['run-up', 'run-down', 'enclosure', 'random'].includes(transition.type)) {
+        const progress = Math.max(0, Math.min(1, (midPoint - transition.startTime) / transition.duration));
+        const rate = transition.flourishRate || (transition.type === 'random' ? 4 : 3);
+        const step = Math.min(rate - 1, Math.floor(progress * rate));
+        return getTransitionPitchForStep({ ...transition, flourishRate: rate }, step, voiceIndex, currentNotes, prevNotes, nextNotes);
+    }
 
     switch (transition.type) {
         case 'passing': {
@@ -25,24 +93,6 @@ export function getTransitionPitch(transition, voiceIndex, currentNotes, prevNot
             return isStart ? c : n;
         case 'suspend':
             return isStart ? p : c;
-        case 'run-up': {
-            // Approaches the target from below via 3 steps
-            if (progress < 0.33) return resolveVoiceCollision(target - 4, stationary);
-            if (progress < 0.66) return resolveVoiceCollision(target - 2, stationary);
-            return resolveVoiceCollision(target - 1, stationary);
-        }
-        case 'run-down': {
-            // Approaches the target from above via 3 steps
-            if (progress < 0.33) return resolveVoiceCollision(target + 4, stationary);
-            if (progress < 0.66) return resolveVoiceCollision(target + 2, stationary);
-            return resolveVoiceCollision(target + 1, stationary);
-        }
-        case 'enclosure': {
-            // Standard Jazz Enclosure: Above, Below, Target (resolves on the downbeat outside the block)
-            if (progress < 0.33) return resolveVoiceCollision(target + 2, stationary);
-            if (progress < 0.66) return resolveVoiceCollision(target - 1, stationary);
-            return resolveVoiceCollision(target + 1, stationary);
-        }
         default:
             return c;
     }
@@ -82,7 +132,7 @@ export function expandMasterTransitions(transitions, currentNotes, prevNotes, ne
     return [...voiceTransitions, ...expanded];
 }
 
-export function sliceInstancesByTransitions(instances, transitions, currentNotes, prevNotes, nextNotes) {
+export function sliceInstancesByTransitions(instances, transitions, currentNotes, prevNotes, nextNotes, chordDurationSec = 2.0) {
     if (!transitions || transitions.length === 0) {
         return instances.map(inst => ({
             ...inst,
@@ -92,20 +142,76 @@ export function sliceInstancesByTransitions(instances, transitions, currentNotes
 
     // Evaluate probability once per block to ensure multi-note flourishes play in their entirety or not at all
     const activeTrans = expandMasterTransitions(transitions, currentNotes, prevNotes, nextNotes)
-        .filter(t => t.probability == null || Math.random() <= t.probability);
+        .filter(t => t.probability == null || Math.random() <= t.probability)
+        .map(t => {
+            if (['run-up', 'run-down', 'enclosure', 'random'].includes(t.type)) {
+                // Dynamic Rate Limiting: Minimum 50ms per note to clearly register pitch
+                const absoluteDurationSec = t.duration * chordDurationSec;
+                const maxAllowedRate = Math.floor(absoluteDurationSec / 0.05); // 50ms minimum per note
+                
+                if (maxAllowedRate < 2) {
+                    // If it can't even fit 2 notes cleanly, downgrade to a single passing tone
+                    return { ...t, type: 'passing', flourishRate: undefined };
+                }
+                
+                const defaultRate = t.type === 'random' ? 4 : 3;
+                let rate = t.flourishRate || defaultRate;
+                
+                // Throttle rate if physical time is too short
+                if (rate > maxAllowedRate) {
+                    rate = maxAllowedRate;
+                }
+                
+                // Pre-calculate step pitches to ensure rhythmic consistency and prevent merging
+                const stepPitches = [];
+                let lastPitch = null;
+                for (let i = 0; i < rate; i++) {
+                    let pitch = getTransitionPitchForStep({ ...t, flourishRate: rate }, i, parseInt(t.voiceIndex, 10), currentNotes, prevNotes, nextNotes);
+                    
+                    // Prevent consecutive duplicate pitches so audio engine doesn't merge them
+                    let attempts = 3;
+                    while (pitch === lastPitch && attempts > 0) {
+                        if (t.type === 'random') {
+                            pitch = getTransitionPitchForStep({ ...t, flourishRate: rate }, i, parseInt(t.voiceIndex, 10), currentNotes, prevNotes, nextNotes);
+                        } else {
+                            pitch += (Math.random() > 0.5 ? 1 : -1);
+                            pitch = resolveVoiceCollision(pitch, currentNotes.filter((_, idx) => idx !== parseInt(t.voiceIndex, 10)));
+                        }
+                        attempts--;
+                    }
+                    
+                    // Hard fallback if random pool failed to find a unique note after 3 attempts
+                    if (pitch === lastPitch && lastPitch !== null) {
+                        pitch += 1;
+                        pitch = resolveVoiceCollision(pitch, currentNotes.filter((_, idx) => idx !== parseInt(t.voiceIndex, 10)));
+                    }
+                    stepPitches.push(pitch);
+                    lastPitch = pitch;
+                }
+                
+                return { ...t, flourishRate: rate, stepPitches };
+            }
+            return t;
+        });
     
     // Deduplicate all time boundaries from both instances and transitions
     const boundaries = new Set([0, 1]);
-    instances.forEach(inst => { boundaries.add(inst.startTime); boundaries.add(inst.startTime + inst.duration); });
+    
+    // Round to 3 decimal places (1ms precision) to completely eliminate float fragmentation slivers
+    instances.forEach(inst => { 
+        boundaries.add(Math.round(inst.startTime * 1000) / 1000); 
+        boundaries.add(Math.round((inst.startTime + inst.duration) * 1000) / 1000); 
+    });
     activeTrans.forEach(t => { 
-        boundaries.add(t.startTime); 
-        boundaries.add(t.startTime + t.duration); 
+        boundaries.add(Math.round(t.startTime * 1000) / 1000); 
+        boundaries.add(Math.round((t.startTime + t.duration) * 1000) / 1000); 
         
-        // Subdivide time boundaries for multi-note flourishes
-        if (['run-up', 'run-down', 'enclosure'].includes(t.type)) {
-            const stepDur = t.duration / 3.0; // 3-note sequences
-            boundaries.add(Math.round((t.startTime + stepDur) * 1000) / 1000);
-            boundaries.add(Math.round((t.startTime + (stepDur * 2)) * 1000) / 1000);
+        // Subdivide time boundaries for multi-note flourishes based on flourishRate
+        if (['run-up', 'run-down', 'enclosure', 'random'].includes(t.type) && t.flourishRate && t.flourishRate > 1) {
+            const stepDur = t.duration / t.flourishRate;
+            for (let i = 1; i < t.flourishRate; i++) {
+                boundaries.add(Math.round((t.startTime + (stepDur * i)) * 1000) / 1000);
+            }
         }
     });
 
@@ -140,8 +246,8 @@ export function sliceInstancesByTransitions(instances, transitions, currentNotes
     return slicedInstances;
 }
 
-export function evaluateVerticalSlices(instances, transitions, currentNotes, prevNotes, nextNotes, editorTuning, autoPanLeading) {
-    const sliced = sliceInstancesByTransitions(instances, transitions, currentNotes, prevNotes, nextNotes);
+export function evaluateVerticalSlices(instances, transitions, currentNotes, prevNotes, nextNotes, editorTuning, autoPanLeading, chordDurationSec = 2.0) {
+    const sliced = sliceInstancesByTransitions(instances, transitions, currentNotes, prevNotes, nextNotes, chordDurationSec);
 
     sliced.forEach(slice => {
         slice.willPlay = (slice.probability === undefined || Math.random() <= slice.probability);
@@ -167,8 +273,8 @@ export function evaluateVerticalSlices(instances, transitions, currentNotes, pre
     return sliced;
 }
 
-export function evaluateVoiceEvents(instances, transitions, currentNotes, prevNotes, nextNotes, editorTuning, autoPanLeading) {
-    const sliced = evaluateVerticalSlices(instances, transitions, currentNotes, prevNotes, nextNotes, editorTuning, autoPanLeading);
+export function evaluateVoiceEvents(instances, transitions, currentNotes, prevNotes, nextNotes, editorTuning, autoPanLeading, chordDurationSec = 2.0) {
+    const sliced = evaluateVerticalSlices(instances, transitions, currentNotes, prevNotes, nextNotes, editorTuning, autoPanLeading, chordDurationSec);
 
     const events = [];
     const instancesById = {};

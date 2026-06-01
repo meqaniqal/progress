@@ -187,7 +187,8 @@ export function exportToMidi(state) {
                 prevNotes,
                 nextNotes,
                 editorTuning,
-                false
+                false,
+                chordDurationSec
             );
 
             // Sort instances by startTime to ensure sequential MIDI rendering

@@ -3,7 +3,9 @@ export const GRID_STEPS = [
     { label: '1/4T', value: 0.25 * (2/3) },
     { label: '1/8', value: 0.125 },
     { label: '1/8T', value: 0.125 * (2/3) },
-    { label: '1/16', value: 0.0625 }
+    { label: '1/16', value: 0.0625 },
+    { label: '1/16T', value: 0.0625 * (2/3) },
+    { label: '1/32', value: 0.03125 }
 ];
 
 export const DRUM_ROWS = ['ohh', 'chh', 'snare', 'kick'];

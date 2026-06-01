@@ -195,7 +195,8 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             prevNotes,
             nextNotes,
             editorTuning,
-            state.autoPanLeading
+            state.autoPanLeading,
+            chordSlotDuration
         );
 
         voiceEvents.forEach(ev => {

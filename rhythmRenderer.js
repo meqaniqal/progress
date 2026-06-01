@@ -9,6 +9,7 @@ import {
 } from './rhythmEditor.js';
 import { generateArpNotes } from './arp.js';
 import { getChordNotes, getEffectiveTuning, getPitchEditorTuning, getPlayableNotes } from './theory.js';
+import { GRID_STEPS } from './rhythmConfig.js';
 
 const PITCH_LABELS = {
     '-12': '-8ve', '-11': '-M7', '-10': '-m7', '-9': '-M6', '-8': '-m6', '-7': '-P5', '-6': '-TT', '-5': '-P4', '-4': '-M3', '-3': '-m3', '-2': '-M2', '-1': '-m2',
@@ -139,6 +140,24 @@ export function renderRhythmTimeline() {
     if (btnTransitionsToggle) {
         btnTransitionsToggle.style.display = isChordTab ? 'inline-block' : 'none';
         btnTransitionsToggle.classList.toggle('active', isTransitionsMode);
+    }
+    
+    const gridSlider = document.getElementById('rhythm-grid-slider');
+    if (gridSlider) {
+        if (isTransitionsMode) {
+            gridSlider.min = "2"; // 1/8
+            gridSlider.max = "6"; // 1/32
+            if (editorState.gridStepIndex < 2) editorState.gridStepIndex = 2;
+            if (editorState.gridStepIndex > 6) editorState.gridStepIndex = 6;
+        } else {
+            gridSlider.min = "0"; // 1/4
+            gridSlider.max = "6"; // 1/32
+        }
+        gridSlider.value = editorState.gridStepIndex;
+        const gridDisplay = document.getElementById('grid-display-value');
+        if (gridDisplay && editorState.isGridEnabled) {
+            gridDisplay.textContent = GRID_STEPS[editorState.gridStepIndex].label;
+        }
     }
     
     const pitchResetGroup = document.getElementById('pitch-reset-group');
@@ -306,9 +325,25 @@ export function renderRhythmTimeline() {
                     const tDef = TRANS_COLORS[selectedTrans[0].type];
                     if (transDisplay) transDisplay.textContent = tDef ? tDef.text : selectedTrans[0].type;
                 }
+                
+                const rateWrapper = document.getElementById('prop-flourish-rate-wrapper');
+                if (rateWrapper) {
+                    if (['run-up', 'run-down', 'enclosure', 'random'].includes(selectedTrans[0].type)) {
+                        rateWrapper.style.display = 'flex';
+                        const rateSlider = document.getElementById('prop-flourish-rate-slider');
+                        const rateDisplay = document.getElementById('prop-flourish-rate-display');
+                        let currentRate = selectedTrans[0].flourishRate || (selectedTrans[0].type === 'random' ? 4 : 3);
+                        if (rateSlider) rateSlider.value = currentRate;
+                        if (rateDisplay) rateDisplay.textContent = currentRate;
+                    } else {
+                        rateWrapper.style.display = 'none';
+                    }
+                }
             } else {
                 if (pitchWrapper) pitchWrapper.style.display = 'none';
                 if (transWrapper) transWrapper.style.display = 'none';
+                const rateWrapper = document.getElementById('prop-flourish-rate-wrapper');
+                if (rateWrapper) rateWrapper.style.display = 'none';
             }
         }
 

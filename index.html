@@ -279,7 +279,7 @@
                     </div>
                     <div class="toolbar-group-panel" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap;">
                         <button id="btn-grid-toggle" class="tool-btn grid-toggle-btn active" title="Toggle Grid Snapping">Grid: <span id="grid-display-value">1/16</span></button>
-                        <input type="range" id="rhythm-grid-slider" min="0" max="4" value="4" class="range-sm">
+                        <input type="range" id="rhythm-grid-slider" min="0" max="6" value="4" class="range-sm">
                     </div>
                 </div>
                 <!-- Arp & Properties Row -->
@@ -314,6 +314,11 @@
                         <div id="prop-transition-wrapper" class="prop-control-wrapper" style="display: none;">
                             <span class="prop-val-label">TYPE:</span>
                             <span id="prop-transition-display" class="prop-pitch-display" style="width: auto; padding: 0 4px;">Pass</span>
+                        </div>
+                        <div id="prop-flourish-rate-wrapper" class="prop-control-wrapper" style="display: none;">
+                            <span class="prop-val-label" title="Flourish Rate (Subdivisions)">RATE:</span>
+                            <input type="range" id="prop-flourish-rate-slider" min="2" max="8" step="1" value="3" class="range-sm" title="Notes">
+                            <span id="prop-flourish-rate-display" class="prop-pitch-display" style="width: auto; padding: 0 4px;">3</span>
                         </div>
                         <div id="prop-velocity-wrapper" class="prop-control-wrapper">
                             <span class="prop-val-label" title="Velocity">VEL:</span>

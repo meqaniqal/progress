@@ -202,6 +202,29 @@ function _setupDrumControls() {
 function _setupPropertiesControls() {
     const velSlider = document.getElementById('prop-velocity-slider');
     const probSlider = document.getElementById('prop-probability-slider');
+    const rateSlider = document.getElementById('prop-flourish-rate-slider');
+    
+    if (rateSlider) {
+        rateSlider.addEventListener('input', (e) => {
+            const pattern = getCurrentPattern();
+            if (!pattern) return;
+            const newRate = parseInt(e.target.value, 10);
+            
+            if (editorState.activeTab === 'chordPattern' && editorState.isTransitionsModeEnabled) {
+                const selectedTrans = (pattern.transitions || []).filter(t => t.isSelected);
+                if (selectedTrans.length > 0) {
+                    let newPattern = pattern;
+                    selectedTrans.forEach(trans => {
+                        newPattern = updateTransition(newPattern, trans.id, { flourishRate: newRate });
+                    });
+                    setCurrentPattern(newPattern);
+                }
+            }
+            app.persistAppState();
+            renderRhythmTimeline();
+        });
+        rateSlider.addEventListener('change', () => app.saveHistoryState());
+    }
     
     // --- Pitch Property Controls ---
     const btnPitchUp = document.getElementById('btn-pitch-up');

@@ -112,4 +112,8 @@
 - **Transition Audio Engine:** Built `transitionEvaluator.js` to dynamically slice instances and bend pitches during playback based on adjacent chord context.
 - **Collision Physics:** Added real-time collision detection to nudge passing tones away from muddy minor-second clashes.
 - **Generative Transitions:** Wired the probability slider to transition blocks for chance-based harmonic flourishes.
+- **Flourish Rate Control:** Added a dedicated slider to control the density of multi-note flourishes (e.g., 2 to 8 notes).
+- **Dynamic Acoustic Thresholds:** The transition engine now calculates absolute chord duration to prevent microscopic, glitchy notes by dynamically throttling flourish rates (minimum 50ms per note) or gracefully downgrading to a passing tone.
+- **Flourish Consistency:** Pre-calculated step pitches to ensure that generative flourishes (like Random) do not roll consecutive duplicate notes, preserving rhythmic integrity.
+- **Expanded Grid Snapping:** Added 1/16T and 1/32 grid options for microscopic transition editing.
 - **Export Integration:** Seamlessly integrated transition math into both `.mid` (MidiWriterJS) and `.wav` (OfflineAudioContext) offline export engines with perfect loop-boundary context wrapping.

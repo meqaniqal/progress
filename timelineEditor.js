@@ -435,11 +435,11 @@ export function initTimelineInteractions(timeline) {
                     const isEarly = trans.startTime < 0.5;
                     
                     if (dragStartTransVoice === 'master') {
-                        types = ['auto-smooth', 'passing', 'enclosure'];
+                        types = ['auto-smooth', 'passing', 'enclosure', 'random'];
                         if (isEarly) types.push('suspend');
                         else types.push('anticipate', 'run-up', 'run-down');
                     } else {
-                        types = ['passing', 'enclosure'];
+                        types = ['passing', 'enclosure', 'random'];
                         if (isEarly) {
                             types.push('suspend');
                         } else {

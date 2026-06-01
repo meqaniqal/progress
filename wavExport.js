@@ -79,7 +79,8 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     prevNotes,
                     nextNotes,
                     editorTuning,
-                    globalOptions.autoPanLeading !== false
+                    globalOptions.autoPanLeading !== false,
+                    duration
                 );
 
                 voiceEvents.forEach(ev => {
