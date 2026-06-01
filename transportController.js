@@ -1,7 +1,7 @@
 import { state, getActiveProgression, persistAppState, switchActiveSection } from './store.js';
 import { playProgression, stopAllAudio } from './sequencer.js';
 import { highlightChordInUI } from './ui.js';
-import { highlightDrumHit } from './rhythmEditor.js';
+import { highlightDrumHit, highlightSlice } from './rhythmEditor.js';
 import { setTrackVolume } from './synth.js';
 import { updateSongUI, setActiveSequenceIndex } from './songController.js';
 
@@ -36,7 +36,8 @@ export function restartTransport() {
                     isPlaying = false;
                     currentPlaybackStopFunction = null;
                 },
-                highlightDrumHit
+                highlightDrumHit,
+                highlightSlice
             );
             playToggleBtn.textContent = '■';
             isPlaying = true;
@@ -163,7 +164,8 @@ export function initTransport(callbacks) {
                     isPlaying = false;
                     currentPlaybackStopFunction = null;
                 },
-                highlightDrumHit
+                highlightDrumHit,
+                highlightSlice
             );
             playToggleBtn.textContent = '■';
             isPlaying = true;

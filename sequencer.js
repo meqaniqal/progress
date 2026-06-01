@@ -98,7 +98,7 @@ function getActive(secState) {
  * @param {function} onComplete - Callback when playback finishes (if not looping).
  * @returns {function} A function that, when called, stops this playback instance.
  */
-export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
+export function playProgression(getState, onHighlight, onComplete, onDrumPlay, onSlicePlay) {
     initAudio();
 
     let nextNoteTime = 0.0;
@@ -188,6 +188,20 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
 
         const editorTuning = getPitchEditorTuning(chordObj.symbol, chordObj.divisions || state.divisions || 12);
 
+        // --- Schedule Chord Slice UI Highlights ---
+        if (onSlicePlay && pattern.instances) {
+            pattern.instances.forEach(instance => {
+                const instanceStartTime = time + (instance.startTime * chordSlotDuration);
+                const durationMs = instance.duration * chordSlotDuration * 1000;
+                const delayMs = (instanceStartTime - getAudioCurrentTime()) * 1000;
+                const tId = setTimeout(() => {
+                    onSlicePlay(instance.id, durationMs);
+                    uiTimeouts = uiTimeouts.filter(id => id !== tId);
+                }, Math.max(0, delayMs));
+                uiTimeouts.push(tId);
+            });
+        }
+
         const voiceEvents = evaluateVoiceEvents(
             pattern.instances,
             pattern.transitions || [],
@@ -195,8 +209,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
             prevNotes,
             nextNotes,
             editorTuning,
-            state.autoPanLeading,
-            chordSlotDuration
+            state.autoPanLeading
         );
 
         voiceEvents.forEach(ev => {
@@ -244,6 +257,18 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay) {
 
                 const instanceStartTime = time + (instance.startTime * chordSlotDuration);
                 const instanceDuration = instance.duration * chordSlotDuration;
+                
+                // --- Schedule Bass Slice UI Highlights ---
+                if (onSlicePlay && instance.id) {
+                    const delayMs = (instanceStartTime - getAudioCurrentTime()) * 1000;
+                    const durationMs = instanceDuration * 1000;
+                    const tId = setTimeout(() => {
+                        onSlicePlay(instance.id, durationMs);
+                        uiTimeouts = uiTimeouts.filter(id => id !== tId);
+                    }, Math.max(0, delayMs));
+                    uiTimeouts.push(tId);
+                }
+                
                 const gateDuration = instanceDuration * 0.95;
                 const editorTuning = getPitchEditorTuning(rootSymbol, chordObj.divisions || state.divisions || 12);
                 const snappedOffset = snapToGrid(60 + (instance.pitchOffset || 0), editorTuning) - 60;

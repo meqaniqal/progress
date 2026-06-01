@@ -13,7 +13,8 @@ export function resolvePattern(pattern, isGlobal, chordBeats, inheritMode = null
         if (pattern.instances) pattern.instances.forEach(i => resolvedInstances.push({ ...i }));
         if (pattern.hits) pattern.hits.forEach(h => resolvedHits.push({ ...h }));
     } else {
-        const GLOBAL_BEATS = pattern.lengthBeats || 4;
+        const defaultLength = pattern.hits ? 4 : 2;
+        const GLOBAL_BEATS = pattern.lengthBeats || defaultLength;
         const mode = inheritMode || pattern.globalMode || 'loop';
         
         if (mode === 'stretch') {

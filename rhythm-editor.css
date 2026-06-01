@@ -111,6 +111,19 @@
     z-index: 10;
 }
 
+/* --- Playback Highlights --- */
+.rhythm-instance.playing-slice {
+    box-shadow: 0 0 10px 2px rgba(251, 191, 36, 0.7) !important;
+    border-color: rgba(251, 191, 36, 1) !important;
+    z-index: 6;
+}
+.rhythm-instance.playing-slice:not(.pitch-mode-chord) {
+    filter: brightness(1.4) saturate(1.2);
+}
+.rhythm-instance.playing-slice.pitch-mode-chord {
+    background: rgba(251, 191, 36, 0.25) !important;
+}
+
 .rhythm-instance.pitch-mode-chord {
     background: rgba(255, 255, 255, 0.05);
     border: 1px dashed rgba(255, 255, 255, 0.2);

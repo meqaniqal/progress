@@ -110,6 +110,17 @@ export function setCurrentPattern(newPattern, markAsOverride = true) {
     }
 }
 
+export function highlightSlice(sliceId, durationMs = 150) {
+    if (editorState.activeTab === 'drumPattern') return; // Slices are not relevant in the drum tab
+    const sliceEl = document.querySelector(`.rhythm-instance[data-id="${sliceId}"]`);
+    if (sliceEl) {
+        sliceEl.classList.add('playing-slice');
+        setTimeout(() => {
+            if (sliceEl) sliceEl.classList.remove('playing-slice');
+        }, durationMs * 0.95); // Release slightly before the duration ends for punchy visual feedback
+    }
+}
+
 function initPitchResetControl() {
     const menuBtn = document.getElementById('btn-pitch-reset-menu');
     const dropdown = document.getElementById('pitch-reset-dropdown');

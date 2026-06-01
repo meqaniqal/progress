@@ -835,7 +835,48 @@ export function createAndAppendSection(name) {
 
     saveHistoryState();
     const currentSec = state.sections[state.activeSectionId];
-    const inheritedPatterns = currentSec ? structuredClone(currentSec.globalPatterns) : initPatternSet();
+    
+    // Smart Inheritance Heuristic: Inherit global patterns only if they are uniform across all existing sections.
+    let inheritedPatterns = initPatternSet();
+    if (currentSec) {
+        const sectionsArr = Object.values(state.sections);
+        let uniformChords = true;
+        let uniformBass = true;
+        let uniformDrums = true;
+        
+        if (sectionsArr.length > 1) {
+            const stripPat = (p) => {
+                if (!p) return null;
+                const clone = structuredClone(p);
+                if (clone.instances) clone.instances.forEach(i => delete i.id);
+                if (clone.hits) clone.hits.forEach(h => delete h.id);
+                return clone;
+            };
+            
+            const baseChords = JSON.stringify(stripPat(sectionsArr[0].globalPatterns.chordPattern));
+            const baseBass = JSON.stringify(stripPat(sectionsArr[0].globalPatterns.bassPattern));
+            const baseDrums = JSON.stringify(stripPat(sectionsArr[0].globalPatterns.drumPattern));
+            
+            for (let i = 1; i < sectionsArr.length; i++) {
+                const p = sectionsArr[i].globalPatterns;
+                if (uniformChords && JSON.stringify(stripPat(p.chordPattern)) !== baseChords) uniformChords = false;
+                if (uniformBass && JSON.stringify(stripPat(p.bassPattern)) !== baseBass) uniformBass = false;
+                if (uniformDrums && JSON.stringify(stripPat(p.drumPattern)) !== baseDrums) uniformDrums = false;
+            }
+        }
+        
+        const freshPatterns = initPatternSet();
+        inheritedPatterns = {
+            chordPattern: uniformChords ? structuredClone(currentSec.globalPatterns.chordPattern) : freshPatterns.chordPattern,
+            bassPattern: uniformBass ? structuredClone(currentSec.globalPatterns.bassPattern) : freshPatterns.bassPattern,
+            drumPattern: uniformDrums ? structuredClone(currentSec.globalPatterns.drumPattern) : { ...freshPatterns.drumPattern, lengthBeats: currentSec.globalPatterns.drumPattern.lengthBeats || 4 }
+        };
+        
+        // Ensure newly inherited instances have unique IDs to prevent reference bugs
+        if (inheritedPatterns.chordPattern.instances) inheritedPatterns.chordPattern.instances.forEach(i => i.id = Math.random().toString(36).substring(2, 10));
+        if (inheritedPatterns.bassPattern.instances) inheritedPatterns.bassPattern.instances.forEach(i => i.id = Math.random().toString(36).substring(2, 10));
+        if (inheritedPatterns.drumPattern.hits) inheritedPatterns.drumPattern.hits.forEach(h => h.id = Math.random().toString(36).substring(2, 10));
+    }
     
     const newId = 'sec-' + Math.random().toString(36).substring(2, 10);
     state.sections[newId] = {
