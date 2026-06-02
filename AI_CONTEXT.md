@@ -26,16 +26,14 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 7. CORRECTION PROTOCOL: If a mistake is pointed out, acknowledge the correct pattern and do not repeat the error. The user may provide a `// CORRECT_PATTERN: <description>` comment to reinforce a rule.
 
 ## CURRENT STATE & ROADMAP
-**Current State:** Phase 10 (Transitions Core) is stable. The core transitions engine, UI, voice sustain, contextual morphing, melodic flourishes (enclosures, run-ups), and dynamic slice UI are complete.
+- Track active sprint items, immediate tasks, and focus goals in [CURRENT_FOCUS.md](file:///Users/sheldonlawrence/Desktop/progress/CURRENT_FOCUS.md).
+- Long-term feature lists, music theory pillars, and completed project history reside in [PROGRESS_VISION.md](file:///Users/sheldonlawrence/Desktop/progress/PROGRESS_VISION.md). Refer to it only on-demand when starting new milestones or updating historical logs.
 
-**Phase 10: Advanced Composition Tools (Pending)**
-- [ ] **Melody Editor:** Introduce a dedicated timeline for drawing and generating lead melodies over the chord progression.
-- [ ] **Transitions - Generative Personas:** Probabilistic behaviors (e.g., Restless Voice, Lazy Voice) evaluated per loop.
-- [ ] **Transitions - Rhythmic Anchoring:** Sync transition trigger timing to specific drum hits in the `drumPattern`.
-- [ ] **Transitions - Hierarchical Collision:** Temporal priority queue (Melody > Bass > Inner Voices) so inner voices yield in a clash.
-- [ ] **Transitions - Tension Triggers:** Activate transitions based on the chord's Tension score.
-- [ ] **Transitions - UI Polish:** Zoom/Scroll slider for the transitions grid, and smoothly fluctuating random rates. (Flourish Rate Slider Complete ✅)
-
+## AGENTIC & TOKEN OPTIMIZATION PROTOCOLS
+- **SUBAGENTS:** Never automatically spawn subagents (`invoke_subagent` tool). Only propose spawning them if a task is highly parallelizable, and wait for explicit user approval.
+- **RESEARCH LOOP LIMITS:** Limit codebase research (grep, view_file, list_dir) to 2-3 iterations. If information cannot be found, stop and ask the user for clarification rather than looping.
+- **SUGGEST FIRST:** For token-intensive operations (e.g., major refactors, multi-file edits, or running heavy command scripts), draft or suggest the edits/commands first and let the user approve them or execute them manually.
+- **PREFER TARGETED EDITS:** Use targeted replacement blocks rather than rewriting entire files to keep prompt/response tokens low.
 
 ## SHORTHANDS
 - `fix_diff`: Fix diff + output Fresh Session Prompt.

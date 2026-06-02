@@ -347,8 +347,13 @@ export function renderRhythmTimeline() {
             }
         }
 
-        propsGroup.style.display = showProps ? 'flex' : 'none';
-        velWrapper.style.display = showVel ? 'flex' : 'none';
+        if (propsGroup) {
+            propsGroup.style.display = 'flex';
+            propsGroup.style.visibility = showProps ? 'visible' : 'hidden';
+        }
+        if (velWrapper) {
+            velWrapper.style.display = showVel ? 'flex' : 'none';
+        }
     }
 
     const leftoverDrumGrid = container.querySelector('.drum-grid');

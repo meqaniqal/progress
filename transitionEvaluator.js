@@ -1,4 +1,4 @@
-import { resolveVoiceCollision, segmentMicrotonalCluster, snapToGrid } from './theory.js';
+import { resolveHierarchicalCollisions, segmentMicrotonalCluster, snapToGrid } from './theory.js';
 
 function getTransitionPitchForStep(transition, step, voiceIndex, currentNotes, prevNotes, nextNotes) {
     const current = currentNotes[voiceIndex];
@@ -12,17 +12,21 @@ function getTransitionPitchForStep(transition, step, voiceIndex, currentNotes, p
     // A flourish resolves into the chord it touches at its right edge.
     const isResolvingToNext = (transition.startTime + transition.duration) > 0.5;
     const target = isResolvingToNext ? n : c; 
-    const stationary = currentNotes.filter((_, i) => i !== voiceIndex);
+    const origin = isResolvingToNext ? c : p;
     const rate = transition.flourishRate;
 
     switch (transition.type) {
         case 'run-up': {
-            const offset = (step - rate);
-            return resolveVoiceCollision(target + offset, stationary);
+            let startPitch = origin;
+            if (target <= origin) startPitch = target - rate; // Force from below
+            const totalDistance = target - startPitch;
+            return Math.round(startPitch + (totalDistance * ((step + 1) / (rate + 1))));
         }
         case 'run-down': {
-            const offset = (rate - step);
-            return resolveVoiceCollision(target + offset, stationary);
+            let startPitch = origin;
+            if (target >= origin) startPitch = target + rate; // Force from above
+            const totalDistance = target - startPitch;
+            return Math.round(startPitch + (totalDistance * ((step + 1) / (rate + 1))));
         }
         case 'enclosure': {
             let offset = 0;
@@ -31,27 +35,28 @@ function getTransitionPitchForStep(transition, step, voiceIndex, currentNotes, p
             } else {
                 offset = -Math.ceil((rate - step) / 2);
             }
-            return resolveVoiceCollision(target + offset, stationary);
+            return target + offset;
         }
         case 'random': {
             if (transition.startTime < 0.01 && step === 0) {
                 const startPool = [p + 1, p - 1, p + 2, p - 2, Math.round((p + c) / 2)];
-                return resolveVoiceCollision(startPool[Math.floor(Math.random() * startPool.length)], stationary);
+                return startPool[Math.floor(Math.random() * startPool.length)];
             }
             
             if (transition.startTime + transition.duration > 0.99 && step === rate - 1) {
                 const endPool = [n + 1, n - 1, n + 2, n - 2, Math.round((c + n) / 2)];
-                return resolveVoiceCollision(endPool[Math.floor(Math.random() * endPool.length)], stationary);
+                return endPool[Math.floor(Math.random() * endPool.length)];
             }
 
-            const origin = (transition.startTime < 0.01) ? p : c;
+            const randOrigin = (transition.startTime < 0.01) ? p : c;
             const pool = [
-                origin, target, 
-                Math.round((origin + target) / 2), 
-                origin + 2, 
-                target - 1
+                randOrigin, target, 
+                Math.round((randOrigin + target) / 2), 
+                randOrigin + 2, 
+                target - 1,
+                target + 1
             ];
-            return resolveVoiceCollision(pool[Math.floor(Math.random() * pool.length)], stationary);
+            return pool[Math.floor(Math.random() * pool.length)];
         }
         default:
             return c;
@@ -75,7 +80,6 @@ export function getTransitionPitch(transition, voiceIndex, currentNotes, prevNot
     const n = next !== undefined ? next : c;
 
     const isStart = transition.startTime < 0.5;
-    const stationary = currentNotes.filter((_, i) => i !== voiceIndex);
 
     if (['run-up', 'run-down', 'enclosure', 'random'].includes(transition.type)) {
         const progress = Math.max(0, Math.min(1, (midPoint - transition.startTime) / transition.duration));
@@ -86,8 +90,7 @@ export function getTransitionPitch(transition, voiceIndex, currentNotes, prevNot
 
     switch (transition.type) {
         case 'passing': {
-            const passPitch = isStart ? (p + c) / 2 : (c + n) / 2;
-            return resolveVoiceCollision(passPitch, stationary);
+            return isStart ? Math.round((p + c) / 2) : Math.round((c + n) / 2);
         }
         case 'anticipate':
             return isStart ? c : n;
@@ -175,7 +178,6 @@ export function sliceInstancesByTransitions(instances, transitions, currentNotes
                             pitch = getTransitionPitchForStep({ ...t, flourishRate: rate }, i, parseInt(t.voiceIndex, 10), currentNotes, prevNotes, nextNotes);
                         } else {
                             pitch += (Math.random() > 0.5 ? 1 : -1);
-                            pitch = resolveVoiceCollision(pitch, currentNotes.filter((_, idx) => idx !== parseInt(t.voiceIndex, 10)));
                         }
                         attempts--;
                     }
@@ -183,7 +185,6 @@ export function sliceInstancesByTransitions(instances, transitions, currentNotes
                     // Hard fallback if random pool failed to find a unique note after 3 attempts
                     if (pitch === lastPitch && lastPitch !== null) {
                         pitch += 1;
-                        pitch = resolveVoiceCollision(pitch, currentNotes.filter((_, idx) => idx !== parseInt(t.voiceIndex, 10)));
                     }
                     stepPitches.push(pitch);
                     lastPitch = pitch;
@@ -228,16 +229,21 @@ export function sliceInstancesByTransitions(instances, transitions, currentNotes
         const activeInst = instances.find(inst => midPoint >= inst.startTime && midPoint <= inst.startTime + inst.duration);
         
         if (activeInst) {
-            const sliceNotes = [];
+            let sliceNotes = [];
+            let movingVoices = [];
             for (let v = 0; v < currentNotes.length; v++) {
                 const activeT = activeTrans.find(t => parseInt(t.voiceIndex, 10) === v && midPoint >= t.startTime && midPoint <= t.startTime + t.duration);
                 
                 if (activeT) {
                     sliceNotes.push(getTransitionPitch(activeT, v, currentNotes, prevNotes, nextNotes, midPoint));
+                    movingVoices.push(v);
                 } else {
                     sliceNotes.push(currentNotes[v] + (activeInst.pitchOffsets?.[v] || activeInst.pitchOffset || 0));
                 }
             }
+
+            // Apply Hierarchical Collision: Moving notes forcefully push stationary notes out of the way
+            sliceNotes = resolveHierarchicalCollisions(sliceNotes, movingVoices);
 
             slicedInstances.push({ ...activeInst, startTime: start, duration: duration, notesToPlay: sliceNotes });
         }

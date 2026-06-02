@@ -82,11 +82,21 @@ export function initDrumInteractions(timeline) {
                 pattern = removeDrumHit(pattern, hitElement.dataset.id);
             } else {
                 const actualGridValue = getActiveGridValue();
-                let newTime = timeRatio;
+                
+                // Use the X coordinate of the FIRST tap for precision to prevent finger-shift
+                const targetX = lastTapCoords.x;
+                let targetTimeRatio = Math.max(0, Math.min(1, targetX / rect.width));
+                
+                let newTime = targetTimeRatio;
                 if (actualGridValue > 0) newTime = Math.round(newTime / actualGridValue) * actualGridValue;
                 
                 pattern = addDrumHit(pattern, { time: newTime, row: rowType, velocity: 1.0 });
                 playDrum(rowType, getAudioCurrentTime());
+                
+                // Automatically select the newly added hit so its properties panel appears
+                if (pattern.hits && pattern.hits.length > 0) {
+                    editorState.selectedHitId = pattern.hits[pattern.hits.length - 1].id;
+                }
             }
             
             setCurrentPattern(pattern);
@@ -104,6 +114,12 @@ export function initDrumInteractions(timeline) {
             app.saveHistoryState();
             
             const pattern = getCurrentPattern();
+            
+            // If interacting with an inherited global hit, lock it locally to stabilize IDs for deletion
+            if (pattern && !pattern.isLocalOverride && !editorState.isGlobal) {
+                setCurrentPattern(pattern, true);
+            }
+            
             if (pattern && pattern.hits) {
                 const hit = pattern.hits.find(h => h.id === hitElement.dataset.id);
                 if (hit) dragTimeOffset = timeRatio - hit.time;

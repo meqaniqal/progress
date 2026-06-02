@@ -899,23 +899,33 @@ export function segmentMicrotonalCluster(floatMidiNotes) {
 }
 
 /**
- * Prevents a Passing Tone from creating a muddy minor-second clash.
- * If the target note is within 0.5 to 1.5 semitones of any stationary note, it nudges it safely away.
+ * Hierarchical Collision Engine
+ * Moving melodic notes (active transitions) actively force stationary background notes to yield and move out of the way.
  */
-export function resolveVoiceCollision(targetNote, stationaryNotes) {
-    let safeNote = targetNote;
-    let maxIterations = 3;
-    while (maxIterations > 0) {
-        let clashing = false;
-        for (const other of stationaryNotes) {
-            const diff = Math.abs(safeNote - other);
-            if (diff >= 0.5 && diff <= 1.5) {
-                safeNote += (safeNote > other) ? 0.5 : -0.5; // Nudge by a quarter tone
-                clashing = true;
+export function resolveHierarchicalCollisions(notesToPlay, movingVoiceIndices) {
+    const resolved = [...notesToPlay];
+    
+    for (let i = 0; i < resolved.length; i++) {
+        if (!movingVoiceIndices.includes(i)) {
+            // Voice is stationary. Check against all moving voices.
+            let maxIterations = 3;
+            while (maxIterations > 0) {
+                let clashing = false;
+                
+                for (const m of movingVoiceIndices) {
+                    const diff = Math.abs(resolved[i] - resolved[m]);
+                    // If within a minor second or microtonal clash (0.5 to 1.5 semitones)
+                    if (diff >= 0.5 && diff <= 1.5) {
+                        // Yield: Nudge the stationary voice away from the moving voice
+                        resolved[i] += (resolved[i] > resolved[m]) ? 1.0 : -1.0; 
+                        clashing = true;
+                    }
+                }
+                
+                if (!clashing) break;
+                maxIterations--;
             }
         }
-        if (!clashing) break;
-        maxIterations--;
     }
-    return safeNote;
+    return resolved;
 }

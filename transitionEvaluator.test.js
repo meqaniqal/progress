@@ -141,10 +141,10 @@ describe('transitionEvaluator', () => {
             const sliced = sliceInstancesByTransitions(instances, trans, current, current, next);
             
             // Because it touches the end (>0.5 right edge), it should target next (65)
-            // run-up rate 3 -> offsets are -3, -2, -1. Target is 65.
-            // Notes should be 62, 63, 64.
+            // Linear Interpolation from origin(60) to target(65)
+            // 61.25 -> 61, 62.5 -> 63, 63.75 -> 64
             expect(sliced.length).toBe(3);
-            expect(sliced[0].notesToPlay[0]).toBe(62);
+            expect(sliced[0].notesToPlay[0]).toBe(61);
             expect(sliced[1].notesToPlay[0]).toBe(63);
             expect(sliced[2].notesToPlay[0]).toBe(64);
         });
@@ -188,14 +188,14 @@ describe('transitionEvaluator', () => {
             const pitch1 = getTransitionPitch(trans, 0, [60], [55], [65], 0.81); 
             const pitch2 = getTransitionPitch(trans, 0, [60], [55], [65], 0.90); 
             const pitch3 = getTransitionPitch(trans, 0, [60], [55], [65], 0.99); 
-            expect(pitch1).toBe(62);
+            expect(pitch1).toBe(61);
             expect(pitch2).toBe(63);
             expect(pitch3).toBe(64);
         });
 
         it('should resolve a run-down to the next chord note when placed at the end', () => {
             const trans = { type: 'run-down', startTime: 0.8, duration: 0.2, flourishRate: 3 };
-            expect(getTransitionPitch(trans, 0, [60], [55], [65], 0.81)).toBe(68);
+            expect(getTransitionPitch(trans, 0, [60], [55], [65], 0.81)).toBe(67);
             expect(getTransitionPitch(trans, 0, [60], [55], [65], 0.90)).toBe(67);
             expect(getTransitionPitch(trans, 0, [60], [55], [65], 0.99)).toBe(66);
         });
@@ -216,12 +216,12 @@ describe('transitionEvaluator', () => {
         it('should properly anchor random block at the end boundary to approach next chord', () => {
             const trans = { type: 'random', startTime: 0.8, duration: 0.2, flourishRate: 4 };
             const pitch = getTransitionPitch(trans, 0, [60], [55], [65], 0.99);
-            expect([63, 64, 66, 67]).toContain(pitch);
+            expect([63, 64, 66, 67, 68]).toContain(pitch);
         });
         
         it('should resolve a run-up to the current chord note when placed at the start', () => {
             const trans = { type: 'run-up', startTime: 0.0, duration: 0.2, flourishRate: 3 };
-            expect(getTransitionPitch(trans, 0, [60], [55], [65], 0.01)).toBe(57);
+            expect(getTransitionPitch(trans, 0, [60], [55], [65], 0.01)).toBe(56);
             expect(getTransitionPitch(trans, 0, [60], [55], [65], 0.10)).toBe(58);
             expect(getTransitionPitch(trans, 0, [60], [55], [65], 0.19)).toBe(59);
         });
