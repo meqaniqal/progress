@@ -11,11 +11,11 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- 1. CSS loaded first to block render until styles are ready -->
-    <link rel="stylesheet" href="theme.css?v=1779917000125">
-    <link rel="stylesheet" href="style.css?v=1779917000125">
-    <link rel="stylesheet" href="drum-grid.css?v=1779917000125">
-    <link rel="stylesheet" href="rhythm-editor.css?v=1779917000125">
-    <link rel="stylesheet" href="song-mode.css?v=1779917000125">
+    <link rel="stylesheet" href="theme.css?v=1780405802871">
+    <link rel="stylesheet" href="style.css?v=1780405802871">
+    <link rel="stylesheet" href="drum-grid.css?v=1780405802871">
+    <link rel="stylesheet" href="rhythm-editor.css?v=1780405802871">
+    <link rel="stylesheet" href="song-mode.css?v=1780405802871">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
     
     <!-- Hide body and show spinner to prevent Flash of Unstyled Content (FOUC) while scripts load -->
@@ -39,7 +39,7 @@
     <!-- 2. Scripts deferred to prevent HTML parsing blocks -->
     <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@2.1.4/browser/midiwriter.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js" defer></script>
-    <script src="init.js?v=1779917000125" defer></script>
+    <script src="init.js?v=1780405802871" defer></script>
 </head>
 <body>
     <div id="top-header">
@@ -235,6 +235,7 @@
                 <span id="rhythm-editor-title">Pattern Editor</span>
             </h3>
             <div id="pattern-mode-controls">
+                <button class="tool-btn" id="btn-solo-toggle" style="padding: 4px 10px; font-size: 11px; margin-right: 4px;" title="Solo: Loop the currently edited chord only">🎧 Solo</button>
                 <div class="global-local-toggle" id="legacy-mode-toggle">
                     <button class="toggle-btn" data-mode="global">Global Pattern</button>
                     <button class="toggle-btn active" data-mode="local">Local Override</button>
@@ -315,6 +316,18 @@
                             <span class="prop-val-label">TYPE:</span>
                             <span id="prop-transition-display" class="prop-pitch-display" style="width: auto; padding: 0 4px;">Pass</span>
                         </div>
+                        <div id="prop-scale-snap-wrapper" class="prop-control-wrapper" style="display: none;">
+                            <span class="prop-val-label" title="Transition Note Snapping Mode">SNAP:</span>
+                            <select id="prop-scale-snap-select" class="rhythm-select" style="width: 140px; font-size: 11px; padding: 2px 4px; border-radius: 4px; background: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-main);">
+                                <option value="strict">Strict Scale Match</option>
+                                <option value="chromatic">Chromatic Expression</option>
+                            </select>
+                        </div>
+                        <div id="prop-base-chord-wrapper" class="prop-control-wrapper" style="display: none;">
+                            <span class="prop-val-label" title="Select Base Chord Symbol from analyzed slices">BASE CHORD:</span>
+                            <select id="prop-base-chord-select" class="rhythm-select" style="width: 140px; font-size: 11px; padding: 2px 4px; border-radius: 4px; background: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-main);">
+                            </select>
+                        </div>
                         <div id="prop-flourish-rate-wrapper" class="prop-control-wrapper" style="display: none;">
                             <span class="prop-val-label" title="Flourish Rate (Subdivisions)">RATE:</span>
                             <input type="range" id="prop-flourish-rate-slider" min="2" max="8" step="1" value="3" class="range-sm" title="Notes">
@@ -389,6 +402,25 @@
                 <div class="settings-row" id="row-auto-pan" title="Automatically pans highly dissonant microtonal clusters wide left and right to prevent center channel muddiness">
                     <strong class="settings-label info">Auto Pan-Leading ℹ️</strong>
                     <input type="checkbox" id="auto-pan-leading" checked class="settings-checkbox">
+                </div>
+                <!-- Generative Persona -->
+                <div class="settings-row" title="Alters algorithmic complexity and density of voice transitions/flourishes">
+                    <strong class="settings-label">Generative Persona</strong>
+                    <select id="generator-persona-selector" class="rhythm-select settings-select">
+                        <option value="normal">Normal</option>
+                        <option value="restless">Restless (Active/Dense)</option>
+                        <option value="lazy">Lazy (Sustained/Simple)</option>
+                    </select>
+                </div>
+                <!-- Groove Sync -->
+                <div class="settings-row" title="Snaps transition note timings to match active drum hits for a cohesive groove">
+                    <strong class="settings-label info">Sync Transitions to Drum Groove ℹ️</strong>
+                    <input type="checkbox" id="sync-transitions-drums" checked class="settings-checkbox">
+                </div>
+                <!-- Scale Snapping -->
+                <div class="settings-row" title="Restricts transition and flourish notes to the active scale/mode degrees to prevent sour notes">
+                    <strong class="settings-label info">Default Scale Snapping ℹ️</strong>
+                    <input type="checkbox" id="snap-transitions-scale" checked class="settings-checkbox">
                 </div>
                 <!-- Mixer -->
                 <div style="margin-top: 5px;">

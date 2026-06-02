@@ -123,6 +123,15 @@ export function syncSettingsUI() {
     const midiExportSelector = document.getElementById('midi-export-routing');
     if (midiExportSelector) midiExportSelector.value = state.midiExportRouting || 'mpe';
     
+    const generatorPersonaSelector = document.getElementById('generator-persona-selector');
+    if (generatorPersonaSelector) generatorPersonaSelector.value = state.generatorPersona || 'normal';
+    
+    const syncTransitionsDrums = document.getElementById('sync-transitions-drums');
+    if (syncTransitionsDrums) syncTransitionsDrums.checked = state.syncTransitionsToDrums !== false;
+    
+    const snapTransitionsScale = document.getElementById('snap-transitions-scale');
+    if (snapTransitionsScale) snapTransitionsScale.checked = state.snapTransitionsToScale !== false;
+    
     updateMicrotonalSettingsUI();
 }
 
@@ -312,4 +321,31 @@ export function initSettingsUI({ onRenderProgression }) {
     }
 
     document.getElementById('multipass-input')?.addEventListener('input', (e) => { const val = parseInt(e.target.value, 10); if (!isNaN(val)) { state.exportPasses = Math.max(1, Math.min(32, val)); persistAppState(); } });
+    
+    const generatorPersonaSelector = document.getElementById('generator-persona-selector');
+    if (generatorPersonaSelector) {
+        generatorPersonaSelector.addEventListener('change', (e) => {
+            state.generatorPersona = e.target.value;
+            persistAppState();
+            if (onRenderProgression) onRenderProgression();
+        });
+    }
+
+    const syncTransitionsDrums = document.getElementById('sync-transitions-drums');
+    if (syncTransitionsDrums) {
+        syncTransitionsDrums.addEventListener('change', (e) => {
+            state.syncTransitionsToDrums = e.target.checked;
+            persistAppState();
+            if (onRenderProgression) onRenderProgression();
+        });
+    }
+
+    const snapTransitionsScale = document.getElementById('snap-transitions-scale');
+    if (snapTransitionsScale) {
+        snapTransitionsScale.addEventListener('change', (e) => {
+            state.snapTransitionsToScale = e.target.checked;
+            persistAppState();
+            if (onRenderProgression) onRenderProgression();
+        });
+    }
 }

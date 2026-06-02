@@ -64,6 +64,10 @@ function getSectionState(state, macroIndex) {
 }
 
 function getBounds(secState, isLooping) {
+    if (state.editorState?.isSolo && state.editorState.activeIndex !== null && state.editorState.activeIndex < secState.progression.length) {
+        const idx = state.editorState.activeIndex;
+        return { start: idx, end: idx + 1 };
+    }
     let start = isLooping ? (typeof secState.loopStart === 'number' ? secState.loopStart : 0) : 0;
     let end = isLooping ? (typeof secState.loopEnd === 'number' ? secState.loopEnd : secState.progression.length) : secState.progression.length;
     if (end <= start) end = start + 1;
@@ -182,6 +186,8 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         // Evaluate prev/next context for transitions
         const prevAbsIndex = (absIndex - 1 + activeProg.length) % activeProg.length;
         const nextAbsIndex = (absIndex + 1) % activeProg.length;
+        const nextChordObj = activeProg[nextAbsIndex];
+        const prevChordObj = activeProg[prevAbsIndex];
 
         const prevNotes = allPlayableNotes[prevAbsIndex] || notesToPlay;
         const nextNotes = allPlayableNotes[nextAbsIndex] || notesToPlay;
@@ -195,11 +201,19 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                 const durationMs = instance.duration * chordSlotDuration * 1000;
                 const delayMs = (instanceStartTime - getAudioCurrentTime()) * 1000;
                 const tId = setTimeout(() => {
-                    onSlicePlay(instance.id, durationMs);
+                    onSlicePlay(instance.id, durationMs, absIndex);
                     uiTimeouts = uiTimeouts.filter(id => id !== tId);
                 }, Math.max(0, delayMs));
                 uiTimeouts.push(tId);
             });
+        }
+
+        let drumHits = [];
+        const activeDrumPat = chordObj.drumPattern;
+        if (activeDrumPat && activeDrumPat.isLocalOverride) {
+            drumHits = activeDrumPat.hits || [];
+        } else if (state.globalPatterns && state.globalPatterns.drumPattern) {
+            drumHits = state.globalPatterns.drumPattern.hits || [];
         }
 
         const voiceEvents = evaluateVoiceEvents(
@@ -209,7 +223,12 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
             prevNotes,
             nextNotes,
             editorTuning,
-            state.autoPanLeading
+            state.autoPanLeading,
+            chordSlotDuration,
+            drumHits,
+            chordObj,
+            nextChordObj,
+            prevChordObj
         );
 
         voiceEvents.forEach(ev => {
@@ -263,7 +282,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                     const delayMs = (instanceStartTime - getAudioCurrentTime()) * 1000;
                     const durationMs = instanceDuration * 1000;
                     const tId = setTimeout(() => {
-                        onSlicePlay(instance.id, durationMs);
+                        onSlicePlay(instance.id, durationMs, absIndex);
                         uiTimeouts = uiTimeouts.filter(id => id !== tId);
                     }, Math.max(0, delayMs));
                     uiTimeouts.push(tId);
@@ -293,7 +312,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                     if (onDrumPlay && hit.id) {
                         const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
                         const tId = setTimeout(() => {
-                            onDrumPlay(hit.id);
+                            onDrumPlay(hit.id, absIndex);
                             uiTimeouts = uiTimeouts.filter(id => id !== tId);
                         }, Math.max(0, delayMs));
                         uiTimeouts.push(tId);
@@ -325,7 +344,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                             if (onDrumPlay && hit.id) {
                                 const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
                                 const tId = setTimeout(() => {
-                                    onDrumPlay(hit.id);
+                                    onDrumPlay(hit.id, absIndex);
                                     uiTimeouts = uiTimeouts.filter(id => id !== tId);
                                 }, Math.max(0, delayMs));
                                 uiTimeouts.push(tId);
@@ -364,6 +383,11 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         currentChordIndexRel++;
         if (currentChordIndexRel >= sliceLength || sliceLength === 0) {
             currentChordIndexRel = 0; // Wrap around for looping
+            
+            if (state.editorState?.isSolo) {
+                // If in solo mode, keep looping the active chord within the active section
+                return true;
+            }
             
             if (isSongTrayOpen && state.songSequence.length > 0) {
                 currentMacroIndex++;

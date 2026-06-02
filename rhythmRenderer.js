@@ -9,6 +9,7 @@ import {
 } from './rhythmEditor.js';
 import { generateArpNotes } from './arp.js';
 import { getChordNotes, getEffectiveTuning, getPitchEditorTuning, getPlayableNotes } from './theory.js';
+import { identifyChord } from './chordAnalyzer.js';
 import { GRID_STEPS } from './rhythmConfig.js';
 
 const PITCH_LABELS = {
@@ -173,6 +174,11 @@ export function renderRhythmTimeline() {
         if (btnDrawToggle) {
             btnDrawToggle.style.display = isChordOrBass ? 'inline-block' : 'none';
             btnDrawToggle.classList.toggle('active', editorState.isDrawModeEnabled);
+            if (editorState.isDrawModeEnabled && editorState.isDrawing && editorState.drawModeAction === 'erase') {
+                btnDrawToggle.innerHTML = '🧹 Erase';
+            } else {
+                btnDrawToggle.innerHTML = '✏️ Draw';
+            }
         }
         container.style.cursor = (isChordOrBass && editorState.isDrawModeEnabled) ? 'crosshair' : 'default';
     }
@@ -237,10 +243,12 @@ export function renderRhythmTimeline() {
     const drumLengthSelect = document.getElementById('drum-length-select');
     const drumCropBtn = document.getElementById('btn-drum-crop');
     const drumPresetSelect = document.getElementById('drum-preset-select');
+    const drumDoubleBtn = document.getElementById('btn-drum-double');
     if (drumLengthSelect) {
         drumLengthSelect.style.display = isGlobalDrums ? 'inline-block' : 'none';
         if (drumCropBtn) drumCropBtn.style.display = isGlobalDrums ? 'inline-block' : 'none';
         if (drumPresetSelect) drumPresetSelect.style.display = isGlobalDrums ? 'inline-block' : 'none';
+        if (drumDoubleBtn) drumDoubleBtn.style.display = isGlobalDrums ? 'inline-block' : 'none';
         if (isGlobalDrums) {
             drumLengthSelect.value = pattern.lengthBeats || 4;
         }
@@ -257,11 +265,13 @@ export function renderRhythmTimeline() {
     const btnFocusSlice = document.getElementById('btn-focus-slice');
     const transWrapper = document.getElementById('prop-transition-wrapper');
     const transDisplay = document.getElementById('prop-transition-display');
+    const baseChordWrapper = document.getElementById('prop-base-chord-wrapper');
 
     if (propsGroup && velWrapper && probWrapper && velSlider && probSlider) {
         let showProps = false;
         let showVel = false;
         if (transWrapper) transWrapper.style.display = 'none';
+        if (baseChordWrapper) baseChordWrapper.style.display = 'none';
 
         if (editorState.activeTab === 'drumPattern' && editorState.selectedHitId && pattern && pattern.hits) {
             const selectedHit = pattern.hits.find(h => h.id === editorState.selectedHitId);
@@ -313,6 +323,40 @@ export function renderRhythmTimeline() {
             } else {
                 if (pitchWrapper) pitchWrapper.style.display = 'none';
             }
+
+            if (editorState.activeTab === 'chordPattern' && pattern.instances.length > 1) {
+                const activeIndex = editorState.activeIndex;
+                const chord = app.state.currentProgression[activeIndex];
+                if (chord && activeIndex !== null) {
+                    const baseKey = chord.key !== undefined ? chord.key : (app.state.baseKey !== undefined ? app.state.baseKey : 60);
+                    const divisions = chord.divisions || app.state.divisions || 12;
+                    const originalNotes = getChordNotes(chord.symbol, baseKey, divisions);
+                    if (originalNotes) {
+                        const uniqueChordSymbols = new Set();
+                        pattern.instances.forEach(inst => {
+                            const modifiedNotes = originalNotes.map((n, i) => n + (inst.pitchOffsets?.[i] || inst.pitchOffset || 0));
+                            const symbol = identifyChord(modifiedNotes, app.state.baseKey);
+                            if (symbol) uniqueChordSymbols.add(symbol);
+                        });
+                        
+                        if (uniqueChordSymbols.size > 1 && baseChordWrapper) {
+                            showProps = true;
+                            baseChordWrapper.style.display = 'flex';
+                            const selectEl = document.getElementById('prop-base-chord-select');
+                            if (selectEl) {
+                                selectEl.innerHTML = '';
+                                uniqueChordSymbols.forEach(sym => {
+                                    const opt = document.createElement('option');
+                                    opt.value = sym;
+                                    opt.textContent = sym;
+                                    selectEl.appendChild(opt);
+                                });
+                                selectEl.value = chord.symbol;
+                            }
+                        }
+                    }
+                }
+            }
         } else if (isTransitionsMode && pattern && pattern.transitions) {
             const selectedTrans = pattern.transitions.filter(t => t.isSelected);
             if (selectedTrans.length > 0) {
@@ -339,11 +383,22 @@ export function renderRhythmTimeline() {
                         rateWrapper.style.display = 'none';
                     }
                 }
+
+                const scaleSnapWrapper = document.getElementById('prop-scale-snap-wrapper');
+                if (scaleSnapWrapper) {
+                    scaleSnapWrapper.style.display = 'flex';
+                    const scaleSnapSelect = document.getElementById('prop-scale-snap-select');
+                    if (scaleSnapSelect) {
+                        scaleSnapSelect.value = selectedTrans[0].scaleSnap || 'strict';
+                    }
+                }
             } else {
                 if (pitchWrapper) pitchWrapper.style.display = 'none';
                 if (transWrapper) transWrapper.style.display = 'none';
                 const rateWrapper = document.getElementById('prop-flourish-rate-wrapper');
                 if (rateWrapper) rateWrapper.style.display = 'none';
+                const scaleSnapWrapper = document.getElementById('prop-scale-snap-wrapper');
+                if (scaleSnapWrapper) scaleSnapWrapper.style.display = 'none';
             }
         }
 
@@ -504,6 +559,19 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             rightHandle.className = 'resize-handle right';
             el.appendChild(rightHandle);
             
+            el.addEventListener('pointerenter', (e) => {
+                if (e.pointerType === 'mouse' && editorState.isDrawModeEnabled && !editorState.isDrawing) {
+                    const btn = document.getElementById('btn-draw-toggle');
+                    if (btn) btn.innerHTML = '🧹 Erase';
+                }
+            });
+            el.addEventListener('pointerleave', (e) => {
+                if (e.pointerType === 'mouse' && editorState.isDrawModeEnabled && !editorState.isDrawing) {
+                    const btn = document.getElementById('btn-draw-toggle');
+                    if (btn) btn.innerHTML = '✏️ Draw';
+                }
+            });
+            
             sliceInner.appendChild(el);
         }
 
@@ -524,8 +592,9 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
         
         const leftHandle = el.querySelector('.resize-handle.left');
         const rightHandle = el.querySelector('.resize-handle.right');
-        if (leftHandle) leftHandle.style.display = isFocused ? 'none' : '';
-        if (rightHandle) rightHandle.style.display = isFocused ? 'none' : '';
+        const hideHandles = isFocused || editorState.isDrawModeEnabled;
+        if (leftHandle) leftHandle.style.display = hideHandles ? 'none' : '';
+        if (rightHandle) rightHandle.style.display = hideHandles ? 'none' : '';
 
         // --- Arpeggiator Visualization Engine ---
         if (inst.arpSettings && isChordTab) {

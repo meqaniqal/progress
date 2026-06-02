@@ -904,28 +904,47 @@ export function segmentMicrotonalCluster(floatMidiNotes) {
  */
 export function resolveHierarchicalCollisions(notesToPlay, movingVoiceIndices) {
     const resolved = [...notesToPlay];
+    const len = resolved.length;
     
-    for (let i = 0; i < resolved.length; i++) {
-        if (!movingVoiceIndices.includes(i)) {
-            // Voice is stationary. Check against all moving voices.
-            let maxIterations = 3;
-            while (maxIterations > 0) {
-                let clashing = false;
-                
-                for (const m of movingVoiceIndices) {
-                    const diff = Math.abs(resolved[i] - resolved[m]);
-                    // If within a minor second or microtonal clash (0.5 to 1.5 semitones)
-                    if (diff >= 0.5 && diff <= 1.5) {
-                        // Yield: Nudge the stationary voice away from the moving voice
-                        resolved[i] += (resolved[i] > resolved[m]) ? 1.0 : -1.0; 
-                        clashing = true;
+    let maxIterations = 3;
+    while (maxIterations > 0) {
+        let clashing = false;
+        
+        for (let i = 0; i < len; i++) {
+            for (let j = i + 1; j < len; j++) {
+                const diff = Math.abs(resolved[i] - resolved[j]);
+                // If within a minor second, microtonal clash, or unison overlap (<= 1.5 semitones)
+                if (diff <= 1.5) {
+                    clashing = true;
+                    const isMovingI = movingVoiceIndices.includes(i);
+                    const isMovingJ = movingVoiceIndices.includes(j);
+                    
+                    // Priority rules: Outer voices (Soprano/Bass) have priority over inner voices
+                    let priorityI = (i === 0) ? 10 : (i === len - 1 ? 9 : 5);
+                    let priorityJ = (j === 0) ? 10 : (j === len - 1 ? 9 : 5);
+                    
+                    if (isMovingI) priorityI += 100;
+                    if (isMovingJ) priorityJ += 100;
+                    
+                    // Break ties: lower voice index has higher priority (Soprano index 0 is higher than Alto index 1)
+                    let iHasPriority = priorityI > priorityJ;
+                    if (priorityI === priorityJ) {
+                        iHasPriority = i < j;
                     }
+                    
+                    const higherIdx = iHasPriority ? i : j;
+                    const lowerIdx = iHasPriority ? j : i;
+                    
+                    // Nudge the lower priority voice away while preserving vertical voice ordering (prevent voice crossing)
+                    const nudgeDir = (lowerIdx > higherIdx) ? -1.0 : 1.0;
+                    resolved[lowerIdx] += nudgeDir;
                 }
-                
-                if (!clashing) break;
-                maxIterations--;
             }
         }
+        
+        if (!clashing) break;
+        maxIterations--;
     }
+    
     return resolved;
 }

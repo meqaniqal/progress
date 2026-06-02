@@ -1,7 +1,12 @@
 import { jest } from '@jest/globals';
 import { getTransitionPitch, expandMasterTransitions, sliceInstancesByTransitions } from './transitionEvaluator.js';
+import { state } from './store.js';
 
 describe('transitionEvaluator', () => {
+    beforeEach(() => {
+        state.snapTransitionsToScale = false;
+        state.divisions = 12;
+    });
     
     describe('getTransitionPitch', () => {
         it('calculates late passing tone (averages current and next)', () => {
@@ -224,6 +229,211 @@ describe('transitionEvaluator', () => {
             expect(getTransitionPitch(trans, 0, [60], [55], [65], 0.01)).toBe(56);
             expect(getTransitionPitch(trans, 0, [60], [55], [65], 0.10)).toBe(58);
             expect(getTransitionPitch(trans, 0, [60], [55], [65], 0.19)).toBe(59);
+        });
+    });
+
+    describe('Generative Personas', () => {
+        beforeEach(() => {
+            state.generatorPersona = 'normal';
+        });
+
+        afterEach(() => {
+            state.generatorPersona = 'normal';
+        });
+
+        it('lazy persona overrides complex flourishes to passing/suspend and caps rate', () => {
+            const mathRandomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.0);
+            state.generatorPersona = 'lazy';
+            const instances = [{ id: '1', startTime: 0.0, duration: 1.0, pitchOffsets: [0] }];
+            // Complex flourish 'run-up' spanning the end of the slot
+            const trans = [{ id: 't1', voiceIndex: 0, type: 'run-up', startTime: 0.8, duration: 0.2, flourishRate: 4, probability: 1.0 }];
+            
+            const sliced = sliceInstancesByTransitions(instances, trans, [60], [55], [64], 1.0);
+            
+            // For a lazy persona, 'run-up' on the right side (startTime = 0.8 >= 0.5) is coerced to 'passing'.
+            // Passing tones are simple (rate cap doesn't apply to passing directly but rate is cleared).
+            // Let's verify that a slice boundary is created at 0.8, and the note is a passing tone.
+            expect(sliced.length).toBe(2);
+            expect(sliced[1].startTime).toBeCloseTo(0.8);
+            expect(sliced[1].notesToPlay[0]).toBe(62); // (60 + 64) / 2
+            mathRandomSpy.mockRestore();
+        });
+
+        it('restless persona boosts flourish rates', () => {
+            state.generatorPersona = 'restless';
+            const instances = [{ id: '1', startTime: 0.0, duration: 1.0, pitchOffsets: [0] }];
+            // Transition with undefined flourishRate, normally default rate is 3
+            const trans = [{ id: 't1', voiceIndex: 0, type: 'run-up', startTime: 0.5, duration: 0.5, probability: 1.0 }];
+            
+            // Chord duration of 10.0 seconds to make sure maxAllowedRate is huge and doesn't cap us
+            const sliced = sliceInstancesByTransitions(instances, trans, [60], [55], [65], 10.0);
+            
+            // With restless, default rate of 3 is boosted to 4.
+            // So we should have 4 slices for the flourish (0.5 to 1.0) + 1 slice for the first half (0.0 to 0.5) = 5 slices total.
+            expect(sliced.length).toBe(5);
+        });
+    });
+
+    describe('Advanced Ornaments and Counterpoint Rules', () => {
+        it('calculates neighbor tone pitches correctly', () => {
+            const trans = { type: 'neighbor', startTime: 0.5, duration: 0.5, flourishRate: 3 };
+            // Origin 60, Target 62. Steps: step 0 (60), step 1 (61), step 2 (62)
+            expect(getTransitionPitch(trans, 0, [60], [60], [62], 0.51)).toBe(60);
+            expect(getTransitionPitch(trans, 0, [60], [60], [62], 0.75)).toBe(61);
+            expect(getTransitionPitch(trans, 0, [60], [60], [62], 0.99)).toBe(62);
+        });
+
+        it('calculates cambiata tone pitches correctly', () => {
+            const trans = { type: 'cambiata', startTime: 0.5, duration: 0.5, flourishRate: 4 };
+            // Origin 60, Target 64. Step 0 (60), Step 1 (61), Step 2 (58), Step 3 (64)
+            expect(getTransitionPitch(trans, 0, [60], [60], [64], 0.51)).toBe(60);
+            expect(getTransitionPitch(trans, 0, [60], [60], [64], 0.65)).toBe(61);
+            expect(getTransitionPitch(trans, 0, [60], [60], [64], 0.80)).toBe(58);
+            expect(getTransitionPitch(trans, 0, [60], [60], [64], 0.99)).toBe(64);
+        });
+
+        it('avoids parallel perfect fifths and octaves during slice rendering', () => {
+            const instances = [{ id: '1', startTime: 0.0, duration: 1.0, pitchOffsets: [0, 0] }];
+            // Two voices transition simultaneously in parallel motion
+            // Voice 0 starts at 60, moves to 62 (passing tone is 61)
+            // Voice 1 starts at 67, moves to 69 (passing tone is 68)
+            // This is a parallel fifth (61 and 68 are 7 semitones apart!)
+            // Our algorithm should adjust one of them.
+            const trans = [
+                { id: 't1', voiceIndex: 0, type: 'passing', startTime: 0.8, duration: 0.2, probability: 1.0 },
+                { id: 't2', voiceIndex: 1, type: 'passing', startTime: 0.8, duration: 0.2, probability: 1.0 }
+            ];
+            
+            const sliced = sliceInstancesByTransitions(instances, trans, [60, 67], [60, 67], [62, 69]);
+            
+            expect(sliced.length).toBe(2);
+            // Sliced[1] contains the transitioned note values.
+            // Without parallel avoidance, it would be [61, 68] (a perfect 5th).
+            // With parallel avoidance, one of the notes is adjusted.
+            const notes = sliced[1].notesToPlay;
+            const interval = Math.abs(notes[0] - notes[1]) % 12;
+            expect(interval).not.toBe(7); // Should not be a perfect 5th (7 semitones)
+        });
+    });
+
+    describe('Rhythmic Groove Anchoring', () => {
+        beforeEach(() => {
+            state.syncTransitionsToDrums = true;
+        });
+
+        afterEach(() => {
+            state.syncTransitionsToDrums = true;
+        });
+
+        it('snaps subdivision boundaries to nearby drum hits when enabled', () => {
+            const mathRandomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.0);
+            const instances = [{ id: '1', startTime: 0.0, duration: 1.0, pitchOffsets: [0] }];
+            // Run-up transition starting at 0.5, duration 0.5. flourishRate = 3.
+            // Default step boundaries inside transition would be at 0.5 + 0.5/3 = 0.667.
+            // Let's provide a drum hit at 0.70. It should snap the step boundary from 0.667 to 0.70.
+            const trans = [{ id: 't1', voiceIndex: 0, type: 'run-up', startTime: 0.5, duration: 0.5, flourishRate: 3, probability: 1.0 }];
+            const drumHits = [{ time: 0.70, row: 'closed-hat' }];
+            
+            const sliced = sliceInstancesByTransitions(instances, trans, [60], [60], [65], 2.0, drumHits);
+            
+            // Slices: 0.0 to 0.5 (normal), 0.5 to 0.70 (flourish step 0), 0.70 to 1.0 (flourish step 1 & target).
+            // Expect boundaries to exist at exactly 0.5 and 0.70.
+            expect(sliced.some(s => Math.abs(s.startTime - 0.5) < 0.005)).toBe(true);
+            expect(sliced.some(s => Math.abs(s.startTime - 0.7) < 0.005)).toBe(true);
+            mathRandomSpy.mockRestore();
+        });
+
+        it('remains evenly spaced when syncTransitionsToDrums is disabled', () => {
+            const mathRandomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.0);
+            state.syncTransitionsToDrums = false;
+            const instances = [{ id: '1', startTime: 0.0, duration: 1.0, pitchOffsets: [0] }];
+            const trans = [{ id: 't1', voiceIndex: 0, type: 'run-up', startTime: 0.5, duration: 0.5, flourishRate: 3, probability: 1.0 }];
+            const drumHits = [{ time: 0.70, row: 'closed-hat' }];
+            
+            const sliced = sliceInstancesByTransitions(instances, trans, [60], [60], [65], 2.0, drumHits);
+            
+            // Without groove sync, the boundary remains at 0.5 + 0.5/3 = 0.667.
+            expect(sliced.some(s => Math.abs(s.startTime - 0.667) < 0.005)).toBe(true);
+            expect(sliced.some(s => Math.abs(s.startTime - 0.70) < 0.005)).toBe(false);
+            mathRandomSpy.mockRestore();
+        });
+    });
+
+    describe('Modal/Scale Snapping & Corridor Logic', () => {
+        it('snaps pitches to scale when global snap is enabled', () => {
+            state.snapTransitionsToScale = true;
+            state.baseKey = 0; // C
+            state.mode = 'major'; // C Major: [0, 2, 4, 5, 7, 9, 11] (C D E F G A B)
+
+            // Let's create a transition on the current chord (C Major)
+            const trans = { type: 'passing', startTime: 0.1 };
+            // Midpoint 0.1 (< 0.5, so snaps to current chord C Major).
+            // Passing pitch would normally be (59 + 60) / 2 = 59.5 -> rounded to 60 (C) or 59 (B) or 61 (C#).
+            // Let's test a pitch value that is out of scale, e.g. 61 (C#).
+            // It should snap to either 60 (C) or 62 (D) in C Major.
+            const currentChord = { symbol: 'I', key: 0 };
+            const pitch = getTransitionPitch(trans, 0, [60], [61], [60], 0.1, currentChord, null);
+            expect([60, 62]).toContain(pitch);
+        });
+
+        it('adapts to local chord scales (dynamic corridor)', () => {
+            state.snapTransitionsToScale = true;
+            state.baseKey = 0; // C
+            state.mode = 'major';
+
+            // Current chord is C Major (I), next chord is Bb Major (bVII, a borrowed chord).
+            // Bb Major scale (mixolydian/lydian/major) in C base key context: Bb Major is Bb C D Eb F G A.
+            // Let's check Bb Major key center: Bb = 10.
+            const currentChord = { symbol: 'I', key: 0 }; // C Major
+            const nextChord = { symbol: 'bVII', key: 10 }; // Bb Major (mixolydian mode or major scale)
+            // Bb Major intervals: [0, 2, 4, 5, 7, 9, 11] relative to key 10 (Bb) = 10, 0, 2, 3, 5, 7, 9
+            // Let's test pitch = 61 (C#).
+            // In C Major (midpoint < 0.5), 61 (C#) snaps to 60 or 62.
+            const trans1 = { type: 'passing', startTime: 0.1 };
+            const pitch1 = getTransitionPitch(trans1, 0, [60], [62], [60], 0.1, currentChord, nextChord);
+            // With prev=62, current=60, passing tone is (62+60)/2 = 61. C# (61) snaps to 60 or 62.
+            expect([60, 62]).toContain(pitch1);
+
+            // In Bb Major (midpoint >= 0.5), 61 (C#) snaps to 60 (C) or 62 (D) or 63 (Eb? Bb + 5 = 15 % 12 = 3).
+            // Let's verify snapping at t >= 0.5 uses the next chord's scale
+            // Let's use F# major or minor where C# (61) is scale-degree, or D minor where C# is not.
+            // Let's test with a next chord: symbol 'iv' (F minor), key = 5. F Minor scale has 5, 7, 8, 10, 0, 1, 3 (F G Ab Bb C Db Eb).
+            // In F minor, C# (61) is Db (1) which IS in the scale. So it should not be snapped away, it remains 61.
+            // In C major, 61 is C# which is NOT in the scale.
+            const nextChordFMin = { symbol: 'iv', key: 5 }; // F minor
+            const trans2 = { type: 'passing', startTime: 0.8 };
+            const pitch2 = getTransitionPitch(trans2, 0, [60], [60], [62], 0.8, currentChord, nextChordFMin);
+            // With current=60, next=62, passing tone is (60+62)/2 = 61.
+            expect(pitch2).toBe(61); // Retained because it's Db in F Minor!
+        });
+
+        it('honors transition-specific snap overrides (strict vs chromatic)', () => {
+            state.snapTransitionsToScale = true; // global snap is on
+            state.baseKey = 0; // C
+            state.mode = 'major';
+
+            const currentChord = { symbol: 'I', key: 0 };
+
+            // Transition with explicit chromatic override should NOT snap
+            const transChromatic = { type: 'passing', startTime: 0.1, scaleSnap: 'chromatic' };
+            const pitchChrom = getTransitionPitch(transChromatic, 0, [60], [62], [60], 0.1, currentChord, null);
+            expect(pitchChrom).toBe(61); // Kept chromatic C#
+
+            state.snapTransitionsToScale = false; // global snap is off
+            // Transition with explicit strict override SHOULD snap
+            const transStrict = { type: 'passing', startTime: 0.1, scaleSnap: 'strict' };
+            const pitchStrict = getTransitionPitch(transStrict, 0, [60], [62], [60], 0.1, currentChord, null);
+            expect([60, 62]).toContain(pitchStrict);
+        });
+
+        it('bypasses scale snapping for microtonal divisions', () => {
+            state.snapTransitionsToScale = true;
+            state.divisions = 24; // Quarter tones
+
+            const currentChord = { symbol: 'I', key: 0 };
+            const trans = { type: 'suspend', startTime: 0.1 };
+            const pitch = getTransitionPitch(trans, 0, [60], [60.5], [60], 0.1, currentChord, null);
+            expect(pitch).toBe(60.5); // Microtonal quarter-tone is preserved!
         });
     });
 });

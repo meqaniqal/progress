@@ -1,6 +1,10 @@
 import { saveState, loadState, clearState } from './storage.js';
 import { calculateLoopBounds, calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder } from './stateUtils.js';
 import { initChordPattern, initDrumPattern, initPatternSet } from './patternUtils.js';
+import { getChordNotes } from './theory.js';
+import { identifyChord } from './chordAnalyzer.js';
+
+export let analyseChordsOnLoad = true;
 
 export const state = {
     sections: {}, // Map of sectionId -> { id, name, progression, globalPatterns }
@@ -23,6 +27,9 @@ export const state = {
     macroLoopEnd: 0,
     theme: 'dark',
     mode: 'major',
+    generatorPersona: 'normal',
+    syncTransitionsToDrums: true,
+    snapTransitionsToScale: true,
     exportPasses: 1,
     volumes: { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 }, // 0.8 provides headroom for mixing
     instruments: { chords: 'sawtooth', bass: 'sine' },
@@ -54,6 +61,7 @@ export const state = {
         isPanning: false,
         activeTab: 'chordPattern',
         isGlobal: false,
+        isSolo: false,
         justPushedToGlobalIndex: null
     }
 };
@@ -548,6 +556,9 @@ export function resetSession() {
     state.macroLoopEnd = 0;
     state.theme = 'dark';
     state.mode = 'major';
+    state.generatorPersona = 'normal';
+    state.syncTransitionsToDrums = true;
+    state.snapTransitionsToScale = true;
     state.exportPasses = 1;
     state.volumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 };
     state.instruments = { chords: 'sawtooth', bass: 'sine' };
@@ -578,6 +589,7 @@ export function resetSession() {
         isPanning: false,
         activeTab: 'chordPattern',
         isGlobal: false,
+        isSolo: false,
         justPushedToGlobalIndex: null
     };
 }
@@ -601,6 +613,9 @@ export function loadAndApplyInitialState(explicitState = null) {
         state.divisions = savedState.divisions !== undefined ? parseInt(savedState.divisions, 10) : 12;
         state.theme = savedState.theme === 'light' ? 'light' : 'dark';
         state.mode = savedState.mode === 'minor' ? 'minor' : 'major';
+        state.generatorPersona = savedState.generatorPersona || 'normal';
+        state.syncTransitionsToDrums = savedState.syncTransitionsToDrums !== undefined ? Boolean(savedState.syncTransitionsToDrums) : true;
+        state.snapTransitionsToScale = savedState.snapTransitionsToScale !== undefined ? Boolean(savedState.snapTransitionsToScale) : true;
         
         if (typeof savedState.loopStart === 'number') state.loopStart = Math.max(0, savedState.loopStart);
         if (typeof savedState.loopEnd === 'number') state.loopEnd = Math.max(0, savedState.loopEnd);
@@ -792,6 +807,53 @@ export function loadAndApplyInitialState(explicitState = null) {
             state.editorState.activeTab = savedState.editorState.activeTab;
         }
     }
+    
+    // One-time load-time chord symbol re-analysis
+    if (analyseChordsOnLoad && state.divisions === 12) {
+        Object.values(state.sections).forEach(sec => {
+            if (sec.progression) {
+                sec.progression.forEach((chord, index) => {
+                    const activeChord = sec.temporarySwaps && sec.temporarySwaps[index] 
+                        ? { ...chord, ...sec.temporarySwaps[index] } 
+                        : chord;
+                    const baseKey = activeChord.key !== undefined ? activeChord.key : (state.baseKey !== undefined ? state.baseKey : 60);
+                    const divisions = activeChord.divisions || state.divisions || 12;
+                    const originalNotes = getChordNotes(activeChord.symbol, baseKey, divisions);
+                    if (originalNotes) {
+                        const pat = activeChord.chordPattern;
+                        if (pat && pat.instances && pat.instances.length > 0) {
+                            const firstInst = pat.instances[0];
+                            const modifiedNotes = originalNotes.map((n, i) => n + (firstInst.pitchOffsets?.[i] || firstInst.pitchOffset || 0));
+                            const newSymbol = identifyChord(modifiedNotes, state.baseKey);
+                            
+                            if (newSymbol && newSymbol !== activeChord.symbol) {
+                                if (sec.temporarySwaps && sec.temporarySwaps[index]) {
+                                    sec.temporarySwaps[index].symbol = newSymbol;
+                                } else {
+                                    sec.temporarySwaps = sec.temporarySwaps || {};
+                                    sec.temporarySwaps[index] = { symbol: newSymbol };
+                                }
+                                
+                                const newNotes = getChordNotes(newSymbol, baseKey, divisions);
+                                const newOffsets = newNotes ? newNotes.map(() => 0) : [];
+                                pat.instances.forEach(inst => {
+                                    inst.pitchOffsets = newOffsets;
+                                    inst.pitchOffset = 0;
+                                });
+                            }
+                        }
+                    }
+                });
+            }
+        });
+        // Sync the active section pointers again after potential swaps
+        if (state.sections[state.activeSectionId]) {
+            const activeSec = state.sections[state.activeSectionId];
+            state.currentProgression = activeSec.progression;
+            state.temporarySwaps = activeSec.temporarySwaps ?? {};
+        }
+    }
+
     applyLoopBounds();
     applyMacroLoopBounds();
 }

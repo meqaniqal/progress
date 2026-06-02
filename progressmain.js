@@ -466,7 +466,9 @@ function initApp() {
         updatePattern,
         pushPatternToGlobal,
         resetPatternToGlobal,
-        updateCustomDrumsUI
+        updateCustomDrumsUI,
+        isPlaybackActive,
+        restartTransport
     });
     _setupKeyAndModeSelectors();
     initSongController({ onRenderProgression: renderProgression });

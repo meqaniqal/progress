@@ -2,6 +2,7 @@ import { editorState, app, getCurrentPattern, setCurrentPattern, hasValidContext
 import { exclusiveSelect, moveInstance, fillGapInstance, expandInstance, resizeInstance, drawPatternBlock, sliceInstance, updateInstance } from './patternUtils.js';
 import { addTransition, resizeTransition, moveTransition, updateTransition } from './transitionUtils.js';
 import { getEffectiveTuning, getPitchEditorTuning, getChordNotes, getPlayableNotes } from './theory.js';
+import { identifyChord } from './chordAnalyzer.js';
 
 export function initTimelineInteractions(timeline) {
     let dragStartX = 0;
@@ -435,11 +436,11 @@ export function initTimelineInteractions(timeline) {
                     const isEarly = trans.startTime < 0.5;
                     
                     if (dragStartTransVoice === 'master') {
-                        types = ['auto-smooth', 'passing', 'enclosure', 'random'];
+                        types = ['auto-smooth', 'passing', 'enclosure', 'random', 'neighbor', 'cambiata'];
                         if (isEarly) types.push('suspend');
                         else types.push('anticipate', 'run-up', 'run-down');
                     } else {
-                        types = ['passing', 'enclosure', 'random'];
+                        types = ['passing', 'enclosure', 'random', 'neighbor', 'cambiata'];
                         if (isEarly) {
                             types.push('suspend');
                         } else {
@@ -699,6 +700,53 @@ export function initTimelineInteractions(timeline) {
         if (editorState.isDragging) {
             editorState.isDragging = false;
             timeline.releasePointerCapture(e.pointerId);
+
+            // --- Intelligent Chord Re-naming on manual pitch edit ---
+            if (editorState.activeTab === 'chordPattern' && editorState.isPitchModeEnabled) {
+                const activeIndex = editorState.activeIndex;
+                if (activeIndex !== null && activeIndex !== undefined) {
+                    const activeProg = app.state.currentProgression.map((c, i) => {
+                        const swap = app.state.temporarySwaps ? app.state.temporarySwaps[i] : null;
+                        return swap ? { ...c, ...swap } : c;
+                    });
+                    const chord = activeProg[activeIndex];
+                    if (chord) {
+                        const baseKey = chord.key !== undefined ? chord.key : (app.state.baseKey !== undefined ? app.state.baseKey : 60);
+                        const divisions = chord.divisions || app.state.divisions || 12;
+                        const originalNotes = getChordNotes(chord.symbol, baseKey, divisions);
+                        if (originalNotes) {
+                            const pattern = getCurrentPattern();
+                            const inst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
+                            if (inst) {
+                                const modifiedNotes = originalNotes.map((n, i) => n + (inst.pitchOffsets?.[i] || inst.pitchOffset || 0));
+                                const newSymbol = identifyChord(modifiedNotes, app.state.baseKey);
+                                if (newSymbol && newSymbol !== chord.symbol) {
+                                    app.saveHistoryState();
+                                    
+                                    if (!app.state.temporarySwaps) {
+                                        app.state.temporarySwaps = {};
+                                    }
+                                    if (app.state.temporarySwaps[activeIndex]) {
+                                        app.state.temporarySwaps[activeIndex].symbol = newSymbol;
+                                    } else {
+                                        app.state.temporarySwaps[activeIndex] = { symbol: newSymbol };
+                                    }
+
+                                    const newNotes = getChordNotes(newSymbol, baseKey, divisions);
+                                    const newOffsets = newNotes ? newNotes.map(() => 0) : [];
+                                    const updatedPattern = updateInstance(pattern, inst.id, { pitchOffsets: newOffsets, pitchOffset: 0 });
+                                    setCurrentPattern(updatedPattern);
+                                    
+                                    if (app.renderProgression) {
+                                        app.renderProgression();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             app.persistAppState();
             renderRhythmTimeline();
             editorState.draggedInstanceId = null;

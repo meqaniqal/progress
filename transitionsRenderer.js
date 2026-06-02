@@ -9,7 +9,9 @@ export const TRANS_COLORS = {
     'enclosure': { bg: 'rgba(236, 72, 153, 0.4)', border: 'rgba(236, 72, 153, 0.8)', active: '#db2777', text: '🔀 Enclose' },
     'run-up': { bg: 'rgba(14, 165, 233, 0.4)', border: 'rgba(14, 165, 233, 0.8)', active: '#0284c7', text: '🎢 Run Up' },
     'run-down': { bg: 'rgba(249, 115, 22, 0.4)', border: 'rgba(249, 115, 22, 0.8)', active: '#ea580c', text: '🎢 Run Dn' },
-    'random': { bg: 'rgba(16, 185, 129, 0.4)', border: 'rgba(16, 185, 129, 0.8)', active: '#059669', text: '🎲 Random' }
+    'random': { bg: 'rgba(16, 185, 129, 0.4)', border: 'rgba(16, 185, 129, 0.8)', active: '#059669', text: '🎲 Random' },
+    'neighbor': { bg: 'rgba(219, 39, 119, 0.4)', border: 'rgba(219, 39, 119, 0.8)', active: '#be185d', text: '↩️ Neighbor' },
+    'cambiata': { bg: 'rgba(79, 70, 229, 0.4)', border: 'rgba(79, 70, 229, 0.8)', active: '#4338ca', text: '🔄 Cambiata' }
 };
 
 export function renderTransitionsTimeline(container, pattern, editorState, app) {

@@ -1,4 +1,4 @@
-import { getChordNotes, applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension, midiToFreq, getEdoPitch, segmentMicrotonalCluster, snapToGrid } from './theory.js';
+import { getChordNotes, applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension, midiToFreq, getEdoPitch, segmentMicrotonalCluster, snapToGrid, resolveHierarchicalCollisions } from './theory.js';
 
 describe('Theory & Voice Leading Module', () => {
     
@@ -206,6 +206,47 @@ describe('Theory & Voice Leading Module', () => {
             const snapped = snapToGrid(bassMidi, 31);
             // 7 * (31/12) = 18.08 -> step 18.
             expect(snapped).toBeCloseTo(60 + 18 * (12/31));
+        });
+    });
+
+    describe('Hierarchical Collision Engine', () => {
+        it('resolves clashes between moving and stationary voices', () => {
+            // Voice 0 is moving, Voice 1 is stationary.
+            // Both are at pitch 60. Voice 0 (moving) has priority, so Voice 1 (stationary) is nudged away.
+            // Voice 1 (Alto) nudges down twice to 58 to clear the <= 1.5 semitone threshold.
+            const notes = [60, 60];
+            const resolved = resolveHierarchicalCollisions(notes, [0]);
+            expect(resolved[0]).toBe(60); // Priority
+            expect(resolved[1]).toBe(58); // Nudged
+        });
+
+        it('resolves clashes between two moving voices based on outer vs inner roles', () => {
+            // Voice 0 (Soprano, priority 10) and Voice 1 (Alto, priority 5). Both moving.
+            // Both at pitch 60. Soprano has priority. Alto is nudged.
+            const notes = [60, 60];
+            const resolved = resolveHierarchicalCollisions(notes, [0, 1]);
+            expect(resolved[0]).toBe(60);
+            expect(resolved[1]).toBe(58); // Nudged twice (60 -> 59 -> 58) to be 2 semitones away (> 1.5 diff)
+        });
+
+        it('resolves clashes between two stationary voices based on outer vs inner roles', () => {
+            // Voice 1 (Alto, priority 5) and Voice 3 (Bass, priority 9). Neither is moving.
+            // Let's set initial notes so only Alto and Bass clash.
+            // Voice 0 = 70 (no clash), Voice 1 = 60, Voice 2 = 75 (no clash), Voice 3 = 60.
+            const notes = [70, 60, 75, 60];
+            const resolved = resolveHierarchicalCollisions(notes, []);
+            expect(resolved[3]).toBe(60); // Bass has priority, stays at 60
+            expect(resolved[1]).toBe(62); // Alto is upper voice relative to Bass, nudges up to 62
+        });
+
+        it('prefers moving inner voice over stationary outer voice due to motion boost', () => {
+            // Voice 0 (Soprano, stationary, base 10) and Voice 1 (Alto, moving, base 5 + 100 motion boost = 105).
+            // Both at 60. Alto has priority. Soprano is nudged.
+            // Soprano is upper voice relative to Alto (index 0 < 1), so Soprano nudges up to 62.
+            const notes = [60, 60];
+            const resolved = resolveHierarchicalCollisions(notes, [1]);
+            expect(resolved[1]).toBe(60); // Alto stays
+            expect(resolved[0]).toBe(62); // Soprano nudged
         });
     });
 });

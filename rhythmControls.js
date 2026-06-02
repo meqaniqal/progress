@@ -13,7 +13,7 @@ import {
     auditionSlicePitch, 
     renderRhythmTimeline 
 } from './rhythmEditor.js';
-import { getEffectiveTuning, getPitchEditorTuning } from './theory.js';
+import { getEffectiveTuning, getPitchEditorTuning, getChordNotes } from './theory.js';
 import { updateTransition } from './transitionUtils.js';
 
 /** Sets up the 'Chords' | 'Bass' | 'Drums' tabs and the 'Global' | 'Local' toggle. */
@@ -137,6 +137,51 @@ function _setupDrumControls() {
             renderRhythmTimeline();
         });
 
+        let drumDoubleBtn = document.createElement('button');
+        drumDoubleBtn.id = 'btn-drum-double';
+        drumDoubleBtn.className = 'control-btn secondary';
+        drumDoubleBtn.style.padding = '6px 12px';
+        drumDoubleBtn.style.fontSize = '13px';
+        drumDoubleBtn.title = 'Double beats and duplicate pattern to second half';
+        drumDoubleBtn.innerHTML = '⇲ Double';
+        drumCropBtn.parentNode.insertBefore(drumDoubleBtn, drumCropBtn.nextSibling);
+
+        drumDoubleBtn.addEventListener('click', () => {
+            if (editorState.activeTab !== 'drumPattern' || !editorState.isGlobal) return;
+            const pattern = getCurrentPattern();
+            if (pattern) {
+                const oldLength = pattern.lengthBeats || 4;
+                if (oldLength >= 32) {
+                    alert("Maximum length of 32 beats reached.");
+                    return;
+                }
+                const newLength = oldLength * 2;
+                
+                app.saveHistoryState();
+                
+                const firstHalfHits = (pattern.hits || []).map(h => ({
+                    ...h,
+                    time: h.time / 2
+                }));
+                
+                const secondHalfHits = (pattern.hits || []).map(h => ({
+                    ...h,
+                    id: Math.random().toString(36).substring(2, 10),
+                    time: h.time / 2 + 0.5
+                }));
+                
+                const newHits = [...firstHalfHits, ...secondHalfHits];
+                
+                setCurrentPattern({ ...pattern, lengthBeats: newLength, hits: newHits });
+                
+                const lengthSelectEl = document.getElementById('drum-length-select');
+                if (lengthSelectEl) lengthSelectEl.value = newLength;
+                
+                app.persistAppState();
+                renderRhythmTimeline();
+            }
+        });
+
         drumLengthSelect.addEventListener('change', (e) => {
             if (editorState.activeTab !== 'drumPattern' || !editorState.isGlobal) return;
             const pattern = getCurrentPattern();
@@ -224,6 +269,69 @@ function _setupPropertiesControls() {
             renderRhythmTimeline();
         });
         rateSlider.addEventListener('change', () => app.saveHistoryState());
+    }
+
+    const scaleSnapSelect = document.getElementById('prop-scale-snap-select');
+    if (scaleSnapSelect) {
+        scaleSnapSelect.addEventListener('change', (e) => {
+            const pattern = getCurrentPattern();
+            if (!pattern) return;
+            app.saveHistoryState();
+            const selectedTrans = (pattern.transitions || []).filter(t => t.isSelected);
+            if (selectedTrans.length > 0) {
+                let newPattern = pattern;
+                selectedTrans.forEach(trans => {
+                    newPattern = updateTransition(newPattern, trans.id, { scaleSnap: e.target.value });
+                });
+                setCurrentPattern(newPattern);
+            }
+            app.persistAppState();
+            renderRhythmTimeline();
+        });
+    }
+
+    const baseChordSelect = document.getElementById('prop-base-chord-select');
+    if (baseChordSelect) {
+        baseChordSelect.addEventListener('change', (e) => {
+            const activeIndex = editorState.activeIndex;
+            if (activeIndex === null || activeIndex === undefined) return;
+            const chord = app.state.currentProgression[activeIndex];
+            if (!chord) return;
+            
+            const newSymbol = e.target.value;
+            if (newSymbol === chord.symbol) return;
+            
+            app.saveHistoryState();
+            
+            if (!app.state.temporarySwaps) {
+                app.state.temporarySwaps = {};
+            }
+            if (app.state.temporarySwaps[activeIndex]) {
+                app.state.temporarySwaps[activeIndex].symbol = newSymbol;
+            } else {
+                app.state.temporarySwaps[activeIndex] = { symbol: newSymbol };
+            }
+            
+            const pattern = getCurrentPattern();
+            if (pattern && pattern.instances) {
+                const baseKey = chord.key !== undefined ? chord.key : (app.state.baseKey !== undefined ? app.state.baseKey : 60);
+                const divisions = chord.divisions || app.state.divisions || 12;
+                const newNotes = getChordNotes(newSymbol, baseKey, divisions);
+                const newOffsets = newNotes ? newNotes.map(() => 0) : [];
+                
+                let newPattern = pattern;
+                pattern.instances.forEach(inst => {
+                    newPattern = updateInstance(newPattern, inst.id, { pitchOffsets: newOffsets, pitchOffset: 0 });
+                });
+                setCurrentPattern(newPattern);
+            }
+            
+            app.persistAppState();
+            renderRhythmTimeline();
+            if (app.renderProgression) {
+                app.renderProgression();
+            }
+        });
     }
     
     // --- Pitch Property Controls ---
@@ -545,6 +653,19 @@ function _setupToolbarButtons() {
             editorState.activeOverlayId = null;
             app.persistAppState();
             renderRhythmTimeline();
+        });
+    }
+
+    const btnSolo = document.getElementById('btn-solo-toggle');
+    if (btnSolo) {
+        btnSolo.addEventListener('click', (e) => {
+            e.stopPropagation();
+            editorState.isSolo = !editorState.isSolo;
+            btnSolo.classList.toggle('active', !!editorState.isSolo);
+            app.persistAppState();
+            if (app.isPlaybackActive && app.isPlaybackActive()) {
+                if (app.restartTransport) app.restartTransport();
+            }
         });
     }
 }

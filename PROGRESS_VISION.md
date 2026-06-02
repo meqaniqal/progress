@@ -225,3 +225,11 @@ Transitioning from mapping 12-TET math into EDOs towards supporting true, indepe
 - [x] **Loop Block Dragging:** Introduce a draggable macro-block in the chord palette that represents the current loop bounds. Dragging or double-tapping this button will insert the entire sequence of chords currently within the loop brackets into the progression at once.
 - [x] **Polyphonic Slice Pitch Editing:** Expand the Pattern Editor's Pitch Mode (currently limited to Bass) to support Chords. Allow users to adjust the pitch of individual notes within a sliced chord block, essentially creating custom voicings per slice. Includes copy/paste functionality to apply these specific pitch modifications across multiple slices.
 - [x] **Intelligent Bassline Enhancements:** Refine the bassline generation logic which is currently too strict (often yielding a single short slice). Upgrade it to produce more interesting, multi-note rhythmic patterns that take surrounding chords and broader rhythmic context into consideration.
+
+### 13. Intelligent Harmonic Intelligence & Arrangement UX (Phase 10 - Planned)
+- **Modal/Scale Degree Snapping for Transitions**: Refine transition note choices dynamically to align with scale degrees or modal functions, making runs and ornaments sound highly professional and contextual.
+- **Dynamic Pitch-to-Chord Analysis**: Re-analyze chord symbols in real-time when the user manually modifies note pitches in Chords Pitch Mode. If the custom voicing matches a valid chord structure, update the chord symbol (e.g. changing root/extension to "Isus4" or "Csus4") so that subsequent AI prompts and voicing generators use correct, updated context.
+- **Emotional Suggestion Engine & Color-Coded Transpose**: Perform progression analysis to suggest chords in the chord chooser matching desired emotional states (e.g., Luminous, Mournful, Heroic). Match the colors of the key transposition dropdown to these emotional possibilities.
+- **Arrangement UX Enhancements**:
+  - Make the `+looped` button act like standard chord buttons; dragging it hides other buttons to facilitate clean drop insertion.
+  - Auto-expand loop brace boundaries when a loop is dragged and dropped immediately following the last chord in the current loop.

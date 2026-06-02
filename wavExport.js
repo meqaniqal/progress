@@ -72,6 +72,17 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
 
                 const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
 
+                let drumHits = [];
+                const drumPat = chord.drumPattern;
+                if (drumPat && drumPat.isLocalOverride) {
+                    drumHits = drumPat.hits || [];
+                } else if (globalOptions.globalPatterns && globalOptions.globalPatterns.drumPattern) {
+                    drumHits = globalOptions.globalPatterns.drumPattern.hits || [];
+                }
+
+                const nextChordObj = progression[(absIndex + 1) % trueProgressionLength] || chord;
+                const prevChordObj = progression[(absIndex - 1 + trueProgressionLength) % trueProgressionLength] || chord;
+
                 const voiceEvents = evaluateVoiceEvents(
                     pattern.instances,
                     pattern.transitions || [],
@@ -80,7 +91,11 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                     nextNotes,
                     editorTuning,
                     globalOptions.autoPanLeading !== false,
-                    duration
+                    duration,
+                    drumHits,
+                    chord,
+                    nextChordObj,
+                    prevChordObj
                 );
 
                 voiceEvents.forEach(ev => {

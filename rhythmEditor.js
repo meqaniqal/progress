@@ -110,8 +110,9 @@ export function setCurrentPattern(newPattern, markAsOverride = true) {
     }
 }
 
-export function highlightSlice(sliceId, durationMs = 150) {
+export function highlightSlice(sliceId, durationMs = 150, chordIndex = null) {
     if (editorState.activeTab === 'drumPattern') return; // Slices are not relevant in the drum tab
+    if (!editorState.isGlobal && chordIndex !== null && chordIndex !== editorState.activeIndex) return;
     const sliceEl = document.querySelector(`.rhythm-instance[data-id="${sliceId}"]`);
     if (sliceEl) {
         sliceEl.classList.add('playing-slice');
@@ -228,6 +229,11 @@ export function openRhythmEditor(index) {
 
     renderRhythmTimeline();
     
+    const btnSolo = document.getElementById('btn-solo-toggle');
+    if (btnSolo) {
+        btnSolo.classList.toggle('active', !!editorState.isSolo);
+    }
+    
     const modeSelect = document.getElementById('global-mode-select');
     const pattern = getCurrentPattern();
     if (modeSelect && pattern) {
@@ -242,6 +248,9 @@ export function closeRhythmEditor() {
     editorState.activeIndex = null;
     editorState.activeOverlayId = null;
     editorState.justPushedToGlobalIndex = null;
+    editorState.isSolo = false;
+    const btnSolo = document.getElementById('btn-solo-toggle');
+    if (btnSolo) btnSolo.classList.remove('active');
     const panel = document.getElementById('rhythm-editor-panel');
     if (panel) panel.style.display = 'none';
 }
