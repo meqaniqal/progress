@@ -481,6 +481,8 @@ function _setupSmartDragCollapse() {
             if (palette) {
                 document.body.classList.add('is-dragging-palette');
                 palette.classList.add('active-palette');
+            } else if (btn.id === 'btn-drag-loop') {
+                document.body.classList.add('is-dragging-palette');
             }
         }
     }, { passive: true });

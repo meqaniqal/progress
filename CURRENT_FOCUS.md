@@ -25,9 +25,9 @@ This document contains the immediate objectives and active task checklists. To p
 - [ ] **Emotional Progression Analyzer**: Add a section in the chord chooser showing chord suggestions tailored to desired emotional outcomes (e.g., "Mournful", "Luminous", "Heroic").
 - [ ] **Color-Coded Key Transposition**: Match the colors of the key transposition dropdown to these emotional possibilities.
 
-### 3. Arrangement & Loop Brace UX (🆕 Planned)
-- [ ] **Loop Insertion Dragging**: Make the `+looped` button act like standard chord buttons; dragging hides other buttons for easy drop placement.
-- [ ] **Adaptive Loop Brace**: Auto-expand the active loop brace boundaries when a loop is dragged and dropped immediately following the last chord inside the active loop.
+### 3. Arrangement & Loop Brace UX (🚧 In Progress)
+- [x] **Loop Insertion Dragging**: Make the `+looped` button act like standard chord buttons; dragging hides other buttons for easy drop placement.
+- [x] **Adaptive Loop Brace**: Auto-expand the active loop brace boundaries when a loop is dragged and dropped immediately following the last chord inside the active loop.
 
 ### 4. Bass & Drum Synthesizer Modules (🚧 In Progress)
 - [ ] **Bass-Geared Synthesizers**: Build a dedicated modular synth engine for the bassline (incorporating sub-harmonics, drive, and saturation parameters).

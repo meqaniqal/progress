@@ -423,6 +423,8 @@ export function insertLoopedSequence(insertIndex, newLoopStart, newLoopEnd) {
 
     saveHistoryState();
 
+    const originalLoopEnd = state.loopEnd;
+
     const activeProgression = getActiveProgression();
     const loopSlice = activeProgression.slice(start, end).map(chord => {
         const newChord = structuredClone(chord);
@@ -440,7 +442,9 @@ export function insertLoopedSequence(insertIndex, newLoopStart, newLoopEnd) {
     state.currentProgression.splice(insertIndex, 0, ...loopSlice);
     state.selectedChordIndex = insertIndex + shiftAmt - 1;
 
-    if (newLoopStart !== null && newLoopEnd !== null) {
+    if (insertIndex === originalLoopEnd) {
+        state.loopEnd = originalLoopEnd + shiftAmt;
+    } else if (newLoopStart !== null && newLoopEnd !== null) {
         state.loopStart = newLoopStart;
         state.loopEnd = newLoopEnd;
     } else {
