@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 import { generateArpNotes } from './arp.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators, playDrum } from './synth.js';
 import { resolvePattern } from './patternResolver.js';
-import { state } from './store.js';
+import { state, getActiveProgression } from './store.js';
 import { isSongTrayOpen, getActiveSequenceIndex } from './songController.js';
 import { evaluateVoiceEvents } from './transitionEvaluator.js';
 
@@ -301,17 +301,13 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         const absBeatStart = getAbsoluteBeatPos(activeProg, absIndex);
         const drumPat = chordObj.drumPattern;
         
-        console.log(`[DEBUG sequencer] index: ${absIndex}, symbol: ${chordObj.symbol}, absBeatStart: ${absBeatStart}, beats: ${beats}, drumPatOverride: ${!!(drumPat && drumPat.isLocalOverride)}`);
-        
         if (drumPat && drumPat.isLocalOverride) {
             // Local Punch-In
-            console.log(`[DEBUG sequencer] using local override pattern for index ${absIndex}. hits:`, drumPat.hits);
             if (drumPat.hits) {
                 for (const hit of drumPat.hits) {
                     if (hit.probability != null && Math.random() > hit.probability) continue;
 
                     const hitTimeSec = time + (hit.time * beats * (60.0 / Number(state.bpm)));
-                    console.log(`[DEBUG sequencer] scheduling LOCAL drum hit: row=${hit.row}, time=${hitTimeSec}, hit.time=${hit.time}`);
                     playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
                     if (onDrumPlay && hit.id) {
                         const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
@@ -327,7 +323,6 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
             // Global Continuous Loop
             const globalDrumPat = secState.globalPatterns.drumPattern;
             const gLength = globalDrumPat.lengthBeats || 4;
-            console.log(`[DEBUG sequencer] using global pattern for index ${absIndex}. global hits:`, globalDrumPat.hits);
             
             if (globalDrumPat.hits) {
                 for (const hit of globalDrumPat.hits) {
@@ -339,17 +334,13 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                     let absBeatStartRounded = Math.round(absBeatStart * 10000) / 10000;
                     let chordEndBeatRounded = Math.round((absBeatStart + beats) * 10000) / 10000;
                     
-                    console.log(`[DEBUG sequencer] checking hit row=${hit.row}, hit.time=${hit.time}, hitBeatOffset=${hitBeatOffset}, loopStartBeat=${loopStartBeat}, absoluteHitBeat=${absoluteHitBeat}, absBeatStartRounded=${absBeatStartRounded}, chordEndBeatRounded=${chordEndBeatRounded}`);
-                    
                     if (absoluteHitBeat < absBeatStartRounded) {
                         absoluteHitBeat += gLength;
-                        console.log(`[DEBUG sequencer] absoluteHitBeat was < absBeatStartRounded, adjusted to ${absoluteHitBeat}`);
                     }
                     
                     while (absoluteHitBeat < chordEndBeatRounded) {
                         const beatWithinChord = absoluteHitBeat - absBeatStartRounded;
                         const hitTimeSec = time + (beatWithinChord * (60.0 / Number(state.bpm)));
-                        console.log(`[DEBUG sequencer] scheduling GLOBAL drum hit: row=${hit.row}, beatWithinChord=${beatWithinChord}, absoluteHitBeat=${absoluteHitBeat}, hitTimeSec=${hitTimeSec}`);
                         if (hit.probability === undefined || Math.random() <= hit.probability) {
                             playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
                             if (onDrumPlay && hit.id) {
@@ -366,8 +357,6 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                     }
                 }
             }
-        } else {
-            console.log(`[DEBUG sequencer] no global or local drum pattern found for index ${absIndex}`);
         }
 
         const delayMs = (time - getAudioCurrentTime()) * 1000;
@@ -477,4 +466,94 @@ export function stopAllAudio(onHighlightCallback) {
     if (onHighlightCallback) onHighlightCallback(-1);
 
     stopOscillators();
+}
+
+function scheduleChordAudition(chordSymbol, baseKey, specificNotes, divisions, startTime, duration) {
+    if (!chordSymbol) return;
+    const tuning = getEffectiveTuning(chordSymbol, divisions || state.divisions || 12);
+    const chordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
+    if (!chordNotes) return;
+
+    const rootNoteMidi = getBassNote(chordNotes, tuning);
+    const dropSize = tuning.periodSize > 14 ? 12.0 : tuning.periodSize;
+    const notesToPlay = specificNotes || chordNotes.map(n => n - dropSize);
+
+    const chordInst = state.instruments?.chords || 'sawtooth';
+    const bassInst = state.instruments?.bass || 'sine';
+
+    const panL = state.autoPanLeading ? -0.75 : 0;
+    const panR = state.autoPanLeading ? 0.75 : 0;
+
+    const segmented = segmentMicrotonalCluster(notesToPlay);
+    segmented.core.forEach(note => playTone(midiToFreq(note), startTime, duration, chordInst, 'chords', 0));
+    segmented.frictionLeft.forEach(note => playTone(midiToFreq(note), startTime, duration, chordInst, 'chords', panL));
+    segmented.frictionRight.forEach(note => playTone(midiToFreq(note), startTime, duration, chordInst, 'chords', panR));
+
+    playTone(midiToFreq(rootNoteMidi), startTime, duration, bassInst, 'bass');
+}
+
+function getAuditionNotesForSeq(progression, idx, appState) {
+    let notesToPlay = getPlayableNotes(progression, appState)[idx];
+    if (!notesToPlay) return null;
+    
+    const chord = progression[idx];
+    let pattern = chord.chordPattern;
+    if (pattern && !pattern.isLocalOverride && appState.globalPatterns && appState.globalPatterns.chordPattern) {
+        pattern = appState.globalPatterns.chordPattern;
+    }
+    
+    if (pattern && pattern.instances && pattern.instances.length > 0) {
+        const instances = [...pattern.instances].sort((a, b) => a.startTime - b.startTime);
+        const firstInstance = instances[0];
+        if (firstInstance && firstInstance.pitchOffsets) {
+            const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || appState.divisions || 12);
+            notesToPlay = notesToPlay.map((n, i) => n + snapToGrid(60 + (firstInstance.pitchOffsets[i] || 0), editorTuning) - 60);
+        }
+    }
+    return notesToPlay;
+}
+
+export function auditionThreeChordSequence(index, substituteSymbol, targetKey, state) {
+    initAudio();
+    stopAllAudio();
+
+    const bpm = state.bpm || 120;
+    const beatLen = 60.0 / bpm;
+    // Comfortably paced duration for each chord in sequence
+    const chordDuration = 0.8; 
+
+    // Build the temporary progression to voice lead the substitute chord correctly,
+    // using the active progression (with other temporary swaps active) as context.
+    const activeProg = getActiveProgression();
+    const tempProg = activeProg.map((c, idx) => {
+        if (idx === index) {
+            const swapKey = targetKey !== undefined ? targetKey : c.key;
+            return { ...c, symbol: substituteSymbol, key: swapKey };
+        }
+        return c;
+    });
+
+    const now = getAudioCurrentTime() + 0.05; // 50ms scheduling buffer
+
+    let currentTime = now;
+
+    // 1. Preceding Chord
+    if (index > 0) {
+        const precChord = tempProg[index - 1];
+        const precNotes = getAuditionNotesForSeq(tempProg, index - 1, state);
+        scheduleChordAudition(precChord.symbol, precChord.key, precNotes, precChord.divisions, currentTime, chordDuration);
+        currentTime += chordDuration;
+    }
+
+    // 2. Substitute Chord
+    const subNotes = getAuditionNotesForSeq(tempProg, index, state);
+    scheduleChordAudition(substituteSymbol, targetKey !== undefined ? targetKey : activeProg[index].key, subNotes, activeProg[index].divisions, currentTime, chordDuration);
+    currentTime += chordDuration;
+
+    // 3. Following Chord
+    if (index < tempProg.length - 1) {
+        const follChord = tempProg[index + 1];
+        const follNotes = getAuditionNotesForSeq(tempProg, index + 1, state);
+        scheduleChordAudition(follChord.symbol, follChord.key, follNotes, follChord.divisions, currentTime, chordDuration);
+    }
 }

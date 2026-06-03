@@ -1,5 +1,6 @@
-import { getPlayableNotes, getAlternatives, getTurnaroundSuggestions, getEffectiveTuning, getChordNotes, getChordSignature, getModulationLabel } from './theory.js';
+import { getPlayableNotes, getAlternatives, getTurnaroundSuggestions, getEffectiveTuning, getChordNotes, getChordSignature, getModulationLabel, getDynamicProgSuggestions, getProceduralCategory, getCategoryIndex } from './theory.js';
 import { KEY_NAMES } from './ui.js';
+import { persistAppState } from './store.js';
 
 let isInspectorDelegated = false;
 let currentUIState = null;
@@ -16,7 +17,18 @@ function handleInspectorClick(e) {
     switch(action) {
         case 'swap':
             const orig = currentUIState.currentProgression[index];
-            currentUICallbacks.onSwapChord(index, btn.dataset.alt, orig);
+            const isAudition = currentUIState.editorState.isAuditionEnabled;
+            if (isAudition) {
+                if (currentUICallbacks.onAuditionThreeChordSequence) {
+                    currentUICallbacks.onAuditionThreeChordSequence(index, btn.dataset.alt, btn.dataset.key ? parseInt(btn.dataset.key, 10) : undefined);
+                }
+            } else {
+                currentUICallbacks.onSwapChord(index, btn.dataset.alt, orig, btn.dataset.key ? parseInt(btn.dataset.key, 10) : undefined);
+            }
+            break;
+        case 'reset-swap':
+            const originalChord = currentUIState.currentProgression[index];
+            currentUICallbacks.onSwapChord(index, originalChord.symbol, originalChord);
             break;
         case 'transpose':
             currentUICallbacks.onTransposeChord(index);
@@ -45,6 +57,23 @@ function handleInspectorClick(e) {
             if (newKey > 71) newKey = 60;
             currentUICallbacks.onChangeChordKey(index, newKey);
             break;
+    }
+}
+
+function handleInspectorDblClick(e) {
+    if (!currentUICallbacks || !currentUIState) return;
+    const btn = e.target.closest('button');
+    if (!btn || !btn.dataset.action) return;
+
+    const action = btn.dataset.action;
+    const index = parseInt(btn.dataset.index, 10);
+
+    if (action === 'swap') {
+        const isAudition = currentUIState.editorState.isAuditionEnabled;
+        if (isAudition) {
+            const orig = currentUIState.currentProgression[index];
+            currentUICallbacks.onSwapChord(index, btn.dataset.alt, orig, btn.dataset.key ? parseInt(btn.dataset.key, 10) : undefined);
+        }
     }
 }
 
@@ -105,6 +134,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     if (!isInspectorDelegated) {
         isInspectorDelegated = true;
         panel.addEventListener('click', handleInspectorClick);
+        panel.addEventListener('dblclick', handleInspectorDblClick);
         panel.addEventListener('change', handleInspectorChange);
         panel.addEventListener('input', handleInspectorInput);
     }
@@ -126,10 +156,144 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     const displayChord = isTemp ? { ...originalChord, ...state.temporarySwaps[index] } : originalChord;
     const currentDuration = displayChord.duration || 2;
 
+    const resetBtnHtml = isTemp ? `<button class="chord-btn reset-swap-btn" data-action="reset-swap" data-index="${index}" style="margin: 0 4px; padding: 2px 8px; font-size: 11px; background: var(--bg-hover); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; cursor: pointer;" title="Reset back to original chord">↺ Original</button>` : '';
+
     document.getElementById('inspector-title').innerHTML = `
-        <span>Selected Chord: ${displayChord.symbol}</span>
+        <span style="display: flex; align-items: center; gap: 4px;">Selected Chord: ${displayChord.symbol} ${resetBtnHtml}</span>
         <button class="chord-btn del-btn" data-action="delete" data-index="${index}" style="margin: 0; padding: 4px 12px; font-size: 13px;">🗑 Delete</button>
     `;
+
+    // --- Category Settings Row ---
+    let settingsRow = content.querySelector('.inspector-row-swap-settings');
+    if (!settingsRow) {
+        settingsRow = document.createElement('div');
+        settingsRow.className = 'inspector-row inspector-row-swap-settings';
+        settingsRow.style.display = 'flex';
+        settingsRow.style.alignItems = 'center';
+        settingsRow.style.gap = '8px';
+        settingsRow.style.marginBottom = '8px';
+        
+        settingsRow.innerHTML = `
+            <strong class="inspector-label" style="display: flex; align-items: center; gap: 4px;">🎭 Category:</strong>
+            <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
+                <label style="display: flex; align-items: center; gap: 3px; font-size: 11px; cursor: pointer; user-select: none;" title="Audition 3-chord sequence when selecting a substitute">
+                    <input type="checkbox" id="inspector-audition-toggle" style="margin: 0; cursor: pointer;">
+                    <span>Audition</span>
+                </label>
+                <button id="btn-inspector-emotion-prev" class="control-btn secondary btn-sm" style="padding: 2px 6px; font-size: 10px;" title="Previous categories page">◀</button>
+                <span style="font-size: 10px; opacity: 0.8; font-family: monospace; display: flex; align-items: center; gap: 2px;">
+                    Pg <input type="number" id="inspector-emotion-page-input" value="1" min="1" max="100" style="width: 38px; text-align: center; background: var(--bg-panel); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 1px 2px; font-size: 10px; font-family: monospace;">/100
+                </span>
+                <button id="btn-inspector-emotion-next" class="control-btn secondary btn-sm" style="padding: 2px 6px; font-size: 10px;" title="Next categories page">▶</button>
+                <select id="inspector-emotion-selector" class="rhythm-select select-sm" style="min-width: 125px; padding: 2px 4px; cursor: pointer; border-radius: 4px; margin-left: 2px; font-size: 11px;">
+                </select>
+            </div>
+        `;
+        content.appendChild(settingsRow);
+    }
+
+    const insAuditionToggle = settingsRow.querySelector('#inspector-audition-toggle');
+    if (insAuditionToggle) {
+        insAuditionToggle.checked = !!state.editorState.isAuditionEnabled;
+        insAuditionToggle.onchange = (e) => {
+            state.editorState.isAuditionEnabled = e.target.checked;
+            persistAppState();
+        };
+    }
+
+    const insEmotionSelector = settingsRow.querySelector('#inspector-emotion-selector');
+    const insEmotionPageInput = settingsRow.querySelector('#inspector-emotion-page-input');
+    const btnInsEmotionPrev = settingsRow.querySelector('#btn-inspector-emotion-prev');
+    const btnInsEmotionNext = settingsRow.querySelector('#btn-inspector-emotion-next');
+
+    let inspectorCatPage = state.editorState.inspectorCategoryPage ?? 0;
+    inspectorCatPage = Math.max(0, Math.min(99, inspectorCatPage));
+    state.editorState.inspectorCategoryPage = inspectorCatPage;
+
+    if (insEmotionPageInput) {
+        insEmotionPageInput.value = inspectorCatPage + 1;
+    }
+
+    const pageCategories = [];
+    for (let j = 0; j < 6; j++) {
+        const catIndex = (inspectorCatPage * 6) + j;
+        pageCategories.push(getProceduralCategory(catIndex, state.mode));
+    }
+
+    const hasActiveEmotionOnPage = pageCategories.some(cat => cat.id === state.editorState.inspectorActiveEmotion) || state.editorState.inspectorActiveEmotion === 'substitutes';
+    if (!hasActiveEmotionOnPage && pageCategories.length > 0) {
+        state.editorState.inspectorActiveEmotion = 'substitutes';
+    }
+
+    if (insEmotionSelector) {
+        insEmotionSelector.innerHTML = '';
+        
+        // Add standard Voice-Leading option
+        const optSub = document.createElement('option');
+        optSub.value = 'substitutes';
+        optSub.textContent = 'Voice-Leading Substitutes';
+        optSub.title = 'Close voice leading chord alternatives';
+        insEmotionSelector.appendChild(optSub);
+        
+        pageCategories.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat.id;
+            opt.textContent = cat.label;
+            opt.title = cat.description;
+            insEmotionSelector.appendChild(opt);
+        });
+        insEmotionSelector.value = state.editorState.inspectorActiveEmotion || 'substitutes';
+    }
+
+    if (btnInsEmotionPrev) btnInsEmotionPrev.disabled = inspectorCatPage === 0;
+    if (btnInsEmotionNext) btnInsEmotionNext.disabled = inspectorCatPage === 99;
+
+    if (btnInsEmotionPrev) {
+        btnInsEmotionPrev.onclick = (e) => {
+            e.stopPropagation();
+            if (state.editorState.inspectorCategoryPage > 0) {
+                state.editorState.inspectorCategoryPage--;
+                state.editorState.swapPage = 0; // reset swap page when category page changes
+                persistAppState();
+                renderChordInspector(state, selectedChordIndex, callbacks);
+            }
+        };
+    }
+    if (btnInsEmotionNext) {
+        btnInsEmotionNext.onclick = (e) => {
+            e.stopPropagation();
+            if (state.editorState.inspectorCategoryPage < 99) {
+                state.editorState.inspectorCategoryPage++;
+                state.editorState.swapPage = 0; // reset swap page when category page changes
+                persistAppState();
+                renderChordInspector(state, selectedChordIndex, callbacks);
+            }
+        };
+    }
+    if (insEmotionPageInput) {
+        insEmotionPageInput.onchange = (e) => {
+            let val = parseInt(e.target.value, 10);
+            if (isNaN(val) || val < 1) val = 1;
+            if (val > 100) val = 100;
+            state.editorState.inspectorCategoryPage = val - 1;
+            state.editorState.swapPage = 0; // reset swap page when category page changes
+            persistAppState();
+            renderChordInspector(state, selectedChordIndex, callbacks);
+        };
+        insEmotionPageInput.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                insEmotionPageInput.onchange(e);
+            }
+        };
+    }
+    if (insEmotionSelector) {
+        insEmotionSelector.onchange = (e) => {
+            state.editorState.inspectorActiveEmotion = e.target.value;
+            state.editorState.swapPage = 0; // reset swap page when emotion changes
+            persistAppState();
+            renderChordInspector(state, selectedChordIndex, callbacks);
+        };
+    }
 
     // --- Swap Chord (Alts) Row ---
     let altsRow = content.querySelector('.inspector-row-alts');
@@ -201,8 +365,15 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         };
     }
 
-    const alts = getAlternatives(displayChord.symbol, displayChord.key, state.mode);
-    if (isTemp) alts.unshift(originalChord.symbol);
+    let alts = [];
+    if (state.editorState.inspectorActiveEmotion === 'substitutes') {
+        const rawAlts = getAlternatives(displayChord.symbol, displayChord.key, state.mode);
+        alts = rawAlts.map(alt => ({ symbol: alt }));
+    } else {
+        alts = getDynamicProgSuggestions(displayChord, state.editorState.inspectorActiveEmotion, state.mode, state.baseKey);
+    }
+    
+    if (isTemp) alts.unshift({ symbol: originalChord.symbol, key: originalChord.key });
     
     const pageSize = 4;
     const totalPages = Math.max(1, Math.ceil(alts.length / pageSize));
@@ -225,31 +396,41 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         if (noMatchSpan) noMatchSpan.remove();
 
         const existingBtns = altsBtnContainer.querySelectorAll('button');
-        pageAlts.forEach((alt, i) => {
+        pageAlts.forEach((altObj, i) => {
             let btn = existingBtns[i];
             if (!btn) {
                 btn = document.createElement('button');
                 btn.className = 'chord-btn inspector-alt-btn';
                 altsBtnContainer.appendChild(btn);
             }
-            btn.textContent = alt;
+            btn.textContent = altObj.symbol;
             btn.dataset.action = 'swap';
             btn.dataset.index = index;
-            btn.dataset.alt = alt;
+            btn.dataset.alt = altObj.symbol;
+            if (altObj.key !== undefined) {
+                btn.dataset.key = altObj.key;
+            } else {
+                delete btn.dataset.key;
+            }
+            if (altObj.description) {
+                btn.title = altObj.description;
+            } else {
+                btn.title = "";
+            }
 
             const isOriginal = isTemp && currentPage === 0 && i === 0;
             if (isOriginal) btn.classList.add('original-swap-option');
             else btn.classList.remove('original-swap-option');
             
             // Context Dimming
-            const tuning = getEffectiveTuning(alt, displayChord.divisions || state.divisions || 12);
-            const notes = getChordNotes(alt, displayChord.key, tuning.divisions);
+            const altKey = altObj.key !== undefined ? altObj.key : displayChord.key;
+            const tuning = getEffectiveTuning(altObj.symbol, displayChord.divisions || state.divisions || 12);
+            const notes = getChordNotes(altObj.symbol, altKey, tuning.divisions);
             if (notes && activeSignatures.has(getChordSignature(notes, tuning.periodSize)) && !isOriginal) {
                 btn.classList.add('dimmed-chord');
-                btn.title = "Already elsewhere in progression";
+                btn.title = (btn.title ? btn.title + " | " : "") + "Already elsewhere in progression";
             } else {
                 btn.classList.remove('dimmed-chord');
-                if (btn.title === "Already elsewhere in progression") btn.title = "";
             }
         });
 

@@ -168,24 +168,19 @@
 
         <div id="palette-emotional" class="chord-palette" style="border-top: 1px solid var(--border-main); padding-top: 12px; margin-top: 12px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                <strong style="display: flex; align-items: center; gap: 6px;">
-                    🎭 Emotional Suggestions:
+                <strong style="display: flex; align-items: center; gap: 4px;">
+                    🎭 Emotional:
+                    <button id="btn-sug-prev" class="control-btn secondary btn-sm" style="padding: 1px 4px; font-size: 9px; line-height: 1;" title="Previous suggestions">◀</button>
+                    <span id="sug-page-indicator" style="font-size: 9px; opacity: 0.8; font-family: monospace;">1/1</span>
+                    <button id="btn-sug-next" class="control-btn secondary btn-sm" style="padding: 1px 4px; font-size: 9px; line-height: 1;" title="Next suggestions">▶</button>
                 </strong>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <button id="btn-emotion-prev" class="control-btn secondary btn-sm" style="padding: 2px 6px;" title="Previous suggestions">◀</button>
-                    <span id="emotion-page-indicator" style="font-size: 11px; opacity: 0.8; font-family: monospace;">1/1</span>
-                    <button id="btn-emotion-next" class="control-btn secondary btn-sm" style="padding: 2px 6px;" title="Next suggestions">▶</button>
-                    <select id="emotion-selector" class="rhythm-select select-sm" style="min-width: 130px; padding: 2px 6px; cursor: pointer; border-radius: 4px; margin-left: 4px;">
-                        <option value="mournful" selected>😢 Mournful</option>
-                        <option value="luminous">✨ Luminous</option>
-                        <option value="heroic">⚔️ Heroic</option>
-                        <option value="nostalgic">💕 Nostalgic / Yearning</option>
-                        <option value="mysterious">🌌 Mysterious</option>
-                        <option value="ethereal">🧚 Ethereal / Floating</option>
-                        <option value="ominous">🌋 Ominous / Dread</option>
-                        <option value="baroque">🎻 Baroque (Bach Order)</option>
-                        <option value="cosmic">🚀 Cosmic (Coltrane Cycle)</option>
-                        <option value="soulful">🎹 Soulful (Stevie Wonder)</option>
+                <div style="display: flex; align-items: center; gap: 2px;">
+                    <button id="btn-emotion-prev" class="control-btn secondary btn-sm" style="padding: 2px 6px; font-size: 10px;" title="Previous categories page">◀</button>
+                    <span style="font-size: 10px; opacity: 0.8; font-family: monospace; display: flex; align-items: center; gap: 2px;">
+                        Pg <input type="number" id="emotion-category-page-input" value="1" min="1" max="100" style="width: 38px; text-align: center; background: var(--bg-panel); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 1px 2px; font-size: 10px; font-family: monospace;">/100
+                    </span>
+                    <button id="btn-emotion-next" class="control-btn secondary btn-sm" style="padding: 2px 6px; font-size: 10px;" title="Next categories page">▶</button>
+                    <select id="emotion-selector" class="rhythm-select select-sm" style="min-width: 120px; padding: 2px 4px; cursor: pointer; border-radius: 4px; margin-left: 2px; font-size: 11px;">
                     </select>
                 </div>
             </div>

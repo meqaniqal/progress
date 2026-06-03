@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
 import { getChordNotes, getPlayableNotes, getPitchEditorTuning, snapToGrid } from './theory.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, loadPersistedDrumSamples } from './synth.js';
-import { auditionChord, playProgression, stopAllAudio } from './sequencer.js';
+import { auditionChord, playProgression, stopAllAudio, auditionThreeChordSequence } from './sequencer.js';
 import { initDragAndDrop } from './dragdrop.js';
 import { exportToMidi } from './midi.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
@@ -53,16 +53,19 @@ import { initSettingsUI, syncSettingsUI, updateCustomDrumsUI } from './settingsC
                 removeChord(index);
                 renderProgression();
             },
-            onSwapChord: (index, altSymbol, originalChord) => {
-                swapChord(index, altSymbol, originalChord.symbol);
+            onSwapChord: (index, altSymbol, originalChord, targetKey) => {
+                swapChord(index, altSymbol, originalChord.symbol, targetKey);
                 
                 const chordToAudition = getActiveProgression()[index];
                 if (!isPlaybackActive()) {
-                    const notesToPlay = getAuditionNotes(getActiveProgression(), index, state);
-                    auditionChord(chordToAudition.symbol, chordToAudition.key, notesToPlay, chordToAudition.divisions);
+                     const notesToPlay = getAuditionNotes(getActiveProgression(), index, state);
+                     auditionChord(chordToAudition.symbol, chordToAudition.key, notesToPlay, chordToAudition.divisions);
                 }
                 
                 renderProgression();
+            },
+            onAuditionThreeChordSequence: (index, altSymbol, targetKey) => {
+                auditionThreeChordSequence(index, altSymbol, targetKey, state);
             },
             onStepInversion: (index, direction) => {
                 stepInversion(index, direction);
@@ -229,16 +232,55 @@ function _setupKeyAndModeSelectors() {
         });
     }
 
-    const btnPrev = document.getElementById('btn-emotion-prev');
-    const btnNext = document.getElementById('btn-emotion-next');
-    if (btnPrev && btnNext) {
-        btnPrev.addEventListener('click', () => {
+    const btnEmotionPrev = document.getElementById('btn-emotion-prev');
+    const btnEmotionNext = document.getElementById('btn-emotion-next');
+    const emotionPageInput = document.getElementById('emotion-category-page-input');
+    
+    if (btnEmotionPrev && btnEmotionNext) {
+        btnEmotionPrev.addEventListener('click', () => {
+            if (state.editorState && state.editorState.chordChooserCategoryPage > 0) {
+                state.editorState.chordChooserCategoryPage--;
+                state.editorState.emotionPage = 0;
+                updateKeyAndModeDisplay(state);
+                persistAppState();
+            }
+        });
+        btnEmotionNext.addEventListener('click', () => {
+            if (state.editorState && state.editorState.chordChooserCategoryPage < 99) {
+                state.editorState.chordChooserCategoryPage++;
+                state.editorState.emotionPage = 0;
+                updateKeyAndModeDisplay(state);
+                persistAppState();
+            }
+        });
+    }
+
+    if (emotionPageInput) {
+        const handlePageJump = () => {
+            let val = parseInt(emotionPageInput.value, 10);
+            if (isNaN(val)) val = 1;
+            val = Math.max(1, Math.min(100, val)) - 1;
+            state.editorState.chordChooserCategoryPage = val;
+            state.editorState.emotionPage = 0;
+            updateKeyAndModeDisplay(state);
+            persistAppState();
+        };
+        emotionPageInput.addEventListener('change', handlePageJump);
+        emotionPageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handlePageJump();
+        });
+    }
+
+    const btnSugPrev = document.getElementById('btn-sug-prev');
+    const btnSugNext = document.getElementById('btn-sug-next');
+    if (btnSugPrev && btnSugNext) {
+        btnSugPrev.addEventListener('click', () => {
             if (state.editorState && state.editorState.emotionPage > 0) {
                 state.editorState.emotionPage--;
                 updateKeyAndModeDisplay(state);
             }
         });
-        btnNext.addEventListener('click', () => {
+        btnSugNext.addEventListener('click', () => {
             if (state.editorState) {
                 state.editorState.emotionPage = (state.editorState.emotionPage || 0) + 1;
                 updateKeyAndModeDisplay(state);

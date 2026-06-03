@@ -1,4 +1,4 @@
-import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getDiatonicChords, SCALE_PREFIXES, deduceSourceMode, getEffectiveTuning, getChordSignature, getDynamicProgSuggestions, getModulationLabel } from './theory.js';
+import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getDiatonicChords, SCALE_PREFIXES, deduceSourceMode, getEffectiveTuning, getChordSignature, getDynamicProgSuggestions, getModulationLabel, getProceduralCategory, getCategoryIndex, HAND_CURATED_CATEGORIES } from './theory.js';
 import { getMicrotonalDiatonicChords } from './microtonalDictionary.js';
 import { renderChordInspector } from './inspectorController.js';
 import { CONFIG } from './config.js';
@@ -93,10 +93,45 @@ export function updateKeyAndModeDisplay(state) {
     if (extendedContainer) extendedContainer.style.display = isExotic ? 'none' : 'block';
 
     // Emotional suggestions section
+    const emotionPageInput = document.getElementById('emotion-category-page-input');
     const emotionSelector = document.getElementById('emotion-selector');
-    if (emotionSelector) {
-        emotionSelector.value = state.activeEmotion || 'mournful';
+    
+    let catPage = state.editorState.chordChooserCategoryPage ?? 0;
+    catPage = Math.max(0, Math.min(99, catPage));
+    state.editorState.chordChooserCategoryPage = catPage;
+    
+    if (emotionPageInput) {
+        emotionPageInput.value = catPage + 1;
     }
+    
+    const pageCategories = [];
+    for (let j = 0; j < 6; j++) {
+        const catIndex = (catPage * 6) + j;
+        pageCategories.push(getProceduralCategory(catIndex, state.mode));
+    }
+    
+    // Check if current active emotion is on this page, otherwise default to first
+    const hasActiveEmotionOnPage = pageCategories.some(cat => cat.id === state.activeEmotion);
+    if (!hasActiveEmotionOnPage && pageCategories.length > 0) {
+        state.activeEmotion = pageCategories[0].id;
+    }
+    
+    if (emotionSelector) {
+        emotionSelector.innerHTML = '';
+        pageCategories.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat.id;
+            opt.textContent = cat.label;
+            opt.title = cat.description;
+            emotionSelector.appendChild(opt);
+        });
+        emotionSelector.value = state.activeEmotion;
+    }
+
+    const btnEmotionPrev = document.getElementById('btn-emotion-prev');
+    const btnEmotionNext = document.getElementById('btn-emotion-next');
+    if (btnEmotionPrev) btnEmotionPrev.disabled = catPage === 0;
+    if (btnEmotionNext) btnEmotionNext.disabled = catPage === 99;
     
     const emotionalChordsContainer = document.getElementById('emotional-chords-container');
     if (emotionalChordsContainer) {
@@ -107,7 +142,7 @@ export function updateKeyAndModeDisplay(state) {
             ? (state.temporarySwaps[selectedIndex] ? { ...state.currentProgression[selectedIndex], ...state.temporarySwaps[selectedIndex] } : state.currentProgression[selectedIndex])
             : null;
             
-        const suggestions = getDynamicProgSuggestions(currentChord, state.activeEmotion || 'mournful', state.mode, state.baseKey);
+        const suggestions = getDynamicProgSuggestions(currentChord, state.activeEmotion, state.mode, state.baseKey);
         
         const pageSize = 6;
         const totalPages = Math.max(1, Math.ceil(suggestions.length / pageSize));
@@ -117,31 +152,20 @@ export function updateKeyAndModeDisplay(state) {
         if (currentPage < 0) currentPage = 0;
         state.editorState.emotionPage = currentPage;
         
-        const pageIndicator = document.getElementById('emotion-page-indicator');
+        const pageIndicator = document.getElementById('sug-page-indicator');
         if (pageIndicator) {
             pageIndicator.textContent = `${currentPage + 1}/${totalPages}`;
         }
         
-        const prevBtn = document.getElementById('btn-emotion-prev');
-        const nextBtn = document.getElementById('btn-emotion-next');
+        const prevBtn = document.getElementById('btn-sug-prev');
+        const nextBtn = document.getElementById('btn-sug-next');
         if (prevBtn) prevBtn.disabled = currentPage === 0;
         if (nextBtn) nextBtn.disabled = currentPage === totalPages - 1;
         
         const pageSuggestions = suggestions.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
         
-        const emotionColors = {
-            mournful: '#6366f1',
-            luminous: '#fbbf24',
-            heroic: '#ef4444',
-            nostalgic: '#ec4899',
-            mysterious: '#8b5cf6',
-            ethereal: '#06b6d4',
-            ominous: '#7f1d1d',
-            baroque: '#3b82f6',
-            cosmic: '#10b981',
-            soulful: '#f59e0b'
-        };
-        const activeColor = emotionColors[state.activeEmotion || 'mournful'] || '#6366f1';
+        const activeCat = getProceduralCategory(getCategoryIndex(state.activeEmotion), state.mode);
+        const activeColor = activeCat.color || '#6366f1';
         
         pageSuggestions.forEach(sug => {
             const btn = document.createElement('button');

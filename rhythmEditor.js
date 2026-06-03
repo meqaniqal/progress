@@ -29,22 +29,17 @@ export function hasValidContext() {
 
 export function getCurrentPattern() {
     if (editorState.isGlobal) {
-        const pat = app.state.globalPatterns[editorState.activeTab];
-        console.log(`[DEBUG getCurrentPattern] GLOBAL mode. Tab: ${editorState.activeTab}, hits count: ${pat?.hits?.length || 0}`);
-        return pat;
+        return app.state.globalPatterns[editorState.activeTab];
     }
     if (editorState.activeIndex === null) {
-        console.log(`[DEBUG getCurrentPattern] activeIndex is null`);
         return null;
     }
     const chord = app.state.currentProgression[editorState.activeIndex];
     if (!chord) {
-        console.log(`[DEBUG getCurrentPattern] no chord at activeIndex ${editorState.activeIndex}`);
         return null;
     }
     
     const localPat = chord[editorState.activeTab];
-    console.log(`[DEBUG getCurrentPattern] LOCAL mode. Index: ${editorState.activeIndex}, Tab: ${editorState.activeTab}, isLocalOverride: ${localPat?.isLocalOverride}, inheritMode: ${localPat?.inheritMode}`);
     if (localPat && !localPat.isLocalOverride) {
         const globalPat = app.state.globalPatterns[editorState.activeTab];
         const beats = Number(chord.duration) || 4;
@@ -52,11 +47,8 @@ export function getCurrentPattern() {
         for (let i = 0; i < editorState.activeIndex; i++) {
             absBeatStart += Number(app.state.currentProgression[i].duration) || 2;
         }
-        const resolved = resolvePattern(globalPat, true, beats, localPat.inheritMode, null, false, absBeatStart);
-        console.log(`[DEBUG getCurrentPattern] resolved global pattern for local view. absBeatStart: ${absBeatStart}, Resolved hits count: ${resolved?.hits?.length || 0}`);
-        return resolved;
+        return resolvePattern(globalPat, true, beats, localPat.inheritMode, null, false, absBeatStart);
     }
-    console.log(`[DEBUG getCurrentPattern] returning local override pattern. hits count: ${localPat?.hits?.length || 0}`);
     return localPat;
 }
 

@@ -62,9 +62,12 @@ export const state = {
         isPanning: false,
         activeTab: 'chordPattern',
         isGlobal: false,
-        justPushedToGlobalIndex: null,
         emotionPage: 0,
-        swapPage: 0
+        swapPage: 0,
+        chordChooserCategoryPage: 0,
+        inspectorCategoryPage: 0,
+        inspectorActiveEmotion: 'substitutes',
+        isAuditionEnabled: false
     }
 };
 
@@ -264,12 +267,16 @@ export function clearProgression() {
     persistAppState();
 }
 
-export function swapChord(index, altSymbol, originalSymbol) {
+export function swapChord(index, altSymbol, originalSymbol, targetKey) {
     saveHistoryState();
     if (altSymbol === originalSymbol) {
         delete state.temporarySwaps[index];
     } else {
-        state.temporarySwaps[index] = { symbol: altSymbol };
+        const swapData = { symbol: altSymbol };
+        if (targetKey !== undefined) {
+            swapData.key = targetKey;
+        }
+        state.temporarySwaps[index] = swapData;
     }
     persistAppState();
 }
@@ -592,7 +599,11 @@ export function resetSession() {
         isPanning: false,
         justPushedToGlobalIndex: null,
         emotionPage: 0,
-        swapPage: 0
+        swapPage: 0,
+        chordChooserCategoryPage: 0,
+        inspectorCategoryPage: 0,
+        inspectorActiveEmotion: 'substitutes',
+        isAuditionEnabled: false
     };
 }
 
@@ -854,6 +865,21 @@ export function loadAndApplyInitialState(explicitState = null) {
             const activeSec = state.sections[state.activeSectionId];
             state.currentProgression = activeSec.progression;
             state.temporarySwaps = activeSec.temporarySwaps ?? {};
+        }
+    }
+    
+    if (savedState.editorState) {
+        if (typeof savedState.editorState.chordChooserCategoryPage === 'number') {
+            state.editorState.chordChooserCategoryPage = savedState.editorState.chordChooserCategoryPage;
+        }
+        if (typeof savedState.editorState.inspectorCategoryPage === 'number') {
+            state.editorState.inspectorCategoryPage = savedState.editorState.inspectorCategoryPage;
+        }
+        if (savedState.editorState.inspectorActiveEmotion !== undefined) {
+            state.editorState.inspectorActiveEmotion = savedState.editorState.inspectorActiveEmotion;
+        }
+        if (savedState.editorState.isAuditionEnabled !== undefined) {
+            state.editorState.isAuditionEnabled = Boolean(savedState.editorState.isAuditionEnabled);
         }
     }
 

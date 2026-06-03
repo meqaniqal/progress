@@ -60,14 +60,12 @@ export function getMicrotonalAlternatives(chordSymbol, baseKey, mode) {
             lsDistance += (diff * diff);
         }
         
-        // If they share at least 1 note, it is a valid structural pivot
-        if (sharedTones >= 1) {
-            scoredAlternatives.push({
-                symbol: targetSymbol,
-                shared: sharedTones,
-                distance: lsDistance
-            });
-        }
+        // Add all candidates so we always have fallback options, sorted by shared tones first, then voice leading distance
+        scoredAlternatives.push({
+            symbol: targetSymbol,
+            shared: sharedTones,
+            distance: lsDistance
+        });
     }
     
     // Sort by shared tones (descending), then by lowest distance (ascending)
