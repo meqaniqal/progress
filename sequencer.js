@@ -520,7 +520,7 @@ export function auditionThreeChordSequence(index, substituteSymbol, targetKey, s
     const bpm = state.bpm || 120;
     const beatLen = 60.0 / bpm;
     // Comfortably paced duration for each chord in sequence
-    const chordDuration = 0.8; 
+    const chordDuration = CONFIG.VL_GATE_DURATION_SEC; 
 
     // Build the temporary progression to voice lead the substitute chord correctly,
     // using the active progression (with other temporary swaps active) as context.

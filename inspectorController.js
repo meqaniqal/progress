@@ -168,24 +168,20 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     if (!settingsRow) {
         settingsRow = document.createElement('div');
         settingsRow.className = 'inspector-row inspector-row-swap-settings';
-        settingsRow.style.display = 'flex';
-        settingsRow.style.alignItems = 'center';
-        settingsRow.style.gap = '8px';
-        settingsRow.style.marginBottom = '8px';
         
         settingsRow.innerHTML = `
-            <strong class="inspector-label" style="display: flex; align-items: center; gap: 4px;">🎭 Category:</strong>
-            <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
-                <label style="display: flex; align-items: center; gap: 3px; font-size: 11px; cursor: pointer; user-select: none;" title="Audition 3-chord sequence when selecting a substitute">
-                    <input type="checkbox" id="inspector-audition-toggle" style="margin: 0; cursor: pointer;">
+            <strong class="inspector-label inspector-swap-category-header">🎭 Category:</strong>
+            <div class="inspector-swap-controls-wrapper">
+                <label class="inspector-audition-label" title="Audition 3-chord sequence when selecting a substitute">
+                    <input type="checkbox" id="inspector-audition-toggle" class="inspector-audition-checkbox">
                     <span>Audition</span>
                 </label>
-                <button id="btn-inspector-emotion-prev" class="control-btn secondary btn-sm" style="padding: 2px 6px; font-size: 10px;" title="Previous categories page">◀</button>
-                <span style="font-size: 10px; opacity: 0.8; font-family: monospace; display: flex; align-items: center; gap: 2px;">
-                    Pg <input type="number" id="inspector-emotion-page-input" value="1" min="1" max="100" style="width: 38px; text-align: center; background: var(--bg-panel); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 1px 2px; font-size: 10px; font-family: monospace;">/100
+                <button id="btn-inspector-emotion-prev" class="control-btn secondary btn-sm inspector-emotion-page-btn" title="Previous categories page">◀</button>
+                <span class="inspector-pg-selector-span">
+                    Pg <input type="number" id="inspector-emotion-page-input" value="1" min="1" max="100" class="inspector-page-jump-input">/100
                 </span>
-                <button id="btn-inspector-emotion-next" class="control-btn secondary btn-sm" style="padding: 2px 6px; font-size: 10px;" title="Next categories page">▶</button>
-                <select id="inspector-emotion-selector" class="rhythm-select select-sm" style="min-width: 125px; padding: 2px 4px; cursor: pointer; border-radius: 4px; margin-left: 2px; font-size: 11px;">
+                <button id="btn-inspector-emotion-next" class="control-btn secondary btn-sm inspector-emotion-page-btn" title="Next categories page">▶</button>
+                <select id="inspector-emotion-selector" class="rhythm-select select-sm inspector-dropdown-selector">
                 </select>
             </div>
         `;

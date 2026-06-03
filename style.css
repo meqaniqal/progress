@@ -548,3 +548,65 @@ body:not(.beginner-mode) #btn-manual {
 .custom-drum-input { font-size: 11px; width: 140px; }
 .btn-danger { color: #ef4444; border-color: rgba(239, 68, 68, 0.5); font-size: 13px; }
 .btn-danger-sm { color: #ef4444; border-color: rgba(239, 68, 68, 0.5); font-size: 12px; padding: 4px; width: 100%; }
+
+/* Inspector Category & Audition Styling */
+.inspector-row-swap-settings {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.inspector-swap-category-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.inspector-swap-controls-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+.inspector-audition-label {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    cursor: pointer;
+    user-select: none;
+}
+.inspector-audition-checkbox {
+    margin: 0;
+    cursor: pointer;
+}
+.inspector-emotion-page-btn {
+    padding: 2px 6px;
+    font-size: 10px;
+}
+.inspector-pg-selector-span {
+    font-size: 10px;
+    opacity: 0.8;
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.inspector-page-jump-input {
+    width: 38px;
+    text-align: center;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-main);
+    color: var(--text-main);
+    border-radius: 4px;
+    padding: 1px 2px;
+    font-size: 10px;
+    font-family: monospace;
+}
+.inspector-dropdown-selector {
+    min-width: 125px;
+    padding: 2px 4px;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-left: 2px;
+    font-size: 11px;
+}
