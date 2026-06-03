@@ -28,17 +28,35 @@ export function hasValidContext() {
 }
 
 export function getCurrentPattern() {
-    if (editorState.isGlobal) return app.state.globalPatterns[editorState.activeTab];
-    if (editorState.activeIndex === null) return null;
+    if (editorState.isGlobal) {
+        const pat = app.state.globalPatterns[editorState.activeTab];
+        console.log(`[DEBUG getCurrentPattern] GLOBAL mode. Tab: ${editorState.activeTab}, hits count: ${pat?.hits?.length || 0}`);
+        return pat;
+    }
+    if (editorState.activeIndex === null) {
+        console.log(`[DEBUG getCurrentPattern] activeIndex is null`);
+        return null;
+    }
     const chord = app.state.currentProgression[editorState.activeIndex];
-    if (!chord) return null;
+    if (!chord) {
+        console.log(`[DEBUG getCurrentPattern] no chord at activeIndex ${editorState.activeIndex}`);
+        return null;
+    }
     
     const localPat = chord[editorState.activeTab];
+    console.log(`[DEBUG getCurrentPattern] LOCAL mode. Index: ${editorState.activeIndex}, Tab: ${editorState.activeTab}, isLocalOverride: ${localPat?.isLocalOverride}, inheritMode: ${localPat?.inheritMode}`);
     if (localPat && !localPat.isLocalOverride) {
         const globalPat = app.state.globalPatterns[editorState.activeTab];
         const beats = Number(chord.duration) || 4;
-        return resolvePattern(globalPat, true, beats, localPat.inheritMode);
+        let absBeatStart = 0;
+        for (let i = 0; i < editorState.activeIndex; i++) {
+            absBeatStart += Number(app.state.currentProgression[i].duration) || 2;
+        }
+        const resolved = resolvePattern(globalPat, true, beats, localPat.inheritMode, null, false, absBeatStart);
+        console.log(`[DEBUG getCurrentPattern] resolved global pattern for local view. absBeatStart: ${absBeatStart}, Resolved hits count: ${resolved?.hits?.length || 0}`);
+        return resolved;
     }
+    console.log(`[DEBUG getCurrentPattern] returning local override pattern. hits count: ${localPat?.hits?.length || 0}`);
     return localPat;
 }
 

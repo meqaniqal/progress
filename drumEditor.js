@@ -6,7 +6,11 @@ import { DRUM_ROWS } from './rhythmConfig.js';
 export function highlightDrumHit(hitId, chordIndex = null) {
     if (editorState.activeTab !== 'drumPattern') return;
     if (!editorState.isGlobal && chordIndex !== null && chordIndex !== editorState.activeIndex) return;
-    const hitEl = document.querySelector(`.drum-hit[data-id="${hitId}"]`);
+    let hitEl = document.querySelector(`.drum-hit[data-id="${hitId}"]`);
+    if (!hitEl && !editorState.isGlobal) {
+        // Fallback for resolved global hit IDs like hitId_absoluteBeat
+        hitEl = document.querySelector(`.drum-hit[data-id^="${hitId}_"]`);
+    }
     if (hitEl) {
         hitEl.classList.add('playing');
         setTimeout(() => {

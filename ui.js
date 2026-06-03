@@ -1,4 +1,4 @@
-import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getDiatonicChords, SCALE_PREFIXES, deduceSourceMode, getEffectiveTuning, getChordSignature } from './theory.js';
+import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getDiatonicChords, SCALE_PREFIXES, deduceSourceMode, getEffectiveTuning, getChordSignature, getDynamicProgSuggestions, getModulationLabel } from './theory.js';
 import { getMicrotonalDiatonicChords } from './microtonalDictionary.js';
 import { renderChordInspector } from './inspectorController.js';
 import { CONFIG } from './config.js';
@@ -91,6 +91,107 @@ export function updateKeyAndModeDisplay(state) {
     
     const extendedContainer = document.getElementById('palette-extended');
     if (extendedContainer) extendedContainer.style.display = isExotic ? 'none' : 'block';
+
+    // Emotional suggestions section
+    const emotionSelector = document.getElementById('emotion-selector');
+    if (emotionSelector) {
+        emotionSelector.value = state.activeEmotion || 'mournful';
+    }
+    
+    const emotionalChordsContainer = document.getElementById('emotional-chords-container');
+    if (emotionalChordsContainer) {
+        emotionalChordsContainer.innerHTML = '';
+        
+        const selectedIndex = state.selectedChordIndex;
+        const currentChord = (selectedIndex !== null && state.currentProgression[selectedIndex]) 
+            ? (state.temporarySwaps[selectedIndex] ? { ...state.currentProgression[selectedIndex], ...state.temporarySwaps[selectedIndex] } : state.currentProgression[selectedIndex])
+            : null;
+            
+        const suggestions = getDynamicProgSuggestions(currentChord, state.activeEmotion || 'mournful', state.mode, state.baseKey);
+        
+        const pageSize = 6;
+        const totalPages = Math.max(1, Math.ceil(suggestions.length / pageSize));
+        
+        let currentPage = state.editorState.emotionPage || 0;
+        if (currentPage >= totalPages) currentPage = totalPages - 1;
+        if (currentPage < 0) currentPage = 0;
+        state.editorState.emotionPage = currentPage;
+        
+        const pageIndicator = document.getElementById('emotion-page-indicator');
+        if (pageIndicator) {
+            pageIndicator.textContent = `${currentPage + 1}/${totalPages}`;
+        }
+        
+        const prevBtn = document.getElementById('btn-emotion-prev');
+        const nextBtn = document.getElementById('btn-emotion-next');
+        if (prevBtn) prevBtn.disabled = currentPage === 0;
+        if (nextBtn) nextBtn.disabled = currentPage === totalPages - 1;
+        
+        const pageSuggestions = suggestions.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+        
+        const emotionColors = {
+            mournful: '#6366f1',
+            luminous: '#fbbf24',
+            heroic: '#ef4444',
+            nostalgic: '#ec4899',
+            mysterious: '#8b5cf6',
+            ethereal: '#06b6d4',
+            ominous: '#7f1d1d',
+            baroque: '#3b82f6',
+            cosmic: '#10b981',
+            soulful: '#f59e0b'
+        };
+        const activeColor = emotionColors[state.activeEmotion || 'mournful'] || '#6366f1';
+        
+        pageSuggestions.forEach(sug => {
+            const btn = document.createElement('button');
+            btn.className = 'chord-btn';
+            btn.dataset.chord = sug.symbol;
+            btn.dataset.key = sug.key;
+            btn.textContent = sug.symbol.replace(/b/g, '♭').replace(/#/g, '♯');
+            btn.title = sug.description;
+            btn.draggable = true;
+            btn.style.boxShadow = `0 0 0 1px ${activeColor}`;
+            btn.style.borderColor = activeColor;
+            emotionalChordsContainer.appendChild(btn);
+        });
+    }
+
+    // Color-code and label key transposition selector option tags
+    const keySelector = document.getElementById('key-selector');
+    if (keySelector) {
+        Array.from(keySelector.options).forEach(opt => {
+            const keyVal = parseInt(opt.value, 10);
+            const diff = (keyVal - state.baseKey + 12) % 12;
+            let label = KEY_NAMES[keyVal];
+            
+            const modLabel = getModulationLabel(state.baseKey, keyVal);
+            if (modLabel) {
+                label += ` ${modLabel}`;
+            }
+            opt.textContent = label;
+            
+            if (diff === 0) {
+                opt.style.color = '#10b981';
+            } else if (diff === 7) {
+                opt.style.color = '#fbbf24';
+            } else if (diff === 5) {
+                opt.style.color = '#3b82f6';
+            } else if (diff === 4) {
+                opt.style.color = '#ef4444';
+            } else if (diff === 3) {
+                opt.style.color = '#8b5cf6';
+            } else if (diff === 1) {
+                opt.style.color = '#ec4899';
+            } else if (diff === 11) {
+                opt.style.color = '#6366f1';
+            } else if (diff === 6) {
+                opt.style.color = '#06b6d4';
+            } else {
+                opt.style.color = 'var(--text-main)';
+            }
+        });
+    }
 }
 
 function createBracketElement(id, text) {
@@ -104,6 +205,13 @@ function createBracketElement(id, text) {
 
 export function renderProgression(state, selectedChordIndex, callbacks) {
     const display = document.getElementById('progression-display');
+
+    // Calculate and update the total beats counter
+    const totalBeats = state.currentProgression.reduce((sum, chord) => sum + (Number(chord.duration) || 2), 0);
+    const beatsCounter = document.getElementById('total-beats-counter');
+    if (beatsCounter) {
+        beatsCounter.textContent = `(${totalBeats} beats)`;
+    }
 
     const existingItems = display.querySelectorAll('.progression-item');
 

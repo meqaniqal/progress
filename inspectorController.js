@@ -1,4 +1,4 @@
-import { getPlayableNotes, getAlternatives, getTurnaroundSuggestions, getEffectiveTuning, getChordNotes, getChordSignature } from './theory.js';
+import { getPlayableNotes, getAlternatives, getTurnaroundSuggestions, getEffectiveTuning, getChordNotes, getChordSignature, getModulationLabel } from './theory.js';
 import { KEY_NAMES } from './ui.js';
 
 let isInspectorDelegated = false;
@@ -134,29 +134,98 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     // --- Swap Chord (Alts) Row ---
     let altsRow = content.querySelector('.inspector-row-alts');
     let altsBtnContainer;
+    let prevBtn, nextBtn, pageIndicator;
     if (!altsRow) {
         altsRow = document.createElement('div');
         altsRow.className = 'inspector-row inspector-row-alts';
+        altsRow.style.display = 'flex';
+        altsRow.style.alignItems = 'center';
+        altsRow.style.gap = '8px';
         altsRow.innerHTML = `<strong class="inspector-label">Swap Chord:</strong>`;
+        
+        const controls = document.createElement('div');
+        controls.style.display = 'inline-flex';
+        controls.style.alignItems = 'center';
+        controls.style.gap = '4px';
+        controls.style.marginLeft = 'auto';
+        
+        prevBtn = document.createElement('button');
+        prevBtn.className = 'control-btn secondary btn-sm swap-prev-btn';
+        prevBtn.textContent = '◀';
+        prevBtn.style.padding = '2px 6px';
+        prevBtn.style.fontSize = '10px';
+        
+        pageIndicator = document.createElement('span');
+        pageIndicator.className = 'swap-page-indicator';
+        pageIndicator.style.fontSize = '11px';
+        pageIndicator.style.opacity = '0.8';
+        pageIndicator.style.fontFamily = 'monospace';
+        pageIndicator.textContent = '1/1';
+        
+        nextBtn = document.createElement('button');
+        nextBtn.className = 'control-btn secondary btn-sm swap-next-btn';
+        nextBtn.textContent = '▶';
+        nextBtn.style.padding = '2px 6px';
+        nextBtn.style.fontSize = '10px';
+        
+        controls.appendChild(prevBtn);
+        controls.appendChild(pageIndicator);
+        controls.appendChild(nextBtn);
+        altsRow.appendChild(controls);
+        
         altsBtnContainer = document.createElement('div');
         altsBtnContainer.className = 'inspector-btn-group alts-btn-group';
         altsRow.appendChild(altsBtnContainer);
         content.appendChild(altsRow);
     } else {
         altsBtnContainer = altsRow.querySelector('.alts-btn-group');
+        prevBtn = altsRow.querySelector('.swap-prev-btn');
+        nextBtn = altsRow.querySelector('.swap-next-btn');
+        pageIndicator = altsRow.querySelector('.swap-page-indicator');
+    }
+
+    if (prevBtn) {
+        prevBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (state.editorState.swapPage > 0) {
+                state.editorState.swapPage--;
+                renderChordInspector(state, selectedChordIndex, callbacks);
+            }
+        };
+    }
+    if (nextBtn) {
+        nextBtn.onclick = (e) => {
+            e.stopPropagation();
+            state.editorState.swapPage++;
+            renderChordInspector(state, selectedChordIndex, callbacks);
+        };
     }
 
     const alts = getAlternatives(displayChord.symbol, displayChord.key, state.mode);
     if (isTemp) alts.unshift(originalChord.symbol);
     
-    if (alts.length === 0) {
+    const pageSize = 4;
+    const totalPages = Math.max(1, Math.ceil(alts.length / pageSize));
+    
+    let currentPage = state.editorState.swapPage || 0;
+    if (currentPage >= totalPages) currentPage = totalPages - 1;
+    if (currentPage < 0) currentPage = 0;
+    state.editorState.swapPage = currentPage;
+    
+    if (pageIndicator) pageIndicator.textContent = `${currentPage + 1}/${totalPages}`;
+    if (prevBtn) prevBtn.disabled = currentPage === 0;
+    if (nextBtn) nextBtn.disabled = currentPage === totalPages - 1;
+    
+    const pageAlts = alts.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+    
+    if (pageAlts.length === 0) {
         altsBtnContainer.innerHTML = `<span style="opacity: 0.5; font-size: 13px;">No close matches</span>`;
     } else {
         const noMatchSpan = altsBtnContainer.querySelector('span');
         if (noMatchSpan) noMatchSpan.remove();
 
         const existingBtns = altsBtnContainer.querySelectorAll('button');
-        alts.forEach((alt, i) => {
+        pageAlts.forEach((alt, i) => {
             let btn = existingBtns[i];
             if (!btn) {
                 btn = document.createElement('button');
@@ -168,13 +237,14 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
             btn.dataset.index = index;
             btn.dataset.alt = alt;
 
-            if (isTemp && i === 0) btn.classList.add('original-swap-option');
+            const isOriginal = isTemp && currentPage === 0 && i === 0;
+            if (isOriginal) btn.classList.add('original-swap-option');
             else btn.classList.remove('original-swap-option');
             
             // Context Dimming
             const tuning = getEffectiveTuning(alt, displayChord.divisions || state.divisions || 12);
             const notes = getChordNotes(alt, displayChord.key, tuning.divisions);
-            if (notes && activeSignatures.has(getChordSignature(notes, tuning.periodSize)) && !btn.classList.contains('original-swap-option')) {
+            if (notes && activeSignatures.has(getChordSignature(notes, tuning.periodSize)) && !isOriginal) {
                 btn.classList.add('dimmed-chord');
                 btn.title = "Already elsewhere in progression";
             } else {
@@ -183,7 +253,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
             }
         });
 
-        for (let i = alts.length; i < existingBtns.length; i++) {
+        for (let i = pageAlts.length; i < existingBtns.length; i++) {
             existingBtns[i].remove();
         }
     }
@@ -344,6 +414,38 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     modSelect.dataset.action = 'changeChordKey';
     modSelect.dataset.index = index;
     modSelect.value = displayChord.key;
+
+    Array.from(modSelect.options).forEach(opt => {
+        const keyVal = parseInt(opt.value, 10);
+        const diff = (keyVal - state.baseKey + 12) % 12;
+        let label = KEY_NAMES[keyVal];
+        
+        const modLabel = getModulationLabel(state.baseKey, keyVal);
+        if (modLabel) {
+            label += ` ${modLabel}`;
+        }
+        opt.textContent = label;
+        
+        if (diff === 0) {
+            opt.style.color = '#10b981';
+        } else if (diff === 7) {
+            opt.style.color = '#fbbf24';
+        } else if (diff === 5) {
+            opt.style.color = '#3b82f6';
+        } else if (diff === 4) {
+            opt.style.color = '#ef4444';
+        } else if (diff === 3) {
+            opt.style.color = '#8b5cf6';
+        } else if (diff === 1) {
+            opt.style.color = '#ec4899';
+        } else if (diff === 11) {
+            opt.style.color = '#6366f1';
+        } else if (diff === 6) {
+            opt.style.color = '#06b6d4';
+        } else {
+            opt.style.color = 'var(--text-main)';
+        }
+    });
         
         const downBtnMod = toolsRow.querySelector('.mod-key-down');
         downBtnMod.dataset.action = 'change-chord-key-step';

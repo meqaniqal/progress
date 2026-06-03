@@ -247,6 +247,15 @@ export function initTimelineInteractions(timeline) {
         if (now - lastTapTime < 300 && lastTapId === instId) {
             e.stopPropagation();
             editorState.activeOverlayId = instId;
+            
+            // Calculate the double tap coordinate relative to the timeline width
+            cachedTimelineRect = getTimelineRect();
+            const rect = cachedTimelineRect;
+            const clickRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            
+            // Store the target ratio so the rendering overlay uses it to initialize the slider value
+            editorState.doubleTapRatio = clickRatio;
+            
             renderRhythmTimeline();
             lastTapTime = 0;
             return;
@@ -710,37 +719,52 @@ export function initTimelineInteractions(timeline) {
                         return swap ? { ...c, ...swap } : c;
                     });
                     const chord = activeProg[activeIndex];
-                    if (chord) {
-                        const baseKey = chord.key !== undefined ? chord.key : (app.state.baseKey !== undefined ? app.state.baseKey : 60);
-                        const divisions = chord.divisions || app.state.divisions || 12;
-                        const originalNotes = getChordNotes(chord.symbol, baseKey, divisions);
-                        if (originalNotes) {
-                            const pattern = getCurrentPattern();
-                            const inst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
-                            if (inst) {
-                                const modifiedNotes = originalNotes.map((n, i) => n + (inst.pitchOffsets?.[i] || inst.pitchOffset || 0));
-                                const newSymbol = identifyChord(modifiedNotes, app.state.baseKey);
-                                if (newSymbol && newSymbol !== chord.symbol) {
-                                    app.saveHistoryState();
-                                    
-                                    if (!app.state.temporarySwaps) {
-                                        app.state.temporarySwaps = {};
-                                    }
-                                    if (app.state.temporarySwaps[activeIndex]) {
-                                        app.state.temporarySwaps[activeIndex].symbol = newSymbol;
-                                    } else {
-                                        app.state.temporarySwaps[activeIndex] = { symbol: newSymbol };
-                                    }
+                    const originalPlayable = getPlayableNotes(activeProg, app.state)[activeIndex];
+                    if (originalPlayable) {
+                        const pattern = getCurrentPattern();
+                        const inst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
+                        if (inst) {
+                            const modifiedNotes = originalPlayable.map((n, i) => n + (inst.pitchOffsets?.[i] || inst.pitchOffset || 0));
+                            const newSymbol = identifyChord(modifiedNotes, app.state.baseKey);
+                            if (newSymbol && newSymbol !== chord.symbol) {
+                                app.saveHistoryState();
+                                
+                                if (!app.state.temporarySwaps) {
+                                    app.state.temporarySwaps = {};
+                                }
+                                if (app.state.temporarySwaps[activeIndex]) {
+                                    app.state.temporarySwaps[activeIndex].symbol = newSymbol;
+                                } else {
+                                    app.state.temporarySwaps[activeIndex] = { symbol: newSymbol };
+                                }
 
-                                    const newNotes = getChordNotes(newSymbol, baseKey, divisions);
-                                    const newOffsets = newNotes ? newNotes.map(() => 0) : [];
-                                    const updatedPattern = updateInstance(pattern, inst.id, { pitchOffsets: newOffsets, pitchOffset: 0 });
-                                    setCurrentPattern(updatedPattern);
+                                // Get updated progression with the swapped symbol to compute correct new playable notes
+                                const swappedProg = app.state.currentProgression.map((c, i) => {
+                                    const swap = app.state.temporarySwaps ? app.state.temporarySwaps[i] : null;
+                                    return swap ? { ...c, ...swap } : c;
+                                });
+                                const newPlayable = getPlayableNotes(swappedProg, app.state)[activeIndex];
+
+                                let newPattern = { ...pattern, isLocalOverride: true };
+                                if (newPlayable && newPattern.instances) {
+                                    newPattern.instances = newPattern.instances.map(instance => {
+                                        const instNotes = originalPlayable.map((n, i) => n + (instance.pitchOffsets?.[i] || instance.pitchOffset || 0));
+                                        const instOffsets = instNotes.map((targetPitch, i) => {
+                                            const basePitch = newPlayable[i] !== undefined ? newPlayable[i] : targetPitch;
+                                            return targetPitch - basePitch;
+                                        });
+                                        return {
+                                            ...instance,
+                                            pitchOffsets: instOffsets,
+                                            pitchOffset: 0
+                                        };
+                                    });
+                                }
+                                setCurrentPattern(newPattern);
                                     
                                     if (app.renderProgression) {
                                         app.renderProgression();
                                     }
-                                }
                             }
                         }
                     }

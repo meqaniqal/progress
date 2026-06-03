@@ -215,6 +215,36 @@ function _setupKeyAndModeSelectors() {
             renderProgression(); 
         });
     }
+
+    const emotionSelector = document.getElementById('emotion-selector');
+    if (emotionSelector) {
+        emotionSelector.addEventListener('change', (e) => {
+            state.activeEmotion = e.target.value;
+            if (state.editorState) {
+                state.editorState.emotionPage = 0;
+            }
+            updateKeyAndModeDisplay(state);
+            persistAppState();
+            renderProgression();
+        });
+    }
+
+    const btnPrev = document.getElementById('btn-emotion-prev');
+    const btnNext = document.getElementById('btn-emotion-next');
+    if (btnPrev && btnNext) {
+        btnPrev.addEventListener('click', () => {
+            if (state.editorState && state.editorState.emotionPage > 0) {
+                state.editorState.emotionPage--;
+                updateKeyAndModeDisplay(state);
+            }
+        });
+        btnNext.addEventListener('click', () => {
+            if (state.editorState) {
+                state.editorState.emotionPage = (state.editorState.emotionPage || 0) + 1;
+                updateKeyAndModeDisplay(state);
+            }
+        });
+    }
 }
 
 function _setupProgressionDisplayEvents(display) {
@@ -255,6 +285,10 @@ function _setupProgressionDisplayEvents(display) {
 
         // Always select the clicked chord (no toggling off)
         state.selectedChordIndex = index;
+        if (state.editorState) {
+            state.editorState.swapPage = 0;
+            state.editorState.emotionPage = 0;
+        }
         persistAppState();
         renderProgression();
     });

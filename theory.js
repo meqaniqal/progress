@@ -168,7 +168,6 @@ export function getAlternatives(chordSymbol, baseKey = 60, mode = 'major') {
     
     const sourcePcs = sourceNotes.map(n => n % 12);
     
-    // Build candidate pool: All standard dictionary chords + current scale's native chords
     const candidates = Array.from(new Set([
         ...Object.keys(CHORD_INTERVALS),
         ...getDiatonicChords(mode)
@@ -176,6 +175,7 @@ export function getAlternatives(chordSymbol, baseKey = 60, mode = 'major') {
     
     const scoredAlternatives = [];
 
+    // First pass: at least 2 shared notes
     for (const targetSymbol of candidates) {
         if (targetSymbol === chordSymbol) continue;
 
@@ -185,21 +185,42 @@ export function getAlternatives(chordSymbol, baseKey = 60, mode = 'major') {
         const targetPcs = targetNotes.map(n => n % 12);
         const sharedNotes = sourcePcs.filter(note => targetPcs.includes(note));
         
-        // Only suggest chords with significant overlap (at least 2 shared notes for triads/7ths)
         if (sharedNotes.length >= 2) {
             const prefix = SCALE_PREFIXES[mode];
             const isNative = prefix && targetSymbol.startsWith(prefix);
             scoredAlternatives.push({
                 symbol: targetSymbol,
-                score: sharedNotes.length + (isNative ? 0.5 : 0) // Slight bias to native chords
+                score: sharedNotes.length + (isNative ? 0.5 : 0)
             });
         }
     }
 
-    // Sort by the number of shared tones (descending) and return the top 4 for a clean UI
+    // Second pass: fallback to 1 shared note if we have fewer than 12
+    if (scoredAlternatives.length < 12) {
+        for (const targetSymbol of candidates) {
+            if (targetSymbol === chordSymbol) continue;
+            if (scoredAlternatives.some(alt => alt.symbol === targetSymbol)) continue;
+
+            const targetNotes = getChordNotes(targetSymbol, baseKey);
+            if (!targetNotes) continue;
+
+            const targetPcs = targetNotes.map(n => n % 12);
+            const sharedNotes = sourcePcs.filter(note => targetPcs.includes(note));
+            
+            if (sharedNotes.length === 1) {
+                const prefix = SCALE_PREFIXES[mode];
+                const isNative = prefix && targetSymbol.startsWith(prefix);
+                scoredAlternatives.push({
+                    symbol: targetSymbol,
+                    score: sharedNotes.length + (isNative ? 0.3 : 0) - 1.0 // Lower priority score
+                });
+            }
+        }
+    }
+
     return scoredAlternatives.sort((a, b) => b.score - a.score)
                              .map(alt => alt.symbol)
-                             .slice(0, 4);
+                             .slice(0, 12);
 }
 
 // --- Omni-Scale Generation & Mathematics ---
@@ -947,4 +968,196 @@ export function resolveHierarchicalCollisions(notesToPlay, movingVoiceIndices) {
     }
     
     return resolved;
+}
+
+export function getDynamicProgSuggestions(currentChord, emotion, mode = 'major', baseKey = 60) {
+    const chordSymbol = currentChord ? currentChord.symbol : 'I';
+    const chordKey = currentChord ? (currentChord.key !== undefined ? currentChord.key : baseKey) : baseKey;
+    const baseOctave = Math.floor(baseKey / 12) * 12;
+
+    const suggestions = [];
+
+    const addSug = (sym, desc, key = chordKey) => {
+        const normalizedKey = baseOctave + (((key % 12) + 12) % 12);
+        if (!suggestions.some(s => s.symbol === sym && s.key === normalizedKey)) {
+            suggestions.push({ symbol: sym, description: desc, key: normalizedKey });
+        }
+    };
+
+    switch (emotion) {
+        case 'mournful':
+            addSug('iv', 'Plaintive Aeolian minor subdominant (minor iv)');
+            addSug('bVI', 'Sorrowful borrowed flat-VI triad');
+            addSug('ii°7', 'Yearning half-diminished ii°7 chord');
+            addSug('i7', 'Aeolian tonic minor 7th');
+            addSug('bvi', 'Romantic mediant drop (minor bvi)');
+            addSug('v7', 'Introspective minor v7');
+            addSug('v', 'Natural minor v minor triad');
+            addSug('iv7', 'Soulful plagal minor iv7');
+            addSug('bIII', 'Bright contrast flat-III major');
+            addSug('bIIImaj7', 'Yearning flat-III major 7th');
+            addSug('iiø7', 'Sorrowful half-diminished supertonic');
+            addSug('bVImaj7', 'Mournful flat-VI major 7th');
+            break;
+        case 'luminous':
+            addSug('II', 'Uplifting Lydian major II chord');
+            addSug('Imaj7', 'Bright, shimmering major 7th');
+            addSug('IVmaj7', 'Warm Lydian-esque major 7th on the IV');
+            addSug('V9', 'Bright dominant 9th');
+            addSug('III', 'Lifting chromatic mediant (major III)');
+            addSug('VI', 'Triumphant major VI (Lydian side)');
+            addSug('Imaj9', 'Dreamy major 9th');
+            addSug('Vmaj7', 'Soaring dominant major 7th');
+            addSug('IVmaj9', 'Bright major 9th on the IV');
+            addSug('Vsus2', 'Open suspended 2nd on the dominant');
+            addSug('Iadd9', 'Pure add9 tonic');
+            addSug('vii7b5', 'Half-diminished leading tone chord');
+            break;
+        case 'heroic':
+            addSug('bVII', 'Triumphant Mixolydian flat-VII');
+            addSug('bVI', 'Epic flat-VI chord');
+            addSug('bIII', 'Powerful flat-III major chord');
+            addSug('V', 'Strong dominant V');
+            addSug('VI', 'Triumphant major VI (Yes/Prog feel)');
+            addSug('bVII7', 'Epic flat-VII dominant 7th');
+            addSug('bVImaj7', 'Stately flat-VI major 7th');
+            addSug('bIIImaj7', 'Bright flat-III major 7th');
+            addSug('I7', 'Tension-building tonic dominant 7th');
+            addSug('IV7', 'Mixolydian subdominant dominant 7th');
+            addSug('v7', 'Epic minor v7 passing chord');
+            addSug('II7', 'Secondary dominant major II7');
+            break;
+        case 'nostalgic':
+            addSug('IVmaj7', 'Nostalgic Lydian major 7th');
+            addSug('iv', 'Stevie/Chopin minor iv plagal change');
+            addSug('Imaj9', 'Dreamy major 9th');
+            addSug('vi9', 'Tender minor 9th on the submediant');
+            addSug('bVImaj7', 'Romantic flat-VI major 7th');
+            addSug('Imaj7', 'Warm tonic major 7th');
+            addSug('vi7', 'Tender submediant minor 7th');
+            addSug('ii9', 'Uplifting supertonic minor 9th');
+            addSug('iv7', 'Soulful minor iv7');
+            addSug('bIIImaj7', 'Nostalgic flat-III major 7th');
+            addSug('bVII9', 'Soulful flat-VII major 9th');
+            addSug('ii11', 'Open supertonic minor 11th');
+            break;
+        case 'mysterious':
+            addSug('IV', 'Dorian major IV chord');
+            addSug('ii7', 'Dreamy minor 7th on supertonic');
+            addSug('Isus2', 'Floating suspended 2nd');
+            addSug('Vsus4', 'Suspended 4th on the dominant');
+            addSug('v', 'Introspective minor v');
+            addSug('v7', 'Introspective minor v7');
+            addSug('ii11', 'Floating minor 11th supertonic');
+            addSug('Iadd9', 'Floating add9 chord');
+            addSug('Vsus2', 'Floating suspended 2nd dominant');
+            addSug('IVmaj7', 'Mysterious Dorian major 7th on the IV');
+            addSug('bVII', 'Mysterious flat-VII triad');
+            addSug('bIII', 'Mysterious flat-III triad');
+            break;
+        case 'ethereal':
+            addSug('Imaj7#11', 'Holdsworth Lydian #11 (semitone friction F#/G)');
+            addSug('II7', 'Symmetric whole-tone dominant 7th');
+            addSug('iii7b5', 'Floaty half-diminished chord');
+            addSug('Iadd9', 'Open-voiced add9 triad');
+            addSug('I7b5', 'Symmetric whole-tone flat-5th dominant');
+            addSug('bVImaj7#11', 'Floating Lydian #11 on flat-VI');
+            addSug('vi7b5', 'Floaty half-diminished submediant');
+            addSug('II9', 'Symmetric Lydian dominant 9th');
+            addSug('Imaj9#11', 'Floaty major 9th sharp 11');
+            addSug('IVmaj7#11', 'Floating subdominant sharp 11');
+            addSug('Vsus4#11', 'Floaty sharp 11 dominant');
+            addSug('vii7', 'Leading tone minor 7th');
+            break;
+        case 'ominous':
+            addSug('bII', 'Heavy Phrygian flat-II (Neapolitan)');
+            addSug('vii°7', 'Tense diminished 7th');
+            addSug('I7b9', 'Dissonant dominant 7th flat-9th');
+            addSug('v°', 'Diminished minor v chord');
+            addSug('bV', 'Dissonant tritone-related major bV');
+            addSug('bIImaj7', 'Tense Phrygian flat-II major 7th');
+            addSug('vii°', 'Tense diminished leading triad');
+            addSug('i°7', 'Tense tonic diminished 7th');
+            addSug('bVmaj7', 'Tense tritone major 7th');
+            addSug('IV7b9', 'Altered subdominant flat-9th');
+            addSug('V7b9', 'Dissonant dominant flat-9th');
+            addSug('#I°7', 'Tense chromatic passing diminished');
+            break;
+        case 'baroque':
+            addSug('V/V', 'Secondary dominant: V of V (creates logical momentum)', (chordKey + 7));
+            addSug('V/vi', 'Secondary dominant: V of vi', (chordKey + 9));
+            addSug('I', 'Picardy Third: Resolving minor context to Major I');
+            addSug('vii°/V', 'Tension builder: diminished vii° of V', (chordKey + 7));
+            addSug('V/ii', 'Secondary dominant: V of ii', (chordKey + 2));
+            addSug('V/iii', 'Secondary dominant: V of iii', (chordKey + 4));
+            addSug('V/IV', 'Secondary dominant: V of IV', (chordKey + 5));
+            addSug('V7/V', 'Secondary dominant 7th: V7 of V', (chordKey + 7));
+            addSug('V7/vi', 'Secondary dominant 7th: V7 of vi', (chordKey + 9));
+            addSug('V7/ii', 'Secondary dominant 7th: V7 of ii', (chordKey + 2));
+            addSug('vii°/vi', 'Tension builder: diminished vii° of vi', (chordKey + 9));
+            addSug('ii°', 'Bach-style diminished supertonic');
+            break;
+        case 'cosmic':
+            addSug('I', 'Home major center');
+            addSug('bIIImaj7', 'Coltrane cycle step 1 (+Major 3rd, 4 semitones)', (chordKey + 4));
+            addSug('bVImaj7', 'Coltrane cycle step 2 (+Major 3rd, 8 semitones)', (chordKey + 8));
+            addSug('V7', 'Coltrane cycle dominant turnaround');
+            addSug('bIII', 'Coltrane cycle triad step 1', (chordKey + 4));
+            addSug('bVI', 'Coltrane cycle triad step 2', (chordKey + 8));
+            addSug('II7', 'Cosmic step 2 dominant', (chordKey + 2));
+            addSug('IV7', 'Cosmic step 5 dominant', (chordKey + 5));
+            addSug('bVIImaj7', 'Cosmic flat-VII major 7th', (chordKey + 10));
+            addSug('V7/bIII', 'Cosmic dominant of step 1', (chordKey + 11));
+            addSug('V7/bVI', 'Cosmic dominant of step 2', (chordKey + 3));
+            addSug('vii°7', 'Cosmic cosmic diminished leading tone');
+            break;
+        case 'soulful':
+            addSug('I#°', 'Soulful passing diminished chord');
+            addSug('ii11', 'Warm minor 11th chord');
+            addSug('iv7', 'Soulful minor 7th on the iv');
+            addSug('V7alt', 'Tense dominant 7th with altered extensions');
+            addSug('Imaj7', 'Warm major 7th');
+            addSug('vi9', 'Warm minor 9th submediant');
+            addSug('ii9', 'Warm minor 9th supertonic');
+            addSug('V9sus4', 'Soulful suspended 9th');
+            addSug('Imaj9', 'Warm tonic major 9th');
+            addSug('IVmaj9', 'Warm subdominant major 9th');
+            addSug('bVII7', 'Soulful flat-VII dominant 7th');
+            addSug('Iadd9', 'Warm add9 triad');
+            break;
+    }
+
+    return suggestions;
+}
+
+export function getModulationLabel(fromKey, toKey) {
+    const diff = (toKey - fromKey + 12) % 12;
+    switch (diff) {
+        case 0:
+            return "(Tonic / Home)";
+        case 7:
+            return "🌅 Brightening (+5th)";
+        case 5:
+            return "🍃 Softening (-5th)";
+        case 4:
+            return "🚀 Transcendence (+Maj 3rd)";
+        case 3:
+            return "🌌 Introspection (+Min 3rd)";
+        case 1:
+            return "⚡ Climactic Surge (+1s)";
+        case 11:
+            return "🌧 Melancholic Fall (-1s)";
+        case 6:
+            return "🌪 Tritone Pivot (Dramatic)";
+        case 2:
+            return "📈 Ascending Step (+2s)";
+        case 10:
+            return "📉 Descending Step (-2s)";
+        case 8:
+            return "✨ Symmetrical Lift (+8s)";
+        case 9:
+            return "🪐 Cosmic Rotation (+9s)";
+        default:
+            return "";
+    }
 }

@@ -27,6 +27,7 @@ export const state = {
     macroLoopEnd: 0,
     theme: 'dark',
     mode: 'major',
+    activeEmotion: 'mournful',
     generatorPersona: 'normal',
     syncTransitionsToDrums: true,
     snapTransitionsToScale: true,
@@ -61,8 +62,9 @@ export const state = {
         isPanning: false,
         activeTab: 'chordPattern',
         isGlobal: false,
-        isSolo: false,
-        justPushedToGlobalIndex: null
+        justPushedToGlobalIndex: null,
+        emotionPage: 0,
+        swapPage: 0
     }
 };
 
@@ -556,6 +558,7 @@ export function resetSession() {
     state.macroLoopEnd = 0;
     state.theme = 'dark';
     state.mode = 'major';
+    state.activeEmotion = 'mournful';
     state.generatorPersona = 'normal';
     state.syncTransitionsToDrums = true;
     state.snapTransitionsToScale = true;
@@ -587,10 +590,9 @@ export function resetSession() {
         isGridEnabled: true,
         zoomLevel: 1.0,
         isPanning: false,
-        activeTab: 'chordPattern',
-        isGlobal: false,
-        isSolo: false,
-        justPushedToGlobalIndex: null
+        justPushedToGlobalIndex: null,
+        emotionPage: 0,
+        swapPage: 0
     };
 }
 
@@ -613,6 +615,7 @@ export function loadAndApplyInitialState(explicitState = null) {
         state.divisions = savedState.divisions !== undefined ? parseInt(savedState.divisions, 10) : 12;
         state.theme = savedState.theme === 'light' ? 'light' : 'dark';
         state.mode = savedState.mode === 'minor' ? 'minor' : 'major';
+        state.activeEmotion = savedState.activeEmotion || 'mournful';
         state.generatorPersona = savedState.generatorPersona || 'normal';
         state.syncTransitionsToDrums = savedState.syncTransitionsToDrums !== undefined ? Boolean(savedState.syncTransitionsToDrums) : true;
         state.snapTransitionsToScale = savedState.snapTransitionsToScale !== undefined ? Boolean(savedState.snapTransitionsToScale) : true;
@@ -655,7 +658,7 @@ export function loadAndApplyInitialState(explicitState = null) {
                 if (!Array.isArray(pat.hits)) return null;
                 return {
                     ...pat,
-                    isLocalOverride: pat.isLocalOverride !== undefined ? Boolean(pat.isLocalOverride) : true,
+                    isLocalOverride: pat.isLocalOverride !== undefined ? Boolean(pat.isLocalOverride) : false,
                     lengthBeats: typeof pat.lengthBeats === 'number' ? pat.lengthBeats : 4,
                     hits: pat.hits.map(hit => ({
                         ...hit,

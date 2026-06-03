@@ -77,7 +77,7 @@ export function getMicrotonalAlternatives(chordSymbol, baseKey, mode) {
             return a.distance - b.distance;
         })
         .map(alt => alt.symbol)
-        .slice(0, 4);
+        .slice(0, 12);
 }
 
 /**

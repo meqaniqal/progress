@@ -57,7 +57,7 @@
         <div class="builder-controls">
             <button class="control-btn secondary btn-sm" id="btn-undo" title="Undo" disabled>↩ Undo</button>
             <button class="control-btn secondary btn-sm" id="btn-clear" title="Clear Progression">🗑 Clear</button>
-            <strong class="key-display-label">Key: <span id="key-display">C Major</span></strong>
+            <strong class="key-display-label">Key: <span id="key-display">C Major</span> <span id="total-beats-counter" style="font-size: 11px; opacity: 0.7; margin-left: 8px; font-family: monospace; font-weight: normal;">(0 beats)</span></strong>
             <div style="display: inline-flex; align-items: center;">
                 <button id="btn-global-key-down" class="control-btn secondary icon-btn" style="padding: 2px 6px; border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0;" title="Key Down">&lt;</button>
                 <select id="key-selector" class="rhythm-select select-sm" style="border-radius: 0;">
@@ -164,6 +164,34 @@
             <button class="chord-btn" data-chord="Vsus4">Vsus4</button>
             <button class="chord-btn borrowed" data-chord="V7#9" title="Dominant 7 Sharp 9">V7♯9</button>
             <button class="chord-btn borrowed" data-chord="V7b13" title="Dominant 7 Flat 13">V7♭13</button>
+        </div>
+
+        <div id="palette-emotional" class="chord-palette" style="border-top: 1px solid var(--border-main); padding-top: 12px; margin-top: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <strong style="display: flex; align-items: center; gap: 6px;">
+                    🎭 Emotional Suggestions:
+                </strong>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <button id="btn-emotion-prev" class="control-btn secondary btn-sm" style="padding: 2px 6px;" title="Previous suggestions">◀</button>
+                    <span id="emotion-page-indicator" style="font-size: 11px; opacity: 0.8; font-family: monospace;">1/1</span>
+                    <button id="btn-emotion-next" class="control-btn secondary btn-sm" style="padding: 2px 6px;" title="Next suggestions">▶</button>
+                    <select id="emotion-selector" class="rhythm-select select-sm" style="min-width: 130px; padding: 2px 6px; cursor: pointer; border-radius: 4px; margin-left: 4px;">
+                        <option value="mournful" selected>😢 Mournful</option>
+                        <option value="luminous">✨ Luminous</option>
+                        <option value="heroic">⚔️ Heroic</option>
+                        <option value="nostalgic">💕 Nostalgic / Yearning</option>
+                        <option value="mysterious">🌌 Mysterious</option>
+                        <option value="ethereal">🧚 Ethereal / Floating</option>
+                        <option value="ominous">🌋 Ominous / Dread</option>
+                        <option value="baroque">🎻 Baroque (Bach Order)</option>
+                        <option value="cosmic">🚀 Cosmic (Coltrane Cycle)</option>
+                        <option value="soulful">🎹 Soulful (Stevie Wonder)</option>
+                    </select>
+                </div>
+            </div>
+            <div id="emotional-chords-container" style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <!-- Suggestions loaded here -->
+            </div>
         </div>
 
         <div id="modulation-panel" style="display: none;">

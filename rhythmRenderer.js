@@ -5,7 +5,8 @@ import {
     app, 
     getCurrentPattern, 
     setCurrentPattern, 
-    getDurationBeats 
+    getDurationBeats,
+    getActiveGridValue 
 } from './rhythmEditor.js';
 import { generateArpNotes } from './arp.js';
 import { getChordNotes, getEffectiveTuning, getPitchEditorTuning, getPlayableNotes } from './theory.js';
@@ -105,7 +106,7 @@ export function renderRhythmTimeline() {
             btnLegacyReset.style.display = editorState.isGlobal ? 'none' : 'inline-block';
             if (!editorState.isGlobal) {
                 const chord = app.state.currentProgression[editorState.activeIndex];
-                const isOverride = chord && chord[editorState.activeTab] && chord[editorState.activeTab].isLocalOverride;
+                const isOverride = !!(chord && chord[editorState.activeTab] && chord[editorState.activeTab].isLocalOverride);
                 btnLegacyReset.style.opacity = isOverride ? '1' : '0.5';
                 btnLegacyReset.disabled = !isOverride;
             }
@@ -775,8 +776,25 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             if (overlay.dataset.canFill !== String(canFill) || overlay.dataset.hasSlider !== String(hasSlider) || overlay.dataset.isFocused !== currentFocusedStr) {
                 let html = '';
                 if (hasSlider) {
-                    html += `<input type="range" class="slice-range" min="5" max="95" value="50" data-id="${inst.id}">`;
-                    html += `<div id="floater-${inst.id}" class="split-floater" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 5;">
+                    let startVal = 50;
+                    if (editorState.doubleTapRatio !== undefined && editorState.doubleTapRatio !== null) {
+                        let targetRatio = editorState.doubleTapRatio;
+                        const gridVal = getActiveGridValue();
+                        if (gridVal > 0) {
+                            targetRatio = Math.round(targetRatio / gridVal) * gridVal;
+                        }
+                        // Clamp within the instance boundaries
+                        const minBound = inst.startTime + 0.05 * inst.duration;
+                        const maxBound = inst.startTime + 0.95 * inst.duration;
+                        const clamped = Math.max(minBound, Math.min(targetRatio, maxBound));
+                        
+                        startVal = Math.round(((clamped - inst.startTime) / inst.duration) * 100);
+                        
+                        // Clean it up so subsequent sliders default back to normal or drag
+                        editorState.doubleTapRatio = null;
+                    }
+                    html += `<input type="range" class="slice-range" min="5" max="95" value="${startVal}" data-id="${inst.id}">`;
+                    html += `<div id="floater-${inst.id}" class="split-floater" style="position: absolute; top: 50%; left: ${startVal}%; transform: translate(-50%, -50%); pointer-events: none; z-index: 5;">
                                 <button class="slice-overlay-btn btn-do-slice" data-id="${inst.id}" style="pointer-events: auto; padding: 6px 12px; font-size: 13px; border-radius: 20px; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.8);">✂ Split</button>
                              </div>`;
                 }

@@ -1,4 +1,4 @@
-import { getChordNotes, applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension, midiToFreq, getEdoPitch, segmentMicrotonalCluster, snapToGrid, resolveHierarchicalCollisions } from './theory.js';
+import { getChordNotes, applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension, midiToFreq, getEdoPitch, segmentMicrotonalCluster, snapToGrid, resolveHierarchicalCollisions, getDynamicProgSuggestions, getModulationLabel, getAlternatives } from './theory.js';
 
 describe('Theory & Voice Leading Module', () => {
     
@@ -247,6 +247,61 @@ describe('Theory & Voice Leading Module', () => {
             const resolved = resolveHierarchicalCollisions(notes, [1]);
             expect(resolved[1]).toBe(60); // Alto stays
             expect(resolved[0]).toBe(62); // Soprano nudged
+        });
+    });
+
+    describe('Emotional Progression Suggestions', () => {
+        it('returns logical suggestions for classical baroque Bach emotion', () => {
+            const currentChord = { symbol: 'I', key: 60 };
+            const suggestions = getDynamicProgSuggestions(currentChord, 'baroque', 'major', 60);
+            expect(suggestions.length).toBeGreaterThan(0);
+            // Baroque should suggest Secondary Dominants like V/V (key offset 7) or V/vi (key offset 9)
+            expect(suggestions.some(s => s.symbol === 'V/V')).toBe(true);
+            expect(suggestions.some(s => s.symbol === 'V/vi')).toBe(true);
+            
+            // Verify octave normalization (all keys should be around the 60 base key octave range)
+            suggestions.forEach(s => {
+                expect(s.key).toBeGreaterThanOrEqual(60);
+                expect(s.key).toBeLessThanOrEqual(71);
+            });
+        });
+
+        it('returns dynamic suggestions for Holdsworth ethereal category', () => {
+            const currentChord = { symbol: 'I', key: 60 };
+            const suggestions = getDynamicProgSuggestions(currentChord, 'ethereal', 'major', 60);
+            expect(suggestions.some(s => s.symbol === 'Imaj7#11')).toBe(true);
+            expect(suggestions.some(s => s.symbol === 'Iadd9')).toBe(true);
+        });
+
+        it('returns dynamic suggestions for Coltrane cosmic category', () => {
+            const currentChord = { symbol: 'I', key: 60 };
+            const suggestions = getDynamicProgSuggestions(currentChord, 'cosmic', 'major', 60);
+            expect(suggestions.some(s => s.symbol === 'bIIImaj7')).toBe(true);
+            expect(suggestions.some(s => s.symbol === 'bVImaj7')).toBe(true);
+
+            // Verify cosmic suggestions keys are also normalized in the C4 octave range
+            suggestions.forEach(s => {
+                expect(s.key).toBeGreaterThanOrEqual(60);
+                expect(s.key).toBeLessThanOrEqual(71);
+            });
+        });
+    });
+
+    describe('Chord Alternatives / Substitutions', () => {
+        it('returns up to 12 chord substitution options using fallback parameters', () => {
+            const alts = getAlternatives('I', 60, 'major');
+            expect(alts.length).toBeGreaterThan(0);
+            expect(alts.length).toBeLessThanOrEqual(12);
+        });
+    });
+
+    describe('Modulation Labeling', () => {
+        it('returns correct descriptive label for standard intervals', () => {
+            expect(getModulationLabel(60, 67)).toBe('🌅 Brightening (+5th)');
+            expect(getModulationLabel(60, 65)).toBe('🍃 Softening (-5th)');
+            expect(getModulationLabel(60, 64)).toBe('🚀 Transcendence (+Maj 3rd)');
+            expect(getModulationLabel(60, 61)).toBe('⚡ Climactic Surge (+1s)');
+            expect(getModulationLabel(60, 60)).toBe('(Tonic / Home)');
         });
     });
 });

@@ -301,13 +301,17 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         const absBeatStart = getAbsoluteBeatPos(activeProg, absIndex);
         const drumPat = chordObj.drumPattern;
         
+        console.log(`[DEBUG sequencer] index: ${absIndex}, symbol: ${chordObj.symbol}, absBeatStart: ${absBeatStart}, beats: ${beats}, drumPatOverride: ${!!(drumPat && drumPat.isLocalOverride)}`);
+        
         if (drumPat && drumPat.isLocalOverride) {
             // Local Punch-In
+            console.log(`[DEBUG sequencer] using local override pattern for index ${absIndex}. hits:`, drumPat.hits);
             if (drumPat.hits) {
                 for (const hit of drumPat.hits) {
                     if (hit.probability != null && Math.random() > hit.probability) continue;
 
                     const hitTimeSec = time + (hit.time * beats * (60.0 / Number(state.bpm)));
+                    console.log(`[DEBUG sequencer] scheduling LOCAL drum hit: row=${hit.row}, time=${hitTimeSec}, hit.time=${hit.time}`);
                     playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
                     if (onDrumPlay && hit.id) {
                         const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
@@ -323,6 +327,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
             // Global Continuous Loop
             const globalDrumPat = secState.globalPatterns.drumPattern;
             const gLength = globalDrumPat.lengthBeats || 4;
+            console.log(`[DEBUG sequencer] using global pattern for index ${absIndex}. global hits:`, globalDrumPat.hits);
             
             if (globalDrumPat.hits) {
                 for (const hit of globalDrumPat.hits) {
@@ -334,11 +339,17 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                     let absBeatStartRounded = Math.round(absBeatStart * 10000) / 10000;
                     let chordEndBeatRounded = Math.round((absBeatStart + beats) * 10000) / 10000;
                     
-                    if (absoluteHitBeat < absBeatStartRounded) absoluteHitBeat += gLength;
+                    console.log(`[DEBUG sequencer] checking hit row=${hit.row}, hit.time=${hit.time}, hitBeatOffset=${hitBeatOffset}, loopStartBeat=${loopStartBeat}, absoluteHitBeat=${absoluteHitBeat}, absBeatStartRounded=${absBeatStartRounded}, chordEndBeatRounded=${chordEndBeatRounded}`);
+                    
+                    if (absoluteHitBeat < absBeatStartRounded) {
+                        absoluteHitBeat += gLength;
+                        console.log(`[DEBUG sequencer] absoluteHitBeat was < absBeatStartRounded, adjusted to ${absoluteHitBeat}`);
+                    }
                     
                     while (absoluteHitBeat < chordEndBeatRounded) {
                         const beatWithinChord = absoluteHitBeat - absBeatStartRounded;
                         const hitTimeSec = time + (beatWithinChord * (60.0 / Number(state.bpm)));
+                        console.log(`[DEBUG sequencer] scheduling GLOBAL drum hit: row=${hit.row}, beatWithinChord=${beatWithinChord}, absoluteHitBeat=${absoluteHitBeat}, hitTimeSec=${hitTimeSec}`);
                         if (hit.probability === undefined || Math.random() <= hit.probability) {
                             playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
                             if (onDrumPlay && hit.id) {
@@ -355,6 +366,8 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                     }
                 }
             }
+        } else {
+            console.log(`[DEBUG sequencer] no global or local drum pattern found for index ${absIndex}`);
         }
 
         const delayMs = (time - getAudioCurrentTime()) * 1000;
