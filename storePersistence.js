@@ -278,6 +278,9 @@ export function loadAndApplyInitialState(explicitState = null) {
         if (savedState.editorState.isAuditionEnabled !== undefined) {
             state.editorState.isAuditionEnabled = Boolean(savedState.editorState.isAuditionEnabled);
         }
+        if (savedState.editorState.activeBuilderTab !== undefined) {
+            state.editorState.activeBuilderTab = savedState.editorState.activeBuilderTab;
+        }
     }
 
     applyLoopBounds();

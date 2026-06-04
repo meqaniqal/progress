@@ -1,11 +1,11 @@
 import { CONFIG } from './config.js';
-import { getChordNotes, getPlayableNotes, getPitchEditorTuning, snapToGrid } from './theory.js';
+import { getChordNotes, getPlayableNotes, getPitchEditorTuning, snapToGrid, HAND_CURATED_CATEGORIES } from './theory.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, loadPersistedDrumSamples } from './synth.js';
 import { auditionChord, playProgression, stopAllAudio, auditionThreeChordSequence } from './sequencer.js';
 import { initDragAndDrop } from './dragdrop.js';
 import { exportToMidi } from './midi.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
-import { KEY_NAMES, highlightChordInUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI } from './ui.js';
+import { KEY_NAMES, highlightChordInUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI, initBuilderTabs } from './ui.js';
 import { state, getActiveProgression, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal, addChord, removeChord, clearProgression, swapChord, stepInversion, changeVoicing, changeVoicingType, setGlobalVoicing, changeChordKey, transposeChord, changeDuration, addTurnaround, reorderProgression, addChordFromSource, setProgressionBrackets, setGlobalMode, setGlobalKeyAndMode, insertLoopedSequence } from './store.js';
 import { getExportState } from './exportStateBuilder.js';
 import { initExportUI } from './exportController.js';
@@ -14,133 +14,135 @@ import { initTransport, resetTransport, isPlaybackActive, restartTransport } fro
 import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from './songController.js';
 import { initSettingsUI, syncSettingsUI, updateCustomDrumsUI } from './settingsController.js';
 
-        function getAuditionNotes(progression, index, appState) {
-            let notesToPlay = getPlayableNotes(progression, appState)[index];
-            if (!notesToPlay) return null;
-            
-            const chord = progression[index];
-            let pattern = chord.chordPattern;
-            if (pattern && !pattern.isLocalOverride && appState.globalPatterns && appState.globalPatterns.chordPattern) {
-                pattern = appState.globalPatterns.chordPattern;
-            }
-            
-            if (pattern && pattern.instances && pattern.instances.length > 0) {
-                const instances = [...pattern.instances].sort((a, b) => a.startTime - b.startTime);
-                const firstInstance = instances[0];
-                if (firstInstance && firstInstance.pitchOffsets) {
-                    const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || appState.divisions || 12);
-                    notesToPlay = notesToPlay.map((n, i) => n + snapToGrid(60 + (firstInstance.pitchOffsets[i] || 0), editorTuning) - 60);
-                }
-            }
-            return notesToPlay;
+function getAuditionNotes(progression, index, appState) {
+    let notesToPlay = getPlayableNotes(progression, appState)[index];
+    if (!notesToPlay) return null;
+
+    const chord = progression[index];
+    let pattern = chord.chordPattern;
+    if (pattern && !pattern.isLocalOverride && appState.globalPatterns && appState.globalPatterns.chordPattern) {
+        pattern = appState.globalPatterns.chordPattern;
+    }
+
+    if (pattern && pattern.instances && pattern.instances.length > 0) {
+        const instances = [...pattern.instances].sort((a, b) => a.startTime - b.startTime);
+        const firstInstance = instances[0];
+        if (firstInstance && firstInstance.pitchOffsets) {
+            const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || appState.divisions || 12);
+            notesToPlay = notesToPlay.map((n, i) => n + snapToGrid(60 + (firstInstance.pitchOffsets[i] || 0), editorTuning) - 60);
+        }
+    }
+    return notesToPlay;
+}
+
+function undo() {
+    if (undoState()) {
+        renderProgression();
+    }
+}
+
+const uiCallbacks = {
+    onAuditionChord: (symbol, key) => {
+        if (!isPlaybackActive()) auditionChord(symbol, key);
+    },
+    onAddChord: (symbol, key) => {
+        addChord(symbol, key);
+        renderProgression();
+    },
+    onRemoveChord: (index) => {
+        removeChord(index);
+        renderProgression();
+    },
+    onSwapChord: (index, altSymbol, originalChord, targetKey) => {
+        swapChord(index, altSymbol, originalChord.symbol, targetKey);
+
+        const chordToAudition = getActiveProgression()[index];
+        if (!isPlaybackActive()) {
+            const notesToPlay = getAuditionNotes(getActiveProgression(), index, state);
+            auditionChord(chordToAudition.symbol, chordToAudition.key, notesToPlay, chordToAudition.divisions);
         }
 
-        function undo() {
-            if (undoState()) {
-                renderProgression();
-            }
+        renderProgression();
+    },
+    onAuditionThreeChordSequence: (index, altSymbol, targetKey) => {
+        if (!isPlaybackActive()) {
+            auditionThreeChordSequence(index, altSymbol, targetKey, state);
         }
+    },
+    onStepInversion: (index, direction) => {
+        stepInversion(index, direction);
+        const newlyActiveProg = getActiveProgression();
+        const notesToPlay = getAuditionNotes(newlyActiveProg, index, state);
+        auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay, newlyActiveProg[index].divisions);
+        renderProgression();
+    },
+    onChangeVoicing: (index, voicingObj) => {
+        changeVoicing(index, voicingObj);
+        renderProgression();
+    },
+    onChangeVoicingType: (index, type) => {
+        changeVoicingType(index, type);
+        const newlyActiveProg = getActiveProgression();
+        const notesToPlay = getAuditionNotes(newlyActiveProg, index, state);
+        auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay, newlyActiveProg[index].divisions);
+        renderProgression();
+    },
+    onSetGlobalVoicing: (type) => {
+        setGlobalVoicing(type);
+        renderProgression();
+    },
+    onChangeChordKey: (index, newKey) => {
+        changeChordKey(index, newKey);
+        renderProgression();
+    },
+    onTransposeChord: (index) => {
+        transposeChord(index);
+        renderProgression();
+    },
+    onChangeDuration: (index, dur) => {
+        changeDuration(index, dur);
+        renderProgression();
+    },
+    onAddTurnaround: (index, altSymbol, key) => {
+        addTurnaround(index, altSymbol, key);
+        auditionChord(altSymbol, key);
+        renderProgression();
+    },
+    onSetGlobalMode: (mode) => {
+        setGlobalMode(mode);
+        updateKeyAndModeDisplay(state);
+        renderProgression();
+    },
+    onSetGlobalKeyAndMode: (key, mode) => {
+        setGlobalKeyAndMode(key, mode);
+        updateKeyAndModeDisplay(state);
+        renderProgression();
+    }
+};
 
-        const uiCallbacks = {
-            onAuditionChord: (symbol, key) => {
-                if (!isPlaybackActive()) auditionChord(symbol, key);
-            },
-            onAddChord: (symbol, key) => {
-                addChord(symbol, key);
-                renderProgression();
-            },
-            onRemoveChord: (index) => {
-                removeChord(index);
-                renderProgression();
-            },
-            onSwapChord: (index, altSymbol, originalChord, targetKey) => {
-                swapChord(index, altSymbol, originalChord.symbol, targetKey);
-                
-                const chordToAudition = getActiveProgression()[index];
-                if (!isPlaybackActive()) {
-                     const notesToPlay = getAuditionNotes(getActiveProgression(), index, state);
-                     auditionChord(chordToAudition.symbol, chordToAudition.key, notesToPlay, chordToAudition.divisions);
-                }
-                
-                renderProgression();
-            },
-            onAuditionThreeChordSequence: (index, altSymbol, targetKey) => {
-                auditionThreeChordSequence(index, altSymbol, targetKey, state);
-            },
-            onStepInversion: (index, direction) => {
-                stepInversion(index, direction);
-                const newlyActiveProg = getActiveProgression();
-                const notesToPlay = getAuditionNotes(newlyActiveProg, index, state);
-                auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay, newlyActiveProg[index].divisions);
-                renderProgression();
-            },
-            onChangeVoicing: (index, voicingObj) => {
-                changeVoicing(index, voicingObj);
-                renderProgression();
-            },
-            onChangeVoicingType: (index, type) => {
-                changeVoicingType(index, type);
-                const newlyActiveProg = getActiveProgression();
-                const notesToPlay = getAuditionNotes(newlyActiveProg, index, state);
-                auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay, newlyActiveProg[index].divisions);
-                renderProgression();
-            },
-            onSetGlobalVoicing: (type) => {
-                setGlobalVoicing(type);
-                renderProgression();
-            },
-            onChangeChordKey: (index, newKey) => {
-                changeChordKey(index, newKey);
-                renderProgression();
-            },
-            onTransposeChord: (index) => {
-                transposeChord(index);
-                renderProgression();
-            },
-            onChangeDuration: (index, dur) => {
-                changeDuration(index, dur);
-                renderProgression();
-            },
-            onAddTurnaround: (index, altSymbol, key) => {
-                addTurnaround(index, altSymbol, key);
-                auditionChord(altSymbol, key);
-                renderProgression();
-            },
-            onSetGlobalMode: (mode) => {
-                setGlobalMode(mode);
-                updateKeyAndModeDisplay(state);
-                renderProgression();
-            },
-            onSetGlobalKeyAndMode: (key, mode) => {
-                setGlobalKeyAndMode(key, mode);
-                updateKeyAndModeDisplay(state);
-                renderProgression();
-            }
-        };
+function renderProgression() {
+    // Enforce invariant: Always have a chord selected if the array is not empty
+    if (state.currentProgression.length === 0) {
+        state.selectedChordIndex = null;
+    } else {
+        if (state.selectedChordIndex === null) state.selectedChordIndex = 0;
+        else if (state.selectedChordIndex >= state.currentProgression.length) state.selectedChordIndex = state.currentProgression.length - 1;
+    }
 
-        function renderProgression() {
-            // Enforce invariant: Always have a chord selected if the array is not empty
-            if (state.currentProgression.length === 0) {
-                state.selectedChordIndex = null;
-            } else {
-                if (state.selectedChordIndex === null) state.selectedChordIndex = 0;
-                else if (state.selectedChordIndex >= state.currentProgression.length) state.selectedChordIndex = state.currentProgression.length - 1;
-            }
+    renderProgressionUI(state, state.selectedChordIndex, uiCallbacks);
+    updateSongUI();
 
-            renderProgressionUI(state, state.selectedChordIndex, uiCallbacks);
-            updateSongUI();
-            
-            // Keep Rhythm Editor synced with active selection
-            if (state.selectedChordIndex === null) {
-                closeRhythmEditor();
-            } else if (state.currentProgression[state.selectedChordIndex]) {
-                openRhythmEditor(state.selectedChordIndex);
-            } else {
-                state.selectedChordIndex = null;
-                closeRhythmEditor();
-                renderProgressionUI(state, state.selectedChordIndex, uiCallbacks);
-            }
-        }
+    // Keep Rhythm Editor synced with active selection
+    if (state.selectedChordIndex === null) {
+        closeRhythmEditor();
+    } else if (state.currentProgression[state.selectedChordIndex]) {
+        openRhythmEditor(state.selectedChordIndex);
+    } else {
+        state.selectedChordIndex = null;
+        closeRhythmEditor();
+        renderProgressionUI(state, state.selectedChordIndex, uiCallbacks);
+    }
+}
 
 // --- Initialization Helpers ---
 export function syncUIToState(explicitState = null) {
@@ -149,7 +151,7 @@ export function syncUIToState(explicitState = null) {
     } else {
         loadAndApplyInitialState();
     }
-    
+
     document.body.classList.toggle('show-helpers', state.showManualOnStartup);
 
     // Sync UI to State
@@ -167,9 +169,9 @@ export function syncUIToState(explicitState = null) {
 
 function _setupTopBarEvents() {
     document.documentElement.setAttribute('data-theme', state.theme);
-    
+
     initSettingsUI({ onRenderProgression: renderProgression });
-    
+
 
     initModals({
         onResetPlayback: resetTransport,
@@ -181,14 +183,14 @@ function _setupTopBarEvents() {
 
 function _setupKeyAndModeSelectors() {
     const keySelector = document.getElementById('key-selector');
-    
+
     const updateGlobalKey = (delta) => {
         let currentVal = parseInt(keySelector.value, 10);
         let newVal = currentVal + delta;
         // Wrap around the 12 available keys (60 = C, 71 = B)
-        if (newVal < 60) newVal = 71; 
-        if (newVal > 71) newVal = 60; 
-        
+        if (newVal < 60) newVal = 71;
+        if (newVal > 71) newVal = 60;
+
         state.baseKey = newVal;
         keySelector.value = newVal;
         updateKeyAndModeDisplay(state);
@@ -215,27 +217,17 @@ function _setupKeyAndModeSelectors() {
             persistAppState();
             // Intentionally NOT modifying state.currentProgression 
             // so existing tray chords remain untouched.
-            renderProgression(); 
-        });
-    }
-
-    const emotionSelector = document.getElementById('emotion-selector');
-    if (emotionSelector) {
-        emotionSelector.addEventListener('change', (e) => {
-            state.activeEmotion = e.target.value;
-            if (state.editorState) {
-                state.editorState.emotionPage = 0;
-            }
-            updateKeyAndModeDisplay(state);
-            persistAppState();
             renderProgression();
         });
     }
 
+    // emotion-selector is replaced by pills in ui.js, which handle state activeEmotion changes directly.
+
     const btnEmotionPrev = document.getElementById('btn-emotion-prev');
     const btnEmotionNext = document.getElementById('btn-emotion-next');
     const emotionPageInput = document.getElementById('emotion-category-page-input');
-    
+    const totalPagesCount = Math.ceil(HAND_CURATED_CATEGORIES.length / 6);
+
     if (btnEmotionPrev && btnEmotionNext) {
         btnEmotionPrev.addEventListener('click', () => {
             if (state.editorState && state.editorState.chordChooserCategoryPage > 0) {
@@ -246,7 +238,7 @@ function _setupKeyAndModeSelectors() {
             }
         });
         btnEmotionNext.addEventListener('click', () => {
-            if (state.editorState && state.editorState.chordChooserCategoryPage < 99) {
+            if (state.editorState && state.editorState.chordChooserCategoryPage < totalPagesCount - 1) {
                 state.editorState.chordChooserCategoryPage++;
                 state.editorState.emotionPage = 0;
                 updateKeyAndModeDisplay(state);
@@ -259,7 +251,7 @@ function _setupKeyAndModeSelectors() {
         const handlePageJump = () => {
             let val = parseInt(emotionPageInput.value, 10);
             if (isNaN(val)) val = 1;
-            val = Math.max(1, Math.min(100, val)) - 1;
+            val = Math.max(1, Math.min(totalPagesCount, val)) - 1;
             state.editorState.chordChooserCategoryPage = val;
             state.editorState.emotionPage = 0;
             updateKeyAndModeDisplay(state);
@@ -305,13 +297,13 @@ function _setupProgressionDisplayEvents(display) {
 
     display.addEventListener('click', (e) => {
         exitSongMode(); // Auto-fold the song tray if user clicks down to edit chords locally
-        
+
         const item = e.target.closest('.progression-item');
         if (!item) return;
-        
+
         const index = parseInt(item.dataset.index, 10);
         const originalChord = state.currentProgression[index];
-        
+
         if (e.target.classList.contains('remove-btn')) {
             removeChord(index);
             renderProgression();
@@ -385,19 +377,19 @@ function _setupControlButtons() {
         clearProgression();
         renderProgression();
     });
-    
+
     const btnExport = document.getElementById('btn-export');
     btnExport.addEventListener('click', () => {
         if (btnExport.disabled) return;
         btnExport.disabled = true;
         setTimeout(() => btnExport.disabled = false, 1000);
-        
+
         const exportState = getExportState(isSongTrayOpen);
-        
+
         const totalBeats = exportState.currentProgression.slice(exportState.loopStart, exportState.loopEnd).reduce((sum, chord) => sum + (Number(chord.duration) || 4), 0);
         const loopDurationMin = (totalBeats / exportState.bpm);
         const totalExportMin = loopDurationMin * exportState.exportPasses;
-        
+
         if (totalExportMin > CONFIG.EXPORT_MINUTE_LIMIT) {
             const recommendedPasses = Math.max(1, Math.floor(CONFIG.EXPORT_MINUTE_LIMIT / loopDurationMin));
             const confirmMsg = `This export will generate ${totalExportMin.toFixed(1)} minutes of audio/MIDI.\n\nTo prevent massive file sizes and long rendering times, we recommend capping this to ${recommendedPasses} pass(es) (${(loopDurationMin * recommendedPasses).toFixed(1)} mins).\n\nClick OK to proceed with ${recommendedPasses} pass(es), or Cancel to abort.`;
@@ -445,10 +437,10 @@ function _setupDragAndDrop(display) {
         sourceDataAttribute: 'chord',
         onReorder: (oldIndex, newIndex, newLoopStart, newLoopEnd) => {
             if (oldIndex === null || newIndex === null) {
-                renderProgression(); 
+                renderProgression();
                 return;
             }
-            
+
             reorderProgression(oldIndex, newIndex, newLoopStart, newLoopEnd);
             renderProgression();
         },
@@ -495,7 +487,7 @@ function _setupSmartDragCollapse() {
 
 function _setupGlobalDoubleTap() {
     let lastTapTime = 0;
-    
+
     document.addEventListener('pointerdown', (e) => {
         // Ignore taps on all interactive elements, timelines, panels, and controls
         const ignoredSelectors = 'button, input, select, textarea, .progression-item, .chord-btn, .rhythm-instance, .drum-hit, .bracket-element, .controls, .pattern-tab, .swap-menu, .rhythm-timeline-container, .modal-content, .drum-row-label';
@@ -504,7 +496,7 @@ function _setupGlobalDoubleTap() {
             lastTapTime = 0;
             return;
         }
-        
+
         const now = Date.now();
         if (now - lastTapTime < CONFIG.DOUBLE_TAP_DELAY_MS) {
             e.preventDefault(); // Attempt to prevent double-tap zoom on mobile
@@ -519,7 +511,7 @@ function _setupGlobalDoubleTap() {
 
 function _preWarmAudio() {
     const warmUp = () => {
-        try { initAudio(); } catch (e) {}
+        try { initAudio(); } catch (e) { }
         document.removeEventListener('pointerdown', warmUp);
         document.removeEventListener('keydown', warmUp);
     };
@@ -531,14 +523,15 @@ function _preWarmAudio() {
 function initApp() {
     if (window.__progressAppInitialized) return;
     window.__progressAppInitialized = true;
-    
+
     const display = document.getElementById('progression-display');
     syncUIToState();
+    initBuilderTabs(state, renderProgression);
     _setupTopBarEvents();
-    initRhythmEditor({ 
-        state, 
-        saveHistoryState, 
-        persistAppState, 
+    initRhythmEditor({
+        state,
+        saveHistoryState,
+        persistAppState,
         renderProgression,
         updateEditorState,
         updatePattern,

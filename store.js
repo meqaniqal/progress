@@ -67,7 +67,8 @@ export const state = {
         chordChooserCategoryPage: 0,
         inspectorCategoryPage: 0,
         inspectorActiveEmotion: 'substitutes',
-        isAuditionEnabled: false
+        isAuditionEnabled: true,
+        activeBuilderTab: 'standard'
     }
 };
 

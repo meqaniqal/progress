@@ -1,4 +1,4 @@
-import { getPlayableNotes, getAlternatives, getTurnaroundSuggestions, getEffectiveTuning, getChordNotes, getChordSignature, getModulationLabel, getDynamicProgSuggestions, getProceduralCategory, getCategoryIndex } from './theory.js';
+import { getPlayableNotes, getAlternatives, getTurnaroundSuggestions, getEffectiveTuning, getChordNotes, getChordSignature, getModulationLabel, getDynamicProgSuggestions, getProceduralCategory, getCategoryIndex, HAND_CURATED_CATEGORIES } from './theory.js';
 import { KEY_NAMES } from './ui.js';
 import { persistAppState } from './store.js';
 
@@ -14,7 +14,7 @@ function handleInspectorClick(e) {
     const action = btn.dataset.action;
     const index = parseInt(btn.dataset.index, 10);
 
-    switch(action) {
+    switch (action) {
         case 'swap':
             const orig = currentUIState.currentProgression[index];
             const isAudition = currentUIState.editorState.isAuditionEnabled;
@@ -106,7 +106,7 @@ function handleInspectorInput(e) {
         const types = ['Global', 'Auto', 'Close', 'Quartal', 'Spread'];
         const valStrings = ['global', 'auto', 'close', 'quartal', 'spread'];
         if (label) label.innerHTML = `<strong>Voicing:</strong> ${types[val]}`;
-        
+
         const setGlobalBtn = document.querySelector(`.set-global-btn[data-index="${target.dataset.index}"]`);
         if (setGlobalBtn) {
             setGlobalBtn.title = `Set '${types[val]}' as the new master default`;
@@ -119,8 +119,19 @@ function handleInspectorInput(e) {
 export function renderChordInspector(state, selectedChordIndex, callbacks) {
     const panel = document.getElementById('inspector-section');
     if (!panel) return;
-    
-    if (selectedChordIndex === null || !state.currentProgression[selectedChordIndex]) {
+
+    if (!state) state = currentUIState;
+    if (callbacks && Object.keys(callbacks).length > 0) {
+        currentUICallbacks = callbacks;
+    } else {
+        callbacks = currentUICallbacks;
+    }
+
+    if (selectedChordIndex === undefined || selectedChordIndex === null) {
+        selectedChordIndex = state ? state.selectedChordIndex : null;
+    }
+
+    if (!state || selectedChordIndex === null || !state.currentProgression[selectedChordIndex]) {
         panel.style.display = 'none';
         return;
     }
@@ -163,26 +174,33 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         <button class="chord-btn del-btn" data-action="delete" data-index="${index}" style="margin: 0; padding: 4px 12px; font-size: 13px;">🗑 Delete</button>
     `;
 
+    const totalPagesCount = Math.ceil(HAND_CURATED_CATEGORIES.length / 6);
+
     // --- Category Settings Row ---
     let settingsRow = content.querySelector('.inspector-row-swap-settings');
     if (!settingsRow) {
         settingsRow = document.createElement('div');
         settingsRow.className = 'inspector-row inspector-row-swap-settings';
-        
+
         settingsRow.innerHTML = `
             <strong class="inspector-label inspector-swap-category-header">🎭 Category:</strong>
-            <div class="inspector-swap-controls-wrapper">
-                <label class="inspector-audition-label" title="Audition 3-chord sequence when selecting a substitute">
-                    <input type="checkbox" id="inspector-audition-toggle" class="inspector-audition-checkbox">
-                    <span>Audition</span>
-                </label>
-                <button id="btn-inspector-emotion-prev" class="control-btn secondary btn-sm inspector-emotion-page-btn" title="Previous categories page">◀</button>
-                <span class="inspector-pg-selector-span">
-                    Pg <input type="number" id="inspector-emotion-page-input" value="1" min="1" max="100" class="inspector-page-jump-input">/100
-                </span>
-                <button id="btn-inspector-emotion-next" class="control-btn secondary btn-sm inspector-emotion-page-btn" title="Next categories page">▶</button>
-                <select id="inspector-emotion-selector" class="rhythm-select select-sm inspector-dropdown-selector">
-                </select>
+            <div class="inspector-swap-controls-wrapper" style="display: flex; flex-direction: column; width: 100%; gap: 6px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                    <label class="inspector-audition-label" title="Audition 3-chord sequence when selecting a substitute">
+                        <input type="checkbox" id="inspector-audition-toggle" class="inspector-audition-checkbox">
+                        <span>Audition</span>
+                    </label>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <button id="btn-inspector-emotion-prev" class="control-btn secondary btn-sm inspector-emotion-page-btn" title="Previous categories page">◀</button>
+                        <span class="inspector-pg-selector-span" style="font-size: 10px; opacity: 0.8; font-family: monospace; display: flex; align-items: center; gap: 2px;">
+                            Pg <input type="number" id="inspector-emotion-page-input" value="1" min="1" max="${totalPagesCount}" class="inspector-page-jump-input" style="width: 38px; text-align: center; background: var(--bg-panel); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 1px 2px; font-size: 10px; font-family: monospace;">/${totalPagesCount}
+                        </span>
+                        <button id="btn-inspector-emotion-next" class="control-btn secondary btn-sm inspector-emotion-page-btn" title="Next categories page">▶</button>
+                    </div>
+                </div>
+                <div id="inspector-emotion-pills-container" class="category-pills-container">
+                    <!-- Dynamic pills rendered here -->
+                </div>
             </div>
         `;
         content.appendChild(settingsRow);
@@ -193,17 +211,24 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         insAuditionToggle.checked = !!state.editorState.isAuditionEnabled;
         insAuditionToggle.onchange = (e) => {
             state.editorState.isAuditionEnabled = e.target.checked;
+
+            // Sync with global settings checkbox
+            const settingsToggle = document.getElementById('settings-audition-toggle');
+            if (settingsToggle) {
+                settingsToggle.checked = e.target.checked;
+            }
+
             persistAppState();
         };
     }
 
-    const insEmotionSelector = settingsRow.querySelector('#inspector-emotion-selector');
+    const insEmotionPillsContainer = settingsRow.querySelector('#inspector-emotion-pills-container');
     const insEmotionPageInput = settingsRow.querySelector('#inspector-emotion-page-input');
     const btnInsEmotionPrev = settingsRow.querySelector('#btn-inspector-emotion-prev');
     const btnInsEmotionNext = settingsRow.querySelector('#btn-inspector-emotion-next');
 
     let inspectorCatPage = state.editorState.inspectorCategoryPage ?? 0;
-    inspectorCatPage = Math.max(0, Math.min(99, inspectorCatPage));
+    inspectorCatPage = Math.max(0, Math.min(totalPagesCount - 1, inspectorCatPage));
     state.editorState.inspectorCategoryPage = inspectorCatPage;
 
     if (insEmotionPageInput) {
@@ -213,7 +238,9 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     const pageCategories = [];
     for (let j = 0; j < 6; j++) {
         const catIndex = (inspectorCatPage * 6) + j;
-        pageCategories.push(getProceduralCategory(catIndex, state.mode));
+        if (catIndex < HAND_CURATED_CATEGORIES.length) {
+            pageCategories.push(getProceduralCategory(catIndex, state.mode));
+        }
     }
 
     const hasActiveEmotionOnPage = pageCategories.some(cat => cat.id === state.editorState.inspectorActiveEmotion) || state.editorState.inspectorActiveEmotion === 'substitutes';
@@ -221,28 +248,49 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         state.editorState.inspectorActiveEmotion = 'substitutes';
     }
 
-    if (insEmotionSelector) {
-        insEmotionSelector.innerHTML = '';
-        
-        // Add standard Voice-Leading option
-        const optSub = document.createElement('option');
-        optSub.value = 'substitutes';
-        optSub.textContent = 'Voice-Leading Substitutes';
-        optSub.title = 'Close voice leading chord alternatives';
-        insEmotionSelector.appendChild(optSub);
-        
-        pageCategories.forEach(cat => {
-            const opt = document.createElement('option');
-            opt.value = cat.id;
-            opt.textContent = cat.label;
-            opt.title = cat.description;
-            insEmotionSelector.appendChild(opt);
+    if (insEmotionPillsContainer) {
+        insEmotionPillsContainer.innerHTML = '';
+
+        // Add standard Alternatives option as a pill
+        const subPill = document.createElement('button');
+        subPill.className = `category-pill ${state.editorState.inspectorActiveEmotion === 'substitutes' ? 'active' : ''}`;
+        subPill.dataset.category = 'substitutes';
+        subPill.textContent = 'Alternatives';
+        subPill.title = 'Close harmonic alternative chords';
+        subPill.addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.editorState.inspectorActiveEmotion = 'substitutes';
+            state.editorState.swapPage = 0;
+            persistAppState();
+            renderChordInspector(state, selectedChordIndex, callbacks);
         });
-        insEmotionSelector.value = state.editorState.inspectorActiveEmotion || 'substitutes';
+        insEmotionPillsContainer.appendChild(subPill);
+
+        pageCategories.forEach(cat => {
+            const pill = document.createElement('button');
+            pill.className = `category-pill ${cat.id === state.editorState.inspectorActiveEmotion ? 'active' : ''}`;
+            pill.dataset.category = cat.id;
+            pill.textContent = cat.label;
+            pill.title = cat.description;
+
+            if (cat.id === state.editorState.inspectorActiveEmotion) {
+                pill.style.background = cat.color || '#4f46e5';
+                pill.style.borderColor = cat.color || '#4f46e5';
+            }
+
+            pill.addEventListener('click', (e) => {
+                e.stopPropagation();
+                state.editorState.inspectorActiveEmotion = cat.id;
+                state.editorState.swapPage = 0;
+                persistAppState();
+                renderChordInspector(state, selectedChordIndex, callbacks);
+            });
+            insEmotionPillsContainer.appendChild(pill);
+        });
     }
 
     if (btnInsEmotionPrev) btnInsEmotionPrev.disabled = inspectorCatPage === 0;
-    if (btnInsEmotionNext) btnInsEmotionNext.disabled = inspectorCatPage === 99;
+    if (btnInsEmotionNext) btnInsEmotionNext.disabled = inspectorCatPage === totalPagesCount - 1;
 
     if (btnInsEmotionPrev) {
         btnInsEmotionPrev.onclick = (e) => {
@@ -258,7 +306,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     if (btnInsEmotionNext) {
         btnInsEmotionNext.onclick = (e) => {
             e.stopPropagation();
-            if (state.editorState.inspectorCategoryPage < 99) {
+            if (state.editorState.inspectorCategoryPage < totalPagesCount - 1) {
                 state.editorState.inspectorCategoryPage++;
                 state.editorState.swapPage = 0; // reset swap page when category page changes
                 persistAppState();
@@ -270,7 +318,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         insEmotionPageInput.onchange = (e) => {
             let val = parseInt(e.target.value, 10);
             if (isNaN(val) || val < 1) val = 1;
-            if (val > 100) val = 100;
+            if (val > totalPagesCount) val = totalPagesCount;
             state.editorState.inspectorCategoryPage = val - 1;
             state.editorState.swapPage = 0; // reset swap page when category page changes
             persistAppState();
@@ -280,14 +328,6 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
             if (e.key === 'Enter') {
                 insEmotionPageInput.onchange(e);
             }
-        };
-    }
-    if (insEmotionSelector) {
-        insEmotionSelector.onchange = (e) => {
-            state.editorState.inspectorActiveEmotion = e.target.value;
-            state.editorState.swapPage = 0; // reset swap page when emotion changes
-            persistAppState();
-            renderChordInspector(state, selectedChordIndex, callbacks);
         };
     }
 
@@ -302,37 +342,37 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         altsRow.style.alignItems = 'center';
         altsRow.style.gap = '8px';
         altsRow.innerHTML = `<strong class="inspector-label">Swap Chord:</strong>`;
-        
+
         const controls = document.createElement('div');
         controls.style.display = 'inline-flex';
         controls.style.alignItems = 'center';
         controls.style.gap = '4px';
         controls.style.marginLeft = 'auto';
-        
+
         prevBtn = document.createElement('button');
         prevBtn.className = 'control-btn secondary btn-sm swap-prev-btn';
         prevBtn.textContent = '◀';
         prevBtn.style.padding = '2px 6px';
         prevBtn.style.fontSize = '10px';
-        
+
         pageIndicator = document.createElement('span');
         pageIndicator.className = 'swap-page-indicator';
         pageIndicator.style.fontSize = '11px';
         pageIndicator.style.opacity = '0.8';
         pageIndicator.style.fontFamily = 'monospace';
         pageIndicator.textContent = '1/1';
-        
+
         nextBtn = document.createElement('button');
         nextBtn.className = 'control-btn secondary btn-sm swap-next-btn';
         nextBtn.textContent = '▶';
         nextBtn.style.padding = '2px 6px';
         nextBtn.style.fontSize = '10px';
-        
+
         controls.appendChild(prevBtn);
         controls.appendChild(pageIndicator);
         controls.appendChild(nextBtn);
         altsRow.appendChild(controls);
-        
+
         altsBtnContainer = document.createElement('div');
         altsBtnContainer.className = 'inspector-btn-group alts-btn-group';
         altsRow.appendChild(altsBtnContainer);
@@ -368,23 +408,23 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     } else {
         alts = getDynamicProgSuggestions(displayChord, state.editorState.inspectorActiveEmotion, state.mode, state.baseKey);
     }
-    
+
     if (isTemp) alts.unshift({ symbol: originalChord.symbol, key: originalChord.key });
-    
+
     const pageSize = 4;
     const totalPages = Math.max(1, Math.ceil(alts.length / pageSize));
-    
+
     let currentPage = state.editorState.swapPage || 0;
     if (currentPage >= totalPages) currentPage = totalPages - 1;
     if (currentPage < 0) currentPage = 0;
     state.editorState.swapPage = currentPage;
-    
+
     if (pageIndicator) pageIndicator.textContent = `${currentPage + 1}/${totalPages}`;
     if (prevBtn) prevBtn.disabled = currentPage === 0;
     if (nextBtn) nextBtn.disabled = currentPage === totalPages - 1;
-    
+
     const pageAlts = alts.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
-    
+
     if (pageAlts.length === 0) {
         altsBtnContainer.innerHTML = `<span style="opacity: 0.5; font-size: 13px;">No close matches</span>`;
     } else {
@@ -417,7 +457,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
             const isOriginal = isTemp && currentPage === 0 && i === 0;
             if (isOriginal) btn.classList.add('original-swap-option');
             else btn.classList.remove('original-swap-option');
-            
+
             // Context Dimming
             const altKey = altObj.key !== undefined ? altObj.key : displayChord.key;
             const tuning = getEffectiveTuning(altObj.symbol, displayChord.divisions || state.divisions || 12);
@@ -449,11 +489,11 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         modBlock.style.alignItems = 'center';
         modBlock.style.gap = '2px';
         modBlock.innerHTML = `<strong class="inspector-label">Transpose:</strong>`;
-        
+
         const modSelectWrapper = document.createElement('div');
         modSelectWrapper.style.display = 'inline-flex';
         modSelectWrapper.style.alignItems = 'center';
-        
+
         const modDownBtn = document.createElement('button');
         modDownBtn.className = 'control-btn secondary icon-btn mod-key-down';
         modDownBtn.style.padding = '2px 6px';
@@ -461,7 +501,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         modDownBtn.style.borderTopRightRadius = '0';
         modDownBtn.style.borderBottomRightRadius = '0';
         modDownBtn.textContent = '<';
-        
+
         const modSelect = document.createElement('select');
         modSelect.className = 'rhythm-select mod-select';
         modSelect.style.padding = '4px 8px';
@@ -472,7 +512,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
             opt.textContent = name;
             modSelect.appendChild(opt);
         });
-        
+
         const modUpBtn = document.createElement('button');
         modUpBtn.className = 'control-btn secondary icon-btn mod-key-up';
         modUpBtn.style.padding = '2px 6px';
@@ -480,7 +520,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         modUpBtn.style.borderTopLeftRadius = '0';
         modUpBtn.style.borderBottomLeftRadius = '0';
         modUpBtn.textContent = '>';
-        
+
         modSelectWrapper.appendChild(modDownBtn);
         modSelectWrapper.appendChild(modSelect);
         modSelectWrapper.appendChild(modUpBtn);
@@ -513,12 +553,12 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         const vBtnGroup = document.createElement('div');
         vBtnGroup.className = 'v-btn-group';
         vBtnGroup.style.marginTop = '2px';
-        
+
         const setGlobalBtn = document.createElement('button');
         setGlobalBtn.className = 'control-btn secondary set-global-btn';
         setGlobalBtn.textContent = 'Set as Global';
         vBtnGroup.appendChild(setGlobalBtn);
-        
+
         voicingBlock.appendChild(vBtnGroup);
         toolsRow.appendChild(voicingBlock);
 
@@ -564,10 +604,10 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         durBlock.style.flexDirection = 'column';
         durBlock.style.alignItems = 'center';
         durBlock.style.gap = '2px';
-        
+
         const durLabel = document.createElement('span');
         durLabel.className = 'inspector-label dur-label';
-        
+
         const durSlider = document.createElement('input');
         durSlider.type = 'range';
         durSlider.className = 'dur-slider';
@@ -576,7 +616,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         durSlider.max = 8;
         durSlider.step = 1;
         durSlider.setAttribute('list', 'beat-snaps');
-        
+
         durBlock.appendChild(durLabel);
         durBlock.appendChild(durSlider);
         toolsRow.appendChild(durBlock);
@@ -585,7 +625,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     }
 
     // --- Update Tools Properties ---
-    
+
     // 1. Transpose Update
     const modSelect = toolsRow.querySelector('.mod-select');
     modSelect.dataset.action = 'changeChordKey';
@@ -596,13 +636,13 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         const keyVal = parseInt(opt.value, 10);
         const diff = (keyVal - state.baseKey + 12) % 12;
         let label = KEY_NAMES[keyVal];
-        
+
         const modLabel = getModulationLabel(state.baseKey, keyVal);
         if (modLabel) {
             label += ` ${modLabel}`;
         }
         opt.textContent = label;
-        
+
         if (diff === 0) {
             opt.style.color = '#10b981';
         } else if (diff === 7) {
@@ -623,18 +663,18 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
             opt.style.color = 'var(--text-main)';
         }
     });
-        
-        const downBtnMod = toolsRow.querySelector('.mod-key-down');
-        downBtnMod.dataset.action = 'change-chord-key-step';
-        downBtnMod.dataset.index = index;
-        downBtnMod.dataset.direction = '-1';
-        downBtnMod.dataset.currentKey = displayChord.key;
 
-        const upBtnMod = toolsRow.querySelector('.mod-key-up');
-        upBtnMod.dataset.action = 'change-chord-key-step';
-        upBtnMod.dataset.index = index;
-        upBtnMod.dataset.direction = '1';
-        upBtnMod.dataset.currentKey = displayChord.key;
+    const downBtnMod = toolsRow.querySelector('.mod-key-down');
+    downBtnMod.dataset.action = 'change-chord-key-step';
+    downBtnMod.dataset.index = index;
+    downBtnMod.dataset.direction = '-1';
+    downBtnMod.dataset.currentKey = displayChord.key;
+
+    const upBtnMod = toolsRow.querySelector('.mod-key-up');
+    upBtnMod.dataset.action = 'change-chord-key-step';
+    upBtnMod.dataset.index = index;
+    upBtnMod.dataset.direction = '1';
+    upBtnMod.dataset.currentKey = displayChord.key;
 
     // 2. Voicing Type Slider Update
     const currentType = displayChord.voicingType || 'global';
@@ -642,7 +682,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         const swap = state.temporarySwaps[i];
         return swap ? { ...c, ...swap } : c;
     });
-    
+
     const types = [
         { val: 'global', label: 'Global' },
         { val: 'auto', label: 'Auto' },
@@ -650,7 +690,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         { val: 'quartal', label: 'Quartal' },
         { val: 'spread', label: 'Spread' }
     ];
-    
+
     const vLabel = toolsRow.querySelector('.voicing-label');
     vLabel.id = 'voicing-label-' + index;
     const activeLabel = types.find(t => t.val === currentType).label;
@@ -680,7 +720,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     vSlider.dataset.action = 'voicing-slider';
     vSlider.dataset.index = index;
     vSlider.style.background = `linear-gradient(to right, ${gradientStops})`;
-    
+
     const setGlobalBtn = toolsRow.querySelector('.set-global-btn');
     setGlobalBtn.title = `Set '${activeLabel}' as the new master default`;
     setGlobalBtn.dataset.action = 'set-global-voicing';
@@ -714,7 +754,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     const durLabel = toolsRow.querySelector('.dur-label');
     durLabel.id = 'dur-label-' + index;
     durLabel.innerHTML = `<strong>Beats:</strong> ${currentDuration}`;
-    
+
     const durSlider = toolsRow.querySelector('.dur-slider');
     durSlider.value = currentDuration;
     durSlider.dataset.action = 'duration-slider';
@@ -730,7 +770,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
             const transBtn = document.createElement('button');
             transBtn.className = 'chord-btn trans-btn';
             transRow.appendChild(transBtn);
-            
+
             const turnRow = content.querySelector('.inspector-row-turn');
             if (turnRow) {
                 content.insertBefore(transRow, turnRow);
@@ -749,7 +789,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
 
     const firstChordIndex = state.isLooping ? state.loopStart : 0;
     const lastChordIndex = state.isLooping ? Math.max(0, state.loopEnd - 1) : Math.max(0, state.currentProgression.length - 1);
-    
+
     let turnRow = content.querySelector('.inspector-row-turn');
     if (index === lastChordIndex && state.currentProgression.length > 0) {
         const firstChordOriginal = state.currentProgression[firstChordIndex];
@@ -778,7 +818,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
 
             const turnarounds = getTurnaroundSuggestions(firstChord.symbol, state.mode, state.baseKey);
             const existingBtns = turnBtnsContainer.querySelectorAll('button');
-            
+
             turnarounds.forEach((alt, i) => {
                 let btn = existingBtns[i];
                 if (!btn) {
@@ -791,7 +831,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
                 btn.dataset.index = index;
                 btn.dataset.alt = alt;
                 btn.dataset.key = firstChord.key;
-                
+
                 // Context Dimming for turnarounds
                 const tuning = getEffectiveTuning(alt, firstChord.divisions || state.divisions || 12);
                 const notes = getChordNotes(alt, firstChord.key, tuning.divisions);

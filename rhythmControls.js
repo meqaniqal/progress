@@ -13,7 +13,7 @@ import {
     auditionSlicePitch, 
     renderRhythmTimeline 
 } from './rhythmEditor.js';
-import { getEffectiveTuning, getPitchEditorTuning, getChordNotes } from './theory.js';
+import { getEffectiveTuning, getPitchEditorTuning, getChordNotes, getPlayableNotes } from './theory.js';
 import { updateTransition } from './transitionUtils.js';
 
 /** Sets up the 'Chords' | 'Bass' | 'Drums' tabs and the 'Global' | 'Local' toggle. */
@@ -301,6 +301,12 @@ function _setupPropertiesControls() {
             const newSymbol = e.target.value;
             if (newSymbol === chord.symbol) return;
             
+            const activeProgBefore = app.state.currentProgression.map((c, i) => {
+                const swap = app.state.temporarySwaps ? app.state.temporarySwaps[i] : null;
+                return swap ? { ...c, ...swap } : c;
+            });
+            const originalPlayable = getPlayableNotes(activeProgBefore, app.state)[activeIndex];
+
             app.saveHistoryState();
             
             if (!app.state.temporarySwaps) {
@@ -312,16 +318,22 @@ function _setupPropertiesControls() {
                 app.state.temporarySwaps[activeIndex] = { symbol: newSymbol };
             }
             
+            const activeProgAfter = app.state.currentProgression.map((c, i) => {
+                const swap = app.state.temporarySwaps ? app.state.temporarySwaps[i] : null;
+                return swap ? { ...c, ...swap } : c;
+            });
+            const newPlayable = getPlayableNotes(activeProgAfter, app.state)[activeIndex];
+
             const pattern = getCurrentPattern();
-            if (pattern && pattern.instances) {
-                const baseKey = chord.key !== undefined ? chord.key : (app.state.baseKey !== undefined ? app.state.baseKey : 60);
-                const divisions = chord.divisions || app.state.divisions || 12;
-                const newNotes = getChordNotes(newSymbol, baseKey, divisions);
-                const newOffsets = newNotes ? newNotes.map(() => 0) : [];
-                
-                let newPattern = pattern;
+            if (pattern && pattern.instances && originalPlayable && newPlayable) {
+                let newPattern = { ...pattern, isLocalOverride: true };
                 pattern.instances.forEach(inst => {
-                    newPattern = updateInstance(newPattern, inst.id, { pitchOffsets: newOffsets, pitchOffset: 0 });
+                    const targetPitches = originalPlayable.map((n, i) => n + (inst.pitchOffsets?.[i] || inst.pitchOffset || 0));
+                    const instOffsets = newPlayable.map((basePitch, i) => {
+                        const targetPitch = targetPitches[i] !== undefined ? targetPitches[i] : basePitch;
+                        return targetPitch - basePitch;
+                    });
+                    newPattern = updateInstance(newPattern, inst.id, { pitchOffsets: instOffsets, pitchOffset: 0 });
                 });
                 setCurrentPattern(newPattern);
             }

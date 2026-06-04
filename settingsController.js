@@ -132,6 +132,9 @@ export function syncSettingsUI() {
     const snapTransitionsScale = document.getElementById('snap-transitions-scale');
     if (snapTransitionsScale) snapTransitionsScale.checked = state.snapTransitionsToScale !== false;
     
+    const auditionInput = document.getElementById('settings-audition-toggle');
+    if (auditionInput) auditionInput.checked = state.editorState.isAuditionEnabled !== false;
+    
     updateMicrotonalSettingsUI();
 }
 
@@ -348,4 +351,11 @@ export function initSettingsUI({ onRenderProgression }) {
             if (onRenderProgression) onRenderProgression();
         });
     }
+
+    document.getElementById('settings-audition-toggle')?.addEventListener('change', (e) => {
+        state.editorState.isAuditionEnabled = e.target.checked;
+        persistAppState();
+        const insAuditionToggle = document.getElementById('inspector-audition-toggle');
+        if (insAuditionToggle) insAuditionToggle.checked = e.target.checked;
+    });
 }

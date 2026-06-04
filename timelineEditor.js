@@ -745,22 +745,22 @@ export function initTimelineInteractions(timeline) {
                                 });
                                 const newPlayable = getPlayableNotes(swappedProg, app.state)[activeIndex];
 
-                                let newPattern = { ...pattern, isLocalOverride: true };
-                                if (newPlayable && newPattern.instances) {
-                                    newPattern.instances = newPattern.instances.map(instance => {
-                                        const instNotes = originalPlayable.map((n, i) => n + (instance.pitchOffsets?.[i] || instance.pitchOffset || 0));
-                                        const instOffsets = instNotes.map((targetPitch, i) => {
-                                            const basePitch = newPlayable[i] !== undefined ? newPlayable[i] : targetPitch;
-                                            return targetPitch - basePitch;
-                                        });
-                                        return {
-                                            ...instance,
-                                            pitchOffsets: instOffsets,
-                                            pitchOffset: 0
-                                        };
-                                    });
-                                }
-                                setCurrentPattern(newPattern);
+                                 let newPattern = { ...pattern, isLocalOverride: true };
+                                 if (newPlayable && newPattern.instances) {
+                                     newPattern.instances = newPattern.instances.map(instance => {
+                                         const targetPitches = originalPlayable.map((n, i) => n + (instance.pitchOffsets?.[i] || instance.pitchOffset || 0));
+                                         const instOffsets = newPlayable.map((basePitch, i) => {
+                                             const targetPitch = targetPitches[i] !== undefined ? targetPitches[i] : basePitch;
+                                             return targetPitch - basePitch;
+                                         });
+                                         return {
+                                             ...instance,
+                                             pitchOffsets: instOffsets,
+                                             pitchOffset: 0
+                                         };
+                                     });
+                                 }
+                                 setCurrentPattern(newPattern);
                                     
                                     if (app.renderProgression) {
                                         app.renderProgression();

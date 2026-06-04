@@ -8,6 +8,8 @@ export const HAND_CURATED_CATEGORIES = [
     { id: 'mysterious', label: '🌌 Mysterious', description: 'Introspective, floating, Dorian minor steps', color: '#8b5cf6' },
     { id: 'ethereal', label: '🧚 Ethereal', description: 'Floaty, whole-tone, Lydian #11 textures', color: '#06b6d4' },
     { id: 'ominous', label: '🌋 Ominous', description: 'Heavy, Phrygian, tense diminished structures', color: '#7f1d1d' },
+    { id: 'baroque', label: '🎻 Baroque', description: 'Secondary dominants, classical Bach sequences', color: '#854d0e' },
+    { id: 'cosmic', label: '🚀 Cosmic', description: 'Coltrane cycles, whole-tone augmented orbits', color: '#1e3a8a' },
     { id: 'soulful', label: '🎹 Soulful', description: 'Warm, major/minor 9ths, Stevie/Wonder chords', color: '#f59e0b' },
     { id: 'exotic', label: '🏺 Exotic', description: 'Ancient, symmetric scale relationships', color: '#10b981' },
     { id: 'tension', label: '⚡ Tension', description: 'High-tension, secondary dominant vectors', color: '#d97706' },
@@ -19,82 +21,95 @@ export const HAND_CURATED_CATEGORIES = [
     { id: 'spectral', label: '🔮 Spectral', description: 'Glimmering, harmonic overtone orbits', color: '#db2777' }
 ];
 
-export function getProceduralCategory(categoryIndex, mode = 'major') {
-    if (categoryIndex < HAND_CURATED_CATEGORIES.length) {
-        return HAND_CURATED_CATEGORIES[categoryIndex];
-    }
-    
-    const seed = categoryIndex * 12345;
-    const pseudoRand = (offset) => {
-        const x = Math.sin(seed + offset) * 10000;
-        return x - Math.floor(x);
-    };
-
-    const prefixes = [
-        "Golden-Ratio", "Fibonacci", "Symmetric", "Subharmonic", "Isomorphic", 
-        "Over-tone", "Spectral", "Recursive", "Hyper-Dorian", "Chiral", 
-        "Tessellated", "Logarithmic", "Geometric", "Prime-Step", "Quantum", 
-        "Fractional", "Divergent", "Harmonic", "Vector", "Elliptic",
-        "Algorithmic", "Matrix", "Non-Linear", "Multi-Dimensional", "Stochastic",
-        "Polytopic", "Markovian", "Euclidean", "Crystalline", "Prismatic"
-    ];
-
-    const nouns = [
-        "Reflection", "Orbit", "Cascade", "Matrix", "Symmetry", 
-        "Lattice", "Helix", "Resonance", "Spectrum", "Continuum", 
-        "Prism", "Friction", "Gravity", "Vortex", "Horizon", 
-        "Ascent", "Oscillation", "Tension", "Decay", "Synthesis",
-        "Entropy", "Wavefront", "Bifurcation", "Strange Attractor", "Torus",
-        "Resonator", "Interference", "Splay", "Superposition", "Modulation"
-    ];
-
-    const emojis = [
-        "📐", "🌀", "🧬", "🌌", "🔮", "🧪", "🧮", "🔭", "📡", "🛰", 
-        "🕯", "🌊", "🌋", "☄️", "⚡", "✨", "🪐", "💎", "🧩", "⚖️"
-    ];
-
-    const colors = [
-        "#6366f1", "#fbbf24", "#ef4444", "#ec4899", "#8b5cf6", 
-        "#06b6d4", "#7f1d1d", "#f59e0b", "#10b981", "#d97706",
-        "#a855f7", "#14b8a6", "#db2777", "#22c55e", "#64748b"
-    ];
-
-    const prefIdx = Math.floor(pseudoRand(1) * prefixes.length);
-    const nounIdx = Math.floor(pseudoRand(2) * nouns.length);
-    const emojiIdx = Math.floor(pseudoRand(3) * emojis.length);
-    const colorIdx = Math.floor(pseudoRand(4) * colors.length);
-
-    const label = `${emojis[emojiIdx]} ${prefixes[prefIdx]} ${nouns[nounIdx]}`;
-    const description = `Procedural mathematical category exploring step ratio ${(categoryIndex % 11) + 1} skip vectors.`;
-
-    return {
-        id: `procedural-${categoryIndex}`,
-        label,
-        description,
-        color: colors[colorIdx]
-    };
-}
+export const FIXED_SUGGESTIONS = {
+    mournful: [
+        'iv', 'bVI', 'ii°7', 'i7', 'bvi', 'vm9', 'v', 'iv7', 'bIII', 'bIIImaj7', 'iiø7', 'bVImaj7'
+    ],
+    luminous: [
+        'II', 'Imaj7', 'V9', 'III', 'VI', 'Imaj9', 'Vmaj7', 'Vsus2', 'Iadd9', 'vii7b5', 'IIImaj7', 'VImaj7'
+    ],
+    heroic: [
+        'bVII', 'V7sus4', 'bVII7', 'I7', 'IV7', 'II7', 'v7', 'bVIImaj7', 'I9', 'IV9', 'V7', 'bVIIadd9'
+    ],
+    nostalgic: [
+        'IVmaj7', 'vi9', 'vi7', 'ii9', 'bVII9', 'IVmaj9', 'vi11', 'IVadd9', 'ii7', 'I6', 'IV6', 'viadd9'
+    ],
+    mysterious: [
+        'IV', 'Isus2', 'Vsus4', 'ii13', 'IVsus2', 'bVIImaj9', 'bIIImaj7add9', 'i6', 'ivmaj7', 'bIII6', 'ii7b5', 'im9'
+    ],
+    ethereal: [
+        'Imaj7#11', 'iii7b5', 'bVImaj7#11', 'vi7b5', 'Imaj9#11', 'IVmaj7#11', 'Vsus4#11', 'vii7', 'III7#5', 'bIIImaj7#11', 'bVIImaj7#11', 'Iadd9#11'
+    ],
+    ominous: [
+        'bII', 'vii°7', 'I7b9', 'v°', 'bV', 'bIImaj7', 'vii°', 'i°7', 'bVmaj7', 'IV7b9', 'V7b9', '#I°7'
+    ],
+    baroque: [
+        'V7/V', 'V7/vi', 'I', 'vii°/V', 'V7/ii', 'V7/iii', 'V7/IV', 'V/V', 'V/vi', 'V/ii', 'vii°/vi', 'ii°'
+    ],
+    cosmic: [
+        'bIIImaj9', 'bVImaj9', 'bIIIadd9', 'bVIadd9', 'II9', 'IV7#11', 'V7/bIII', 'V7/bVI', 'vii°9', 'bIIImaj7#5', 'bVImaj7#5', 'Imaj7#5'
+    ],
+    soulful: [
+        'I#°', 'ii11', 'V7alt', 'Imaj13', 'IVmaj13', 'vi13', 'ii13sus2', 'V13', 'bVII13', 'I9sus4', 'IV9sus4', 'vi9sus4'
+    ],
+    exotic: [
+        'bII6', 'vii7#5', 'bV6', '#IV7b9', 'vii°6', 'bIImaj7b5', 'vii7b5#9', 'v7b5b9', '#i7b5', '#iv7b5', 'bV7b9', 'bII7b9'
+    ],
+    tension: [
+        'I7#9', 'V7b13', 'I7b13', 'V7#9#5', 'vii°7/V', 'vii°7/vi', 'V7#5', 'bII7#9', 'bV7#9', '#IV°7/V', 'Vsus4b9', 'V7#9b13'
+    ],
+    dreamy: [
+        'Imaj11', 'bVImaj9#11', 'IVmaj11', 'Imaj7b5', 'IVmaj7b5', 'bIIImaj9#11', 'bVIImaj9#11', 'ii9sus4', 'bIII13', 'bVI13', 'Imaj9#5', 'bIIImaj9#5'
+    ],
+    hopeful: [
+        'Iadd11', 'IVadd11', 'Vadd11', 'viadd11', 'iiadd9', 'iiiadd9', 'iii7', 'V7sus2', 'vi7b5#9', 'ii7b5#11', 'IVadd9#11', 'Vadd9#11'
+    ],
+    cyberpunk: [
+        'i', 'vii9', 'iv9', 'v9', 'im11', '#i', '#iv', 'bvi9', 'viiø9', 'im13', 'ivm13', 'v6'
+    ],
+    alien: [
+        'bVmaj9', 'I7b5', 'iii7b5#9', 'bIImaj7#11', 'bVImaj11#11', '#I°9', 'bIIImaj11#11', 'bVIImaj11#11', 'Imaj9#5#11', 'ii7b5#9', 'vii7b5#11', '#IV7'
+    ],
+    neutral: [
+        'ii', 'iii', 'vi', 'I5', 'IV5', 'V5', 'vi5', 'ii5', 'iii5', 'I6/9', 'IV6/9', 'V6/9'
+    ],
+    spectral: [
+        'Imaj13#11', 'II13', 'V7b5', 'Imaj9#11b5', 'IVmaj13#11', 'Vsus4#11b5', 'Imaj13#5', 'bIIImaj13#11', 'bVImaj13#11', 'II7#5', 'bVIImaj13#11', 'Imaj7b5#11'
+    ]
+};
 
 export function getCategoryIndex(emotionId) {
     if (typeof emotionId === 'number') return emotionId;
-    if (emotionId && emotionId.startsWith('procedural-')) {
-        return parseInt(emotionId.replace('procedural-', ''), 10);
-    }
     const idx = HAND_CURATED_CATEGORIES.findIndex(cat => cat.id === emotionId);
     return idx !== -1 ? idx : 0;
 }
 
-function getStandardSymbolForOffset(offset, mode) {
-    const majorSymbols = {
-        0: 'I', 1: 'bIImaj7', 2: 'ii7', 3: 'bIIImaj7', 4: 'iii7', 5: 'IVmaj7',
-        6: 'bVmaj7', 7: 'V7', 8: 'bVImaj7', 9: 'vi7', 10: 'bVII7', 11: 'vii7b5'
-    };
-    const minorSymbols = {
-        0: 'i7', 1: 'bIImaj7', 2: 'ii7b5', 3: 'bIIImaj7', 4: 'iv7', 5: 'v7',
-        6: 'bVmaj7', 7: 'V7alt', 8: 'bVImaj7', 9: 'bVII7', 10: 'vii°7', 11: 'I'
-    };
-    const map = (mode === 'minor' || mode === 'aeolian') ? minorSymbols : majorSymbols;
-    return map[offset] || 'I';
+function getRootOffsetFromSymbol(symbol) {
+    let accidental = 0;
+    let stripped = symbol;
+    
+    if (stripped.includes('/')) {
+        stripped = stripped.split('/')[0];
+    }
+    
+    if (stripped.startsWith('b')) { 
+        accidental = -1; 
+        stripped = stripped.substring(1); 
+    } else if (stripped.startsWith('#')) { 
+        accidental = 1; 
+        stripped = stripped.substring(1); 
+    }
+    
+    const match = stripped.match(/^(IV|III|II|I|VII|VI|V|iv|iii|ii|i|vii|vi|v)/);
+    if (match) {
+        const numeral = match[1];
+        const scaleOffsets = {
+            'i': 0, 'ii': 2, 'iii': 4, 'iv': 5, 'v': 7, 'vi': 9, 'vii': 11,
+            'I': 0, 'II': 2, 'III': 4, 'IV': 5, 'V': 7, 'VI': 9, 'VII': 11
+        };
+        return (scaleOffsets[numeral] + accidental + 12) % 12;
+    }
+    return 0;
 }
 
 export function getDynamicProgSuggestions(currentChord, emotion, mode = 'major', baseKey = 60) {
@@ -114,266 +129,39 @@ export function getDynamicProgSuggestions(currentChord, emotion, mode = 'major',
     // Microtonal modes get specialized degree-based maps
     const microDiatonic = getMicrotonalDiatonicChords(mode);
     if (microDiatonic) {
-        if (emotion && (emotion.startsWith('procedural-') || typeof emotion === 'number')) {
-            const catIndex = getCategoryIndex(emotion);
-            const step = (catIndex % (microDiatonic.length - 1)) + 1;
-            const activeDegree = currentChord ? (parseInt(currentChord.symbol.match(/\d+$/)?.[0], 10) || 1) : 1;
-            for (let j = 0; j < 6; j++) {
-                const degIndex = (activeDegree - 1 + (step * j)) % microDiatonic.length;
-                const sym = microDiatonic[degIndex];
-                addSug(sym, `Scale degree ${degIndex + 1} (${step}-step jump vector)`);
-            }
-        } else {
-            const mapping = {
-                mournful: [4, 6, 8, 9],
-                luminous: [1, 3, 5, 7],
-                heroic: [1, 4, 5, 9],
-                nostalgic: [1, 3, 6, 8],
-                mysterious: [2, 5, 7, 9],
-                ethereal: [3, 6, 8, 9],
-                ominous: [2, 4, 7, 8],
-                soulful: [1, 3, 5, 8],
-                exotic: [2, 5, 6, 7],
-                tension: [2, 4, 8, 9],
-                dreamy: [3, 5, 7, 8],
-                hopeful: [1, 3, 6, 7],
-                cyberpunk: [2, 4, 6, 9],
-                alien: [2, 5, 8, 9],
-                dissonant: [2, 4, 7, 9],
-                neutral: [1, 3, 5, 6],
-                spectral: [3, 5, 8, 9]
-            };
-            const degrees = mapping[emotion] || [1, 3, 5, 7];
-            degrees.forEach(deg => {
-                if (deg <= microDiatonic.length) {
-                    const sym = microDiatonic[deg - 1];
-                    addSug(sym, `Microtonal degree ${deg} emotional color`);
-                }
-            });
+        const catIdx = getCategoryIndex(emotion);
+        const scaleLength = microDiatonic.length;
+        const suffixes = [
+            '', '7', 'maj7', '9', 'add9', 'sus4', 'sus2', '6', '11', '13',
+            'maj9', 'maj11', 'maj13', 'maj7#11', 'maj7#5', 'dim', 'dim7', '°', '°7', 'm6',
+            'add11', 'add13', 'maj13#11', '13#11', '7b9', '7#9', '9#11', '9b13', '7b13', '7#5',
+            '7b5', 'm11', 'm13', 'm9', 'm7b5', 'ø7', 'add9#11', 'sus4b9', 'sus4#11', 'sus2#11',
+            '69', '6/9', 'maj7b9', 'maj9b13', 'maj7b5'
+        ];
+        
+        // Generate exactly 12 unique suggestions (2 pages of 6) for this category
+        for (let j = 0; j < 12; j++) {
+            const index = catIdx * 12 + j;
+            const degree = (index % scaleLength) + 1;
+            const suffix = suffixes[Math.floor(index / scaleLength) % suffixes.length];
+            const baseSym = microDiatonic[degree - 1];
+            const sym = `${baseSym}${suffix}`;
+            addSug(sym, `Microtonal degree ${degree} emotional color (${emotion} slot ${j})`);
         }
         return suggestions;
     }
 
-    // Procedural category index check for standard 12-EDO
-    if (emotion && emotion.startsWith('procedural-')) {
-        const catIndex = getCategoryIndex(emotion);
-        const step = (catIndex % 11) + 1;
-        for (let j = 0; j < 6; j++) {
-            const semitoneOffset = (step * j) % 12;
-            const targetKey = chordKey + semitoneOffset;
-            const sym = getStandardSymbolForOffset(semitoneOffset, mode);
-            addSug(sym, `Chromatic skip +${semitoneOffset} semitones (${step}-step mathematical spiral)`, targetKey);
-        }
-        return suggestions;
-    }
-
-    // Traditional hand-curated categories
-    switch (emotion) {
-        case 'mournful':
-            addSug('iv', 'Plaintive Aeolian minor subdominant (minor iv)');
-            addSug('bVI', 'Sorrowful borrowed flat-VI triad');
-            addSug('ii°7', 'Yearning half-diminished ii°7 chord');
-            addSug('i7', 'Aeolian tonic minor 7th');
-            addSug('bvi', 'Romantic mediant drop (minor bvi)');
-            addSug('v7', 'Introspective minor v7');
-            addSug('v', 'Natural minor v minor triad');
-            addSug('iv7', 'Soulful plagal minor iv7');
-            addSug('bIII', 'Bright contrast flat-III major');
-            addSug('bIIImaj7', 'Yearning flat-III major 7th');
-            addSug('iiø7', 'Sorrowful half-diminished supertonic');
-            addSug('bVImaj7', 'Mournful flat-VI major 7th');
-            break;
-        case 'luminous':
-            addSug('II', 'Uplifting Lydian major II chord');
-            addSug('Imaj7', 'Bright, shimmering major 7th');
-            addSug('IVmaj7', 'Warm Lydian-esque major 7th on the IV');
-            addSug('V9', 'Bright dominant 9th');
-            addSug('III', 'Lifting chromatic mediant (major III)');
-            addSug('VI', 'Triumphant major VI (Lydian side)');
-            addSug('Imaj9', 'Dreamy major 9th');
-            addSug('Vmaj7', 'Soaring dominant major 7th');
-            addSug('IVmaj9', 'Bright major 9th on the IV');
-            addSug('Vsus2', 'Open suspended 2nd on the dominant');
-            addSug('Iadd9', 'Pure add9 tonic');
-            addSug('vii7b5', 'Half-diminished leading tone chord');
-            break;
-        case 'heroic':
-            addSug('bVII', 'Triumphant Mixolydian flat-VII');
-            addSug('bVI', 'Epic flat-VI chord');
-            addSug('bIII', 'Powerful flat-III major chord');
-            addSug('V', 'Strong dominant V');
-            addSug('VI', 'Triumphant major VI (Yes/Prog feel)');
-            addSug('bVII7', 'Epic flat-VII dominant 7th');
-            addSug('bVImaj7', 'Stately flat-VI major 7th');
-            addSug('bIIImaj7', 'Bright flat-III major 7th');
-            addSug('I7', 'Tension-building tonic dominant 7th');
-            addSug('IV7', 'Mixolydian subdominant dominant 7th');
-            addSug('v7', 'Epic minor v7 passing chord');
-            addSug('II7', 'Secondary dominant major II7');
-            break;
-        case 'nostalgic':
-            addSug('IVmaj7', 'Nostalgic Lydian major 7th');
-            addSug('iv', 'Stevie/Chopin minor iv plagal change');
-            addSug('Imaj9', 'Dreamy major 9th');
-            addSug('vi9', 'Tender minor 9th on the submediant');
-            addSug('bVImaj7', 'Romantic flat-VI major 7th');
-            addSug('Imaj7', 'Warm tonic major 7th');
-            addSug('vi7', 'Tender submediant minor 7th');
-            addSug('ii9', 'Uplifting supertonic minor 9th');
-            addSug('iv7', 'Soulful minor iv7');
-            addSug('bIIImaj7', 'Nostalgic flat-III major 7th');
-            addSug('bVII9', 'Soulful flat-VII major 9th');
-            addSug('ii11', 'Open supertonic minor 11th');
-            break;
-        case 'mysterious':
-            addSug('IV', 'Dorian major IV chord');
-            addSug('ii7', 'Dreamy minor 7th on supertonic');
-            addSug('Isus2', 'Floating suspended 2nd');
-            addSug('Vsus4', 'Suspended 4th on the dominant');
-            addSug('v', 'Introspective minor v');
-            addSug('v7', 'Introspective minor v7');
-            addSug('ii11', 'Floating minor 11th supertonic');
-            addSug('Iadd9', 'Floating add9 chord');
-            addSug('Vsus2', 'Floating suspended 2nd dominant');
-            addSug('IVmaj7', 'Mysterious Dorian major 7th on the IV');
-            addSug('bVII', 'Mysterious flat-VII triad');
-            addSug('bIII', 'Mysterious flat-III triad');
-            break;
-        case 'ethereal':
-            addSug('Imaj7#11', 'Holdsworth Lydian #11 (semitone friction F#/G)');
-            addSug('II7', 'Symmetric whole-tone dominant 7th');
-            addSug('iii7b5', 'Floaty half-diminished chord');
-            addSug('Iadd9', 'Open-voiced add9 triad');
-            addSug('I7b5', 'Symmetric whole-tone flat-5th dominant');
-            addSug('bVImaj7#11', 'Floating Lydian #11 on flat-VI');
-            addSug('vi7b5', 'Floaty half-diminished submediant');
-            addSug('II9', 'Symmetric Lydian dominant 9th');
-            addSug('Imaj9#11', 'Floaty major 9th sharp 11');
-            addSug('IVmaj7#11', 'Floating subdominant sharp 11');
-            addSug('Vsus4#11', 'Floaty sharp 11 dominant');
-            addSug('vii7', 'Leading tone minor 7th');
-            break;
-        case 'ominous':
-            addSug('bII', 'Heavy Phrygian flat-II (Neapolitan)');
-            addSug('vii°7', 'Tense diminished 7th');
-            addSug('I7b9', 'Dissonant dominant 7th flat-9th');
-            addSug('v°', 'Diminished minor v chord');
-            addSug('bV', 'Dissonant tritone-related major bV');
-            addSug('bIImaj7', 'Tense Phrygian flat-II major 7th');
-            addSug('vii°', 'Tense diminished leading triad');
-            addSug('i°7', 'Tense tonic diminished 7th');
-            addSug('bVmaj7', 'Tense tritone major 7th');
-            addSug('IV7b9', 'Altered subdominant flat-9th');
-            addSug('V7b9', 'Dissonant dominant flat-9th');
-            addSug('#I°7', 'Tense chromatic passing diminished');
-            break;
-        case 'baroque':
-            addSug('V/V', 'Secondary dominant: V of V (creates logical momentum)', (chordKey + 7));
-            addSug('V/vi', 'Secondary dominant: V of vi', (chordKey + 9));
-            addSug('I', 'Picardy Third: Resolving minor context to Major I');
-            addSug('vii°/V', 'Tension builder: diminished vii° of V', (chordKey + 7));
-            addSug('V/ii', 'Secondary dominant: V of ii', (chordKey + 2));
-            addSug('V/iii', 'Secondary dominant: V of iii', (chordKey + 4));
-            addSug('V/IV', 'Secondary dominant: V of IV', (chordKey + 5));
-            addSug('V7/V', 'Secondary dominant 7th: V7 of V', (chordKey + 7));
-            addSug('V7/vi', 'Secondary dominant 7th: V7 of vi', (chordKey + 9));
-            addSug('V7/ii', 'Secondary dominant 7th: V7 of ii', (chordKey + 2));
-            addSug('vii°/vi', 'Tension builder: diminished vii° of vi', (chordKey + 9));
-            addSug('ii°', 'Bach-style diminished supertonic');
-            break;
-        case 'cosmic':
-            addSug('I', 'Home major center');
-            addSug('bIIImaj7', 'Coltrane cycle step 1 (+Major 3rd, 4 semitones)', (chordKey + 4));
-            addSug('bVImaj7', 'Coltrane cycle step 2 (+Major 3rd, 8 semitones)', (chordKey + 8));
-            addSug('V7', 'Coltrane cycle dominant turnaround');
-            addSug('bIII', 'Coltrane cycle triad step 1', (chordKey + 4));
-            addSug('bVI', 'Coltrane cycle triad step 2', (chordKey + 8));
-            addSug('II7', 'Cosmic step 2 dominant', (chordKey + 2));
-            addSug('IV7', 'Cosmic step 5 dominant', (chordKey + 5));
-            addSug('bVIImaj7', 'Cosmic flat-VII major 7th', (chordKey + 10));
-            addSug('V7/bIII', 'Cosmic dominant of step 1', (chordKey + 11));
-            addSug('V7/bVI', 'Cosmic dominant of step 2', (chordKey + 3));
-            addSug('vii°7', 'Cosmic cosmic diminished leading tone');
-            break;
-        case 'soulful':
-            addSug('I#°', 'Soulful passing diminished chord');
-            addSug('ii11', 'Warm minor 11th chord');
-            addSug('iv7', 'Soulful minor 7th on the iv');
-            addSug('V7alt', 'Tense dominant 7th with altered extensions');
-            addSug('Imaj7', 'Warm major 7th');
-            addSug('vi9', 'Warm minor 9th submediant');
-            addSug('ii9', 'Warm minor 9th supertonic');
-            addSug('V9sus4', 'Soulful suspended 9th');
-            addSug('Imaj9', 'Warm tonic major 9th');
-            addSug('IVmaj9', 'Warm subdominant major 9th');
-            addSug('bVII7', 'Soulful flat-VII dominant 7th');
-            addSug('Iadd9', 'Warm add9 triad');
-            break;
-        case 'exotic':
-            addSug('bII', 'Heavy flat-II modal major');
-            addSug('vii7', 'Leading tone minor 7th');
-            addSug('bV', 'Tritone-related major bV');
-            addSug('#IV7', 'Lydian dominant 7th');
-            addSug('vii°', 'Diminished leading tone triad');
-            addSug('bIImaj7', 'Exotic flat-II major 7th');
-            break;
-        case 'tension':
-            addSug('V7', 'Strong dominant seventh');
-            addSug('vii°7', 'Fully diminished seventh');
-            addSug('I7b9', 'Altered dominant flat-9');
-            addSug('vii°/V', 'Diminished vii° of V', (chordKey + 7));
-            addSug('V/V', 'Secondary dominant V of V', (chordKey + 7));
-            addSug('V/vi', 'Secondary dominant V of vi', (chordKey + 9));
-            break;
-        case 'dreamy':
-            addSug('Imaj7#11', 'Lydian sharp-11 major 7th');
-            addSug('Imaj9', 'Lush tonic major 9th');
-            addSug('vi9', 'Soft submediant minor 9th');
-            addSug('ii11', 'Open supertonic minor 11th');
-            addSug('bVImaj7#11', 'Dreamy Lydian sharp-11 on flat-VI');
-            addSug('IVmaj9', 'Soft subdominant major 9th');
-            break;
-        case 'hopeful':
-            addSug('IV', 'Subdominant major IV');
-            addSug('V', 'Dominant major V');
-            addSug('Iadd9', 'Warm tonic add9');
-            addSug('vi7', 'Tender minor 7th submediant');
-            addSug('IVmaj7', 'Bright major 7th subdominant');
-            addSug('Imaj7', 'Warm tonic major 7th');
-            break;
-        case 'cyberpunk':
-            addSug('i', 'Dark tonic minor');
-            addSug('bII', 'Phrygian flat-II major');
-            addSug('vii7', 'Leading tone minor 7th');
-            addSug('v°', 'Dissonant diminished minor v');
-            addSug('bV', 'Industrial tritone major bV');
-            addSug('i7', 'Aeolian tonic minor 7th');
-            break;
-        case 'alien':
-            addSug('bVmaj7', 'Unearthly tritone major 7th');
-            addSug('I7b5', 'Whole-tone flat-5 dominant');
-            addSug('iii7b5', 'Floaty leading tone minor 7 flat 5');
-            addSug('bIImaj7#11', 'Unearthly flat-II sharp-11');
-            addSug('bVImaj7#11', 'Floaty Lydian sharp-11 on flat-VI');
-            addSug('#I°7', 'Dissonant chromatic diminished');
-            break;
-        case 'neutral':
-            addSug('I', 'Stable tonic triad');
-            addSug('IV', 'Balanced subdominant triad');
-            addSug('V', 'Balanced dominant triad');
-            addSug('vi', 'Balanced relative minor triad');
-            addSug('ii', 'Balanced minor supertonic triad');
-            addSug('iii', 'Balanced minor mediant triad');
-            break;
-        case 'spectral':
-            addSug('Imaj7#11', 'Spectral Lydian sharp 11');
-            addSug('II9', 'Spectral Lydian dominant 9th');
-            addSug('V7b5', 'Whole-tone flat-5 dominant');
-            addSug('Imaj9#11', 'Floaty major 9 sharp 11');
-            addSug('IVmaj7#11', 'Glimmering Lydian subdominant');
-            addSug('Vsus4#11', 'Glimmering sharp 11 dominant');
-            break;
-    }
+    // Standard 12-EDO Suggestions
+    const chordList = FIXED_SUGGESTIONS[emotion] || FIXED_SUGGESTIONS['neutral'];
+    chordList.forEach((sym, j) => {
+        const offset = getRootOffsetFromSymbol(sym);
+        addSug(sym, `${emotion} suggestion ${j + 1}`, baseOctave + offset);
+    });
 
     return suggestions;
+}
+
+export function getProceduralCategory(categoryIndex, mode = 'major') {
+    const catIndex = categoryIndex % HAND_CURATED_CATEGORIES.length;
+    return HAND_CURATED_CATEGORIES[catIndex];
 }

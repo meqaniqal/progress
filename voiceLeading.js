@@ -22,96 +22,82 @@ export function optimizeVoicing(notes) {
 // Calculates the inversion of a target chord that has the shortest 
 // total melodic distance from the previous chord.
 export function applyVoiceLeading(progression, globalOptions = {}) {
+    if (!progression || progression.length === 0) return [];
+    
     const divisions = globalOptions.divisions || 12;
     const getDivisions = (chord) => chord.divisions || divisions;
-    const validProgression = progression.filter(chord => getChordNotes(chord.symbol, chord.key, getDivisions(chord)));
-    if (validProgression.length === 0) return [];
     
-    // Dynamic voicing extraction to support future global or per-chord overrides
+    const processed = [];
+    let prevValidNotes = null;
+    let prevTuning = null;
+
     const getOptions = (chord) => ({
         centerGravity: globalOptions.centerGravity ?? CONFIG.VL_CENTER_GRAVITY,
         gravityWeight: globalOptions.gravityWeight ?? CONFIG.VL_GRAVITY_WEIGHT,
-        extremeHigh: globalOptions.extremeHigh ?? CONFIG.VL_EXTREME_HIGH, // Widened to allow high exotic extensions
-        extremeLow: globalOptions.extremeLow ?? CONFIG.VL_EXTREME_LOW,   // Lowered to C2 to allow wide BP roots to breathe
+        extremeHigh: globalOptions.extremeHigh ?? CONFIG.VL_EXTREME_HIGH,
+        extremeLow: globalOptions.extremeLow ?? CONFIG.VL_EXTREME_LOW,
         extremeWeight: globalOptions.extremeWeight ?? CONFIG.VL_EXTREME_WEIGHT,
         voicingType: chord.voicingType && chord.voicingType !== 'global' ? chord.voicingType : (globalOptions.globalVoicing ?? 'auto')
     });
 
-    // 1. Smart Anchoring for the First Chord
-    const firstOpts = getOptions(validProgression[0]);
-    const firstTuning = getEffectiveTuning(validProgression[0].symbol, getDivisions(validProgression[0]));
-    let firstTarget = optimizeVoicing(getChordNotes(validProgression[0].symbol, validProgression[0].key, getDivisions(validProgression[0])));
-    
-    // Generate inversions dynamically based on the requested Voicing Type
-    let firstInversions = generateInversions(firstTarget, firstOpts.voicingType, firstTuning.periodSize);
-    
-    let bestFirst = firstInversions[0];
-    let bestFirstCost = Infinity;
-    
-    firstInversions.forEach(inv => {
-        let avgPitch = inv.reduce((sum, val) => sum + val, 0) / inv.length;
-        let gravityCost = Math.abs(avgPitch - firstOpts.centerGravity) * (firstOpts.gravityWeight * 2); // Anchor start point
-        
-        let extremePenalty = 0;
-        if (inv[0] < firstOpts.extremeLow) extremePenalty += (firstOpts.extremeLow - inv[0]) * firstOpts.extremeWeight;
-        if (inv[inv.length - 1] > firstOpts.extremeHigh) extremePenalty += (inv[inv.length - 1] - firstOpts.extremeHigh) * firstOpts.extremeWeight;
-        
-        let rootPenalty = 0;
-        const invMod = ((inv[0] % firstTuning.periodSize) + firstTuning.periodSize) % firstTuning.periodSize;
-        const tgtMod = ((firstTarget[0] % firstTuning.periodSize) + firstTuning.periodSize) % firstTuning.periodSize;
-        const isRootMismatch = Math.abs(invMod - tgtMod) > 0.15 && Math.abs(invMod - tgtMod) < firstTuning.periodSize - 0.15;
-        if ((firstOpts.voicingType === 'auto' || firstOpts.voicingType === 'close') && isRootMismatch) {
-            rootPenalty = CONFIG.VL_ROOT_PENALTY; // Strongly bias towards root position for the opening chord stability
+    for (let i = 0; i < progression.length; i++) {
+        const chord = progression[i];
+        const chordNotes = getChordNotes(chord.symbol, chord.key, getDivisions(chord));
+
+        if (!chordNotes || chordNotes.length === 0) {
+            processed.push([]);
+            continue;
         }
 
-        let totalCost = gravityCost + extremePenalty + rootPenalty;
-        if (totalCost < bestFirstCost) {
-            bestFirstCost = totalCost;
-            bestFirst = inv;
-        }
-    });
+        const opts = getOptions(chord);
+        const tuning = getEffectiveTuning(chord.symbol, getDivisions(chord));
+        const targetNotes = optimizeVoicing(chordNotes);
+        const inversions = generateInversions(targetNotes, opts.voicingType, tuning.periodSize);
 
-    let processed = [bestFirst]; 
-
-    // 2. Voice Lead Subsequent Chords with Gravity Penalties
-    for (let i = 1; i < validProgression.length; i++) {
-        let prevChord = processed[i - 1];
-        let opts = getOptions(validProgression[i]);
-        let prevTuning = getEffectiveTuning(validProgression[i-1].symbol, getDivisions(validProgression[i-1]));
-        let tuning = getEffectiveTuning(validProgression[i].symbol, getDivisions(validProgression[i]));
-        let targetNotes = getChordNotes(validProgression[i].symbol, validProgression[i].key, getDivisions(validProgression[i]));
-        targetNotes = optimizeVoicing(targetNotes);
-        
-        let inversions = generateInversions(targetNotes, opts.voicingType, tuning.periodSize);
-        
         let bestInversion = inversions[0];
         let smallestCost = Infinity;
 
         inversions.forEach(inv => {
-            let distance = calculateDistance(prevChord, inv);
-            
-            let avgPitch = inv.reduce((sum, val) => sum + val, 0) / inv.length;
-            let gravityPenalty = Math.abs(avgPitch - opts.centerGravity) * opts.gravityWeight;
-            
-            // If crossing tuning system boundaries (e.g., 12-TET to BP), strongly prioritize register matching over voice leading.
-            if (Math.abs(tuning.periodSize - prevTuning.periodSize) > 0.1) {
-                let prevAvg = prevChord.reduce((sum, val) => sum + val, 0) / prevChord.length;
-                gravityPenalty += Math.abs(avgPitch - prevAvg) * CONFIG.VL_CROSS_TETHER_WEIGHT; // Tether to the previous chord's register
+            let cost = 0;
+            if (prevValidNotes) {
+                cost += calculateDistance(prevValidNotes, inv);
+                
+                let avgPitch = inv.reduce((sum, val) => sum + val, 0) / inv.length;
+                let gravityPenalty = Math.abs(avgPitch - opts.centerGravity) * opts.gravityWeight;
+                
+                if (prevTuning && Math.abs(tuning.periodSize - prevTuning.periodSize) > 0.1) {
+                    let prevAvg = prevValidNotes.reduce((sum, val) => sum + val, 0) / prevValidNotes.length;
+                    gravityPenalty += Math.abs(avgPitch - prevAvg) * CONFIG.VL_CROSS_TETHER_WEIGHT;
+                }
+                cost += gravityPenalty;
+            } else {
+                let avgPitch = inv.reduce((sum, val) => sum + val, 0) / inv.length;
+                cost += Math.abs(avgPitch - opts.centerGravity) * (opts.gravityWeight * 2);
+                
+                let rootPenalty = 0;
+                const invMod = ((inv[0] % tuning.periodSize) + tuning.periodSize) % tuning.periodSize;
+                const tgtMod = ((targetNotes[0] % tuning.periodSize) + tuning.periodSize) % tuning.periodSize;
+                const isRootMismatch = Math.abs(invMod - tgtMod) > 0.15 && Math.abs(invMod - tgtMod) < tuning.periodSize - 0.15;
+                if ((opts.voicingType === 'auto' || opts.voicingType === 'close') && isRootMismatch) {
+                    rootPenalty = CONFIG.VL_ROOT_PENALTY;
+                }
+                cost += rootPenalty;
             }
-            
+
             let extremePenalty = 0;
             if (inv[0] < opts.extremeLow) extremePenalty += (opts.extremeLow - inv[0]) * opts.extremeWeight;
             if (inv[inv.length - 1] > opts.extremeHigh) extremePenalty += (inv[inv.length - 1] - opts.extremeHigh) * opts.extremeWeight;
-            
-            let totalCost = distance + gravityPenalty + extremePenalty;
+            cost += extremePenalty;
 
-            if (totalCost < smallestCost) {
-                smallestCost = totalCost;
+            if (cost < smallestCost) {
+                smallestCost = cost;
                 bestInversion = inv;
             }
         });
 
         processed.push(bestInversion);
+        prevValidNotes = bestInversion;
+        prevTuning = tuning;
     }
     return processed;
 }

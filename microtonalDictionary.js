@@ -38,37 +38,58 @@ export const MICRO_TUNINGS = {
     }
 };
 
-/**
- * Parses a microtonal symbol (e.g., 'BPLambda1') and returns exact float MIDI pitches.
- * @param {string} symbol - The custom microtonal chord symbol.
- * @param {number} baseKey - The root MIDI note (e.g., 60).
- * @returns {number[] | null} Array of floating point MIDI pitches, or null if invalid.
- */
 export function getMicrotonalChord(symbol, baseKey) {
     if (!symbol) return null;
 
-    // Allow numbers in the tuning key (e.g., EDO24)
-    const match = symbol.match(/^([A-Z0-9]+?)([A-Z][a-z]+)(\d+)$/);
+    // Allow numbers in the tuning key (e.g., EDO24) and capture suffixes
+    const match = symbol.match(/^([A-Z0-9]+)([A-Z][a-zA-Z]+)(\d+)(.*)$/);
     if (!match) return null;
 
     const tuningKey = match[1];
     const scaleName = match[2];
     const degree = parseInt(match[3], 10) - 1; // 1-indexed to 0-indexed
+    const suffix = match[4] || '';
 
     const tuning = MICRO_TUNINGS[tuningKey];
     if (!tuning || !tuning.scales[scaleName]) return null;
 
     const scale = tuning.scales[scaleName];
-    const numNotes = 3; // Standard triad for now
-    const step = 2; // Tertian-equivalent skipping in macrotonal space
-
-    const chordPitches = [];
     const scaleLength = scale.length;
     const stepSize = tuning.periodSize / tuning.divisions;
 
-    for (let i = 0; i < numNotes; i++) {
-        const scaleIndex = (degree + (i * step)) % scaleLength;
-        const periodShift = Math.floor((degree + (i * step)) / scaleLength) * tuning.periodSize;
+    // Determine scale steps for chord notes based on suffix
+    let chordSteps = [0, 2, 4]; // Default triad steps
+
+    if (suffix.includes('sus4')) {
+        chordSteps = [0, 3, 4];
+    } else if (suffix.includes('sus2')) {
+        chordSteps = [0, 1, 4];
+    } else if (suffix.includes('dim') || suffix.includes('°')) {
+        if (suffix.includes('7')) chordSteps = [0, 1, 3, 5];
+        else chordSteps = [0, 1, 3];
+    } else if (suffix.includes('maj7') || suffix.includes('maj9') || suffix.includes('maj11') || suffix.includes('maj13') || suffix.includes('maj7#11') || suffix.includes('maj7#5')) {
+        chordSteps = [0, 2, 4, 6];
+    } else if (suffix.includes('7') || suffix.includes('9') || suffix.includes('11') || suffix.includes('13')) {
+        chordSteps = [0, 2, 4, 6];
+    }
+
+    if (suffix.includes('9') || suffix.includes('add9')) {
+        chordSteps.push(8);
+    }
+    if (suffix.includes('11')) {
+        chordSteps.push(10);
+    }
+    if (suffix.includes('13')) {
+        chordSteps.push(12);
+    }
+    if (suffix.includes('6') || suffix.includes('m6')) {
+        chordSteps = [0, 2, 4, 5];
+    }
+
+    const chordPitches = [];
+    for (const stepOffset of chordSteps) {
+        const scaleIndex = (degree + stepOffset) % scaleLength;
+        const periodShift = Math.floor((degree + stepOffset) / scaleLength) * tuning.periodSize;
         const pitchOffset = (scale[scaleIndex] * stepSize) + periodShift;
         const absoluteTarget = baseKey + pitchOffset;
         
