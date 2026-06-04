@@ -20,6 +20,9 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Polyrhythmic Arpeggiation:** Apply localized arpeggiator settings to slices of your chord to create intricate polyrhythms.
 - **Variable Chord Durations:** Adjust individual chord lengths (1, 2, 4, or 8 beats) directly from the UI, scaling playback, exports, and timeline grids dynamically.
 - **Algorithmic Transitions:** Inject passing tones, suspensions, and anticipations to mathematically smooth the voice-leading between chords. Now includes multi-note generative flourishes like enclosures and scalar runs.
+- **Emotional Progression Suggestions:** Explore hand-curated suggestions tailored to emotional outcomes (e.g. Mournful, Luminous, Heroic, Cosmic) with paginated panels.
+- **Real-Time Chord Re-analysis:** Automatically recalculate Roman Numeral chord symbols when adjusting manual note pitches.
+- **Advanced Inspector Auditioning:** Persistent audition mode to preview substitutions in a 3-chord context (preceding, current, following) with active rhythm offsets.
 
 ## 🗺️ Development Roadmap
 
@@ -72,7 +75,7 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
   - Dynamic UI palettes that render correct diatonic chords for the active scale. (Complete ✅)
   - Context-aware tension analysis based on the active scale's tonic. (Complete ✅)
   - Mode-aware modulation and turnaround suggestions. (Complete ✅)
-  - Omni-scale support (Dorian, Lydian, Harmonic/Melodic Minor, etc.) via generative mathematical Roman Numeral parsing. (Complete ✅)
+  - Omni-scale support (Dorian, Lydian, Harmonic/Melodic Minor, etc.) via generative mathematical Roman Numeral parser. (Complete ✅)
 
 ### Phase 6: Song Mode & Macro-Arrangement (Complete ✅)
 - Transform the app from a single-loop sketchpad into a full song structure arranger.
@@ -91,6 +94,10 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Independent Voice Sustain:** Rhythmically decoupled voices allow static chord tones to sustain continuously while adjacent voices perform transitions.
 - **Melodic Flourishes:** Generative multi-note patterns (Run Up, Run Down, Enclosure) intelligently subdivide block time boundaries to lead into target chords.
 - **Dynamic Slice UI:** The 'Split' button now visually attaches to the slider thumb and tracks horizontally for intuitive slicing.
+- **Scale snapping & corridor constraints (Complete ✅):** Align flourish paths dynamically to scale degrees.
+- **Real-time chord re-analysis (Complete ✅):** Recompute Roman Numeral syntax in real-time when notes are edited manually.
+- **Audition Mode Previews (Complete ✅):** Audition chord substitutions in context (3-chord sequence) with persistent toggles.
+- **Adaptive loop bounds (Complete ✅):** Automatic brace adjustment on block drop.
 
 ## 🛠️ Local Development
 

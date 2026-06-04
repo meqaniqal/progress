@@ -20,10 +20,10 @@ This document contains the immediate objectives and active task checklists. To p
 - [ ] **Deep Editing UI**: Introduce zoom/scroll capabilities to focus on transition micro-details within the editor.
 - [x] **Modal/Scale degree snapping**: Refine transition note choices dynamically to align with scale degrees / modal functions rather than pure chromatic movement.
 
-### 2. Intelligent Chord Analysis & Suggestions (🆕 Planned)
+### 2. Intelligent Chord Analysis & Suggestions (🚧 In Progress)
 - [x] **Dynamic Pitch Analysis**: Re-analyze chord symbols in real-time when the user manually modifies note pitches in Pitch Mode, updating the chord symbol if it matches a valid type (e.g. changing root/extension to "Isus4" or "Csus4").
-- [ ] **Emotional Progression Analyzer**: Add a section in the chord chooser showing chord suggestions tailored to desired emotional outcomes (e.g., "Mournful", "Luminous", "Heroic").
-- [ ] **Color-Coded Key Transposition**: Match the colors of the key transposition dropdown to these emotional possibilities.
+- [x] **Emotional Progression Analyzer**: Add a section in the chord chooser showing chord suggestions tailored to desired emotional outcomes (e.g., "Mournful", "Luminous", "Heroic").
+- [x] **Color-Coded Key Transposition**: Match the colors of the key transposition dropdown to these emotional possibilities.
 
 ### 3. Arrangement & Loop Brace UX (🚧 In Progress)
 - [x] **Loop Insertion Dragging**: Make the `+looped` button act like standard chord buttons; dragging hides other buttons for easy drop placement.

@@ -18,6 +18,8 @@ This file provides a compact, LLM-friendly overview of the project's file struct
 - `config.js`: Central configuration file containing all static constants and magic numbers.
 - `server.js`: A lightweight Node.js server for local development.
 - `store.js`: Manages the global application state (SSOT), history (undo), and section/song data structures.
+- `storePersistence.js`: Handles store initialization, version migration, validation, and localStorage persistence.
+- `settingsController.js`: Manages application settings, UI scaling, and configuration options.
 - `storage.js`: Handles `localStorage` `saveState` and `loadState` operations.
 - `stateUtils.js`: Pure utility functions for complex state transformations (e.g., calculating swaps on reorder).
 - `db.js`: Manages IndexedDB for storing and retrieving custom user drum samples.
@@ -28,6 +30,9 @@ This file provides a compact, LLM-friendly overview of the project's file struct
 - `chordDictionary.js`: Data module containing the dictionary of chord symbols and their corresponding semitone intervals.
 - `microtonalDictionary.js`: Data module containing non-12-TET scales and tuning mappings (e.g., Bohlen-Pierce, EDOs).
 - `microtonalSuggestions.js`: Logic for continuous float-based harmonic substitutions and turnarounds in microtonal spaces.
+- `progressionSuggestions.js`: Logic for curating and generating emotional, diatonic, and procedural chord suggestions.
+- `chordAnalyzer.js`: Real-time Roman Numeral and chord symbol re-analysis when pitches are edited.
+- `voiceLeading.js`: Logic for generating voice leading lines and optimal chord voicing movements.
 - `bassGenerator.js`: Generates intelligent bassline patterns that algorithmically respond to drum and chord rhythms.
 - `arp.js`: Generates arpeggiated note sequences based on style, rate, and gate settings.
 
@@ -40,6 +45,7 @@ This file provides a compact, LLM-friendly overview of the project's file struct
 - `transportController.js`: Manages the floating action button (FAB) for play/pause and volume control.
 - `dragdrop.js`: Handles all drag-and-drop logic for the UI, including reordering items, adding new items, and positioning loop brackets.
 - `clipboardUtils.js`: Handles copy/paste functionality for rhythm patterns.
+- `voiceTweaksRenderer.js`: Renders the voice tweak adjustments and micro-settings panel.
 
 ### Rhythm Editor
 
@@ -55,6 +61,8 @@ This file provides a compact, LLM-friendly overview of the project's file struct
 - `patternUtils.js`: Utility functions for creating and manipulating rhythm patterns (e.g., `sliceInstance`, `addDrumHit`).
 - `patternDrawMath.js`: Pure mathematical logic for the "Pencil Draw" tool's boolean carving operations.
 - `patternResolver.js`: Logic to resolve global vs. local patterns, handling inheritance modes like 'loop' or 'stretch'.
+- `transitionEvaluator.js`: Computes transition blocks, passing/suspension paths, collision avoidance, and scale-snapping corridors.
+- `transitionUtils.js`: Helper functions for processing slice durations and voice transitions.
 - `rhythmConfig.js`: Configuration constants for the rhythm editor (e.g., `GRID_STEPS`, `DRUM_ROWS`).
 
 ### Audio & Export
@@ -83,9 +91,15 @@ This file provides a compact, LLM-friendly overview of the project's file struct
 
 - `arp.test.js`: Jest unit tests for `arp.js`.
 - `bassGenerator.test.js`: Jest unit tests for `bassGenerator.js`.
+- `chordAnalyzer.test.js`: Jest unit tests for `chordAnalyzer.js`.
 - `dragdrop.test.js`: Jest unit tests for `dragdrop.js`.
 - `patternDrawMath.test.js`: Jest unit tests for `patternDrawMath.js`.
 - `patternUtils.test.js`: Jest unit tests for `patternUtils.js`.
+- `pitchPreservation.test.js`: Jest unit tests verifying pitch preservation and chord symbols on edit/load.
 - `stateUtils.test.js`: Jest unit tests for `stateUtils.js`.
 - `theory.test.js`: Jest unit tests for the `theory.js` module.
+- `transitionEvaluator.test.js`: Jest unit tests for `transitionEvaluator.js`.
+- `voiceLeading.test.js`: Jest unit tests for `voiceLeading.js`.
 - `wavExport.test.js`: Jest unit tests for `wavExport.js`.
+- `check_suggestions.js`: Diagnostic script to verify zero duplicate symbols in hand-curated suggestions.
+- `bump-version.js`: Utility script to manage project version bumps.

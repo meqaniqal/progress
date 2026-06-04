@@ -117,3 +117,11 @@
 - **Flourish Consistency:** Pre-calculated step pitches to ensure that generative flourishes (like Random) do not roll consecutive duplicate notes, preserving rhythmic integrity.
 - **Expanded Grid Snapping:** Added 1/16T and 1/32 grid options for microscopic transition editing.
 - **Export Integration:** Seamlessly integrated transition math into both `.mid` (MidiWriterJS) and `.wav` (OfflineAudioContext) offline export engines with perfect loop-boundary context wrapping.
+- **Scale and Modal Snapping:** Snapped transition/flourish notes to scale/mode degrees to establish a stable harmonic corridor.
+- **Real-Time Chord Re-analysis:** Real-time Roman Numeral calculation upon editing pitches, resetting offset attributes dynamically.
+- **Drum grid doubling:** Double-length button that duplicates and stretches global drum pattern structures.
+- **Architecture Modularization:** Split Suggestions and Persistence out of main theory/store files to separate modules (`progressionSuggestions.js`, `storePersistence.js`).
+- **Interactive Substitutes Preview:** Persistent Audition mode in the Inspector with 3-chord context playback, swap reset controls, and paginated pages.
+- **Transposition relationship colors:** Transposition selectors matched to emotional moods with custom hue mappings.
+- **Loop block drag collapsing:** Foldaway palette adjustments on loop dragging, combined with automatic loop brace resizing.
+- **Diagnostic Duplicate Auditing:** Validated zero duplicate symbols across all standard and microtonal suggestions.
