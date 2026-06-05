@@ -89,4 +89,20 @@ describe('Melody Generator Composition Rules', () => {
             expect(isMultipleOfHalf).toBe(true);
         });
     });
+
+    test('Chromatic chord tone preservation and voice leading resolution', () => {
+        // Chord bVI in C major (key 60) is Ab Major: notes Ab (68), C (72), Eb (75)
+        const chordObj = { symbol: 'bVI', duration: 4, key: 60 };
+        const prevChordObj = { symbol: 'I', duration: 4, key: 60 };
+        const nextChordObj = { symbol: 'V', duration: 4, key: 60 };
+        
+        scheduleMelody(0, chordObj, nextChordObj, prevChordObj, 2.0, 4, 120, 0, 1, [68, 72, 75], mockPlayTone);
+
+        // Verify if any played note corresponds to the chromatic chord tones (Ab/Eb -> pc 8 or 3)
+        const hasChromaticTone = playedNotes.some(note => {
+            const pc = (note.midi % 12 + 12) % 12;
+            return pc === 8 || pc === 3;
+        });
+        expect(hasChromaticTone).toBe(true);
+    });
 });

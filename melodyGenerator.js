@@ -61,7 +61,28 @@ export function scheduleMelody(
         return note;
     }).filter(n => n >= melodyRangeStart && n <= melodyRangeEnd);
 
-    const pool = activeChordTones.length > 0 ? activeChordTones : scalePitches;
+    // Merge scale pitches and active chord tones so chromatic notes are not snapped away
+    const validPitches = Array.from(new Set([...scalePitches, ...activeChordTones])).sort((a, b) => a - b);
+
+    // Retrieve previous/next chord notes dynamically to support voice leading
+    const prevChordNotes = prevChordObj ? getChordNotes(prevChordObj, state.baseKey, divisions) : [];
+    const nextChordNotes = nextChordObj ? getChordNotes(nextChordObj, state.baseKey, divisions) : [];
+
+    const activePrevChordTones = (prevChordNotes || []).map(n => {
+        let note = n;
+        while (note < melodyRangeStart) note += divisions;
+        while (note > melodyRangeEnd) note -= divisions;
+        return note;
+    }).filter(n => n >= melodyRangeStart && n <= melodyRangeEnd);
+
+    const activeNextChordTones = (nextChordNotes || []).map(n => {
+        let note = n;
+        while (note < melodyRangeStart) note += divisions;
+        while (note > melodyRangeEnd) note -= divisions;
+        return note;
+    }).filter(n => n >= melodyRangeStart && n <= melodyRangeEnd);
+
+    const pool = activeChordTones.length > 0 ? activeChordTones : validPitches;
 
     // Filter passing / transition pitches that may be out of scale
     const transitionPitches = (voiceEvents || [])
@@ -99,7 +120,7 @@ export function scheduleMelody(
     const motifKey = `${state.baseKey}_${state.mode}`;
     let baseMotif = motifCache[motifKey];
     if (!baseMotif || Math.random() < (1.0 - settings.motifRecurrence)) {
-        baseMotif = generateSeedMotif(pool, 4, activeChordTones, scalePitches, divisions);
+        baseMotif = generateSeedMotif(pool, 4, activeChordTones, validPitches, divisions);
         motifCache[motifKey] = baseMotif;
     }
 
@@ -110,7 +131,7 @@ export function scheduleMelody(
         let transposed = note + transpositionOffset;
         while (transposed < melodyRangeStart) transposed += divisions;
         while (transposed > melodyRangeEnd) transposed -= divisions;
-        return findClosest(transposed, scalePitches);
+        return findClosest(transposed, validPitches);
     });
 
     if (settings.variationDepth > 0) {
@@ -196,7 +217,7 @@ export function scheduleMelody(
                 const wasLeap = Math.abs(lastInterval) > 4;
                 if (wasLeap) {
                     const contraryDirection = lastInterval > 0 ? -1 : 1;
-                    const candidates = scalePitches.filter(p => contraryDirection > 0 ? p > prevPitch : p < prevPitch);
+                    const candidates = validPitches.filter(p => contraryDirection > 0 ? p > prevPitch : p < prevPitch);
                     if (candidates.length > 0) {
                         const target = prevPitch + contraryDirection * (12 / divisions) * (Math.random() > 0.5 ? 2 : 1);
                         pitch = findClosest(target, candidates);
@@ -206,13 +227,19 @@ export function scheduleMelody(
 
             // Voice leading resolution at step 0 if transitioning from a different chord tone
             if (step === 0 && prevChordObj) {
-                const commonTones = getCommonTones(chordNotes, prevChordObj.customNotes, divisions);
-                if (commonTones.length > 0 && Math.random() < 0.5) {
-                    pitch = findClosest(prevPitch, commonTones);
+                const commonTones = getCommonTones(chordNotes, prevChordNotes, divisions);
+                const tonesToTarget = commonTones.length > 0 ? commonTones : activePrevChordTones;
+                if (tonesToTarget.length > 0 && Math.random() < 0.5) {
+                    pitch = findClosest(prevPitch, tonesToTarget);
                 }
             }
 
-            pitch = applyGenreRules(pitch, settings.genre, step, scalePitches, divisions);
+            // Voice leading resolution at the last step to transition smoothly to the next chord
+            if (step === totalSteps - 1 && nextChordObj && activeNextChordTones.length > 0 && Math.random() < 0.5) {
+                pitch = findClosest(pitch, activeNextChordTones);
+            }
+
+            pitch = applyGenreRules(pitch, settings.genre, step, validPitches, divisions);
 
             const melodyInst = state.instruments.melody || 'sine';
             playToneFn(midiToFreq(pitch), stepTime, noteDuration, melodyInst, 'melody');
@@ -231,25 +258,25 @@ export function scheduleMelody(
             if (activeTransition && mode === 'harmonize') {
                 // Harmonize out-of-scale transition notes directly
                 const targetHarm = activeTransition.pitch + (Math.random() > 0.5 ? 4 : 3); // 3rd or 5th
-                counterPitch = findClosest(targetHarm, scalePitches);
+                counterPitch = findClosest(targetHarm, validPitches);
             } else if (mode === 'harmonize' && melodyPlays) {
                 // Harmonize melody pitch
-                const index = scalePitches.indexOf(pitch);
+                const index = validPitches.indexOf(pitch);
                 if (index !== -1) {
                     const shift = Math.random() > 0.5 ? 2 : 4; // 3rd or 5th degree index shift
                     let targetIndex = index + (Math.random() > 0.5 ? shift : -shift);
                     if (targetIndex < 0) targetIndex = index + shift;
-                    if (targetIndex >= scalePitches.length) targetIndex = index - shift;
-                    counterPitch = scalePitches[Math.max(0, Math.min(scalePitches.length - 1, targetIndex))];
+                    if (targetIndex >= validPitches.length) targetIndex = index - shift;
+                    counterPitch = validPitches[Math.max(0, Math.min(validPitches.length - 1, targetIndex))];
                 } else {
-                    counterPitch = findClosest(pitch - 12 + (Math.random() > 0.5 ? 4 : 7), scalePitches);
+                    counterPitch = findClosest(pitch - 12 + (Math.random() > 0.5 ? 4 : 7), validPitches);
                 }
             } else if (mode === 'call-response') {
                 // Walking answer line that flows stepwise or chordally from previous counter pitch
                 if (activeChordTones.length > 0 && Math.random() < 0.6) {
                     counterPitch = findClosest(prevCounterPitch, activeChordTones);
                 } else {
-                    counterPitch = findClosestStep(prevCounterPitch, scalePitches, divisions);
+                    counterPitch = findClosestStep(prevCounterPitch, validPitches, divisions);
                 }
             } else { // 'contrary'
                 // Move countermelody in contrary direction of melody movement 80% of the time
@@ -257,10 +284,10 @@ export function scheduleMelody(
                 if (melodyMoved && Math.random() < 0.8) {
                     const contraryDirection = lastInterval > 0 ? -1 : 1;
                     const contraryTarget = prevCounterPitch + (contraryDirection * (12 / divisions) * (Math.random() > 0.5 ? 2 : 1));
-                    counterPitch = findClosest(contraryTarget, scalePitches);
+                    counterPitch = findClosest(contraryTarget, validPitches);
                 } else {
                     const referencePitch = melodyPlays ? pitch : prevPitch;
-                    counterPitch = resolveContraryPitch(referencePitch, keyRoot, scalePitches);
+                    counterPitch = resolveContraryPitch(referencePitch, keyRoot, validPitches);
                 }
             }
 
@@ -407,11 +434,11 @@ function applyOrnaments(pitch, stepTime, noteDuration, genre, intensity, inst, b
     if (genre === 'classical' && Math.random() < 0.5) {
         // Grace Note (Acciaccatura)
         const gracePitch = pitch - 1;
-        playToneFn(gracePitch, stepTime - 0.05, 0.04, inst, bus);
+        playToneFn(midiToFreq(gracePitch), stepTime - 0.05, 0.04, inst, bus);
     } else if (genre === 'blues' && Math.random() < 0.4) {
         // Brief bend glide
         const bendPitch = pitch - 0.5;
-        playToneFn(bendPitch, stepTime, noteDuration * 0.3, inst, bus);
+        playToneFn(midiToFreq(bendPitch), stepTime, noteDuration * 0.3, inst, bus);
     }
 }
 
