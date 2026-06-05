@@ -162,10 +162,6 @@ export function syncUIToState(explicitState = null) {
     syncSettingsUI();
 
     document.body.classList.toggle('beginner-mode', !state.isAdvancedMode);
-    const btnModeToggle = document.getElementById('btn-mode-toggle');
-    if (btnModeToggle) {
-        btnModeToggle.textContent = state.isAdvancedMode ? '🎓 Advanced' : '🌱 Beginner';
-    }
 }
 
 function _setupTopBarEvents() {

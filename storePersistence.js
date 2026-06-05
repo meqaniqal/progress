@@ -78,6 +78,15 @@ export function loadAndApplyInitialState(explicitState = null) {
         if (savedState.bassDrive !== undefined) state.bassDrive = Number(savedState.bassDrive);
         if (savedState.bassHarmonicDrive !== undefined) state.bassHarmonicDrive = Number(savedState.bassHarmonicDrive);
 
+        if (savedState.drumParams) {
+            state.drumParams = {
+                kick: savedState.drumParams.kick ? { ...state.drumParams.kick, ...savedState.drumParams.kick } : state.drumParams.kick,
+                snare: savedState.drumParams.snare ? { ...state.drumParams.snare, ...savedState.drumParams.snare } : state.drumParams.snare,
+                chh: savedState.drumParams.chh ? { ...state.drumParams.chh, ...savedState.drumParams.chh } : state.drumParams.chh,
+                ohh: savedState.drumParams.ohh ? { ...state.drumParams.ohh, ...savedState.drumParams.ohh } : state.drumParams.ohh
+            };
+        }
+
         if (savedState.selectedChordIndex !== undefined && savedState.selectedChordIndex !== null) {
             const parsedIndex = parseInt(savedState.selectedChordIndex, 10);
             if (!isNaN(parsedIndex)) state.selectedChordIndex = Math.max(0, parsedIndex);

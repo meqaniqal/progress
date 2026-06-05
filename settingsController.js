@@ -278,7 +278,6 @@ export function initSettingsUI({ onRenderProgression }) {
         btnModeToggle.addEventListener('click', () => {
             state.isAdvancedMode = !state.isAdvancedMode;
             document.body.classList.toggle('beginner-mode', !state.isAdvancedMode);
-            btnModeToggle.textContent = state.isAdvancedMode ? '🎓 Advanced' : '🌱 Beginner';
             persistAppState();
             if (!state.isAdvancedMode) exitSongMode();
         });

@@ -20,20 +20,96 @@
     
     <!-- Hide body and show spinner to prevent Flash of Unstyled Content (FOUC) while scripts load -->
     <style>
-        body { visibility: hidden; opacity: 0; transition: opacity 0.3s ease; }
-        html::before {
-            content: '';
-            position: fixed;
-            top: 50%; left: 50%;
-            width: 40px; height: 40px;
-            margin: -20px 0 0 -20px;
-            border: 4px solid rgba(79, 70, 229, 0.2);
-            border-top-color: #4f46e5;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+        /* Initially show body, but hide all children except the loading screen to prevent FOUC */
+        body {
+            visibility: visible !important;
+            opacity: 1 !important;
+            background-color: #121212;
+            margin: 0;
+            overflow: hidden; /* Prevent scrolling during load */
         }
-        html.loaded::before { display: none; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        body > :not(#loading-screen) {
+            visibility: hidden;
+            opacity: 0;
+        }
+        
+        /* Once loaded, show other children and hide the loading screen */
+        html.loaded body > :not(#loading-screen) {
+            visibility: visible;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+        html.loaded body {
+            overflow: auto; /* Restore scrolling */
+        }
+        
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #121212;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        html.loaded #loading-screen {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 450px;
+            animation: fadeIn 0.8s ease-out;
+        }
+        .loading-title {
+            font-size: 2.8rem;
+            font-weight: 800;
+            margin: 0 0 1rem 0;
+            letter-spacing: -0.05em;
+            background: linear-gradient(135deg, #818cf8, #4f46e5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 4px 20px rgba(79, 70, 229, 0.15);
+        }
+        .loading-subtitle {
+            font-size: 1.25rem;
+            line-height: 1.6;
+            color: #a1a1aa;
+            margin: 0 0 2.5rem 0;
+            font-weight: 400;
+            white-space: pre-line; /* Respect \n */
+        }
+        .loading-spinner {
+            width: 44px;
+            height: 44px;
+            border: 4px solid rgba(129, 140, 248, 0.1);
+            border-top-color: #818cf8;
+            border-radius: 50%;
+            animation: spin 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+            box-shadow: 0 0 20px rgba(129, 140, 248, 0.1);
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 
     <!-- 2. Scripts deferred to prevent HTML parsing blocks -->
@@ -42,12 +118,23 @@
     <script src="init.js?v=1780590114058" defer></script>
 </head>
 <body>
+    <div id="loading-screen">
+        <div class="loading-container">
+            <h1 class="loading-title">Progress</h1>
+            <p class="loading-subtitle">Build neuroharmonic chord progressions</p>
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
     <div id="top-header">
         <div class="top-header-bar">
             <h1 class="top-header-title">Progress: <span class="top-header-subtitle">Build neuroharmonic chord progressions</span></h1>
             <div class="top-header-controls">
                 <button class="control-btn primary btn-md" id="btn-project-hub" title="Open Export & Import Hub">🗂️ Export/Import</button>
-                <button class="control-btn secondary btn-md" id="btn-mode-toggle" title="Toggle Beginner/Advanced Mode">🎓 Advanced</button>
+                <div class="mode-toggle-switch" id="btn-mode-toggle" title="Toggle Beginner/Advanced Mode" role="button" tabindex="0">
+                    <span class="mode-label left-label">Beginner</span>
+                    <span class="mode-label right-label">Advanced</span>
+                    <div class="switch-slider"></div>
+                </div>
                 <button class="control-btn secondary btn-icon-lg" id="btn-settings" title="Settings">⚙️</button>
             </div>
         </div>
@@ -673,7 +760,7 @@
                     <!-- Hidden file input for uploading projects -->
                     <input type="file" id="project-file-input" style="display: none;" accept=".json">
                 </div>
-                <div id="saved-projects-list" style="max-height: 150px; overflow-y: auto; background: var(--bg-body); border: 1px solid var(--border-main); border-radius: 4px; padding: 8px; display: flex; flex-direction: column; gap: 6px;">
+                <div id="saved-projects-list" style="max-height: 300px; overflow-y: auto; background: var(--bg-body); border: 1px solid var(--border-main); border-radius: 4px; padding: 8px; display: flex; flex-direction: column; gap: 6px;">
                     <div style="opacity: 0.5; font-size: 13px; text-align: center;">No saved projects.</div>
                 </div>
                 <div style="text-align: right; margin-top: 5px;">

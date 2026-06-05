@@ -193,6 +193,13 @@ export async function loadPersistedDrumSamples() {
             const buffer = await loadDrumSample(type);
             if (buffer) {
                 await decodeCustomDrumSample(type, buffer, false); // Pass false to prevent infinite re-saving
+                
+                // Validate/clamp pitch parameter for the sample drum to 1.0 if it exceeds the maximum sample playback rate (3.0)
+                if (state.drumParams && state.drumParams[type]) {
+                    if (state.drumParams[type].pitch === undefined || state.drumParams[type].pitch > 3.0) {
+                        state.drumParams[type].pitch = 1.0;
+                    }
+                }
             }
         } catch (e) {
             console.warn(`Could not load ${type} from IndexedDB`, e);
