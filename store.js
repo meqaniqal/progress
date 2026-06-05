@@ -34,12 +34,28 @@ export const state = {
     syncTransitionsToDrums: true,
     snapTransitionsToScale: true,
     exportPasses: 1,
-    volumes: { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 }, // 0.8 provides headroom for mixing
-    instruments: { chords: 'sawtooth', bass: 'sine', bassSecondary: 'sawtooth' },
+    volumes: { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8, melody: 0.8, countermelody: 0.0 }, // 0.8 provides headroom for mixing
+    instruments: { chords: 'sawtooth', bass: 'sine', bassSecondary: 'sawtooth', melody: 'sine', countermelody: 'sine' },
+    melodySettings: {
+        enabled: false,
+        genre: 'none',
+        motifRecurrence: 0.5,
+        variationDepth: 0.5,
+        density: 0.5,
+        restProbability: 0.3,
+        ornamentIntensity: 0.5,
+        countermelodyEnabled: false,
+        countermelodyMode: 'contrary',
+        behaviorDuringArp: 'simplify',
+        behaviorDuringTransitions: 'simplify',
+        tensionCurve: 'arch'
+    },
     bassDrive: 1.0,
     bassHarmonicDrive: 1.0,
     bassAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0, octaveDrop: false },
     chordAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 },
+    melodyAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 },
+    countermelodyAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 },
     bassKsDamping: 400,
     bassKsDecay: 0.95,
     drumParams: structuredClone(DEFAULT_DRUM_PARAMS),
@@ -631,8 +647,22 @@ export function resetSession() {
     state.syncTransitionsToDrums = true;
     state.snapTransitionsToScale = true;
     state.exportPasses = 1;
-    state.volumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 };
-    state.instruments = { chords: 'sawtooth', bass: 'sine' };
+    state.volumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8, melody: 0.8, countermelody: 0.0 };
+    state.instruments = { chords: 'sawtooth', bass: 'sine', bassSecondary: 'sawtooth', melody: 'sine', countermelody: 'sine' };
+    state.melodySettings = {
+        enabled: false,
+        genre: 'none',
+        motifRecurrence: 0.5,
+        variationDepth: 0.5,
+        density: 0.5,
+        restProbability: 0.3,
+        ornamentIntensity: 0.5,
+        countermelodyEnabled: false,
+        countermelodyMode: 'contrary',
+        behaviorDuringArp: 'simplify',
+        behaviorDuringTransitions: 'simplify',
+        tensionCurve: 'arch'
+    };
     state.selectedChordIndex = null;
     state.showManualOnStartup = true;
     state.isAdvancedMode = true;

@@ -1,5 +1,5 @@
 import { state, persistAppState, getActiveProgression } from './store.js';
-import { setTrackVolume, setSynthParam, clearCustomDrumSamples, hasCustomDrumSamples, setBassDrive, setBassHarmonicDrive, decodeCustomBassSample, clearCustomBassSample } from './synth.js';
+import { setTrackVolume, setSynthParam, clearCustomDrumSamples, hasCustomDrumSamples, setBassDrive, setBassHarmonicDrive, decodeCustomBassSample, clearCustomBassSample, decodeCustomMelodySample, clearCustomMelodySample, decodeCustomCountermelodySample, clearCustomCountermelodySample } from './synth.js';
 import { exportScalaFile, exportTunFile } from './midi.js';
 import { exitSongMode } from './songController.js';
 import { auditionChord } from './sequencer.js';
@@ -90,7 +90,7 @@ export function syncSettingsUI() {
     if (state.volumes.bassHarmonic === undefined) state.volumes.bassHarmonic = 0.0;
     if (state.volumes.master === undefined) state.volumes.master = 1.0;
     
-    ['master', 'chords', 'bass', 'bassHarmonic', 'drums'].forEach(track => {
+    ['master', 'chords', 'bass', 'bassHarmonic', 'drums', 'melody', 'countermelody'].forEach(track => {
         const el = document.getElementById(`vol-${track}`);
         if (el) {
             el.value = state.volumes[track];
@@ -107,6 +107,103 @@ export function syncSettingsUI() {
     if (elBassSec) {
         elBassSec.value = state.instruments.bassSecondary || 'sawtooth';
         updateSynthEditorVisibility('bass', state.instruments.bassSecondary || 'sawtooth');
+    }
+
+    const elMelody = document.getElementById('inst-melody');
+    if (elMelody) {
+        elMelody.value = state.instruments.melody || 'sine';
+    }
+    const elCountermelody = document.getElementById('inst-countermelody');
+    if (elCountermelody) {
+        elCountermelody.value = state.instruments.countermelody || 'sine';
+    }
+
+    // Update Melody & Countermelody Gear visibility
+    const updateMelodyGearVisibility = () => {
+        const isSample = (document.getElementById('inst-melody')?.value === 'sample-melody');
+        const gear = document.getElementById('btn-edit-melody-synth');
+        if (gear) gear.style.display = isSample ? 'inline-block' : 'none';
+        if (!isSample) {
+            const panel = document.getElementById('synth-editor-melody');
+            if (panel) panel.style.display = 'none';
+        }
+    };
+    const updateCountermelodyGearVisibility = () => {
+        const isSample = (document.getElementById('inst-countermelody')?.value === 'sample-countermelody');
+        const gear = document.getElementById('btn-edit-countermelody-synth');
+        if (gear) gear.style.display = isSample ? 'inline-block' : 'none';
+        if (!isSample) {
+            const panel = document.getElementById('synth-editor-countermelody');
+            if (panel) panel.style.display = 'none';
+        }
+    };
+    updateMelodyGearVisibility();
+    updateCountermelodyGearVisibility();
+
+    // Sync Melody ADSR & Pitch
+    if (!state.melodyAdsr) {
+        state.melodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
+    }
+    ['attack', 'decay', 'sustain', 'release', 'pitch'].forEach(param => {
+        const el = document.getElementById(`melody-${param}`);
+        if (el) el.value = state.melodyAdsr[param];
+    });
+    const melodyPitchVal = document.getElementById('melody-pitch-val');
+    if (melodyPitchVal) {
+        const p = state.melodyAdsr.pitch || 0;
+        melodyPitchVal.textContent = p >= 0 ? `+${p}st` : `${p}st`;
+    }
+
+    // Sync Countermelody ADSR & Pitch
+    if (!state.countermelodyAdsr) {
+        state.countermelodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
+    }
+    ['attack', 'decay', 'sustain', 'release', 'pitch'].forEach(param => {
+        const el = document.getElementById(`countermelody-${param}`);
+        if (el) el.value = state.countermelodyAdsr[param];
+    });
+    const countermelodyPitchVal = document.getElementById('countermelody-pitch-val');
+    if (countermelodyPitchVal) {
+        const p = state.countermelodyAdsr.pitch || 0;
+        countermelodyPitchVal.textContent = p >= 0 ? `+${p}st` : `${p}st`;
+    }
+
+    // Sync Melody Generator Controls
+    if (state.melodySettings) {
+        const enabledEl = document.getElementById('melody-enabled');
+        if (enabledEl) enabledEl.checked = !!state.melodySettings.enabled;
+
+        const optionsContainer = document.getElementById('melody-options-container');
+        if (optionsContainer) {
+            optionsContainer.style.display = state.melodySettings.enabled ? 'flex' : 'none';
+        }
+
+        const genreEl = document.getElementById('melody-genre');
+        if (genreEl) genreEl.value = state.melodySettings.genre || 'none';
+
+        const densityEl = document.getElementById('melody-density');
+        if (densityEl) densityEl.value = state.melodySettings.density || 0.5;
+
+        const motifEl = document.getElementById('melody-motif-recurrence');
+        if (motifEl) motifEl.value = state.melodySettings.motifRecurrence || 0.5;
+
+        const variationEl = document.getElementById('melody-variation-depth');
+        if (variationEl) variationEl.value = state.melodySettings.variationDepth || 0.5;
+
+        const restsEl = document.getElementById('melody-rests');
+        if (restsEl) restsEl.value = state.melodySettings.restProbability || 0.3;
+
+        const ornamentsEl = document.getElementById('melody-ornaments');
+        if (ornamentsEl) ornamentsEl.value = state.melodySettings.ornamentIntensity || 0.5;
+
+        const curveEl = document.getElementById('melody-tension-curve');
+        if (curveEl) curveEl.value = state.melodySettings.tensionCurve || 'arch';
+
+        const countermelodyToggleEl = document.getElementById('melody-countermelody-toggle');
+        if (countermelodyToggleEl) countermelodyToggleEl.checked = !!state.melodySettings.countermelodyEnabled;
+
+        const countermelodyModeEl = document.getElementById('melody-countermelody-mode');
+        if (countermelodyModeEl) countermelodyModeEl.value = state.melodySettings.countermelodyMode || 'contrary';
     }
 
     if (state.bassDrive === undefined) state.bassDrive = 1.0;
@@ -288,7 +385,7 @@ export function initSettingsUI({ onRenderProgression }) {
         persistAppState();
     });
     
-    ['master', 'chords', 'bass', 'bassHarmonic', 'drums'].forEach(track => {
+    ['master', 'chords', 'bass', 'bassHarmonic', 'drums', 'melody', 'countermelody'].forEach(track => {
         const el = document.getElementById(`vol-${track}`);
         if (el) {
             el.addEventListener('input', (e) => {
@@ -322,6 +419,121 @@ export function initSettingsUI({ onRenderProgression }) {
             if (ksControls) {
                 ksControls.style.display = (e.target.value === 'karplus-strong') ? 'flex' : 'none';
             }
+            persistAppState();
+        });
+    }
+
+    const elMelody = document.getElementById('inst-melody');
+    if (elMelody) {
+        elMelody.addEventListener('change', (e) => {
+            state.instruments.melody = e.target.value;
+            const isSample = (e.target.value === 'sample-melody');
+            const gear = document.getElementById('btn-edit-melody-synth');
+            if (gear) gear.style.display = isSample ? 'inline-block' : 'none';
+            if (!isSample) {
+                const panel = document.getElementById('synth-editor-melody');
+                if (panel) panel.style.display = 'none';
+            }
+            persistAppState();
+        });
+    }
+
+    const elCountermelody = document.getElementById('inst-countermelody');
+    if (elCountermelody) {
+        elCountermelody.addEventListener('change', (e) => {
+            state.instruments.countermelody = e.target.value;
+            const isSample = (e.target.value === 'sample-countermelody');
+            const gear = document.getElementById('btn-edit-countermelody-synth');
+            if (gear) gear.style.display = isSample ? 'inline-block' : 'none';
+            if (!isSample) {
+                const panel = document.getElementById('synth-editor-countermelody');
+                if (panel) panel.style.display = 'none';
+            }
+            persistAppState();
+        });
+    }
+
+    // Melody settings event listeners
+    const melodyEnabledEl = document.getElementById('melody-enabled');
+    if (melodyEnabledEl) {
+        melodyEnabledEl.addEventListener('change', (e) => {
+            state.melodySettings.enabled = e.target.checked;
+            const container = document.getElementById('melody-options-container');
+            if (container) {
+                container.style.display = e.target.checked ? 'flex' : 'none';
+            }
+            persistAppState();
+        });
+    }
+
+    const melodyGenreEl = document.getElementById('melody-genre');
+    if (melodyGenreEl) {
+        melodyGenreEl.addEventListener('change', (e) => {
+            state.melodySettings.genre = e.target.value;
+            persistAppState();
+        });
+    }
+
+    const melodyDensityEl = document.getElementById('melody-density');
+    if (melodyDensityEl) {
+        melodyDensityEl.addEventListener('input', (e) => {
+            state.melodySettings.density = parseFloat(e.target.value);
+            persistAppState();
+        });
+    }
+
+    const melodyMotifEl = document.getElementById('melody-motif-recurrence');
+    if (melodyMotifEl) {
+        melodyMotifEl.addEventListener('input', (e) => {
+            state.melodySettings.motifRecurrence = parseFloat(e.target.value);
+            persistAppState();
+        });
+    }
+
+    const melodyVariationEl = document.getElementById('melody-variation-depth');
+    if (melodyVariationEl) {
+        melodyVariationEl.addEventListener('input', (e) => {
+            state.melodySettings.variationDepth = parseFloat(e.target.value);
+            persistAppState();
+        });
+    }
+
+    const melodyRestsEl = document.getElementById('melody-rests');
+    if (melodyRestsEl) {
+        melodyRestsEl.addEventListener('input', (e) => {
+            state.melodySettings.restProbability = parseFloat(e.target.value);
+            persistAppState();
+        });
+    }
+
+    const melodyOrnamentsEl = document.getElementById('melody-ornaments');
+    if (melodyOrnamentsEl) {
+        melodyOrnamentsEl.addEventListener('input', (e) => {
+            state.melodySettings.ornamentIntensity = parseFloat(e.target.value);
+            persistAppState();
+        });
+    }
+
+    const melodyCurveEl = document.getElementById('melody-tension-curve');
+    if (melodyCurveEl) {
+        melodyCurveEl.addEventListener('change', (e) => {
+            state.melodySettings.tensionCurve = e.target.value;
+            persistAppState();
+        });
+    }
+
+    const melodyCountermelodyEl = document.getElementById('melody-countermelody-toggle');
+    if (melodyCountermelodyEl) {
+        melodyCountermelodyEl.addEventListener('change', (e) => {
+            state.melodySettings.countermelodyEnabled = e.target.checked;
+            persistAppState();
+        });
+    }
+
+    const melodyCountermelodyModeEl = document.getElementById('melody-countermelody-mode');
+    if (melodyCountermelodyModeEl) {
+        melodyCountermelodyModeEl.addEventListener('change', (e) => {
+            state.melodySettings.countermelodyMode = e.target.value;
             persistAppState();
         });
     }
@@ -701,6 +913,166 @@ export function initSettingsUI({ onRenderProgression }) {
             triggerDualAudition('bass');
         });
     }
+
+    // Tab switching listener
+    const tabBtns = document.querySelectorAll('.settings-tab-btn');
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            tabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const targetTab = btn.getAttribute('data-tab');
+            document.querySelectorAll('.settings-tab-content').forEach(content => {
+                content.style.display = (content.id === `settings-tab-content-${targetTab}`) ? 'flex' : 'none';
+            });
+        });
+    });
+
+    // Toggle custom sample panels gear clicks
+    const btnEditMelody = document.getElementById('btn-edit-melody-synth');
+    const panelMelody = document.getElementById('synth-editor-melody');
+    if (btnEditMelody && panelMelody) {
+        btnEditMelody.addEventListener('click', () => {
+            panelMelody.style.display = panelMelody.style.display === 'none' ? 'flex' : 'none';
+        });
+    }
+
+    const btnEditCountermelody = document.getElementById('btn-edit-countermelody-synth');
+    const panelCountermelody = document.getElementById('synth-editor-countermelody');
+    if (btnEditCountermelody && panelCountermelody) {
+        btnEditCountermelody.addEventListener('click', () => {
+            panelCountermelody.style.display = panelCountermelody.style.display === 'none' ? 'flex' : 'none';
+        });
+    }
+
+    // Melody sample upload/clear
+    const fileMelodySample = document.getElementById('file-melody-sample');
+    const btnLoadMelody = document.getElementById('btn-load-melody');
+    const btnClearMelody = document.getElementById('btn-clear-melody');
+
+    if (btnLoadMelody && fileMelodySample) {
+        btnLoadMelody.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileMelodySample.click();
+        });
+    }
+
+    if (fileMelodySample) {
+        fileMelodySample.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                const arrayBuffer = ev.target.result;
+                await decodeCustomMelodySample(arrayBuffer);
+                persistAppState();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    if (btnClearMelody) {
+        btnClearMelody.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await clearCustomMelodySample();
+            persistAppState();
+        });
+    }
+
+    // Countermelody sample upload/clear
+    const fileCountermelodySample = document.getElementById('file-countermelody-sample');
+    const btnLoadCountermelody = document.getElementById('btn-load-countermelody');
+    const btnClearCountermelody = document.getElementById('btn-clear-countermelody');
+
+    if (btnLoadCountermelody && fileCountermelodySample) {
+        btnLoadCountermelody.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileCountermelodySample.click();
+        });
+    }
+
+    if (fileCountermelodySample) {
+        fileCountermelodySample.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                const arrayBuffer = ev.target.result;
+                await decodeCustomCountermelodySample(arrayBuffer);
+                persistAppState();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    if (btnClearCountermelody) {
+        btnClearCountermelody.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await clearCustomCountermelodySample();
+            persistAppState();
+        });
+    }
+
+    // Melody & Countermelody ADSR range sliders
+    ['attack', 'decay', 'sustain', 'release'].forEach(param => {
+        const el = document.getElementById(`melody-${param}`);
+        if (el) {
+            el.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                if (!state.melodyAdsr) state.melodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
+                state.melodyAdsr[param] = val;
+                persistAppState();
+            });
+        }
+    });
+
+    ['attack', 'decay', 'sustain', 'release'].forEach(param => {
+        const el = document.getElementById(`countermelody-${param}`);
+        if (el) {
+            el.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                if (!state.countermelodyAdsr) state.countermelodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
+                state.countermelodyAdsr[param] = val;
+                persistAppState();
+            });
+        }
+    });
+
+    // Melody & Countermelody Pitch sliders
+    const melodyPitchSlider = document.getElementById('melody-pitch');
+    if (melodyPitchSlider) {
+        melodyPitchSlider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value, 10);
+            if (!state.melodyAdsr) state.melodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
+            state.melodyAdsr.pitch = val;
+            const label = document.getElementById('melody-pitch-val');
+            if (label) label.textContent = val >= 0 ? `+${val}st` : `${val}st`;
+        });
+        melodyPitchSlider.addEventListener('change', (e) => {
+            const val = parseInt(e.target.value, 10);
+            if (!state.melodyAdsr) state.melodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
+            state.melodyAdsr.pitch = val;
+            persistAppState();
+            triggerDualAudition('melody');
+        });
+    }
+
+    const countermelodyPitchSlider = document.getElementById('countermelody-pitch');
+    if (countermelodyPitchSlider) {
+        countermelodyPitchSlider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value, 10);
+            if (!state.countermelodyAdsr) state.countermelodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
+            state.countermelodyAdsr.pitch = val;
+            const label = document.getElementById('countermelody-pitch-val');
+            if (label) label.textContent = val >= 0 ? `+${val}st` : `${val}st`;
+        });
+        countermelodyPitchSlider.addEventListener('change', (e) => {
+            const val = parseInt(e.target.value, 10);
+            if (!state.countermelodyAdsr) state.countermelodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
+            state.countermelodyAdsr.pitch = val;
+            persistAppState();
+            triggerDualAudition('countermelody');
+        });
+    }
 }
 
 async function triggerDualAudition(target) {
@@ -722,5 +1094,13 @@ async function triggerDualAudition(target) {
         const note = 48; // C3
         playTone(midiToFreq(note), now, 0.7, 'sine', 'bass', 0, 0.8);
         playTone(midiToFreq(note), now + 0.9, 0.7, 'sample-bass', 'bass', 0, 0.8);
+    } else if (target === 'melody') {
+        const note = 72; // C5
+        playTone(midiToFreq(note), now, 0.7, 'sine', 'melody', 0, 0.8);
+        playTone(midiToFreq(note), now + 0.9, 0.7, 'sample-melody', 'melody', 0, 0.8);
+    } else if (target === 'countermelody') {
+        const note = 67; // G4
+        playTone(midiToFreq(note), now, 0.7, 'sine', 'countermelody', 0, 0.8);
+        playTone(midiToFreq(note), now + 0.9, 0.7, 'sample-countermelody', 'countermelody', 0, 0.8);
     }
 }

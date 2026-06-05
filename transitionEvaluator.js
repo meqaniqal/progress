@@ -475,6 +475,7 @@ export function sliceInstancesByTransitions(instances, transitions, currentNotes
         if (activeInst) {
             let sliceNotes = [];
             let movingVoices = [];
+            let voiceTransitionTypes = [];
             for (let v = 0; v < currentNotes.length; v++) {
                 const activeT = activeTrans.find(t => parseInt(t.voiceIndex, 10) === v && midPoint >= t.startTime && midPoint <= t.startTime + t.duration);
                 
@@ -485,8 +486,10 @@ export function sliceInstancesByTransitions(instances, transitions, currentNotes
                     const stepNextNotes = isStart ? firstCurrentNotes : firstNextNotes;
                     sliceNotes.push(getTransitionPitch(activeT, v, stepCurrentNotes, stepPrevNotes, stepNextNotes, midPoint, chordObj, nextChordObj));
                     movingVoices.push(v);
+                    voiceTransitionTypes.push(activeT.type);
                 } else {
                     sliceNotes.push(currentNotes[v] + (activeInst.pitchOffsets?.[v] || activeInst.pitchOffset || 0));
+                    voiceTransitionTypes.push(null);
                 }
             }
 
@@ -499,7 +502,7 @@ export function sliceInstancesByTransitions(instances, transitions, currentNotes
                 sliceNotes = avoidParallelIntervals(prevSlice.notesToPlay, sliceNotes, movingVoices);
             }
 
-            slicedInstances.push({ ...activeInst, startTime: start, duration: duration, notesToPlay: sliceNotes });
+            slicedInstances.push({ ...activeInst, startTime: start, duration: duration, notesToPlay: sliceNotes, voiceTransitionTypes });
         }
     }
     
@@ -570,6 +573,7 @@ export function evaluateVoiceEvents(instances, transitions, currentNotes, prevNo
 
                     const pitch = slice.adjustedNotes[v];
                     const pan = slice.voicePans[v];
+                    const transitionType = slice.voiceTransitionTypes ? slice.voiceTransitionTypes[v] : null;
 
                     if (!currentEvent) {
                         currentEvent = {
@@ -578,10 +582,11 @@ export function evaluateVoiceEvents(instances, transitions, currentNotes, prevNo
                             pitch: pitch,
                             pan: pan,
                             startTime: slice.startTime,
-                            duration: slice.duration
+                            duration: slice.duration,
+                            transitionType: transitionType
                         };
                     } else {
-                        if (Math.abs(currentEvent.pitch - pitch) < 0.001) {
+                        if (Math.abs(currentEvent.pitch - pitch) < 0.001 && currentEvent.transitionType === transitionType) {
                             currentEvent.duration += slice.duration;
                         } else {
                             events.push(currentEvent);
@@ -591,7 +596,8 @@ export function evaluateVoiceEvents(instances, transitions, currentNotes, prevNo
                                 pitch: pitch,
                                 pan: pan,
                                 startTime: slice.startTime,
-                                duration: slice.duration
+                                duration: slice.duration,
+                                transitionType: transitionType
                             };
                         }
                     }

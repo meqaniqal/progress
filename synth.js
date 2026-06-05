@@ -9,12 +9,14 @@ let decodeCtx; // Used to decode audio on page load without triggering Autoplay 
 let activeOscillators = [];
 let masterCompressor; // Module-scoped, but only initialized once
 
-let masterGain, chordsGain, bassGain, bassHarmonicGain, drumsGain;
+let masterGain, chordsGain, bassGain, bassHarmonicGain, drumsGain, melodyGain, countermelodyGain;
 let bassShaper, bassHarmonicShaper;
 let bassDriveGain, bassHarmonicDriveGain;
 export let customBassBuffer = null;
 export let customChordBuffer = null;
-let trackVolumes = { master: 1.0, chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 };
+export let customMelodyBuffer = null;
+export let customCountermelodyBuffer = null;
+let trackVolumes = { master: 1.0, chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8, melody: 0.8, countermelody: 0.0 };
 
 function makeSoftClipCurve(drive) {
     const n_samples = 44100;
@@ -48,6 +50,8 @@ export function setTrackVolume(track, vol) {
             bassHarmonicGain.gain.setTargetAtTime(mappedVol, time, 0.05);
         }
         if (track === 'drums' && drumsGain) drumsGain.gain.setTargetAtTime(vol, time, 0.05);
+        if (track === 'melody' && melodyGain) melodyGain.gain.setTargetAtTime(vol, time, 0.05);
+        if (track === 'countermelody' && countermelodyGain) countermelodyGain.gain.setTargetAtTime(vol, time, 0.05);
     }
 }
 
@@ -114,6 +118,8 @@ export function initAudio() {
             bassGain = audioCtx.createGain();
             bassHarmonicGain = audioCtx.createGain();
             drumsGain = audioCtx.createGain();
+            melodyGain = audioCtx.createGain();
+            countermelodyGain = audioCtx.createGain();
             
             // Setup Soft Clippers to add analog-like saturation at higher volumes
             bassShaper = audioCtx.createWaveShaper();
@@ -134,6 +140,8 @@ export function initAudio() {
             bassGain.gain.value = trackVolumes.bass;
             bassHarmonicGain.gain.value = trackVolumes.bassHarmonic;
             drumsGain.gain.value = trackVolumes.drums;
+            melodyGain.gain.value = trackVolumes.melody;
+            countermelodyGain.gain.value = trackVolumes.countermelody;
             
             chordsGain.connect(masterCompressor);
             
@@ -147,6 +155,8 @@ export function initAudio() {
             bassHarmonicGain.connect(masterCompressor);
             
             drumsGain.connect(masterCompressor);
+            melodyGain.connect(masterCompressor);
+            countermelodyGain.connect(masterCompressor);
         }
         
         // Pre-allocate a reusable 2-second white noise buffer for Snare/Hats
@@ -207,6 +217,8 @@ export async function loadPersistedDrumSamples() {
     }
     await loadPersistedBassSample();
     await loadPersistedChordSample();
+    await loadPersistedMelodySample();
+    await loadPersistedCountermelodySample();
 }
 
 export async function clearCustomDrumSamples() {
@@ -243,6 +255,8 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
     if (destBus === 'chords') targetGainNode = chordsGain;
     else if (destBus === 'bass') targetGainNode = bassDriveGain || bassGain;
     else if (destBus === 'bassHarmonic') targetGainNode = bassHarmonicDriveGain || bassHarmonicGain;
+    else if (destBus === 'melody') targetGainNode = melodyGain;
+    else if (destBus === 'countermelody') targetGainNode = countermelodyGain;
     else {
         // Legacy fallback
         if (type === 'sawtooth') targetGainNode = chordsGain;
@@ -259,7 +273,11 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
         finalDest = panner;
     }
 
-    const engineParams = { ...(currentSynthParams[type] || {}), vol };
+    let volBoost = 1.0;
+    if (destBus === 'melody' || destBus === 'countermelody') {
+        volBoost = 2.0;
+    }
+    const engineParams = { ...(currentSynthParams[type] || {}), vol: vol * volBoost };
     if (type === 'sample-bass') {
         engineParams.buffer = customBassBuffer;
         engineParams.adsr = state.bassAdsr;
@@ -275,6 +293,22 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
         const rootMidi = 60; // C4
         const rootFreq = midiToFreq(rootMidi);
         const pitchShift = state.chordAdsr ? (state.chordAdsr.pitch || 0) : 0;
+        engineParams.playbackRate = (freq / rootFreq) * Math.pow(2, pitchShift / 12);
+    }
+    if (type === 'sample-melody') {
+        engineParams.buffer = customMelodyBuffer;
+        engineParams.adsr = state.melodyAdsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
+        const rootMidi = 60; // C4
+        const rootFreq = midiToFreq(rootMidi);
+        const pitchShift = state.melodyAdsr ? (state.melodyAdsr.pitch || 0) : 0;
+        engineParams.playbackRate = (freq / rootFreq) * Math.pow(2, pitchShift / 12);
+    }
+    if (type === 'sample-countermelody') {
+        engineParams.buffer = customCountermelodyBuffer;
+        engineParams.adsr = state.countermelodyAdsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
+        const rootMidi = 60; // C4
+        const rootFreq = midiToFreq(rootMidi);
+        const pitchShift = state.countermelodyAdsr ? (state.countermelodyAdsr.pitch || 0) : 0;
         engineParams.playbackRate = (freq / rootFreq) * Math.pow(2, pitchShift / 12);
     }
     if (type === 'karplus-strong') {
@@ -404,4 +438,66 @@ export async function loadPersistedChordSample() {
 export async function clearCustomChordSample() {
     customChordBuffer = null;
     await deleteDrumSample('chordSample');
+}
+
+export async function decodeCustomMelodySample(arrayBuffer, saveToDb = true) {
+    if (!decodeCtx) {
+        const sampleRate = audioCtx ? audioCtx.sampleRate : 44100;
+        decodeCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, sampleRate, sampleRate);
+    }
+    try {
+        if (saveToDb) {
+            await saveDrumSample('melodySample', arrayBuffer.slice(0)); 
+        }
+        customMelodyBuffer = await decodeCtx.decodeAudioData(arrayBuffer);
+    } catch (e) {
+        console.error("Failed to decode custom melody sample:", e);
+    }
+}
+
+export async function loadPersistedMelodySample() {
+    try {
+        const buffer = await loadDrumSample('melodySample');
+        if (buffer) {
+            await decodeCustomMelodySample(buffer, false);
+        }
+    } catch (e) {
+        console.warn(`Could not load melody sample from IndexedDB`, e);
+    }
+}
+
+export async function clearCustomMelodySample() {
+    customMelodyBuffer = null;
+    await deleteDrumSample('melodySample');
+}
+
+export async function decodeCustomCountermelodySample(arrayBuffer, saveToDb = true) {
+    if (!decodeCtx) {
+        const sampleRate = audioCtx ? audioCtx.sampleRate : 44100;
+        decodeCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, sampleRate, sampleRate);
+    }
+    try {
+        if (saveToDb) {
+            await saveDrumSample('countermelodySample', arrayBuffer.slice(0)); 
+        }
+        customCountermelodyBuffer = await decodeCtx.decodeAudioData(arrayBuffer);
+    } catch (e) {
+        console.error("Failed to decode custom countermelody sample:", e);
+    }
+}
+
+export async function loadPersistedCountermelodySample() {
+    try {
+        const buffer = await loadDrumSample('countermelodySample');
+        if (buffer) {
+            await decodeCustomCountermelodySample(buffer, false);
+        }
+    } catch (e) {
+        console.warn(`Could not load countermelody sample from IndexedDB`, e);
+    }
+}
+
+export async function clearCustomCountermelodySample() {
+    customCountermelodyBuffer = null;
+    await deleteDrumSample('countermelodySample');
 }

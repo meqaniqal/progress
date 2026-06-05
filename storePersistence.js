@@ -50,7 +50,26 @@ export function loadAndApplyInitialState(explicitState = null) {
                 chords: typeof savedState.volumes.chords === 'number' ? savedState.volumes.chords : 0.8,
                 bass: typeof savedState.volumes.bass === 'number' ? savedState.volumes.bass : 0.8,
                 bassHarmonic: typeof savedState.volumes.bassHarmonic === 'number' ? savedState.volumes.bassHarmonic : 0.0,
-                drums: typeof savedState.volumes.drums === 'number' ? savedState.volumes.drums : 0.8
+                drums: typeof savedState.volumes.drums === 'number' ? savedState.volumes.drums : 0.8,
+                melody: typeof savedState.volumes.melody === 'number' ? savedState.volumes.melody : 0.8,
+                countermelody: typeof savedState.volumes.countermelody === 'number' ? savedState.volumes.countermelody : 0.0
+            };
+        }
+        
+        if (savedState.melodySettings) {
+            state.melodySettings = {
+                enabled: Boolean(savedState.melodySettings.enabled),
+                genre: savedState.melodySettings.genre || 'none',
+                motifRecurrence: typeof savedState.melodySettings.motifRecurrence === 'number' ? savedState.melodySettings.motifRecurrence : 0.5,
+                variationDepth: typeof savedState.melodySettings.variationDepth === 'number' ? savedState.melodySettings.variationDepth : 0.5,
+                density: typeof savedState.melodySettings.density === 'number' ? savedState.melodySettings.density : 0.5,
+                restProbability: typeof savedState.melodySettings.restProbability === 'number' ? savedState.melodySettings.restProbability : 0.3,
+                ornamentIntensity: typeof savedState.melodySettings.ornamentIntensity === 'number' ? savedState.melodySettings.ornamentIntensity : 0.5,
+                countermelodyEnabled: Boolean(savedState.melodySettings.countermelodyEnabled),
+                countermelodyMode: savedState.melodySettings.countermelodyMode || 'contrary',
+                behaviorDuringArp: savedState.melodySettings.behaviorDuringArp || 'simplify',
+                behaviorDuringTransitions: savedState.melodySettings.behaviorDuringTransitions || 'simplify',
+                tensionCurve: savedState.melodySettings.tensionCurve || 'arch'
             };
         }
         
@@ -71,6 +90,24 @@ export function loadAndApplyInitialState(explicitState = null) {
                 sustain: typeof savedState.chordAdsr.sustain === 'number' ? savedState.chordAdsr.sustain : 0.8,
                 release: typeof savedState.chordAdsr.release === 'number' ? savedState.chordAdsr.release : 0.3,
                 pitch: typeof savedState.chordAdsr.pitch === 'number' ? savedState.chordAdsr.pitch : 0
+            };
+        }
+        if (savedState.melodyAdsr) {
+            state.melodyAdsr = {
+                attack: typeof savedState.melodyAdsr.attack === 'number' ? savedState.melodyAdsr.attack : 0.05,
+                decay: typeof savedState.melodyAdsr.decay === 'number' ? savedState.melodyAdsr.decay : 0.2,
+                sustain: typeof savedState.melodyAdsr.sustain === 'number' ? savedState.melodyAdsr.sustain : 0.8,
+                release: typeof savedState.melodyAdsr.release === 'number' ? savedState.melodyAdsr.release : 0.3,
+                pitch: typeof savedState.melodyAdsr.pitch === 'number' ? savedState.melodyAdsr.pitch : 0
+            };
+        }
+        if (savedState.countermelodyAdsr) {
+            state.countermelodyAdsr = {
+                attack: typeof savedState.countermelodyAdsr.attack === 'number' ? savedState.countermelodyAdsr.attack : 0.05,
+                decay: typeof savedState.countermelodyAdsr.decay === 'number' ? savedState.countermelodyAdsr.decay : 0.2,
+                sustain: typeof savedState.countermelodyAdsr.sustain === 'number' ? savedState.countermelodyAdsr.sustain : 0.8,
+                release: typeof savedState.countermelodyAdsr.release === 'number' ? savedState.countermelodyAdsr.release : 0.3,
+                pitch: typeof savedState.countermelodyAdsr.pitch === 'number' ? savedState.countermelodyAdsr.pitch : 0
             };
         }
         if (savedState.bassKsDamping !== undefined) state.bassKsDamping = Number(savedState.bassKsDamping);

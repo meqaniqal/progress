@@ -384,5 +384,101 @@ export const SYNTH_REGISTRY = {
         };
         
         return source;
+    },
+    'sample-melody': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
+        const buffer = params.buffer;
+        if (!buffer) {
+            const dummy = ctx.createOscillator();
+            dummy.start(startTime);
+            dummy.stop(startTime);
+            dummy.onended = () => { if (onCleanup) onCleanup(dummy); };
+            return dummy;
+        }
+        
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.playbackRate.setValueAtTime(params.playbackRate || 1.0, startTime);
+        
+        const adsrGain = ctx.createGain();
+        const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
+        const sampleLen = buffer.duration;
+        
+        const attack = Math.min(adsr.attack, sampleLen * 0.5);
+        const decay = Math.min(adsr.decay, sampleLen * 0.5);
+        const release = Math.min(adsr.release, sampleLen * 0.5);
+        const sustain = adsr.sustain;
+        
+        const vol = params.vol !== undefined ? params.vol : 1.0;
+        
+        adsrGain.gain.setValueAtTime(0, startTime);
+        adsrGain.gain.linearRampToValueAtTime(vol, startTime + attack);
+        adsrGain.gain.setValueAtTime(vol, startTime + attack);
+        adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * sustain), startTime + attack + decay);
+        
+        const noteOffTime = startTime + duration;
+        adsrGain.gain.setValueAtTime(vol * sustain, noteOffTime);
+        adsrGain.gain.linearRampToValueAtTime(0, noteOffTime + release);
+        
+        source.connect(adsrGain);
+        adsrGain.connect(dest);
+        
+        source.start(startTime);
+        source.stop(noteOffTime + release + 0.1);
+        
+        source.onended = () => {
+            source.disconnect();
+            adsrGain.disconnect();
+            if (onCleanup) onCleanup(source);
+        };
+        
+        return source;
+    },
+    'sample-countermelody': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
+        const buffer = params.buffer;
+        if (!buffer) {
+            const dummy = ctx.createOscillator();
+            dummy.start(startTime);
+            dummy.stop(startTime);
+            dummy.onended = () => { if (onCleanup) onCleanup(dummy); };
+            return dummy;
+        }
+        
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.playbackRate.setValueAtTime(params.playbackRate || 1.0, startTime);
+        
+        const adsrGain = ctx.createGain();
+        const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
+        const sampleLen = buffer.duration;
+        
+        const attack = Math.min(adsr.attack, sampleLen * 0.5);
+        const decay = Math.min(adsr.decay, sampleLen * 0.5);
+        const release = Math.min(adsr.release, sampleLen * 0.5);
+        const sustain = adsr.sustain;
+        
+        const vol = params.vol !== undefined ? params.vol : 1.0;
+        
+        adsrGain.gain.setValueAtTime(0, startTime);
+        adsrGain.gain.linearRampToValueAtTime(vol, startTime + attack);
+        adsrGain.gain.setValueAtTime(vol, startTime + attack);
+        adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * sustain), startTime + attack + decay);
+        
+        const noteOffTime = startTime + duration;
+        adsrGain.gain.setValueAtTime(vol * sustain, noteOffTime);
+        adsrGain.gain.linearRampToValueAtTime(0, noteOffTime + release);
+        
+        source.connect(adsrGain);
+        adsrGain.connect(dest);
+        
+        source.start(startTime);
+        source.stop(noteOffTime + release + 0.1);
+        
+        source.onended = () => {
+            source.disconnect();
+            adsrGain.disconnect();
+            if (onCleanup) onCleanup(source);
+        };
+        
+        return source;
     }
 };

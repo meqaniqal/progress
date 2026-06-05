@@ -6,6 +6,7 @@ import { resolvePattern } from './patternResolver.js';
 import { state, getActiveProgression } from './store.js';
 import { isSongTrayOpen, getActiveSequenceIndex } from './songController.js';
 import { evaluateVoiceEvents } from './transitionEvaluator.js';
+import { scheduleMelody } from './melodyGenerator.js';
 
 let uiTimeouts = [];
 
@@ -304,6 +305,22 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                 playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, state.instruments.bassSecondary || 'sawtooth', 'bassHarmonic');
             });
         }
+
+        // --- Schedule Melody & Countermelody ---
+        scheduleMelody(
+            time,
+            chordObj,
+            nextChordObj,
+            prevChordObj,
+            chordSlotDuration,
+            beats,
+            Number(state.bpm),
+            absIndex,
+            activeProg.length,
+            notesToPlay,
+            playTone,
+            voiceEvents
+        );
         
         // --- Schedule Drums ---
         const absBeatStart = getAbsoluteBeatPos(activeProg, absIndex);
