@@ -29,7 +29,7 @@ const CHORD_QUALITIES = [
     { name: 'aug', intervals: [0, 4, 8], caseType: 'upper', suffix: '+' }
 ];
 
-export function identifyChord(midiNotes, baseKey = 60) {
+export function identifyChord(midiNotes, baseKey = 60, allowCustomFallback = false) {
     if (!midiNotes || midiNotes.length === 0) return null;
     
     const cleanNotes = midiNotes.map(n => Math.round(n));
@@ -68,6 +68,21 @@ export function identifyChord(midiNotes, baseKey = 60) {
                 bestMatch = baseName + quality.suffix;
             }
         }
+    }
+
+    if (!bestMatch && allowCustomFallback) {
+        let count = 1;
+        if (typeof window !== 'undefined') {
+            const activeProg = window.__getActiveProgression ? window.__getActiveProgression() : [];
+            const customChords = window.__customChords || [];
+            const allSymbols = [
+                ...activeProg.map(c => c.symbol),
+                ...customChords.map(c => c.symbol)
+            ];
+            const customSymbols = new Set(allSymbols.filter(s => s && (s.toLowerCase().startsWith('custom'))));
+            count = customSymbols.size + 1;
+        }
+        bestMatch = `Custom${count}`;
     }
 
     return bestMatch;

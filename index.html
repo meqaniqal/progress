@@ -11,11 +11,11 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- 1. CSS loaded first to block render until styles are ready -->
-    <link rel="stylesheet" href="theme.css?v=1780405802871">
-    <link rel="stylesheet" href="style.css?v=1780405802871">
-    <link rel="stylesheet" href="drum-grid.css?v=1780405802871">
-    <link rel="stylesheet" href="rhythm-editor.css?v=1780405802871">
-    <link rel="stylesheet" href="song-mode.css?v=1780405802871">
+    <link rel="stylesheet" href="theme.css?v=1780590114058">
+    <link rel="stylesheet" href="style.css?v=1780590114058">
+    <link rel="stylesheet" href="drum-grid.css?v=1780590114058">
+    <link rel="stylesheet" href="rhythm-editor.css?v=1780590114058">
+    <link rel="stylesheet" href="song-mode.css?v=1780590114058">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
     
     <!-- Hide body and show spinner to prevent Flash of Unstyled Content (FOUC) while scripts load -->
@@ -39,7 +39,7 @@
     <!-- 2. Scripts deferred to prevent HTML parsing blocks -->
     <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@2.1.4/browser/midiwriter.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js" defer></script>
-    <script src="init.js?v=1780405802871" defer></script>
+    <script src="init.js?v=1780590114058" defer></script>
 </head>
 <body>
     <div id="top-header">
@@ -110,15 +110,20 @@
         <div style="display: flex; justify-content: space-between; align-items: center; padding-right: 5px; margin-top: -5px; margin-bottom: 10px;">
             <span class="beginner-helper" style="margin: 0;">💡 (Drag chords ⬇️ or double-tap to add)</span>
             <div style="margin: 0 0 0 auto; display: flex; align-items: center; gap: 4px;">
-                <button class="chord-btn" id="btn-drag-loop" data-chord="LOOP_BLOCK" title="Drag or double-tap to insert the currently looped sequence" style="margin: 0; padding: 2px 8px; font-size: 13px; border-color: var(--bracket-color); color: var(--text-main);">+[looped]</button>
+                <button class="chord-btn" id="btn-drag-loop" data-chord="LOOP_BLOCK" title="Drag or double-tap to insert the currently looped sequence">+[looped]</button>
                 <button id="btn-loop-info" class="icon-btn" style="cursor: pointer; opacity: 0.8; font-size: 14px; padding: 0;" title="Info">ℹ️</button>
             </div>
         </div>
 
         <div class="builder-tabs">
             <button class="builder-tab active" data-target="standard">Standard</button>
-            <button class="builder-tab" data-target="borrowed">Borrowed & Altered</button>
             <button class="builder-tab" data-target="emotional">Emotional Colors</button>
+            <button class="builder-tab" data-target="custom-builder" id="btn-custom-chord-builder" style="color: #fbbf24; font-weight: bold;">➕ Custom</button>
+        </div>
+
+        <div id="palette-custom-chords" class="chord-palette" style="border-bottom: 1px solid var(--border-main); padding-bottom: 8px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <strong>Custom:</strong>
+            <div id="custom-chords-list" style="display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap;"></div>
         </div>
 
         <div id="palette-diatonic" class="chord-palette">
@@ -174,27 +179,46 @@
 
         <div id="palette-emotional" class="chord-palette" style="border-top: 1px solid var(--border-main); padding-top: 12px; margin-top: 12px;">
             <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <strong style="display: flex; align-items: center; gap: 4px;">
-                        🎭 Emotional:
-                        <button id="btn-sug-prev" class="control-btn secondary btn-sm" style="padding: 1px 4px; font-size: 9px; line-height: 1;" title="Previous suggestions">◀</button>
-                        <span id="sug-page-indicator" style="font-size: 9px; opacity: 0.8; font-family: monospace;">1/1</span>
-                        <button id="btn-sug-next" class="control-btn secondary btn-sm" style="padding: 1px 4px; font-size: 9px; line-height: 1;" title="Next suggestions">▶</button>
-                    </strong>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;" title="Emotional Colors">🎭</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
-                        <button id="btn-emotion-prev" class="control-btn secondary btn-sm" style="padding: 2px 6px; font-size: 10px;" title="Previous categories page">◀</button>
-                        <span style="font-size: 10px; opacity: 0.8; font-family: monospace; display: flex; align-items: center; gap: 2px;">
-                            Pg <input type="number" id="emotion-category-page-input" value="1" min="1" max="100" style="width: 38px; text-align: center; background: var(--bg-panel); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 1px 2px; font-size: 10px; font-family: monospace;">/100
-                        </span>
-                        <button id="btn-emotion-next" class="control-btn secondary btn-sm" style="padding: 2px 6px; font-size: 10px;" title="Next categories page">▶</button>
+                        <button id="btn-emotion-prev" class="control-btn secondary btn-sm" style="padding: 2px 6px; font-size: 10px;" title="Previous Category">◀</button>
+                        <select id="emotion-category-dropdown" class="rhythm-select" style="padding: 2px 8px; font-size: 11px; border-radius: 4px; background: var(--bg-panel); border: 1px solid var(--border-main); color: var(--text-main); cursor: pointer; max-width: 140px;">
+                        </select>
+                        <button id="btn-emotion-next" class="control-btn secondary btn-sm" style="padding: 2px 6px; font-size: 10px;" title="Next Category">▶</button>
                     </div>
                 </div>
-                <div id="emotion-pills-container" class="category-pills-container">
-                    <!-- Pills rendered dynamically here -->
+                <div id="emotion-pills-container" class="category-pills-container" style="display: none;">
+                    <!-- Pills container kept hidden for compatibility -->
                 </div>
             </div>
-            <div id="emotional-chords-container" style="display: flex; flex-wrap: wrap; gap: 4px;">
-                <!-- Suggestions loaded here -->
+            <div style="display: flex; align-items: stretch; border: 1px solid var(--border-main); border-radius: 6px; padding: 4px; gap: 4px; width: 100%; min-height: 48px;">
+                <button id="btn-sug-prev" class="control-btn secondary btn-sm" style="padding: 0 8px; font-size: 11px; display: flex; align-items: center; border: none; background: none; color: var(--text-main); cursor: pointer;" title="Previous Page">◀</button>
+                <div id="emotional-chords-container" style="display: flex; flex-wrap: wrap; gap: 4px; flex: 1; align-items: center;">
+                    <!-- Suggestions loaded here -->
+                </div>
+                <button id="btn-sug-next" class="control-btn secondary btn-sm" style="padding: 0 8px; font-size: 11px; display: flex; align-items: center; border: none; background: none; color: var(--text-main); cursor: pointer;" title="Next Page">▶</button>
+            </div>
+        </div>
+
+        <div id="palette-custom-builder" class="chord-palette" style="border-top: 1px solid var(--border-main); padding-top: 12px; margin-top: 12px; display: none; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <strong style="color: #fbbf24; display: flex; align-items: center; gap: 6px;">
+                    <button id="btn-builder-audition" style="background: none; border: none; font-size: 16px; cursor: pointer; padding: 0; line-height: 1;" title="Audition current custom chord">🔊</button>
+                    <span>Custom</span>
+                </strong>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <button class="control-btn secondary btn-sm" id="btn-piano-clear">Clear</button>
+                    <button class="control-btn primary btn-sm" id="btn-piano-save" style="background: #fbbf24; color: #111;">Save Chord</button>
+                </div>
+            </div>
+            
+            <div id="piano-roll-grid-wrapper" style="display: flex; flex-direction: column; border: 1px solid var(--border-main); border-radius: 6px; overflow: hidden; background: var(--bg-panel); position: relative;">
+                <div id="piano-roll-scroll-container" style="overflow-y: auto; max-height: 320px; width: 100%; display: flex; flex-direction: column;">
+                    <div id="piano-roll-grid" style="display: flex; flex-direction: column; width: 100%; position: relative;">
+                        <!-- Note rows rendered dynamically -->
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -308,7 +332,7 @@
                     <button class="control-btn secondary btn-md" id="btn-rhythm-delete" title="Delete selected slices">🗑 Delete</button>
                     <div id="zoom-controls-group" class="toolbar-group-panel" style="display: none; align-items: center; gap: 4px; margin-left: auto;">
                         <span style="font-size: 11px; font-weight: bold; opacity: 0.8;" title="Zoom">🔍</span>
-                        <input type="range" id="zoom-slider" min="0.8" max="4.0" step="0.1" value="1.0" class="range-sm">
+                        <input type="range" id="zoom-slider" min="0.1" max="4.0" step="0.01" value="1.0" class="range-sm">
                     </div>
                     <div class="toolbar-group-panel" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap;">
                         <button id="btn-grid-toggle" class="tool-btn grid-toggle-btn active" title="Toggle Grid Snapping">Grid: <span id="grid-display-value">1/16</span></button>
@@ -474,11 +498,45 @@
                                 <option value="sine">🎹 Sine</option>
                                 <option value="fm">🎹 FM EP</option>
                                 <option value="plucked-square">🎹 Pluck</option>
+                                <option value="sample-chords">🎹 Sample</option>
                             </select>
                         <button id="btn-edit-chords-synth" class="icon-btn" style="cursor: pointer; opacity: 0.8; font-size: 14px; padding: 0 4px;" title="Edit Synth Parameters">⚙️</button>
                             <input type="range" id="vol-chords" min="0" max="1.5" step="0.05" value="0.8" class="mixer-slider">
                         </div>
                     <div id="synth-editor-chords" class="synth-editor-panel" style="display: none; background: rgba(0,0,0,0.1); border: 1px solid var(--border-main); border-radius: 4px; padding: 8px; margin: 4px 0 8px 0;">
+                        <!-- Chord Sample Parameters Section -->
+                        <div id="chord-sample-params-section" style="display: none; flex-direction: column; gap: 4px; margin-bottom: 8px;">
+                            <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: var(--text-muted);">SAMPLE PARAMETERS</div>
+                            <div class="mixer-row" style="margin-bottom: 4px;">
+                                <span class="settings-label-sm" style="width: 120px; padding: 4px;">Chord Sample</span>
+                                <div style="display: flex; gap: 4px; flex: 1; justify-content: flex-end;">
+                                    <button class="control-btn primary" id="btn-load-chord-sample" style="font-size: 11px; padding: 2px 6px;">📂 Load</button>
+                                    <button class="control-btn secondary" id="btn-clear-chord-sample" style="font-size: 11px; padding: 2px 6px;">🗑 Clear</button>
+                                </div>
+                                <input type="file" id="file-chord-sample" accept="audio/*" style="display: none;">
+                            </div>
+                            <div class="mixer-row" style="margin-bottom: 4px;">
+                                <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Attack</span>
+                                <input type="range" id="chord-attack" min="0" max="2.0" step="0.01" value="0.05" class="mixer-slider">
+                            </div>
+                            <div class="mixer-row" style="margin-bottom: 4px;">
+                                <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Decay</span>
+                                <input type="range" id="chord-decay" min="0" max="2.0" step="0.01" value="0.2" class="mixer-slider">
+                            </div>
+                            <div class="mixer-row" style="margin-bottom: 4px;">
+                                <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Sustain</span>
+                                <input type="range" id="chord-sustain" min="0" max="1.0" step="0.05" value="0.8" class="mixer-slider">
+                            </div>
+                            <div class="mixer-row" style="margin-bottom: 4px;">
+                                <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Release</span>
+                                <input type="range" id="chord-release" min="0" max="2.0" step="0.01" value="0.3" class="mixer-slider">
+                            </div>
+                            <div class="mixer-row">
+                                <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Pitch (Shift)</span>
+                                <input type="range" id="chord-pitch" min="-24" max="24" step="1" value="0" style="flex: 1;" class="mixer-slider">
+                                <span id="chord-pitch-val" style="font-size: 11px; font-family: monospace; min-width: 35px; text-align: right;">+0st</span>
+                            </div>
+                        </div>
                         <div id="fm-params-section">
                         <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: var(--text-muted);">FM PARAMETERS</div>
                         <div class="mixer-row" style="margin-bottom: 4px;">
@@ -523,19 +581,64 @@
                             </div>
                         </div>
                     </div>
-                        <div class="mixer-row">
-                            <select id="inst-bass" class="rhythm-select" style="width: 120px; padding: 4px; font-size: 13px; font-weight: bold; border-radius: 4px; background: var(--bg-body); border: 1px solid var(--border-main); cursor: pointer;" title="Select Sub Bass Synth">
-                                <option value="sine">🎸 Sine</option>
-                                <option value="sawtooth">🎸 Saw</option>
-                                <option value="fm">🎸 FM Sub</option>
-                                <option value="plucked-square">🎸 Square</option>
-                            </select>
+                        <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                            <span class="settings-label-sm" style="width: 120px; padding: 4px;">🎸 Sub Bass Vol</span>
                             <input type="range" id="vol-bass" min="0" max="1.5" step="0.05" value="0.8" class="mixer-slider">
                         </div>
-                        <label class="mixer-row">
-                            <span class="settings-label-sm" style="display: inline-block; width: 120px; padding: 4px;">〰️ Bass Enh</span>
+                        <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
+                            <span class="settings-label-sm" style="width: 120px; padding: 4px; font-size: 11px; opacity: 0.8;">⚡ Sub Bass Drive</span>
+                            <input type="range" id="drive-bass" min="0.1" max="10" step="0.1" value="1.0" class="mixer-slider">
+                        </div>
+                        <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                            <select id="inst-bass-secondary" class="rhythm-select" style="width: 105px; padding: 2px; font-size: 11px; font-weight: bold; border-radius: 4px; background: var(--bg-body); border: 1px solid var(--border-main); cursor: pointer;" title="Select Bass Enhancer Waveform">
+                                <option value="sawtooth">〰️ Saw</option>
+                                <option value="square">〰️ Square</option>
+                                <option value="sample-bass">📂 Sample</option>
+                            </select>
+                            <button id="btn-edit-bass-synth" class="icon-btn" style="cursor: pointer; opacity: 0.8; font-size: 14px; padding: 0 2px;" title="Edit Bass Enhancer Parameters">⚙️</button>
                             <input type="range" id="vol-bassHarmonic" min="0" max="1.5" step="0.05" value="0.0" class="mixer-slider">
-                        </label>
+                        </div>
+                        <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
+                            <span class="settings-label-sm" style="width: 120px; padding: 4px; font-size: 11px; opacity: 0.8;">⚡ Enh Bass Drive</span>
+                            <input type="range" id="drive-bassHarmonic" min="0.1" max="10" step="0.1" value="1.0" class="mixer-slider">
+                        </div>
+                        <!-- Bass Editor Panel -->
+                        <div id="synth-editor-bass" class="synth-editor-panel" style="display: none; background: rgba(0,0,0,0.1); border: 1px solid var(--border-main); border-radius: 4px; padding: 8px; margin: 4px 0 8px 0; flex-direction: column; gap: 6px;">
+                            <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <span class="settings-label-sm" style="width: 120px; padding: 4px;">Bass Sample</span>
+                                <div style="display: flex; gap: 4px; flex: 1; justify-content: flex-end;">
+                                    <button class="control-btn primary" id="btn-load-bass" style="font-size: 11px; padding: 2px 6px;">📂 Load</button>
+                                    <button class="control-btn secondary" id="btn-clear-bass" style="font-size: 11px; padding: 2px 6px;">🗑 Clear</button>
+                                </div>
+                                <input type="file" id="file-bass-sample" accept="audio/*" style="display: none;">
+                            </div>
+                            <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Attack</span>
+                                <input type="range" id="bass-attack" min="0" max="2.0" step="0.01" value="0.05" class="mixer-slider">
+                            </div>
+                            <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Decay</span>
+                                <input type="range" id="bass-decay" min="0" max="2.0" step="0.01" value="0.2" class="mixer-slider">
+                            </div>
+                            <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Sustain</span>
+                                <input type="range" id="bass-sustain" min="0" max="1.0" step="0.05" value="0.8" class="mixer-slider">
+                            </div>
+                            <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Release</span>
+                                <input type="range" id="bass-release" min="0" max="2.0" step="0.01" value="0.3" class="mixer-slider">
+                            </div>
+                            <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Pitch</span>
+                                <input type="range" id="bass-pitch" min="-24" max="24" step="1" value="0" style="flex: 1;" class="mixer-slider">
+                                <span id="bass-pitch-val" style="font-size: 11px; font-family: monospace; min-width: 35px; text-align: right;">+0st</span>
+                            </div>
+                            <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <span class="settings-label-sm" style="width: 120px; font-size: 11px;">-2 Octaves Drop</span>
+                                <button id="btn-bass-octave-drop" class="control-btn secondary btn-sm" style="font-size: 11px; padding: 2px 8px; width: 60px; height: 22px;">OFF</button>
+                            </div>
+                        </div>
+
                         <label class="mixer-row">
                             <span class="settings-label-sm" style="display: inline-block; width: 120px; padding: 4px;">🥁 Drums</span>
                             <input type="range" id="vol-drums" min="0" max="1.5" step="0.05" value="0.8" class="mixer-slider">

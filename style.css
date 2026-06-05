@@ -358,10 +358,27 @@ body:not(.show-helpers) .beginner-helper {
 }
 .beginner-helper { font-size: 12px; opacity: 0.7; margin-top: -5px; margin-bottom: 10px; font-style: italic; }
 
-/* --- Beginner / Advanced Mode --- */
+/* --- Beginner / Advanced Mode CSS Toggles --- */
 body.beginner-mode #rhythm-editor-panel,
 body.beginner-mode #section-tabs-container,
-body.beginner-mode #song-sequencer-tray {
+body.beginner-mode #song-sequencer-tray,
+body.beginner-mode #btn-drag-loop,
+body.beginner-mode #btn-loop-info,
+body.beginner-mode .builder-tabs,
+body.beginner-mode #btn-jump-source,
+body.beginner-mode #row-auto-pan,
+body.beginner-mode #tuning-selector,
+body.beginner-mode #voice-leading,
+body.beginner-mode #settings-modal .settings-row:nth-child(4), /* Auto Pan */
+body.beginner-mode #settings-modal .settings-row:nth-child(5), /* Inspector Audition */
+body.beginner-mode #settings-modal .settings-row:nth-child(6), /* Generative Persona */
+body.beginner-mode #settings-modal .settings-row:nth-child(7), /* Groove Sync */
+body.beginner-mode #settings-modal .settings-row:nth-child(8), /* Scale Snapping */
+body.beginner-mode #project-hub-modal .settings-group:nth-child(1), /* Save & Load Projects */
+body.beginner-mode #row-midi-routing,
+body.beginner-mode #hub-tuning-files-section,
+body.beginner-mode #btn-ai-prompt,
+body.beginner-mode .export-passes-label {
     display: none !important;
 }
 
@@ -369,15 +386,33 @@ body:not(.beginner-mode) #btn-manual {
     display: none !important;
 }
 
-/* --- Mobile Flexbox Constraints --- */
-/* Prevent pattern editor toolbar items from bursting out the right side of the screen */
-#rhythm-editor-content, 
-.tab-content-wrapper, 
-.rhythm-toolbar, 
-.tool-group, 
-.toolbar-row {
-    min-width: 0;
-    max-width: 100%;
+/* --- Mobile Flexbox Constraints & Header Compression --- */
+@media (max-width: 450px) {
+    .top-header-bar {
+        gap: 8px !important;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .top-header-title {
+        font-size: 1.25rem !important;
+        text-align: center;
+    }
+    .top-header-controls {
+        justify-content: space-between;
+        width: 100%;
+        gap: 4px !important;
+    }
+    .top-header-controls .control-btn {
+        padding: 6px 8px !important;
+        font-size: 11px !important;
+        flex: 1;
+        justify-content: center;
+    }
+    .top-header-controls #btn-settings {
+        flex: 0 0 auto;
+        padding: 6px 10px !important;
+    }
+}
 }
 
 .toolbar-row > * {
@@ -452,6 +487,75 @@ body:not(.beginner-mode) #btn-manual {
     .section-tabs { display: none !important; }
     .mobile-unitab { display: flex !important; }
     .hide-on-mobile { display: none; }
+    
+    /* Rhythm Toolbar Wrap & Button Compression */
+    .rhythm-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px !important;
+        margin-bottom: 8px !important;
+    }
+    .toolbar-row {
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+        overflow-x: visible !important;
+    }
+    .toolbar-row button.control-btn {
+        padding: 4px 6px !important;
+        font-size: 11px !important;
+        flex: 1 1 auto;
+        min-width: 50px;
+    }
+    .toolbar-row .toolbar-group-panel {
+        flex: 1 1 100%;
+        margin-left: 0 !important;
+        justify-content: space-between;
+        margin-top: 4px;
+        padding: 4px 8px !important;
+    }
+    .grid-toggle-btn {
+        font-size: 10px !important;
+        min-width: 55px !important;
+        padding: 2px 4px !important;
+    }
+    #rhythm-grid-slider {
+        flex-grow: 1;
+    }
+    #arp-toolbar-row {
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+    }
+    #btn-apply-arp {
+        padding: 4px 8px !important;
+        font-size: 11px !important;
+    }
+    #arp-style-select, #arp-rate-select, #drum-length-select, #drum-preset-select {
+        font-size: 11px !important;
+        padding: 2px 4px !important;
+        max-width: 45% !important;
+        flex-grow: 1;
+    }
+    #btn-drum-crop, #btn-drum-double {
+        padding: 4px 8px !important;
+        font-size: 11px !important;
+        margin-top: 4px;
+        flex-grow: 1;
+    }
+    #btn-drum-crop:not([style*="display: none"]) {
+        /* Force Crop button to wrap on a new line after selector options on narrow screens */
+        display: block !important;
+        clear: both;
+        width: 100%;
+        margin-top: 6px !important;
+    }
+    #btn-rhythm-clear {
+        padding: 4px 8px !important;
+        font-size: 11px !important;
+    }
+    /* Compact the margins of toolbar elements to save valuable real estate */
+    #rhythm-editor-panel button {
+        margin: 2px !important;
+    }
 }
 @media (min-width: 451px) {
     .mobile-unitab { display: none !important; }
@@ -680,4 +784,8 @@ body:not(.beginner-mode) #btn-manual {
     background: #4f46e5;
     color: #ffffff;
     border-color: #4f46e5;
+}
+
+.progression-item.custom-chord-item {
+    border: 2px dashed #fbbf24 !important;
 }

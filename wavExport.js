@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 import { audioBufferToWav } from './wavEncoder.js';
 import { generateArpNotes } from './arp.js';
 import { resolvePattern } from './patternResolver.js';
-import { playDrum, initAudio } from './synth.js';
+import { playDrum, initAudio, customBassBuffer, customChordBuffer, midiToFreq } from './synth.js';
 import { SYNTH_REGISTRY } from './synthEngines.js';
 import { evaluateVoiceEvents } from './transitionEvaluator.js';
 import { state as appState, getActiveProgression } from './store.js';
@@ -142,7 +142,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
             
             // Add Bass Note
             const tuning = getEffectiveTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
-            const rootChordNotes = getChordNotes(chord.symbol, chord.key, tuning.divisions);
+            const rootChordNotes = chord.customNotes || getChordNotes(chord, chord.key, tuning.divisions);
             if (rootChordNotes) {
                 const bassNote = getBassNote(rootChordNotes, tuning);
                 
@@ -176,13 +176,14 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                         pan: 0
                     });
 
-                    // --- Bass Harmonic Layer (Sawtooth Enhance) ---
+                    // --- Bass Harmonic Layer (Enhanced Bass) ---
+                    const secondaryBassInst = globalOptions.instruments && globalOptions.instruments.bassSecondary ? globalOptions.instruments.bassSecondary : 'sawtooth';
                     timeline.push({
                         midiNote: finalBassNote,
                         freq: Math.pow(2, (finalBassNote - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ,
                         startTime: instanceStartTime,
                         duration: gateDuration,
-                        type: 'sawtooth-bass',
+                        type: secondaryBassInst,
                         track: 'bassHarmonic',
                         pan: 0
                     });
@@ -310,7 +311,35 @@ export async function exportToWav(state, buttonElement) {
 
             const engine = SYNTH_REGISTRY[ev.type];
             if (engine) {
-                engine(offlineCtx, ev.freq, ev.startTime, ev.duration, finalDest, null);
+                const engineParams = { vol: 1.0 };
+                
+                if (ev.type === 'sample-bass') {
+                    engineParams.buffer = customBassBuffer;
+                    engineParams.adsr = state.bassAdsr;
+                    const rootMidi = 48; // C3
+                    const rootFreq = midiToFreq(rootMidi);
+                    const pitchShift = state.bassAdsr ? (state.bassAdsr.pitch || 0) : 0;
+                    const octaveShift = state.bassAdsr && state.bassAdsr.octaveDrop ? -24 : 0;
+                    engineParams.playbackRate = (ev.freq / rootFreq) * Math.pow(2, (pitchShift + octaveShift) / 12);
+                }
+                if (ev.type === 'sample-chords') {
+                    engineParams.buffer = customChordBuffer;
+                    engineParams.adsr = state.chordAdsr;
+                    const rootMidi = 60; // C4
+                    const rootFreq = midiToFreq(rootMidi);
+                    const pitchShift = state.chordAdsr ? (state.chordAdsr.pitch || 0) : 0;
+                    engineParams.playbackRate = (ev.freq / rootFreq) * Math.pow(2, pitchShift / 12);
+                }
+                if (ev.type === 'karplus-strong') {
+                    engineParams.damping = state.bassKsDamping !== undefined ? state.bassKsDamping : 400;
+                    engineParams.decay = state.bassKsDecay !== undefined ? state.bassKsDecay : 0.95;
+                }
+                
+                // Copy over custom synth parameter sets for FM / Pluck if applicable
+                const customParams = state.synthParams && state.synthParams[ev.type] ? state.synthParams[ev.type] : {};
+                Object.assign(engineParams, customParams);
+
+                engine(offlineCtx, ev.freq, ev.startTime, ev.duration, finalDest, null, engineParams);
             }
         });
 

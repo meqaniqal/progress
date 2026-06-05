@@ -15,7 +15,15 @@ export function auditionChord(chordSymbol, baseKey, specificNotes = null, divisi
     initAudio();
 
     const tuning = getEffectiveTuning(chordSymbol, divisions || state.divisions || 12);
-    const chordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
+    let chordNotes = specificNotes;
+    if (!chordNotes) {
+        const customChord = state.customChords.find(c => c.symbol === chordSymbol);
+        if (customChord) {
+            chordNotes = customChord.customNotes;
+        } else {
+            chordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
+        }
+    }
     if (!chordNotes) return;
 
     const rootNoteMidi = getBassNote(chordNotes, tuning);
@@ -24,7 +32,7 @@ export function auditionChord(chordSymbol, baseKey, specificNotes = null, divisi
     const notesToPlay = specificNotes || chordNotes.map(n => n - dropSize);
 
     const chordInst = state.instruments && state.instruments.chords ? state.instruments.chords : 'sawtooth';
-    const bassInst = state.instruments && state.instruments.bass ? state.instruments.bass : 'sine';
+    const bassInst = 'sine';
 
     const panL = state.autoPanLeading ? -0.75 : 0;
     const panR = state.autoPanLeading ? 0.75 : 0;
@@ -181,7 +189,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         pattern = resolvePattern(pattern, isGlobalChord, beats);
 
         const chordInst = state.instruments && state.instruments.chords ? state.instruments.chords : 'sawtooth';
-        const bassInst = state.instruments && state.instruments.bass ? state.instruments.bass : 'sine';
+        const bassInst = 'sine';
 
         // Evaluate prev/next context for transitions
         const prevAbsIndex = (absIndex - 1 + activeProg.length) % activeProg.length;
@@ -258,7 +266,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         const rootSymbol = chordObj.symbol;
         const rootKey = chordObj.key;
         const tuning = getEffectiveTuning(rootSymbol, chordObj.divisions || state.divisions || 12);
-        const rootChordNotes = getChordNotes(rootSymbol, rootKey, tuning.divisions);
+        const rootChordNotes = chordObj.customNotes || getChordNotes(rootSymbol, rootKey, tuning.divisions);
         if (rootChordNotes) {
             const rootNoteMidi = getBassNote(rootChordNotes, tuning);
             
@@ -292,8 +300,8 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                 const editorTuning = getPitchEditorTuning(rootSymbol, chordObj.divisions || state.divisions || 12);
                 const snappedOffset = snapToGrid(60 + (instance.pitchOffset || 0), editorTuning) - 60;
                 const finalBassNote = rootNoteMidi + snappedOffset;
-                playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, bassInst, 'bass');
-                playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, 'sawtooth-bass', 'bassHarmonic');
+                playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, 'sine', 'bass');
+                playTone(midiToFreq(finalBassNote), instanceStartTime, gateDuration, state.instruments.bassSecondary || 'sawtooth', 'bassHarmonic');
             });
         }
         
@@ -471,7 +479,15 @@ export function stopAllAudio(onHighlightCallback) {
 function scheduleChordAudition(chordSymbol, baseKey, specificNotes, divisions, startTime, duration) {
     if (!chordSymbol) return;
     const tuning = getEffectiveTuning(chordSymbol, divisions || state.divisions || 12);
-    const chordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
+    let chordNotes = specificNotes;
+    if (!chordNotes) {
+        const customChord = state.customChords.find(c => c.symbol === chordSymbol);
+        if (customChord) {
+            chordNotes = customChord.customNotes;
+        } else {
+            chordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
+        }
+    }
     if (!chordNotes) return;
 
     const rootNoteMidi = getBassNote(chordNotes, tuning);
@@ -479,7 +495,7 @@ function scheduleChordAudition(chordSymbol, baseKey, specificNotes, divisions, s
     const notesToPlay = specificNotes || chordNotes.map(n => n - dropSize);
 
     const chordInst = state.instruments?.chords || 'sawtooth';
-    const bassInst = state.instruments?.bass || 'sine';
+    const bassInst = 'sine';
 
     const panL = state.autoPanLeading ? -0.75 : 0;
     const panR = state.autoPanLeading ? 0.75 : 0;

@@ -54,6 +54,30 @@ export function loadAndApplyInitialState(explicitState = null) {
             };
         }
         
+        if (savedState.bassAdsr) {
+            state.bassAdsr = {
+                attack: typeof savedState.bassAdsr.attack === 'number' ? savedState.bassAdsr.attack : 0.05,
+                decay: typeof savedState.bassAdsr.decay === 'number' ? savedState.bassAdsr.decay : 0.2,
+                sustain: typeof savedState.bassAdsr.sustain === 'number' ? savedState.bassAdsr.sustain : 0.8,
+                release: typeof savedState.bassAdsr.release === 'number' ? savedState.bassAdsr.release : 0.3,
+                pitch: typeof savedState.bassAdsr.pitch === 'number' ? savedState.bassAdsr.pitch : 0,
+                octaveDrop: typeof savedState.bassAdsr.octaveDrop !== 'undefined' ? Boolean(savedState.bassAdsr.octaveDrop) : false
+            };
+        }
+        if (savedState.chordAdsr) {
+            state.chordAdsr = {
+                attack: typeof savedState.chordAdsr.attack === 'number' ? savedState.chordAdsr.attack : 0.05,
+                decay: typeof savedState.chordAdsr.decay === 'number' ? savedState.chordAdsr.decay : 0.2,
+                sustain: typeof savedState.chordAdsr.sustain === 'number' ? savedState.chordAdsr.sustain : 0.8,
+                release: typeof savedState.chordAdsr.release === 'number' ? savedState.chordAdsr.release : 0.3,
+                pitch: typeof savedState.chordAdsr.pitch === 'number' ? savedState.chordAdsr.pitch : 0
+            };
+        }
+        if (savedState.bassKsDamping !== undefined) state.bassKsDamping = Number(savedState.bassKsDamping);
+        if (savedState.bassKsDecay !== undefined) state.bassKsDecay = Number(savedState.bassKsDecay);
+        if (savedState.bassDrive !== undefined) state.bassDrive = Number(savedState.bassDrive);
+        if (savedState.bassHarmonicDrive !== undefined) state.bassHarmonicDrive = Number(savedState.bassHarmonicDrive);
+
         if (savedState.selectedChordIndex !== undefined && savedState.selectedChordIndex !== null) {
             const parsedIndex = parseInt(savedState.selectedChordIndex, 10);
             if (!isNaN(parsedIndex)) state.selectedChordIndex = Math.max(0, parsedIndex);
@@ -97,6 +121,26 @@ export function loadAndApplyInitialState(explicitState = null) {
             }
         };
 
+        if (Array.isArray(savedState.customChords)) {
+            state.customChords = savedState.customChords.slice(0, 3).map(cc => {
+                return {
+                    id: cc.id || Math.random().toString(36).substring(2, 10),
+                    symbol: typeof cc.symbol === 'string' ? cc.symbol.replace(/[<>"]/g, '').substring(0, 20) : 'Custom',
+                    key: typeof cc.key === 'number' ? Math.max(0, Math.min(127, cc.key)) : state.baseKey,
+                    customNotes: Array.isArray(cc.customNotes) ? cc.customNotes.map(Number) : [],
+                    duration: typeof cc.duration === 'number' ? cc.duration : 2,
+                    voicingType: cc.voicingType || 'global',
+                    voicing: cc.voicing || null,
+                    divisions: typeof cc.divisions === 'number' ? cc.divisions : 12,
+                    chordPattern: sanitizePat(cc.chordPattern, false) || initChordPattern(),
+                    bassPattern: sanitizePat(cc.bassPattern, false) || initChordPattern(),
+                    drumPattern: sanitizePat(cc.drumPattern, true) || initDrumPattern()
+                };
+            });
+        } else {
+            state.customChords = [];
+        }
+
         // NEW Phase 6 Helper: Sanitize Progression Array
         const sanitizeProgression = (progArr) => {
             if (!Array.isArray(progArr)) return [];
@@ -113,6 +157,10 @@ export function loadAndApplyInitialState(explicitState = null) {
                 chordObj.duration = typeof chordObj.duration !== 'undefined' ? Math.max(1, Math.round(Number(chordObj.duration)) || 2) : 2;
                 chordObj.voicingType = typeof item.voicingType === 'string' ? item.voicingType : 'global';
                 chordObj.voicing = item.voicing ? { ...item.voicing } : null;
+
+                if (Array.isArray(item.customNotes)) {
+                    chordObj.customNotes = item.customNotes.map(Number);
+                }
 
                 // Migrate legacy pattern if it exists
                 if (chordObj.pattern) {
@@ -151,6 +199,9 @@ export function loadAndApplyInitialState(explicitState = null) {
                     if (typeof swapObj.inversionOffset !== 'number') delete swapObj.inversionOffset;
                     if (typeof swapObj.voicingType !== 'string') delete swapObj.voicingType;
                     if (typeof swapObj.voicing !== 'object') delete swapObj.voicing;
+                    if (Array.isArray(swapObj.customNotes)) {
+                        swapObj.customNotes = swapObj.customNotes.map(Number);
+                    }
                     if (typeof swapObj.divisions === 'number') cleanSwaps[idx].divisions = swapObj.divisions;
                     cleanSwaps[idx] = swapObj;
                 }
@@ -283,6 +334,9 @@ export function loadAndApplyInitialState(explicitState = null) {
         }
     }
 
+    if (typeof window !== 'undefined') {
+        window.__customChords = state.customChords;
+    }
     applyLoopBounds();
     applyMacroLoopBounds();
 }

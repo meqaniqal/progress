@@ -142,11 +142,11 @@ To achieve a "mind-bending" electronica aesthetic, the app is currently expandin
 - [x] **Smart Drag-and-Drop:** Dynamically collapse inactive chord palettes during drag operations to instantly bring the chord tray drop-zone into the mobile viewport.
 - **Experimental Draw Mode & Workflow Refactor (Complete ✅):** Shifted to an "Edit-in-Place" Push/Pull workflow. Added a new Pencil Draw tool with Boolean overlap math for rapid sequence painting and gating.
 
-### 6. Advanced Modular Synthesis & Sound Design (In Progress / Complete ✅)
+### 6. Advanced Modular Synthesis & Sound Design (Complete ✅)
 - **Editable AI-Targeted Synths (Complete ✅):** The default sine/sawtooth engines have been upgraded with multiple modular synths (FM, Pluck). Features a foldaway "Synth Editor" panel to deeply customize Modulation, Envelopes, Cutoff, and Decay directly in the UI.
-- **Bass-Geared Synthesizers:** A dedicated, modular synth for the bassline layer, featuring editable parameters for sub-harmonics and drive to anchor AI generations.
-- **Professional Generative Drums:** A drum editor that uses professional-grade sampling or synthesis to produce high-quality drum exports.
-- **Modular UI Architecture:** Each of these engines (Synth, Bass, Drums) will exist as entirely decoupled modules with their own localized UI logic to ensure the app remains performant, testable, and clean.
+- **Bass-Geared Synthesizers (Complete ✅):** A dedicated, modular synth for the bassline layer, featuring editable parameters for sub-harmonics and separate pre-distortion drive to anchor AI generations. Added sample bass option with Attack, Decay, Sustain, and Release envelope mapping, a `-2 Octaves Drop` toggle, and a semitone pitch slider.
+- **Professional Generative Drums (Complete ✅):** A drum editor that uses professional-grade synthesis to produce high-quality drum exports with adjustable decay, pitch, cutoff, drive, noise types, a 4x volume boost, and global pattern viewport auto-fit.
+- **Modular UI Architecture (Complete ✅):** Decoupled Synth, Bass, and Drum editor panel UI logic states into modular settings.
 
 ### 7. Progressive Disclosure & Simple Mode (Complete ✅)
 - **Beginner-Friendly Defaults:** A default "Simple Mode" upon app load that hides advanced theory configurations, the timeline editor, and complex voicings.
@@ -226,10 +226,11 @@ Transitioning from mapping 12-TET math into EDOs towards supporting true, indepe
 - [x] **Polyphonic Slice Pitch Editing:** Expand the Pattern Editor's Pitch Mode (currently limited to Bass) to support Chords. Allow users to adjust the pitch of individual notes within a sliced chord block, essentially creating custom voicings per slice. Includes copy/paste functionality to apply these specific pitch modifications across multiple slices.
 - [x] **Intelligent Bassline Enhancements:** Refine the bassline generation logic which is currently too strict (often yielding a single short slice). Upgrade it to produce more interesting, multi-note rhythmic patterns that take surrounding chords and broader rhythmic context into consideration.
 
-### 13. Intelligent Harmonic Intelligence & Arrangement UX (Phase 10 - Planned)
-- **Modal/Scale Degree Snapping for Transitions**: Refine transition note choices dynamically to align with scale degrees or modal functions, making runs and ornaments sound highly professional and contextual.
-- **Dynamic Pitch-to-Chord Analysis**: Re-analyze chord symbols in real-time when the user manually modifies note pitches in Chords Pitch Mode. If the custom voicing matches a valid chord structure, update the chord symbol (e.g. changing root/extension to "Isus4" or "Csus4") so that subsequent AI prompts and voicing generators use correct, updated context.
-- **Emotional Suggestion Engine & Color-Coded Transpose**: Perform progression analysis to suggest chords in the chord chooser matching desired emotional states (e.g., Luminous, Mournful, Heroic). Match the colors of the key transposition dropdown to these emotional possibilities.
-- **Arrangement UX Enhancements**:
-  - Make the `+looped` button act like standard chord buttons; dragging it hides other buttons to facilitate clean drop insertion.
-  - Auto-expand loop brace boundaries when a loop is dragged and dropped immediately following the last chord in the current loop.
+### 13. Intelligent Harmonic Intelligence & Arrangement UX (Phase 10 - Complete ✅)
+- **Modal/Scale Degree Snapping for Transitions (Complete ✅):** Refine transition note choices dynamically to align with scale degrees or modal functions, making runs and ornaments sound highly professional and contextual.
+- **Dynamic Pitch-to-Chord Analysis (Complete ✅):** Re-analysed chord symbols in real-time when the user manually modifies note pitches in Chords Pitch Mode. If the custom voicing matches a valid chord structure, the chord symbol is updated (e.g. changing root/extension to "Isus4" or "Csus4") so that subsequent AI prompts and voicing generators use correct, updated context.
+- **Emotional Suggestion Engine & Color-Coded Transpose (Complete ✅):** Suggests chords in the chord chooser matching desired emotional states (e.g., Luminous, Mournful, Heroic). Transposition dropdown colors reflect emotional targets.
+- **Arrangement UX Enhancements (Complete ✅):**
+  - Made the `+looped` button act like standard chord buttons; dragging it hides other buttons to facilitate clean drop insertion.
+  - Auto-expands loop brace boundaries when a loop is dragged and dropped immediately following the last chord in the current loop.
+y following the last chord in the current loop.

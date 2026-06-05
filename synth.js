@@ -2,6 +2,7 @@ import { CONFIG } from './config.js';
 import { SYNTH_REGISTRY } from './synthEngines.js';
 import { DRUM_REGISTRY } from './drumEngines.js';
 import { saveDrumSample, loadDrumSample, clearAllDrumSamples, deleteDrumSample } from './db.js';
+import { state } from './store.js';
 
 let audioCtx;
 let decodeCtx; // Used to decode audio on page load without triggering Autoplay warnings
@@ -9,7 +10,21 @@ let activeOscillators = [];
 let masterCompressor; // Module-scoped, but only initialized once
 
 let masterGain, chordsGain, bassGain, bassHarmonicGain, drumsGain;
+let bassShaper, bassHarmonicShaper;
+let bassDriveGain, bassHarmonicDriveGain;
+export let customBassBuffer = null;
+export let customChordBuffer = null;
 let trackVolumes = { master: 1.0, chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 };
+
+function makeSoftClipCurve(drive) {
+    const n_samples = 44100;
+    const curve = new Float32Array(n_samples);
+    for (let i = 0; i < n_samples; ++i) {
+        const x = (i * 2) / n_samples - 1;
+        curve[i] = Math.tanh(x * drive) / Math.tanh(drive);
+    }
+    return curve;
+}
 
 export let currentSynthParams = { 
     fm: { ratio: 2, modIndex: 3, attack: 0.1, release: 0.5 },
@@ -28,7 +43,10 @@ export function setTrackVolume(track, vol) {
         if (track === 'master' && masterGain) masterGain.gain.setTargetAtTime(vol, time, 0.05);
         if (track === 'chords' && chordsGain) chordsGain.gain.setTargetAtTime(vol, time, 0.05);
         if (track === 'bass' && bassGain) bassGain.gain.setTargetAtTime(vol, time, 0.05);
-        if (track === 'bassHarmonic' && bassHarmonicGain) bassHarmonicGain.gain.setTargetAtTime(vol, time, 0.05);
+        if (track === 'bassHarmonic' && bassHarmonicGain) {
+            const mappedVol = Math.pow(vol, 2.5);
+            bassHarmonicGain.gain.setTargetAtTime(mappedVol, time, 0.05);
+        }
         if (track === 'drums' && drumsGain) drumsGain.gain.setTargetAtTime(vol, time, 0.05);
     }
 }
@@ -96,13 +114,38 @@ export function initAudio() {
             bassGain = audioCtx.createGain();
             bassHarmonicGain = audioCtx.createGain();
             drumsGain = audioCtx.createGain();
+            
+            // Setup Soft Clippers to add analog-like saturation at higher volumes
+            bassShaper = audioCtx.createWaveShaper();
+            bassShaper.curve = makeSoftClipCurve(2.0);
+            bassShaper.oversample = '4x';
+            
+            bassHarmonicShaper = audioCtx.createWaveShaper();
+            bassHarmonicShaper.curve = makeSoftClipCurve(3.0);
+            bassHarmonicShaper.oversample = '4x';
+            
+            bassDriveGain = audioCtx.createGain();
+            bassDriveGain.gain.value = state.bassDrive !== undefined ? state.bassDrive : 1.0;
+            
+            bassHarmonicDriveGain = audioCtx.createGain();
+            bassHarmonicDriveGain.gain.value = state.bassHarmonicDrive !== undefined ? state.bassHarmonicDrive : 1.0;
+            
             chordsGain.gain.value = trackVolumes.chords;
             bassGain.gain.value = trackVolumes.bass;
             bassHarmonicGain.gain.value = trackVolumes.bassHarmonic;
             drumsGain.gain.value = trackVolumes.drums;
+            
             chordsGain.connect(masterCompressor);
+            
+            // Route: Drive -> Shaper -> Volume -> Master
+            bassDriveGain.connect(bassShaper);
+            bassShaper.connect(bassGain);
             bassGain.connect(masterCompressor);
+            
+            bassHarmonicDriveGain.connect(bassHarmonicShaper);
+            bassHarmonicShaper.connect(bassHarmonicGain);
             bassHarmonicGain.connect(masterCompressor);
+            
             drumsGain.connect(masterCompressor);
         }
         
@@ -155,6 +198,8 @@ export async function loadPersistedDrumSamples() {
             console.warn(`Could not load ${type} from IndexedDB`, e);
         }
     }
+    await loadPersistedBassSample();
+    await loadPersistedChordSample();
 }
 
 export async function clearCustomDrumSamples() {
@@ -187,14 +232,14 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
     const engine = SYNTH_REGISTRY[type];
     if (!engine) return;
 
-    let targetGainNode = bassGain;
+    let targetGainNode = bassDriveGain || bassGain;
     if (destBus === 'chords') targetGainNode = chordsGain;
-    else if (destBus === 'bass') targetGainNode = bassGain;
-    else if (destBus === 'bassHarmonic') targetGainNode = bassHarmonicGain;
+    else if (destBus === 'bass') targetGainNode = bassDriveGain || bassGain;
+    else if (destBus === 'bassHarmonic') targetGainNode = bassHarmonicDriveGain || bassHarmonicGain;
     else {
         // Legacy fallback
         if (type === 'sawtooth') targetGainNode = chordsGain;
-        if (type === 'sawtooth-bass') targetGainNode = bassHarmonicGain;
+        if (type === 'sawtooth-bass') targetGainNode = bassHarmonicDriveGain || bassHarmonicGain;
     }
 
     let finalDest = targetGainNode;
@@ -208,6 +253,28 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
     }
 
     const engineParams = { ...(currentSynthParams[type] || {}), vol };
+    if (type === 'sample-bass') {
+        engineParams.buffer = customBassBuffer;
+        engineParams.adsr = state.bassAdsr;
+        const rootMidi = 48; // C3
+        const rootFreq = midiToFreq(rootMidi);
+        const pitchShift = state.bassAdsr ? (state.bassAdsr.pitch || 0) : 0;
+        const octaveShift = state.bassAdsr && state.bassAdsr.octaveDrop ? -24 : 0;
+        engineParams.playbackRate = (freq / rootFreq) * Math.pow(2, (pitchShift + octaveShift) / 12);
+    }
+    if (type === 'sample-chords') {
+        engineParams.buffer = customChordBuffer;
+        engineParams.adsr = state.chordAdsr;
+        const rootMidi = 60; // C4
+        const rootFreq = midiToFreq(rootMidi);
+        const pitchShift = state.chordAdsr ? (state.chordAdsr.pitch || 0) : 0;
+        engineParams.playbackRate = (freq / rootFreq) * Math.pow(2, pitchShift / 12);
+    }
+    if (type === 'karplus-strong') {
+        engineParams.damping = state.bassKsDamping !== undefined ? state.bassKsDamping : 400;
+        engineParams.decay = state.bassKsDecay !== undefined ? state.bassKsDecay : 0.95;
+    }
+
     const osc = engine(audioCtx, freq, startTime, duration, finalDest, (deadOsc) => {
         activeOscillators = activeOscillators.filter(o => o !== deadOsc);
         if (panner) panner.disconnect();
@@ -224,12 +291,13 @@ export function playDrum(type, startTime, velocity = 1.0, customCtx = null, cust
     if (!ctx) return;
 
     try {
+        const params = (state.drumParams && state.drumParams[type]) ? state.drumParams[type] : {};
         if (customDrumBuffers[type]) {
             const engine = DRUM_REGISTRY['sample'];
             if (engine) {
                 const nodes = engine(ctx, startTime, velocity, dest, customDrumBuffers[type], (deadNode) => {
                     activeOscillators = activeOscillators.filter(o => o !== deadNode);
-                });
+                }, params);
                 if (nodes) activeOscillators.push(...nodes);
             }
             return;
@@ -239,7 +307,7 @@ export function playDrum(type, startTime, velocity = 1.0, customCtx = null, cust
         if (engine) {
             const nodes = engine(ctx, startTime, velocity, dest, noiseBuffer, (deadNode) => {
                 activeOscillators = activeOscillators.filter(o => o !== deadNode);
-            });
+            }, params);
             if (nodes) activeOscillators.push(...nodes);
         }
     } catch (e) {
@@ -255,4 +323,78 @@ export function stopOscillators() {
         } catch (e) { /* Ignore InvalidStateError */ }
     });
     activeOscillators = [];
+}
+
+export function setBassDrive(driveVal) {
+    if (audioCtx && bassDriveGain) {
+        bassDriveGain.gain.setTargetAtTime(driveVal, audioCtx.currentTime, 0.05);
+    }
+}
+
+export function setBassHarmonicDrive(driveVal) {
+    if (audioCtx && bassHarmonicDriveGain) {
+        bassHarmonicDriveGain.gain.setTargetAtTime(driveVal, audioCtx.currentTime, 0.05);
+    }
+}
+
+export async function decodeCustomBassSample(arrayBuffer, saveToDb = true) {
+    if (!decodeCtx) {
+        const sampleRate = audioCtx ? audioCtx.sampleRate : 44100;
+        decodeCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, sampleRate, sampleRate);
+    }
+    try {
+        if (saveToDb) {
+            await saveDrumSample('bassSample', arrayBuffer.slice(0)); 
+        }
+        customBassBuffer = await decodeCtx.decodeAudioData(arrayBuffer);
+    } catch (e) {
+        console.error("Failed to decode custom bass sample:", e);
+    }
+}
+
+export async function loadPersistedBassSample() {
+    try {
+        const buffer = await loadDrumSample('bassSample');
+        if (buffer) {
+            await decodeCustomBassSample(buffer, false);
+        }
+    } catch (e) {
+        console.warn(`Could not load bass sample from IndexedDB`, e);
+    }
+}
+
+export async function clearCustomBassSample() {
+    customBassBuffer = null;
+    await deleteDrumSample('bassSample');
+}
+
+export async function decodeCustomChordSample(arrayBuffer, saveToDb = true) {
+    if (!decodeCtx) {
+        const sampleRate = audioCtx ? audioCtx.sampleRate : 44100;
+        decodeCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, sampleRate, sampleRate);
+    }
+    try {
+        if (saveToDb) {
+            await saveDrumSample('chordSample', arrayBuffer.slice(0)); 
+        }
+        customChordBuffer = await decodeCtx.decodeAudioData(arrayBuffer);
+    } catch (e) {
+        console.error("Failed to decode custom chord sample:", e);
+    }
+}
+
+export async function loadPersistedChordSample() {
+    try {
+        const buffer = await loadDrumSample('chordSample');
+        if (buffer) {
+            await decodeCustomChordSample(buffer, false);
+        }
+    } catch (e) {
+        console.warn(`Could not load chord sample from IndexedDB`, e);
+    }
+}
+
+export async function clearCustomChordSample() {
+    customChordBuffer = null;
+    await deleteDrumSample('chordSample');
 }

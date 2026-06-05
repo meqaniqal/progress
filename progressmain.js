@@ -13,6 +13,7 @@ import { initModals } from './modalController.js';
 import { initTransport, resetTransport, isPlaybackActive, restartTransport } from './transportController.js';
 import { initSongController, updateSongUI, exitSongMode, isSongTrayOpen } from './songController.js';
 import { initSettingsUI, syncSettingsUI, updateCustomDrumsUI } from './settingsController.js';
+import { identifyChord } from './chordAnalyzer.js';
 
 function getAuditionNotes(progression, index, appState) {
     let notesToPlay = getPlayableNotes(progression, appState)[index];
@@ -279,6 +280,29 @@ function _setupKeyAndModeSelectors() {
             }
         });
     }
+
+    const emotionalChordsContainer = document.getElementById('emotional-chords-container');
+    if (emotionalChordsContainer) {
+        let touchStartX = 0;
+        let touchEndX = 0;
+        emotionalChordsContainer.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+        
+        emotionalChordsContainer.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            const diffX = touchEndX - touchStartX;
+            if (Math.abs(diffX) > 50) {
+                if (diffX > 0) {
+                    const prevBtn = document.getElementById('btn-sug-prev');
+                    if (prevBtn && !prevBtn.disabled) prevBtn.click();
+                } else {
+                    const nextBtn = document.getElementById('btn-sug-next');
+                    if (nextBtn && !nextBtn.disabled) nextBtn.click();
+                }
+            }
+        }, { passive: true });
+    }
 }
 
 function _setupProgressionDisplayEvents(display) {
@@ -490,9 +514,9 @@ function _setupGlobalDoubleTap() {
 
     document.addEventListener('pointerdown', (e) => {
         // Ignore taps on all interactive elements, timelines, panels, and controls
-        const ignoredSelectors = 'button, input, select, textarea, .progression-item, .chord-btn, .rhythm-instance, .drum-hit, .bracket-element, .controls, .pattern-tab, .swap-menu, .rhythm-timeline-container, .modal-content, .drum-row-label';
+        const ignoredSelectors = 'button, input, select, textarea, .progression-item, .chord-btn, .rhythm-instance, .drum-hit, .bracket-element, .controls, .pattern-tab, .swap-menu, .rhythm-timeline-container, .modal-content, .drum-row-label, .piano-cell, .piano-note-block, .piano-key, .piano-row';
         // CORRECT_PATTERN: Text nodes don't have .closest, so we must guard this call.
-        if (e.target.closest && e.target.closest(ignoredSelectors)) {
+        if (e.target.closest && (e.target.closest(ignoredSelectors) || e.target.closest('#palette-custom-builder'))) {
             lastTapTime = 0;
             return;
         }
@@ -545,6 +569,7 @@ function initApp() {
     initSongController({ onRenderProgression: renderProgression });
     _setupControlButtons();
     _setupChordButtons();
+    _setupCustomChordBuilder();
     initTransport({ onRenderProgression: renderProgression });
     _setupProgressionDisplayEvents(display);
     _setupDragAndDrop(display);
@@ -561,6 +586,298 @@ function initApp() {
     document.documentElement.classList.add('loaded');
     document.body.style.visibility = 'visible';
     document.body.style.opacity = '1';
+}
+
+let customBuilderNotes = new Set(); // Stores base 12-tet notes (integers from 48 to 84)
+let customBuilderOffsets = {};      // Map: baseMidi -> offset (float)
+let customBuilderDeletedOffsets = {}; // Map: baseMidi -> offset (to restore on deletion mistake)
+
+let draggedBuilderPitch = null;
+let dragStartPointerY = 0;
+let dragStartOffset = 0;
+
+let lastBuilderTapTime = 0;
+let lastBuilderTapPitch = null;
+
+let lastAuditionedChordKey = '';
+function auditionCurrentBuilderChord(force = false) {
+    const notes = Array.from(customBuilderNotes).map(n => n + (customBuilderOffsets[n] || 0)).sort((a, b) => a - b);
+    if (notes.length === 0) return;
+    
+    const key = notes.map(n => n.toFixed(4)).join(',');
+    if (!force && key === lastAuditionedChordKey) {
+        return;
+    }
+    lastAuditionedChordKey = key;
+    
+    auditionChord('CustomTemp', state.baseKey, notes, state.divisions);
+}
+
+let builderDragAuditionTimeout = null;
+function debouncedAuditionCurrentBuilderChord(delayMs = 250) {
+    if (builderDragAuditionTimeout) {
+        clearTimeout(builderDragAuditionTimeout);
+    }
+    builderDragAuditionTimeout = setTimeout(() => {
+        auditionCurrentBuilderChord(false);
+    }, delayMs);
+}
+
+function _setupCustomChordBuilder() {
+    const grid = document.getElementById('piano-roll-grid');
+    if (!grid) return;
+
+    window.__renderCustomBuilderGrid = function() {
+        grid.innerHTML = '';
+
+        const NOTE_CLASSES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const pitches = [];
+        for (let i = 84; i >= 48; i--) {
+            pitches.push(i);
+        }
+
+        pitches.forEach(p => {
+            const nearestMidi = p;
+            const offset = customBuilderOffsets[p] || 0;
+            const cents = Math.round(offset * 100);
+            const name = NOTE_CLASSES[(nearestMidi % 12 + 12) % 12];
+            const octave = Math.floor(nearestMidi / 12) - 1;
+            const centsStr = cents === 0 ? '' : (cents > 0 ? ` +${cents}¢` : ` ${cents}¢`);
+            const label = `${name}${octave}${centsStr}`;
+
+            const isBlack = [1, 3, 6, 8, 10].includes((nearestMidi % 12 + 12) % 12);
+
+            const row = document.createElement('div');
+            row.className = 'piano-row';
+            row.style.display = 'flex';
+            row.style.height = '24px';
+            row.style.borderBottom = '1px solid var(--border-main)';
+            row.style.width = '100%';
+            row.style.boxSizing = 'border-box';
+            row.style.userSelect = 'none';
+
+            // Key element
+            const key = document.createElement('div');
+            key.className = 'piano-key';
+            key.style.width = '70px';
+            key.style.background = isBlack ? '#222' : '#fff';
+            key.style.color = isBlack ? '#fff' : '#000';
+            key.style.borderRight = '1px solid var(--border-main)';
+            key.style.padding = '0 6px';
+            key.style.fontSize = '9px';
+            key.style.display = 'flex';
+            key.style.alignItems = 'center';
+            key.style.fontWeight = 'bold';
+            key.textContent = label;
+            key.style.flexShrink = '0';
+            row.appendChild(key);
+
+            // Grid cell
+            const cell = document.createElement('div');
+            cell.className = 'piano-cell';
+            cell.style.flexGrow = '1';
+            cell.style.position = 'relative';
+            cell.style.cursor = 'pointer';
+            cell.style.background = 'var(--bg-panel)';
+            cell.dataset.pitch = p;
+
+            const isActive = customBuilderNotes.has(p);
+            if (isActive) {
+                const block = document.createElement('div');
+                block.className = 'piano-note-block';
+                block.style.position = 'absolute';
+                block.style.top = '2px';
+                block.style.bottom = '2px';
+                block.style.left = '4px';
+                block.style.right = '4px';
+                block.style.background = '#fbbf24';
+                block.style.borderRadius = '4px';
+                block.style.boxShadow = '0 0 6px rgba(251,191,36,0.8)';
+                block.style.cursor = 'ns-resize';
+                block.style.touchAction = 'none';
+                cell.appendChild(block);
+            }
+
+            row.appendChild(cell);
+            grid.appendChild(row);
+        });
+    };
+
+    grid.addEventListener('pointerdown', (e) => {
+        const cell = e.target.closest('.piano-cell');
+        if (!cell) return;
+        const pitch = parseInt(cell.dataset.pitch, 10);
+        const isBlock = e.target.classList.contains('piano-note-block');
+        
+        if (isBlock) {
+            draggedBuilderPitch = pitch;
+            dragStartPointerY = e.clientY;
+            dragStartOffset = customBuilderOffsets[pitch] || 0;
+            cell.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        } else {
+            const now = Date.now();
+            const doubleTapDelay = 300;
+            
+            if (now - lastBuilderTapTime < doubleTapDelay && lastBuilderTapPitch === pitch) {
+                // Double Tap!
+                if (customBuilderNotes.has(pitch)) {
+                    customBuilderNotes.delete(pitch);
+                    delete customBuilderOffsets[pitch];
+                    delete customBuilderDeletedOffsets[pitch];
+                } else {
+                    customBuilderNotes.add(pitch);
+                    customBuilderOffsets[pitch] = 0;
+                    delete customBuilderDeletedOffsets[pitch];
+                }
+                lastBuilderTapTime = 0;
+                lastBuilderTapPitch = null;
+                window.__renderCustomBuilderGrid();
+                auditionCurrentBuilderChord(true);
+            } else {
+                lastBuilderTapTime = now;
+                lastBuilderTapPitch = pitch;
+                
+                setTimeout(() => {
+                    if (lastBuilderTapPitch === pitch && lastBuilderTapTime === now && draggedBuilderPitch === null) {
+                        // Single Tap!
+                        if (customBuilderNotes.has(pitch)) {
+                            customBuilderDeletedOffsets[pitch] = customBuilderOffsets[pitch] || 0;
+                            customBuilderNotes.delete(pitch);
+                            delete customBuilderOffsets[pitch];
+                        } else {
+                            customBuilderNotes.add(pitch);
+                            customBuilderOffsets[pitch] = customBuilderDeletedOffsets[pitch] !== undefined ? customBuilderDeletedOffsets[pitch] : 0;
+                            delete customBuilderDeletedOffsets[pitch];
+                        }
+                        window.__renderCustomBuilderGrid();
+                        auditionCurrentBuilderChord(true);
+                    }
+                }, 250);
+            }
+        }
+    });
+
+    grid.addEventListener('pointermove', (e) => {
+        if (draggedBuilderPitch === null) return;
+        
+        const deltaY = e.clientY - dragStartPointerY;
+        const tuning = getPitchEditorTuning(null, state.divisions || 12);
+        
+        const floatPitchChange = -deltaY / 24;
+        const targetAbsolutePitch = draggedBuilderPitch + dragStartOffset + floatPitchChange;
+        const snappedAbsolutePitch = snapToGrid(targetAbsolutePitch, tuning);
+        
+        let newBaseNote = Math.round(snappedAbsolutePitch);
+        newBaseNote = Math.max(48, Math.min(84, newBaseNote));
+        
+        const newOffset = snappedAbsolutePitch - newBaseNote;
+        
+        if (newBaseNote !== draggedBuilderPitch) {
+            customBuilderNotes.delete(draggedBuilderPitch);
+            delete customBuilderOffsets[draggedBuilderPitch];
+            
+            customBuilderNotes.add(newBaseNote);
+            draggedBuilderPitch = newBaseNote;
+            
+            dragStartPointerY = e.clientY;
+            dragStartOffset = newOffset;
+        }
+        
+        customBuilderOffsets[newBaseNote] = newOffset;
+        window.__renderCustomBuilderGrid();
+        debouncedAuditionCurrentBuilderChord(250);
+    });
+
+    grid.addEventListener('pointerup', (e) => {
+        if (draggedBuilderPitch !== null) {
+            const cell = e.target.closest('.piano-cell') || grid.querySelector(`.piano-cell[data-pitch="${draggedBuilderPitch}"]`);
+            if (cell) {
+                try { cell.releasePointerCapture(e.pointerId); } catch(err) {}
+            }
+            draggedBuilderPitch = null;
+            if (builderDragAuditionTimeout) {
+                clearTimeout(builderDragAuditionTimeout);
+            }
+            auditionCurrentBuilderChord();
+        }
+    });
+
+    // Clear Button
+    const clearBtn = document.getElementById('btn-piano-clear');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            customBuilderNotes.clear();
+            customBuilderOffsets = {};
+            customBuilderDeletedOffsets = {};
+            window.__renderCustomBuilderGrid();
+        });
+    }
+
+    // Save Button
+    const saveBtn = document.getElementById('btn-piano-save');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            const notes = Array.from(customBuilderNotes).map(n => n + (customBuilderOffsets[n] || 0)).sort((a, b) => a - b);
+            if (notes.length === 0) return;
+
+            const numeral = identifyChord(notes, state.baseKey, true);
+            const newCustomChord = {
+                symbol: numeral,
+                customNotes: notes,
+                key: state.baseKey
+            };
+
+            state.customChords = state.customChords.filter(c => c.symbol !== numeral);
+            state.customChords.push(newCustomChord);
+            if (state.customChords.length > 3) {
+                state.customChords.shift();
+            }
+
+            window.__customChords = state.customChords;
+            persistAppState();
+
+            state.editorState.activeBuilderTab = 'standard';
+            persistAppState();
+            updateKeyAndModeDisplay(state);
+            renderProgression();
+        });
+    }
+
+    // Scroll lock container support to prevent whole app scroll
+    const scrollContainer = document.getElementById('piano-roll-scroll-container');
+    if (scrollContainer) {
+        scrollContainer.style.overscrollBehavior = 'contain';
+        scrollContainer.style.touchAction = 'pan-y';
+        scrollContainer.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
+        scrollContainer.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
+    }
+
+    // Disable browser native drag outlines
+    grid.addEventListener('dragstart', (e) => e.preventDefault());
+
+    // Audition Button (Speaker Icon)
+    const auditionBtn = document.getElementById('btn-builder-audition');
+    if (auditionBtn) {
+        auditionBtn.addEventListener('click', () => {
+            auditionCurrentBuilderChord(true);
+        });
+    }
+
+    // Prevent longpress context menu on mobile inside the custom chord builder container
+    const customBuilderContainer = document.getElementById('palette-custom-builder');
+    if (customBuilderContainer) {
+        customBuilderContainer.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+    }
+
+    // Centrally prevent context menus on range sliders to improve mobile dragging UX
+    document.addEventListener('contextmenu', (e) => {
+        if (e.target.matches('input[type="range"]')) {
+            e.preventDefault();
+        }
+    });
 }
 
 // Robust initialization: handle cases where DOM is already loaded

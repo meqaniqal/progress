@@ -35,6 +35,12 @@ function _setupTabsAndToggles() {
                 editorState.isGlobal = false; // Force edit-in-place local behavior immediately
             }
 
+            if (editorState.activeTab === 'drumPattern' && editorState.isGlobal) {
+                const pat = app.state.globalPatterns.drumPattern;
+                const beats = pat && pat.lengthBeats ? pat.lengthBeats : 4;
+                editorState.zoomLevel = 4 / beats;
+            }
+
             app.persistAppState();
             const modeSelect = document.getElementById('global-mode-select');
             const pattern = getCurrentPattern();
@@ -53,6 +59,13 @@ function _setupTabsAndToggles() {
             e.target.classList.add('active');
             editorState.isGlobal = e.target.dataset.mode === 'global';
             editorState.activeOverlayId = null; // Clear overlay when switching modes
+            
+            if (editorState.activeTab === 'drumPattern' && editorState.isGlobal) {
+                const pat = app.state.globalPatterns.drumPattern;
+                const beats = pat && pat.lengthBeats ? pat.lengthBeats : 4;
+                editorState.zoomLevel = 4 / beats;
+            }
+
             renderRhythmTimeline();
         });
     });
@@ -111,6 +124,8 @@ function _setupDrumControls() {
         drumLengthSelect.className = 'rhythm-select';
         drumLengthSelect.title = 'Global Drum Pattern Length';
         drumLengthSelect.innerHTML = `
+            <option value="1">1 Beat</option>
+            <option value="2">2 Beats</option>
             <option value="4">4 Beats</option>
             <option value="8">8 Beats</option>
             <option value="16">16 Beats</option>
@@ -120,11 +135,14 @@ function _setupDrumControls() {
 
         let drumCropBtn = document.createElement('button');
         drumCropBtn.id = 'btn-drum-crop';
-        drumCropBtn.className = 'control-btn secondary';
-        drumCropBtn.style.padding = '6px 12px';
-        drumCropBtn.style.fontSize = '13px';
+        drumCropBtn.className = 'control-btn secondary btn-sm';
+        drumCropBtn.style.padding = '4px 8px';
+        drumCropBtn.style.fontSize = '12px';
         drumCropBtn.title = 'Crop hidden out-of-bounds hits';
         drumCropBtn.innerHTML = '✂ Crop';
+        
+        // Wrap elements to separate line for Crop/Double if needed on narrow viewports
+        // In index.html we let parent container warp them naturally or place them after lengthSelect.
         drumLengthSelect.parentNode.insertBefore(drumCropBtn, drumLengthSelect.nextSibling);
 
         drumCropBtn.addEventListener('click', () => {
@@ -139,9 +157,9 @@ function _setupDrumControls() {
 
         let drumDoubleBtn = document.createElement('button');
         drumDoubleBtn.id = 'btn-drum-double';
-        drumDoubleBtn.className = 'control-btn secondary';
-        drumDoubleBtn.style.padding = '6px 12px';
-        drumDoubleBtn.style.fontSize = '13px';
+        drumDoubleBtn.className = 'control-btn secondary btn-sm';
+        drumDoubleBtn.style.padding = '4px 8px';
+        drumDoubleBtn.style.fontSize = '12px';
         drumDoubleBtn.title = 'Double beats and duplicate pattern to second half';
         drumDoubleBtn.innerHTML = '⇲ Double';
         drumCropBtn.parentNode.insertBefore(drumDoubleBtn, drumCropBtn.nextSibling);
@@ -195,6 +213,9 @@ function _setupDrumControls() {
                     ...h,
                     time: (h.time * oldLength) / newLength
                 }));
+                
+                // Zoom so that the total number of beats fills the rhythm editor
+                editorState.zoomLevel = 4 / newLength;
                 
                 setCurrentPattern({ ...pattern, lengthBeats: newLength, hits: scaledHits });
                 app.persistAppState();

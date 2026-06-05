@@ -46,7 +46,7 @@ export function initDrumInteractions(timeline) {
             e.preventDefault();
             const zoomDelta = e.deltaY > 0 ? -0.2 : 0.2;
             const currentZoom = editorState.zoomLevel || 1.0;
-            editorState.zoomLevel = Math.max(0.8, Math.min(4.0, currentZoom + zoomDelta));
+            editorState.zoomLevel = Math.max(0.1, Math.min(4.0, currentZoom + zoomDelta));
             renderRhythmTimeline();
         }
     }, { passive: false });
@@ -90,17 +90,23 @@ export function initDrumInteractions(timeline) {
                 
                 // Use the X coordinate of the FIRST tap for precision to prevent finger-shift
                 const targetX = lastTapCoords.x;
-                let targetTimeRatio = Math.max(0, Math.min(1, targetX / rect.width));
+                let targetTimeRatio = targetX / rect.width;
                 
                 let newTime = targetTimeRatio;
                 if (actualGridValue > 0) newTime = Math.round(newTime / actualGridValue) * actualGridValue;
                 
-                pattern = addDrumHit(pattern, { time: newTime, row: rowType, velocity: 1.0 });
-                playDrum(rowType, getAudioCurrentTime());
-                
-                // Automatically select the newly added hit so its properties panel appears
-                if (pattern.hits && pattern.hits.length > 0) {
-                    editorState.selectedHitId = pattern.hits[pattern.hits.length - 1].id;
+                // Do not allow creating hits at or beyond 1.0 (out of bounds)
+                if (newTime >= 1.0 || targetTimeRatio >= 1.0) {
+                    return;
+                }
+                if (newTime >= 0) {
+                    pattern = addDrumHit(pattern, { time: newTime, row: rowType, velocity: 1.0 });
+                    playDrum(rowType, getAudioCurrentTime());
+                    
+                    // Automatically select the newly added hit so its properties panel appears
+                    if (pattern.hits && pattern.hits.length > 0) {
+                        editorState.selectedHitId = pattern.hits[pattern.hits.length - 1].id;
+                    }
                 }
             }
             
@@ -155,9 +161,13 @@ export function initDrumInteractions(timeline) {
         let x = e.clientX - rect.left;
         let rawTimeRatio = Math.max(0, x / rect.width);
         let newTime = Math.max(0, rawTimeRatio - dragTimeOffset);
-
+        
         const actualGridValue = getActiveGridValue();
         if (actualGridValue > 0 && !e.shiftKey) newTime = Math.round(newTime / actualGridValue) * actualGridValue;
+
+        // Clamp to prevent dragging beyond active playback length boundary (below 1.0)
+        const limitTime = 1.0 - (actualGridValue || 0.0625);
+        if (newTime > limitTime) newTime = limitTime;
 
         const pattern = getCurrentPattern();
         if (!pattern || !Array.isArray(pattern.hits)) return;

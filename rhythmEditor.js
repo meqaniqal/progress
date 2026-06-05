@@ -237,6 +237,18 @@ export function openRhythmEditor(index) {
     const chord = app.state.currentProgression[index];
     if (!chord) { closeRhythmEditor(); return; }
 
+    if (editorState.activeTab === 'drumPattern') {
+        if (!chord.drumPattern || !chord.drumPattern.isLocalOverride) {
+            editorState.isGlobal = true;
+        }
+    }
+
+    if (editorState.activeTab === 'drumPattern' && editorState.isGlobal) {
+        const pat = app.state.globalPatterns.drumPattern;
+        const beats = pat && pat.lengthBeats ? pat.lengthBeats : 4;
+        editorState.zoomLevel = 4 / beats;
+    }
+
     renderRhythmTimeline();
     
     const btnSolo = document.getElementById('btn-solo-toggle');

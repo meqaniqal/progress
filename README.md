@@ -87,17 +87,25 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **Memory Leak Resolution:** Audited and patched dynamic UI injections.
 - **High-Performance Visual Sync:** Refactored the sequencer's highlighting engine to a `requestAnimationFrame` event queue, ensuring butter-smooth V-Sync rendering and eliminating background-tab audio blasts.
 
-### Phase 10: Advanced Composition Tools (In Progress 🚧)
-- **Transitions Mode (Phase 1, 1.5, & 2 Complete):** Implemented a dedicated "Transitions" mode in the Pattern Editor to algorithmically program inner voice movement between chords.
+### Phase 10: Advanced Composition Tools (Complete ✅)
+- **Transitions Mode:** Implemented a dedicated "Transitions" mode in the Pattern Editor to algorithmically program inner voice movement between chords.
 - **Voice Lanes UI:** Added horizontal continuous voice lanes and a "Master All Notes" lane for macro-tweaking.
-- **Interactive Transition Blocks:** Click and drag to insert, resize, and move transition blocks. Vertical dragging now contextually swaps transition types based on timeline position.
+- **Interactive Transition Blocks:** Click and drag to insert, resize, and move transition blocks. Vertical dragging contextually swaps transition types based on timeline position.
 - **Independent Voice Sustain:** Rhythmically decoupled voices allow static chord tones to sustain continuously while adjacent voices perform transitions.
-- **Melodic Flourishes:** Generative multi-note patterns (Run Up, Run Down, Enclosure) intelligently subdivide block time boundaries to lead into target chords.
-- **Dynamic Slice UI:** The 'Split' button now visually attaches to the slider thumb and tracks horizontally for intuitive slicing.
-- **Scale snapping & corridor constraints (Complete ✅):** Align flourish paths dynamically to scale degrees.
-- **Real-time chord re-analysis (Complete ✅):** Recompute Roman Numeral syntax in real-time when notes are edited manually.
-- **Audition Mode Previews (Complete ✅):** Audition chord substitutions in context (3-chord sequence) with persistent toggles.
-- **Adaptive loop bounds (Complete ✅):** Automatic brace adjustment on block drop.
+- **Melodic Flourishes:** Generative multi-note patterns (Run Up, Run Down, Enclosure) intelligently lead into target chords.
+- **Scale Snapping & Corridor Constraints:** Snaps flourish/transition notes dynamically to scale degrees.
+- **Real-time Chord Re-analysis:** Recomputes Roman Numeral syntax in real-time when notes are edited manually in Pitch Mode.
+- **Audition Mode Previews:** Auditions chord substitutions in a 3-chord context sequence.
+- **Adaptive Loop Bounds:** Automates loop brace expansion when a loop block is dropped.
+
+### Phase 11: Advanced Sound Design & Rhythmic UX (Complete ✅)
+- **Separate Bass Overdrive & Volume Routing:** Added dedicated pre-distortion drive nodes and post-distortion volume nodes to independently control volume and saturation.
+- **Sample Bass & ADSR Envelopes:** Introduced support for loading custom bass samples with pitch shifting and attack-decay-sustain-release envelope shaping.
+- **Bass Octave Drop & Dynamic Clamping:** Added a `-2 Octaves Drop` toggle that scales sample playback rates down by 24 semitones and dynamically caps the pitch range slider max at `0st` to prevent out-of-bounds configuration.
+- **Drum Synthesis Parameter Customization:** Added custom synth controls for drum decay, pitch, cutoff, drive, and noise type.
+- **4x Drum Volume Scaling:** Boosted drum synthesis engine output envelopes by 4x to match headroom levels.
+- **Auto-Zoom to Fill Viewport:** Set global drum pattern visualizer to automatically zoom to fit the viewport width.
+- **Session Persistence:** Guaranteed that all customized bass ADSR settings, octave drop configurations, drive values, and drum parameters are successfully persisted to `localStorage` across page reloads.
 
 ## 🛠️ Local Development
 

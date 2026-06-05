@@ -29,10 +29,11 @@ This document contains the immediate objectives and active task checklists. To p
 - [x] **Loop Insertion Dragging**: Make the `+looped` button act like standard chord buttons; dragging hides other buttons for easy drop placement.
 - [x] **Adaptive Loop Brace**: Auto-expand the active loop brace boundaries when a loop is dragged and dropped immediately following the last chord inside the active loop.
 
-### 4. Bass & Drum Synthesizer Modules (🚧 In Progress)
-- [ ] **Bass-Geared Synthesizers**: Build a dedicated modular synth engine for the bassline (incorporating sub-harmonics, drive, and saturation parameters).
-- [ ] **Professional Generative Drums**: Integrate advanced synthesis or professional-grade sample-based drum rendering.
-- [ ] **Modular UI Architecture**: Decouple the Synth, Bass, and Drum editor UI states into independent modules.
+### 4. Bass & Drum Synthesizer Modules (✅ Completed)
+- [x] **Bass-Geared Synthesizers**: Built separate Drive and Volume gain controls for primary and enhancer bass channels, added soft-clipping wave saturation, and implemented a sample-based bass engine with customizable ADSR envelopes.
+- [x] **Professional Drums**: Integrated customizable drum parameters (decay, pitch, cutoff, drive, noise type) for synthesis engines and custom sample loading, boosted volume scaling by 4x, and added auto-fit zooming.
+- [x] **Octave Drop & Pitch Range Clamping**: Restricted the bass pitch slider max range to 0 semitones dynamically when -2 Octaves Drop is enabled, clamping positive values and persisting all state settings correctly.
+- [x] **Modular UI Architecture**: Decoupled the Synth, Bass, and Drum editor UI states into independent modules.
 
 ---
 

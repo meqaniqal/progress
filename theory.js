@@ -65,8 +65,19 @@ export function getChordSignature(chordNotes, periodSize = 12.0) {
     }).sort((a, b) => a - b).join(',');
 }
 
-export function getChordNotes(symbol, baseKey, divisions = 12) {
+export function getChordNotes(symbolOrChord, baseKey, divisions = 12) {
+    if (symbolOrChord && typeof symbolOrChord === 'object') {
+        if (symbolOrChord.customNotes) return symbolOrChord.customNotes;
+        return getChordNotes(symbolOrChord.symbol, symbolOrChord.key !== undefined ? symbolOrChord.key : baseKey, symbolOrChord.divisions || divisions);
+    }
+    let symbol = symbolOrChord;
     if (!symbol || typeof symbol !== 'string') return null;
+    symbol = symbol.replace(/[+-]+$/, '');
+
+    if (typeof window !== 'undefined' && window.__customChords) {
+        const found = window.__customChords.find(c => c.symbol === symbol);
+        if (found && found.customNotes) return found.customNotes;
+    }
 
     const tuning = getEffectiveTuning(symbol, divisions);
     const periodMidiSize = tuning.periodSize;
@@ -270,7 +281,8 @@ export function getDiatonicChords(scaleType = 'major') {
  * Used as a fallback for legacy chords without a strict sourceMode.
  */
 export function deduceSourceMode(chordSymbol, currentMode = 'major') {
-    const microMatch = chordSymbol.match(/^([A-Z0-9]+)([A-Z][a-z]+)(\d+)$/);
+    const cleanSymbol = chordSymbol.replace(/[+-]+$/, '');
+    const microMatch = cleanSymbol.match(/^([A-Z0-9]+)([A-Z][a-zA-Z]+)(\d+)/);
     if (microMatch) {
         return microMatch[1].toLowerCase() + microMatch[2];
     }
@@ -512,7 +524,8 @@ export function freqToMidi(frequency, a4Freq = 440.0) {
  */
 export function getEffectiveTuning(chordSymbol, globalDivisions = 12) {
     if (chordSymbol) {
-        const match = chordSymbol.match(/^([A-Z0-9]+)([A-Z][a-z]+)(\d+)$/);
+        const cleanSymbol = chordSymbol.replace(/[+-]+$/, '');
+        const match = cleanSymbol.match(/^([A-Z0-9]+)([A-Z][a-zA-Z]+)(\d+)/);
         if (match) {
             const tuningKey = match[1].toUpperCase();
             const nativeTuning = MICRO_TUNINGS[tuningKey];

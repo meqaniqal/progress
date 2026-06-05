@@ -199,5 +199,190 @@ export const SYNTH_REGISTRY = {
             if (onCleanup) onCleanup(osc);
         };
         return osc;
+    },
+    'square': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = freq;
+
+        const safeAttack = Math.min(CONFIG.ATTACK_TIME, duration * 0.3);
+        const safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
+        const vol = params.vol !== undefined ? params.vol : 1.0;
+        const sustain = CONFIG.SUSTAIN_LEVEL * vol;
+
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(sustain, startTime + safeAttack);
+        gainNode.gain.linearRampToValueAtTime(sustain, startTime + duration - safeRelease);
+        gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+
+        osc.connect(gainNode);
+        gainNode.connect(dest);
+
+        osc.start(startTime);
+        osc.stop(startTime + duration + 0.1);
+
+        osc.onended = () => {
+            osc.disconnect();
+            gainNode.disconnect();
+            if (onCleanup) onCleanup(osc);
+        };
+        return osc;
+    },
+    'karplus-strong': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
+        const period = 1.0 / freq;
+        const sampleRate = ctx.sampleRate;
+        const burstLength = Math.max(128, Math.floor(sampleRate * Math.min(0.02, period)));
+        const buffer = ctx.createBuffer(1, burstLength, sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < burstLength; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        
+        const burstSource = ctx.createBufferSource();
+        burstSource.buffer = buffer;
+        
+        const delayNode = ctx.createDelay(1.0);
+        delayNode.delayTime.setValueAtTime(period, startTime);
+        
+        const filterNode = ctx.createBiquadFilter();
+        filterNode.type = 'lowpass';
+        const dampingFreq = params.damping !== undefined ? params.damping : 600;
+        filterNode.frequency.setValueAtTime(dampingFreq, startTime);
+        
+        const feedbackGain = ctx.createGain();
+        // Compute feedback coefficient based on target decay time in seconds
+        const decayTime = params.decay !== undefined ? params.decay : 0.8;
+        const feedbackCoeff = Math.min(0.99, Math.pow(0.001, period / decayTime));
+        feedbackGain.gain.setValueAtTime(feedbackCoeff, startTime);
+        
+        const outputGain = ctx.createGain();
+        const vol = params.vol !== undefined ? params.vol : 1.0;
+        outputGain.gain.setValueAtTime(vol * 0.3, startTime);
+        outputGain.gain.setValueAtTime(vol * 0.3, startTime + duration - 0.02);
+        outputGain.gain.linearRampToValueAtTime(0, startTime + duration);
+        
+        burstSource.connect(delayNode);
+        delayNode.connect(filterNode);
+        filterNode.connect(feedbackGain);
+        feedbackGain.connect(delayNode);
+        delayNode.connect(outputGain);
+        outputGain.connect(dest);
+        
+        burstSource.start(startTime);
+        burstSource.stop(startTime + period);
+        
+        const dummyOsc = ctx.createOscillator();
+        dummyOsc.connect(ctx.destination);
+        dummyOsc.start(startTime);
+        dummyOsc.stop(startTime + duration + 0.2);
+        
+        dummyOsc.onended = () => {
+            dummyOsc.disconnect();
+            burstSource.disconnect();
+            delayNode.disconnect();
+            filterNode.disconnect();
+            feedbackGain.disconnect();
+            outputGain.disconnect();
+            if (onCleanup) onCleanup(dummyOsc);
+        };
+        
+        return dummyOsc;
+    },
+    'sample-bass': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
+        const buffer = params.buffer;
+        if (!buffer) {
+            const dummy = ctx.createOscillator();
+            dummy.start(startTime);
+            dummy.stop(startTime);
+            dummy.onended = () => { if (onCleanup) onCleanup(dummy); };
+            return dummy;
+        }
+        
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.playbackRate.setValueAtTime(params.playbackRate || 1.0, startTime);
+        
+        const adsrGain = ctx.createGain();
+        const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
+        const sampleLen = buffer.duration;
+        
+        const attack = Math.min(adsr.attack, sampleLen * 0.5);
+        const decay = Math.min(adsr.decay, sampleLen * 0.5);
+        const release = Math.min(adsr.release, sampleLen * 0.5);
+        const sustain = adsr.sustain;
+        
+        const vol = params.vol !== undefined ? params.vol : 1.0;
+        
+        adsrGain.gain.setValueAtTime(0, startTime);
+        adsrGain.gain.linearRampToValueAtTime(vol, startTime + attack);
+        adsrGain.gain.setValueAtTime(vol, startTime + attack);
+        adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * sustain), startTime + attack + decay);
+        
+        const noteOffTime = startTime + duration;
+        adsrGain.gain.setValueAtTime(vol * sustain, noteOffTime);
+        adsrGain.gain.linearRampToValueAtTime(0, noteOffTime + release);
+        
+        source.connect(adsrGain);
+        adsrGain.connect(dest);
+        
+        source.start(startTime);
+        source.stop(noteOffTime + release + 0.1);
+        
+        source.onended = () => {
+            source.disconnect();
+            adsrGain.disconnect();
+            if (onCleanup) onCleanup(source);
+        };
+        
+        return source;
+    },
+    'sample-chords': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
+        const buffer = params.buffer;
+        if (!buffer) {
+            const dummy = ctx.createOscillator();
+            dummy.start(startTime);
+            dummy.stop(startTime);
+            dummy.onended = () => { if (onCleanup) onCleanup(dummy); };
+            return dummy;
+        }
+        
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.playbackRate.setValueAtTime(params.playbackRate || 1.0, startTime);
+        
+        const adsrGain = ctx.createGain();
+        const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
+        const sampleLen = buffer.duration;
+        
+        const attack = Math.min(adsr.attack, sampleLen * 0.5);
+        const decay = Math.min(adsr.decay, sampleLen * 0.5);
+        const release = Math.min(adsr.release, sampleLen * 0.5);
+        const sustain = adsr.sustain;
+        
+        const vol = params.vol !== undefined ? params.vol : 1.0;
+        
+        adsrGain.gain.setValueAtTime(0, startTime);
+        adsrGain.gain.linearRampToValueAtTime(vol, startTime + attack);
+        adsrGain.gain.setValueAtTime(vol, startTime + attack);
+        adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * sustain), startTime + attack + decay);
+        
+        const noteOffTime = startTime + duration;
+        adsrGain.gain.setValueAtTime(vol * sustain, noteOffTime);
+        adsrGain.gain.linearRampToValueAtTime(0, noteOffTime + release);
+        
+        source.connect(adsrGain);
+        adsrGain.connect(dest);
+        
+        source.start(startTime);
+        source.stop(noteOffTime + release + 0.1);
+        
+        source.onended = () => {
+            source.disconnect();
+            adsrGain.disconnect();
+            if (onCleanup) onCleanup(source);
+        };
+        
+        return source;
     }
 };

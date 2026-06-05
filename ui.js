@@ -2,6 +2,7 @@ import { getHarmonicProfile, getChordNotes, getTransitionSuggestions, getDiatoni
 import { getMicrotonalDiatonicChords } from './microtonalDictionary.js';
 import { renderChordInspector } from './inspectorController.js';
 import { CONFIG } from './config.js';
+import { persistAppState } from './store.js';
 
 export const KEY_NAMES = {
     60: 'C', 61: 'C♯/D♭', 62: 'D', 63: 'D♯/E♭', 64: 'E', 65: 'F',
@@ -82,74 +83,88 @@ export function updateKeyAndModeDisplay(state) {
         });
     }
 
+    // Render custom chords palette
+    const customList = document.getElementById('custom-chords-list');
+    if (customList) {
+        customList.innerHTML = '';
+        const customChords = state.customChords || [];
+        if (customChords.length === 0) {
+            customList.innerHTML = '<span style="opacity: 0.5; font-size: 11px; font-style: italic;">No custom chords saved yet</span>';
+        } else {
+            customChords.forEach(cc => {
+                const btn = document.createElement('button');
+                btn.className = 'chord-btn custom-chord-palette-btn';
+                btn.dataset.chord = cc.symbol;
+                btn.textContent = cc.symbol;
+                btn.draggable = true;
+                btn.style.borderColor = '#fbbf24';
+                btn.style.boxShadow = '0 0 4px rgba(251, 191, 36, 0.2)';
+                customList.appendChild(btn);
+            });
+        }
+    }
+
     // Enable tabs sync on state update
     updateBuilderTabsDisplay(state);
 
-        // Emotional suggestions section
-    const emotionPageInput = document.getElementById('emotion-category-page-input');
-    const totalPagesCount = Math.ceil(HAND_CURATED_CATEGORIES.length / 6);
-
-    let catPage = state.editorState.chordChooserCategoryPage ?? 0;
-    catPage = Math.max(0, Math.min(totalPagesCount - 1, catPage));
-    state.editorState.chordChooserCategoryPage = catPage;
-
-    if (emotionPageInput) {
-        emotionPageInput.value = catPage + 1;
-        emotionPageInput.max = totalPagesCount;
-        if (emotionPageInput.parentNode && emotionPageInput.parentNode.lastChild) {
-            emotionPageInput.parentNode.lastChild.textContent = `/${totalPagesCount}`;
-        }
-    }
-
-    const pageCategories = [];
-    for (let j = 0; j < 6; j++) {
-        const catIndex = (catPage * 6) + j;
-        if (catIndex < HAND_CURATED_CATEGORIES.length) {
-            pageCategories.push(getProceduralCategory(catIndex, state.mode));
-        }
-    }
-
-    // Check if current active emotion is on this page, otherwise default to first
-    const hasActiveEmotionOnPage = pageCategories.some(cat => cat.id === state.activeEmotion);
-    if (!hasActiveEmotionOnPage && pageCategories.length > 0) {
-        state.activeEmotion = pageCategories[0].id;
-    }
-
-    const emotionPillsContainer = document.getElementById('emotion-pills-container');
-    if (emotionPillsContainer) {
-        emotionPillsContainer.innerHTML = '';
-        pageCategories.forEach(cat => {
-            const pill = document.createElement('button');
-            pill.className = `category-pill ${cat.id === state.activeEmotion ? 'active' : ''}`;
-            pill.dataset.category = cat.id;
-            pill.textContent = cat.label;
-            pill.title = cat.description;
-
-            if (cat.id === state.activeEmotion) {
-                pill.style.background = cat.color || '#4f46e5';
-                pill.style.borderColor = cat.color || '#4f46e5';
-            }
-
-            pill.addEventListener('click', () => {
-                state.activeEmotion = cat.id;
-                state.editorState.emotionPage = 0;
-
-                // Synchronize Emotional Focus Mode
-                if (state.editorState.activeBuilderTab === 'emotional') {
-                    state.editorState.inspectorActiveEmotion = 'substitutes';
-                }
-
-                updateKeyAndModeDisplay(state);
-                renderChordInspector();
+    // Emotional suggestions section
+    const emotionDropdown = document.getElementById('emotion-category-dropdown');
+    if (emotionDropdown) {
+        if (emotionDropdown.options.length === 0) {
+            HAND_CURATED_CATEGORIES.forEach((cat, index) => {
+                const procCat = getProceduralCategory(index, state.mode);
+                const opt = document.createElement('option');
+                opt.value = procCat.id;
+                opt.textContent = procCat.label;
+                emotionDropdown.appendChild(opt);
             });
-            emotionPillsContainer.appendChild(pill);
-        });
+        }
+        
+        // Ensure dropdown matches activeEmotion
+        emotionDropdown.value = state.activeEmotion;
+        
+        emotionDropdown.onchange = (e) => {
+            state.activeEmotion = e.target.value;
+            state.editorState.emotionPage = 0;
+            if (state.editorState.activeBuilderTab === 'emotional') {
+                state.editorState.inspectorActiveEmotion = 'substitutes';
+            }
+            updateKeyAndModeDisplay(state);
+            renderChordInspector();
+        };
     }
 
     const btnEmotionPrev = document.getElementById('btn-emotion-prev');
     const btnEmotionNext = document.getElementById('btn-emotion-next');
-    if (btnEmotionPrev) btnEmotionPrev.disabled = catPage === 0;
-    if (btnEmotionNext) btnEmotionNext.disabled = catPage === totalPagesCount - 1;
+    const currentCatIndex = HAND_CURATED_CATEGORIES.findIndex(cat => cat.id === state.activeEmotion);
+
+    if (btnEmotionPrev) {
+        btnEmotionPrev.disabled = currentCatIndex <= 0;
+        btnEmotionPrev.onclick = (e) => {
+            e.stopPropagation();
+            if (currentCatIndex > 0) {
+                const prevCat = HAND_CURATED_CATEGORIES[currentCatIndex - 1];
+                state.activeEmotion = prevCat.id;
+                state.editorState.emotionPage = 0;
+                updateKeyAndModeDisplay(state);
+                renderChordInspector();
+            }
+        };
+    }
+
+    if (btnEmotionNext) {
+        btnEmotionNext.disabled = currentCatIndex >= HAND_CURATED_CATEGORIES.length - 1 || currentCatIndex === -1;
+        btnEmotionNext.onclick = (e) => {
+            e.stopPropagation();
+            if (currentCatIndex >= 0 && currentCatIndex < HAND_CURATED_CATEGORIES.length - 1) {
+                const nextCat = HAND_CURATED_CATEGORIES[currentCatIndex + 1];
+                state.activeEmotion = nextCat.id;
+                state.editorState.emotionPage = 0;
+                updateKeyAndModeDisplay(state);
+                renderChordInspector();
+            }
+        };
+    }
 
     const emotionalChordsContainer = document.getElementById('emotional-chords-container');
     if (emotionalChordsContainer) {
@@ -177,8 +192,14 @@ export function updateKeyAndModeDisplay(state) {
 
         const prevBtn = document.getElementById('btn-sug-prev');
         const nextBtn = document.getElementById('btn-sug-next');
-        if (prevBtn) prevBtn.disabled = currentPage === 0;
-        if (nextBtn) nextBtn.disabled = currentPage === totalPages - 1;
+        if (prevBtn) {
+            prevBtn.disabled = currentPage === 0;
+            prevBtn.style.visibility = (currentPage === 0) ? 'hidden' : 'visible';
+        }
+        if (nextBtn) {
+            nextBtn.disabled = currentPage === totalPages - 1;
+            nextBtn.style.visibility = (currentPage === totalPages - 1) ? 'hidden' : 'visible';
+        }
 
         const pageSuggestions = suggestions.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
 
@@ -292,7 +313,17 @@ export function renderProgression(state, selectedChordIndex, callbacks) {
         const displayChord = isTemp ? { ...chord, ...state.temporarySwaps[index] } : chord;
 
         const labelSpan = el.querySelector('.chord-label');
-        if (labelSpan) labelSpan.textContent = `${displayChord.symbol} `;
+        if (displayChord.customNotes) {
+            el.classList.add('custom-chord-item');
+            if (labelSpan) {
+                labelSpan.innerHTML = `${displayChord.symbol.replace(/b/g, '♭').replace(/#/g, '♯')} <span class="custom-badge" style="font-size: 8px; background: #fbbf24; color: #111; padding: 1px 3px; border-radius: 3px; font-weight: bold; margin-left: 2px; vertical-align: middle; line-height: 1;">C</span>`;
+            }
+        } else {
+            el.classList.remove('custom-chord-item');
+            if (labelSpan) {
+                labelSpan.textContent = `${displayChord.symbol.replace(/b/g, '♭').replace(/#/g, '♯')} `;
+            }
+        }
 
         el.querySelector('.remove-btn').title = 'Remove Chord';
         el.querySelector('.remove-btn').textContent = '×';
@@ -522,7 +553,8 @@ export function initBuilderTabs(state, renderCallback) {
 }
 
 export function updateBuilderTabsDisplay(state) {
-    const activeTab = state.editorState.activeBuilderTab || 'standard';
+    const isBeginner = !state.isAdvancedMode;
+    const activeTab = isBeginner ? 'standard' : (state.editorState.activeBuilderTab || 'standard');
 
     // Update tab button active states
     const tabs = document.querySelectorAll('.builder-tab');
@@ -539,21 +571,20 @@ export function updateBuilderTabsDisplay(state) {
     const extended = document.getElementById('palette-extended');
     const emotional = document.getElementById('palette-emotional');
     const modulation = document.getElementById('modulation-panel');
+    const customPalette = document.getElementById('palette-custom-chords');
+    const customBuilder = document.getElementById('palette-custom-builder');
 
     // Standard Tab
     const showStandard = (activeTab === 'standard');
     if (diatonic) diatonic.style.display = showStandard ? 'block' : 'none';
+    if (borrowed) borrowed.style.display = (showStandard && !isExotic) ? 'block' : 'none';
     if (sevenths) sevenths.style.display = (showStandard && !isExotic) ? 'block' : 'none';
     if (extended) extended.style.display = (showStandard && !isExotic) ? 'block' : 'none';
+    if (customPalette) customPalette.style.display = showStandard ? 'flex' : 'none';
 
-    // Borrowed Tab
-    const showBorrowed = (activeTab === 'borrowed');
-    if (borrowed) borrowed.style.display = (showBorrowed && !isExotic) ? 'block' : 'none';
-
-    // Modulation Panel behavior
+    // Modulation Panel behavior (now inside Standard tab)
     if (modulation) {
-        if (showBorrowed) {
-            // Let the regular key checks determine visibility if in Borrowed tab
+        if (showStandard && !isBeginner) {
             const lastChord = state.currentProgression[state.currentProgression.length - 1];
             if (lastChord && lastChord.key !== state.baseKey) {
                 modulation.style.display = 'block';
@@ -568,4 +599,13 @@ export function updateBuilderTabsDisplay(state) {
     // Emotional Tab
     const showEmotional = (activeTab === 'emotional');
     if (emotional) emotional.style.display = showEmotional ? 'block' : 'none';
+
+    // Custom Builder Tab
+    const showCustomBuilder = (activeTab === 'custom-builder');
+    if (customBuilder) {
+        customBuilder.style.display = showCustomBuilder ? 'flex' : 'none';
+        if (showCustomBuilder && window.__renderCustomBuilderGrid) {
+            window.__renderCustomBuilderGrid();
+        }
+    }
 }

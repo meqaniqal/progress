@@ -176,64 +176,56 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
 
     const totalPagesCount = Math.ceil(HAND_CURATED_CATEGORIES.length / 6);
 
-    // --- Category Settings Row ---
+    // --- Category Settings Row
     let settingsRow = content.querySelector('.inspector-row-swap-settings');
     if (!settingsRow) {
         settingsRow = document.createElement('div');
         settingsRow.className = 'inspector-row inspector-row-swap-settings';
+        settingsRow.style.display = 'flex';
+        settingsRow.style.alignItems = 'center';
+        settingsRow.style.justifyContent = 'space-between';
+        settingsRow.style.width = '100%';
+        settingsRow.style.gap = '8px';
 
         settingsRow.innerHTML = `
-            <strong class="inspector-label inspector-swap-category-header">🎭 Category:</strong>
-            <div class="inspector-swap-controls-wrapper" style="display: flex; flex-direction: column; width: 100%; gap: 6px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                    <label class="inspector-audition-label" title="Audition 3-chord sequence when selecting a substitute">
-                        <input type="checkbox" id="inspector-audition-toggle" class="inspector-audition-checkbox">
-                        <span>Audition</span>
-                    </label>
-                    <div style="display: flex; align-items: center; gap: 4px;">
-                        <button id="btn-inspector-emotion-prev" class="control-btn secondary btn-sm inspector-emotion-page-btn" title="Previous categories page">◀</button>
-                        <span class="inspector-pg-selector-span" style="font-size: 10px; opacity: 0.8; font-family: monospace; display: flex; align-items: center; gap: 2px;">
-                            Pg <input type="number" id="inspector-emotion-page-input" value="1" min="1" max="${totalPagesCount}" class="inspector-page-jump-input" style="width: 38px; text-align: center; background: var(--bg-panel); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 1px 2px; font-size: 10px; font-family: monospace;">/${totalPagesCount}
-                        </span>
-                        <button id="btn-inspector-emotion-next" class="control-btn secondary btn-sm inspector-emotion-page-btn" title="Next categories page">▶</button>
-                    </div>
-                </div>
-                <div id="inspector-emotion-pills-container" class="category-pills-container">
-                    <!-- Dynamic pills rendered here -->
-                </div>
+            <strong class="inspector-label inspector-swap-category-header" style="flex-shrink: 0; font-size: 14px; margin: 0;">🎭:</strong>
+            <div style="display: flex; align-items: center; gap: 4px; flex-grow: 1; min-width: 0;">
+                <button id="btn-inspector-emotion-prev" class="control-btn secondary btn-sm inspector-emotion-page-btn" style="padding: 2px 6px; font-size: 10px;" title="Previous page">◀</button>
+                <select id="inspector-emotion-dropdown" class="rhythm-select" style="flex-grow: 1; padding: 2px 4px; font-size: 11px; border-radius: 4px; background: var(--bg-panel); border: 1px solid var(--border-main); color: var(--text-main); cursor: pointer; min-width: 0;">
+                </select>
+                <button id="btn-inspector-emotion-next" class="control-btn secondary btn-sm inspector-emotion-page-btn" style="padding: 2px 6px; font-size: 10px;" title="Next page">▶</button>
             </div>
+            <button id="inspector-audition-toggle" class="control-btn secondary btn-sm icon-btn" title="Toggle substitute audition" style="font-size: 14px; padding: 2px 8px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; min-width: 32px; min-height: 24px; flex-shrink: 0;">
+                ${state.editorState.isAuditionEnabled ? '🔊' : '🔇'}
+            </button>
         `;
         content.appendChild(settingsRow);
     }
 
     const insAuditionToggle = settingsRow.querySelector('#inspector-audition-toggle');
     if (insAuditionToggle) {
-        insAuditionToggle.checked = !!state.editorState.isAuditionEnabled;
-        insAuditionToggle.onchange = (e) => {
-            state.editorState.isAuditionEnabled = e.target.checked;
+        insAuditionToggle.onclick = (e) => {
+            e.stopPropagation();
+            state.editorState.isAuditionEnabled = !state.editorState.isAuditionEnabled;
+            insAuditionToggle.textContent = state.editorState.isAuditionEnabled ? '🔊' : '🔇';
 
             // Sync with global settings checkbox
             const settingsToggle = document.getElementById('settings-audition-toggle');
             if (settingsToggle) {
-                settingsToggle.checked = e.target.checked;
+                settingsToggle.checked = state.editorState.isAuditionEnabled;
             }
 
             persistAppState();
         };
     }
 
-    const insEmotionPillsContainer = settingsRow.querySelector('#inspector-emotion-pills-container');
-    const insEmotionPageInput = settingsRow.querySelector('#inspector-emotion-page-input');
+    const insEmotionDropdown = settingsRow.querySelector('#inspector-emotion-dropdown');
     const btnInsEmotionPrev = settingsRow.querySelector('#btn-inspector-emotion-prev');
     const btnInsEmotionNext = settingsRow.querySelector('#btn-inspector-emotion-next');
 
     let inspectorCatPage = state.editorState.inspectorCategoryPage ?? 0;
     inspectorCatPage = Math.max(0, Math.min(totalPagesCount - 1, inspectorCatPage));
     state.editorState.inspectorCategoryPage = inspectorCatPage;
-
-    if (insEmotionPageInput) {
-        insEmotionPageInput.value = inspectorCatPage + 1;
-    }
 
     const pageCategories = [];
     for (let j = 0; j < 6; j++) {
@@ -248,45 +240,30 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         state.editorState.inspectorActiveEmotion = 'substitutes';
     }
 
-    if (insEmotionPillsContainer) {
-        insEmotionPillsContainer.innerHTML = '';
+    if (insEmotionDropdown) {
+        insEmotionDropdown.innerHTML = '';
+        
+        // Add standard Alternatives option
+        const subOpt = document.createElement('option');
+        subOpt.value = 'substitutes';
+        subOpt.textContent = 'Alternatives';
+        insEmotionDropdown.appendChild(subOpt);
 
-        // Add standard Alternatives option as a pill
-        const subPill = document.createElement('button');
-        subPill.className = `category-pill ${state.editorState.inspectorActiveEmotion === 'substitutes' ? 'active' : ''}`;
-        subPill.dataset.category = 'substitutes';
-        subPill.textContent = 'Alternatives';
-        subPill.title = 'Close harmonic alternative chords';
-        subPill.addEventListener('click', (e) => {
-            e.stopPropagation();
-            state.editorState.inspectorActiveEmotion = 'substitutes';
+        pageCategories.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat.id;
+            opt.textContent = cat.label;
+            insEmotionDropdown.appendChild(opt);
+        });
+
+        insEmotionDropdown.value = state.editorState.inspectorActiveEmotion;
+
+        insEmotionDropdown.onchange = (e) => {
+            state.editorState.inspectorActiveEmotion = e.target.value;
             state.editorState.swapPage = 0;
             persistAppState();
             renderChordInspector(state, selectedChordIndex, callbacks);
-        });
-        insEmotionPillsContainer.appendChild(subPill);
-
-        pageCategories.forEach(cat => {
-            const pill = document.createElement('button');
-            pill.className = `category-pill ${cat.id === state.editorState.inspectorActiveEmotion ? 'active' : ''}`;
-            pill.dataset.category = cat.id;
-            pill.textContent = cat.label;
-            pill.title = cat.description;
-
-            if (cat.id === state.editorState.inspectorActiveEmotion) {
-                pill.style.background = cat.color || '#4f46e5';
-                pill.style.borderColor = cat.color || '#4f46e5';
-            }
-
-            pill.addEventListener('click', (e) => {
-                e.stopPropagation();
-                state.editorState.inspectorActiveEmotion = cat.id;
-                state.editorState.swapPage = 0;
-                persistAppState();
-                renderChordInspector(state, selectedChordIndex, callbacks);
-            });
-            insEmotionPillsContainer.appendChild(pill);
-        });
+        };
     }
 
     if (btnInsEmotionPrev) btnInsEmotionPrev.disabled = inspectorCatPage === 0;
@@ -297,7 +274,9 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
             e.stopPropagation();
             if (state.editorState.inspectorCategoryPage > 0) {
                 state.editorState.inspectorCategoryPage--;
-                state.editorState.swapPage = 0; // reset swap page when category page changes
+                state.editorState.swapPage = 0;
+                // Default to substitutes on page change for simplicity
+                state.editorState.inspectorActiveEmotion = 'substitutes';
                 persistAppState();
                 renderChordInspector(state, selectedChordIndex, callbacks);
             }
@@ -308,25 +287,10 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
             e.stopPropagation();
             if (state.editorState.inspectorCategoryPage < totalPagesCount - 1) {
                 state.editorState.inspectorCategoryPage++;
-                state.editorState.swapPage = 0; // reset swap page when category page changes
+                state.editorState.swapPage = 0;
+                state.editorState.inspectorActiveEmotion = 'substitutes';
                 persistAppState();
                 renderChordInspector(state, selectedChordIndex, callbacks);
-            }
-        };
-    }
-    if (insEmotionPageInput) {
-        insEmotionPageInput.onchange = (e) => {
-            let val = parseInt(e.target.value, 10);
-            if (isNaN(val) || val < 1) val = 1;
-            if (val > totalPagesCount) val = totalPagesCount;
-            state.editorState.inspectorCategoryPage = val - 1;
-            state.editorState.swapPage = 0; // reset swap page when category page changes
-            persistAppState();
-            renderChordInspector(state, selectedChordIndex, callbacks);
-        };
-        insEmotionPageInput.onkeydown = (e) => {
-            if (e.key === 'Enter') {
-                insEmotionPageInput.onchange(e);
             }
         };
     }
@@ -334,54 +298,32 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     // --- Swap Chord (Alts) Row ---
     let altsRow = content.querySelector('.inspector-row-alts');
     let altsBtnContainer;
-    let prevBtn, nextBtn, pageIndicator;
+    let prevBtn, nextBtn;
     if (!altsRow) {
         altsRow = document.createElement('div');
         altsRow.className = 'inspector-row inspector-row-alts';
         altsRow.style.display = 'flex';
-        altsRow.style.alignItems = 'center';
-        altsRow.style.gap = '8px';
-        altsRow.innerHTML = `<strong class="inspector-label">Swap Chord:</strong>`;
+        altsRow.style.flexDirection = 'column';
+        altsRow.style.gap = '6px';
+        altsRow.style.width = '100%';
 
-        const controls = document.createElement('div');
-        controls.style.display = 'inline-flex';
-        controls.style.alignItems = 'center';
-        controls.style.gap = '4px';
-        controls.style.marginLeft = 'auto';
-
-        prevBtn = document.createElement('button');
-        prevBtn.className = 'control-btn secondary btn-sm swap-prev-btn';
-        prevBtn.textContent = '◀';
-        prevBtn.style.padding = '2px 6px';
-        prevBtn.style.fontSize = '10px';
-
-        pageIndicator = document.createElement('span');
-        pageIndicator.className = 'swap-page-indicator';
-        pageIndicator.style.fontSize = '11px';
-        pageIndicator.style.opacity = '0.8';
-        pageIndicator.style.fontFamily = 'monospace';
-        pageIndicator.textContent = '1/1';
-
-        nextBtn = document.createElement('button');
-        nextBtn.className = 'control-btn secondary btn-sm swap-next-btn';
-        nextBtn.textContent = '▶';
-        nextBtn.style.padding = '2px 6px';
-        nextBtn.style.fontSize = '10px';
-
-        controls.appendChild(prevBtn);
-        controls.appendChild(pageIndicator);
-        controls.appendChild(nextBtn);
-        altsRow.appendChild(controls);
-
-        altsBtnContainer = document.createElement('div');
-        altsBtnContainer.className = 'inspector-btn-group alts-btn-group';
-        altsRow.appendChild(altsBtnContainer);
+        altsRow.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <button class="control-btn secondary btn-sm swap-prev-btn" style="padding: 2px 6px; font-size: 10px;">◀</button>
+                <strong class="inspector-label" style="font-size: 12px; margin: 0 4px;">Swap Chord</strong>
+                <button class="control-btn secondary btn-sm swap-next-btn" style="padding: 2px 6px; font-size: 10px;">▶</button>
+            </div>
+            <div class="inspector-btn-group alts-btn-group" style="display: flex; flex-wrap: wrap; gap: 4px; width: 100%;">
+            </div>
+        `;
         content.appendChild(altsRow);
+        altsBtnContainer = altsRow.querySelector('.alts-btn-group');
+        prevBtn = altsRow.querySelector('.swap-prev-btn');
+        nextBtn = altsRow.querySelector('.swap-next-btn');
     } else {
         altsBtnContainer = altsRow.querySelector('.alts-btn-group');
         prevBtn = altsRow.querySelector('.swap-prev-btn');
         nextBtn = altsRow.querySelector('.swap-next-btn');
-        pageIndicator = altsRow.querySelector('.swap-page-indicator');
     }
 
     if (prevBtn) {
@@ -419,7 +361,6 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     if (currentPage < 0) currentPage = 0;
     state.editorState.swapPage = currentPage;
 
-    if (pageIndicator) pageIndicator.textContent = `${currentPage + 1}/${totalPages}`;
     if (prevBtn) prevBtn.disabled = currentPage === 0;
     if (nextBtn) nextBtn.disabled = currentPage === totalPages - 1;
 

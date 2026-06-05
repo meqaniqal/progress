@@ -336,7 +336,7 @@ export function exportToMidi(state) {
             const chordTuning = getEffectiveTuning(chord.symbol, chord.divisions || state.divisions || 12);
             const cleanTuning = getEffectiveTuning(null, state.divisions || 12);
             
-            const rootChordNotes = getChordNotes(chord.symbol, chord.key, chordTuning.divisions);
+            const rootChordNotes = chord.customNotes || getChordNotes(chord.symbol, chord.key, chordTuning.divisions);
             if (!rootChordNotes) return;
             const rootNote = getBassNote(rootChordNotes, chordTuning); 
             const beats = Number(chord.duration) || 2;

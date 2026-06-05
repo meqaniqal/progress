@@ -32,8 +32,8 @@ describe('Voice Leading Engine', () => {
             const notes = [60, 63, 67];
             const periodBP = 19.019; // Bohlen-Pierce tritave
             const result = applyInversion(notes, 1, periodBP);
-            // In macrotonal BP modes, we shift by octave (12.0)
-            expect(result[0] - notes[0]).toBe(12);
+            // In macrotonal BP modes, we shift the bottom note by an octave (12.0)
+            expect(result).toEqual([63, 67, 72]);
         });
     });
 

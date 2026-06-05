@@ -1,4 +1,4 @@
-import { getChordNotes, applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension, midiToFreq, getEdoPitch, segmentMicrotonalCluster, snapToGrid, resolveHierarchicalCollisions, getDynamicProgSuggestions, getModulationLabel, getAlternatives } from './theory.js';
+import { getChordNotes, applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension, midiToFreq, getEdoPitch, segmentMicrotonalCluster, snapToGrid, resolveHierarchicalCollisions, getDynamicProgSuggestions, getModulationLabel, getAlternatives, applyInversion, getEffectiveTuning } from './theory.js';
 
 describe('Theory & Voice Leading Module', () => {
 
@@ -346,6 +346,37 @@ describe('Theory & Voice Leading Module', () => {
             expect(getModulationLabel(60, 64)).toBe('🚀 Transcendence (+Maj 3rd)');
             expect(getModulationLabel(60, 61)).toBe('⚡ Climactic Surge (+1s)');
             expect(getModulationLabel(60, 60)).toBe('(Tonic / Home)');
+        });
+    });
+
+    describe('Bohlen-Pierce Microtonal Chord Parsing, Inversions, and Suffixes', () => {
+        it('should correctly parse Bohlen-Pierce chord notes with or without + or - suffixes', () => {
+            const notesClean = getChordNotes('BPLambda1', 60, 13);
+            const notesPlus = getChordNotes('BPLambda1+', 60, 13);
+            const notesMinus = getChordNotes('BPLambda1-', 60, 13);
+            
+            expect(notesPlus).toEqual(notesClean);
+            expect(notesMinus).toEqual(notesClean);
+            expect(notesClean.length).toBeGreaterThan(0);
+        });
+
+        it('should resolve effective tuning properly for Bohlen-Pierce chord symbols with suffixes', () => {
+            const tuning = getEffectiveTuning('BPLambda1+', 13);
+            expect(tuning.divisions).toBe(13);
+            expect(tuning.periodSize).toBeCloseTo(19.01955, 4);
+        });
+
+        it('should apply octave-based in-between note inversions to Bohlen-Pierce note lists', () => {
+            const notes = [60, 63, 67];
+            const periodBP = 19.01955;
+            
+            // 1st inversion should shift bottom note by an octave (12)
+            const result1 = applyInversion(notes, 1, periodBP);
+            expect(result1).toEqual([63, 67, 72]);
+
+            // 3rd inversion (offset = 3) should shift all notes by an octave (12)
+            const result3 = applyInversion(notes, 3, periodBP);
+            expect(result3).toEqual([72, 75, 79]);
         });
     });
 });

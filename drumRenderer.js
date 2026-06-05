@@ -1,42 +1,198 @@
-import { GRID_STEPS, DRUM_ROWS, DRUM_ROW_BG_COLORS, DRUM_LABELS } from './rhythmConfig.js';
+import { GRID_STEPS, DRUM_ROWS, DRUM_ROW_BG_COLORS, DRUM_LABELS, DEFAULT_DRUM_PARAMS } from './rhythmConfig.js';
 import { generateId } from './patternUtils.js';
 import { editorState, app, setCurrentPattern, getDurationBeats, renderRhythmTimeline } from './rhythmEditor.js';
-import { getCustomDrumPeaks, decodeCustomDrumSample, clearCustomDrumSample } from './synth.js';
+import { getCustomDrumPeaks, decodeCustomDrumSample, clearCustomDrumSample, playDrum, customDrumBuffers, getAudioCurrentTime } from './synth.js';
+import { state, persistAppState } from './store.js';
 
 function showDrumLabelMenu(rowType, rowEl) {
     document.querySelectorAll('.drum-label-menu').forEach(el => el.remove());
 
     const menu = document.createElement('div');
     menu.className = 'drum-label-menu';
-    menu.style.position = 'absolute';
-    menu.style.left = '40px';
-    if (rowType === 'kick') {
-        menu.style.bottom = '2px';
-    } else {
-        menu.style.top = '2px';
-    }
+    menu.style.position = 'fixed';
     menu.style.backgroundColor = 'var(--bg-panel)';
     menu.style.border = '1px solid var(--border-main)';
-    menu.style.borderRadius = '4px';
-    menu.style.padding = '6px';
-    menu.style.zIndex = '1000';
-    menu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+    menu.style.borderRadius = '8px';
+    menu.style.padding = '12px';
+    menu.style.zIndex = '2000';
+    menu.style.boxShadow = '0 8px 24px rgba(0,0,0,0.6)';
     menu.style.display = 'flex';
     menu.style.flexDirection = 'column';
-    menu.style.gap = '6px';
-    menu.style.minWidth = '120px';
+    menu.style.gap = '10px';
+    menu.style.width = '240px';
 
-    // Prevent the timeline from capturing the pointer and blocking the file input click
+    // Prevent the timeline from capturing the pointer and blocking interaction
     menu.addEventListener('pointerdown', (e) => e.stopPropagation());
 
+    const isSampleLoaded = !!customDrumBuffers[rowType];
+
+    // Header container with title & preview button
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'center';
+    header.style.borderBottom = '1px solid var(--border-main)';
+    header.style.paddingBottom = '6px';
+    header.style.marginBottom = '4px';
+
     const title = document.createElement('div');
-    title.textContent = `Sound: ${DRUM_LABELS[rowType]}`;
-    title.style.fontSize = '12px';
+    title.textContent = isSampleLoaded ? `Sample: ${DRUM_LABELS[rowType]}` : `Synth: ${DRUM_LABELS[rowType]}`;
+    title.style.fontSize = '13px';
     title.style.fontWeight = 'bold';
-    title.style.marginBottom = '4px';
     title.style.color = 'var(--text-main)';
-    title.style.textAlign = 'center';
-    menu.appendChild(title);
+    header.appendChild(title);
+
+    const auditionBtn = document.createElement('button');
+    auditionBtn.innerHTML = '🔊';
+    auditionBtn.title = 'Audition Sound';
+    auditionBtn.style.background = 'none';
+    auditionBtn.style.border = 'none';
+    auditionBtn.style.cursor = 'pointer';
+    auditionBtn.style.fontSize = '16px';
+    auditionBtn.style.padding = '0 4px';
+    auditionBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playDrum(rowType, getAudioCurrentTime());
+    });
+    header.appendChild(auditionBtn);
+    menu.appendChild(header);
+
+    // Initialize state.drumParams[rowType] if not already present
+    if (!state.drumParams) {
+        state.drumParams = {};
+    }
+    if (!state.drumParams[rowType]) {
+        state.drumParams[rowType] = structuredClone(DEFAULT_DRUM_PARAMS[rowType]);
+    }
+    const params = state.drumParams[rowType];
+    if (isSampleLoaded && (params.pitch === undefined || params.pitch > 3.0)) {
+        params.pitch = 1.0;
+    }
+
+    // Build controls list
+    const controls = [];
+    if (isSampleLoaded) {
+        controls.push({ key: 'decay', label: 'Decay', min: 0.05, max: 5.0, step: 0.05, unit: 's' });
+        controls.push({ key: 'pitch', label: 'Pitch (Speed)', min: 0.2, max: 3.0, step: 0.05, unit: 'x' });
+        controls.push({ key: 'cutoff', label: 'Cutoff', min: 200, max: 20000, step: 100, unit: 'Hz' });
+        controls.push({ key: 'drive', label: 'Drive', min: 0, max: 10, step: 0.5, unit: '' });
+        controls.push({ key: 'volume', label: 'Volume', min: 0, max: 1.0, step: 0.05, unit: '%' });
+    } else {
+        if (rowType === 'kick') {
+            controls.push({ key: 'decay', label: 'Decay', min: 0.05, max: 2.0, step: 0.05, unit: 's' });
+            controls.push({ key: 'pitch', label: 'Pitch', min: 30, max: 150, step: 1, unit: 'Hz' });
+            controls.push({ key: 'drive', label: 'Drive', min: 0, max: 10, step: 0.5, unit: '' });
+            controls.push({ key: 'volume', label: 'Volume', min: 0, max: 1.0, step: 0.05, unit: '%' });
+        } else if (rowType === 'snare') {
+            controls.push({ key: 'decay', label: 'Decay', min: 0.05, max: 2.0, step: 0.05, unit: 's' });
+            controls.push({ key: 'pitch', label: 'Pitch', min: 50, max: 300, step: 1, unit: 'Hz' });
+            controls.push({ key: 'cutoff', label: 'Cutoff', min: 200, max: 8000, step: 50, unit: 'Hz' });
+            controls.push({ key: 'drive', label: 'Drive', min: 0, max: 10, step: 0.5, unit: '' });
+            controls.push({ key: 'volume', label: 'Volume', min: 0, max: 1.0, step: 0.05, unit: '%' });
+            controls.push({ key: 'noiseType', label: 'Noise Type', type: 'select', options: ['white', 'pink', 'metallic'] });
+        } else if (rowType === 'chh' || rowType === 'ohh') {
+            const maxDecay = rowType === 'chh' ? 0.5 : 2.0;
+            controls.push({ key: 'decay', label: 'Decay', min: 0.01, max: maxDecay, step: 0.01, unit: 's' });
+            controls.push({ key: 'cutoff', label: 'Cutoff', min: 1000, max: 15000, step: 100, unit: 'Hz' });
+            controls.push({ key: 'drive', label: 'Drive', min: 0, max: 10, step: 0.5, unit: '' });
+            controls.push({ key: 'volume', label: 'Volume', min: 0, max: 1.0, step: 0.05, unit: '%' });
+            controls.push({ key: 'noiseType', label: 'Noise Type', type: 'select', options: ['white', 'pink', 'metallic'] });
+        }
+    }
+
+    // Render controls
+    controls.forEach(ctrl => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.flexDirection = 'column';
+        row.style.gap = '3px';
+
+        const labelContainer = document.createElement('div');
+        labelContainer.style.display = 'flex';
+        labelContainer.style.justifyContent = 'space-between';
+        labelContainer.style.fontSize = '11px';
+        labelContainer.style.color = 'var(--text-muted, #aaa)';
+
+        const labelText = document.createElement('span');
+        labelText.textContent = ctrl.label;
+        labelContainer.appendChild(labelText);
+
+        const currentVal = params[ctrl.key] !== undefined ? params[ctrl.key] : (ctrl.type === 'select' ? ctrl.options[0] : (ctrl.key === 'volume' ? 1.0 : 0));
+
+        if (ctrl.type === 'select') {
+            row.appendChild(labelContainer);
+
+            const select = document.createElement('select');
+            select.className = 'rhythm-select';
+            select.style.fontSize = '12px';
+            select.style.padding = '4px';
+            select.style.background = 'var(--bg-body)';
+            select.style.color = 'var(--text-main)';
+            select.style.border = '1px solid var(--border-main)';
+            select.style.borderRadius = '4px';
+            select.style.cursor = 'pointer';
+            select.style.width = '100%';
+
+            ctrl.options.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt;
+                option.textContent = opt.charAt(0).toUpperCase() + opt.slice(1);
+                if (opt === currentVal) option.selected = true;
+                select.appendChild(option);
+            });
+
+            select.addEventListener('change', (e) => {
+                params[ctrl.key] = e.target.value;
+                playDrum(rowType, getAudioCurrentTime());
+                persistAppState();
+            });
+
+            row.appendChild(select);
+        } else {
+            const valSpan = document.createElement('span');
+            valSpan.style.fontFamily = 'monospace';
+            valSpan.textContent = ctrl.unit === '%' ? `${Math.round(currentVal * 100)}%` : `${currentVal}${ctrl.unit}`;
+            labelContainer.appendChild(valSpan);
+            row.appendChild(labelContainer);
+
+            const input = document.createElement('input');
+            input.type = 'range';
+            input.min = ctrl.min;
+            input.max = ctrl.max;
+            input.step = ctrl.step;
+            input.value = currentVal;
+            input.style.width = '100%';
+            input.style.cursor = 'pointer';
+
+            input.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                params[ctrl.key] = val;
+                valSpan.textContent = ctrl.unit === '%' ? `${Math.round(val * 100)}%` : `${val}${ctrl.unit}`;
+            });
+
+            input.addEventListener('change', (e) => {
+                const val = parseFloat(e.target.value);
+                params[ctrl.key] = val;
+                playDrum(rowType, getAudioCurrentTime());
+                persistAppState();
+            });
+
+            row.appendChild(input);
+        }
+
+        menu.appendChild(row);
+    });
+
+    // Spacer / Separator
+    const sep = document.createElement('div');
+    sep.style.borderBottom = '1px solid var(--border-main)';
+    sep.style.margin = '4px 0';
+    menu.appendChild(sep);
+
+    // Sample controls (File load / Use synth)
+    const buttonRow = document.createElement('div');
+    buttonRow.style.display = 'flex';
+    buttonRow.style.gap = '8px';
 
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -49,6 +205,9 @@ function showDrumLabelMenu(rowType, rowEl) {
         reader.onload = async (ev) => {
             const arrayBuffer = ev.target.result;
             await decodeCustomDrumSample(rowType, arrayBuffer);
+            if (state.drumParams && state.drumParams[rowType]) {
+                state.drumParams[rowType].pitch = 1.0;
+            }
             if (app.updateCustomDrumsUI) app.updateCustomDrumsUI();
             menu.remove();
             renderRhythmTimeline(); 
@@ -59,8 +218,9 @@ function showDrumLabelMenu(rowType, rowEl) {
     const loadBtn = document.createElement('button');
     loadBtn.className = 'control-btn primary';
     loadBtn.innerHTML = '📂 Load Sample';
-    loadBtn.style.fontSize = '12px';
+    loadBtn.style.fontSize = '11px';
     loadBtn.style.padding = '4px 8px';
+    loadBtn.style.flex = '1';
     loadBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         fileInput.click();
@@ -68,30 +228,52 @@ function showDrumLabelMenu(rowType, rowEl) {
 
     const clearBtn = document.createElement('button');
     clearBtn.className = 'control-btn secondary';
-    clearBtn.innerHTML = '↺ Use Synth';
-    clearBtn.style.fontSize = '12px';
+    clearBtn.innerHTML = '↺ Synth';
+    clearBtn.style.fontSize = '11px';
     clearBtn.style.padding = '4px 8px';
+    clearBtn.style.flex = '1';
     clearBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         await clearCustomDrumSample(rowType);
+        if (state.drumParams && state.drumParams[rowType]) {
+            state.drumParams[rowType] = structuredClone(DEFAULT_DRUM_PARAMS[rowType]);
+        }
         if (app.updateCustomDrumsUI) app.updateCustomDrumsUI();
         menu.remove();
         renderRhythmTimeline(); 
     });
 
-    menu.appendChild(fileInput);
-    menu.appendChild(loadBtn);
-    menu.appendChild(clearBtn);
+    buttonRow.appendChild(fileInput);
+    buttonRow.appendChild(loadBtn);
+    buttonRow.appendChild(clearBtn);
+    menu.appendChild(buttonRow);
+
+    // Positioning
+    document.body.appendChild(menu);
+    const rect = rowEl.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    let left = rect.right + 8;
+    let top = rect.top;
+
+    if (left + menuRect.width > window.innerWidth) {
+        left = rect.left - menuRect.width - 8;
+    }
+    if (top + menuRect.height > window.innerHeight) {
+        top = window.innerHeight - menuRect.height - 8;
+    }
+    if (top < 8) top = 8;
+    if (left < 8) left = 8;
+
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
 
     const closeHandler = (e) => {
-        if (!menu.contains(e.target)) {
+        if (!menu.contains(e.target) && !rowEl.contains(e.target)) {
             menu.remove();
             document.removeEventListener('pointerdown', closeHandler);
         }
     };
     setTimeout(() => document.addEventListener('pointerdown', closeHandler), 10);
-
-    rowEl.appendChild(menu);
 }
 
 export function renderDrumGrid(container, pattern) {

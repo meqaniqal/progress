@@ -1,8 +1,9 @@
 import { saveState, loadState, clearState } from './storage.js';
 import { calculateLoopBounds, calculateSwapsOnRemove, calculateSwapsOnInsert, calculateSwapsOnReorder } from './stateUtils.js';
 import { initChordPattern, initDrumPattern, initPatternSet } from './patternUtils.js';
-import { getChordNotes } from './theory.js';
+import { getChordNotes, getEffectiveTuning } from './theory.js';
 import { identifyChord } from './chordAnalyzer.js';
+import { DEFAULT_DRUM_PARAMS } from './rhythmConfig.js';
 
 export let analyseChordsOnLoad = true;
 
@@ -11,6 +12,7 @@ export const state = {
     songSequence: [], // Array of sectionIds
     activeSectionId: null,
     currentProgression: [],
+    customChords: [], // Up to 3 user-designed custom chords
     temporarySwaps: {}, // Map of index -> temporary chord string (e.g. { 1: 'vi' })
     history: [], // Stores progression snapshots for Undo
     baseKey: 60, // C4
@@ -33,7 +35,14 @@ export const state = {
     snapTransitionsToScale: true,
     exportPasses: 1,
     volumes: { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8 }, // 0.8 provides headroom for mixing
-    instruments: { chords: 'sawtooth', bass: 'sine' },
+    instruments: { chords: 'sawtooth', bass: 'sine', bassSecondary: 'sawtooth' },
+    bassDrive: 1.0,
+    bassHarmonicDrive: 1.0,
+    bassAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0, octaveDrop: false },
+    chordAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 },
+    bassKsDamping: 400,
+    bassKsDecay: 0.95,
+    drumParams: structuredClone(DEFAULT_DRUM_PARAMS),
     selectedChordIndex: null,
     globalPatterns: initPatternSet(),
     showManualOnStartup: true,
@@ -223,7 +232,19 @@ export function applyMacroLoopBounds() {
 export function addChord(numeral, targetKey = state.baseKey) {
     saveHistoryState();
     const isAtEnd = state.loopEnd === state.currentProgression.length;
-    state.currentProgression.push({ symbol: numeral, key: targetKey, ...initPatternSet(), duration: 2 });
+    
+    const customChord = state.customChords.find(c => c.symbol === numeral);
+    if (customChord) {
+        state.currentProgression.push({
+            symbol: customChord.symbol,
+            key: targetKey,
+            customNotes: [...customChord.customNotes],
+            ...initPatternSet(),
+            duration: 2
+        });
+    } else {
+        state.currentProgression.push({ symbol: numeral, key: targetKey, ...initPatternSet(), duration: 2 });
+    }
     
     if (isAtEnd) state.loopEnd = state.currentProgression.length;
     
@@ -277,6 +298,10 @@ export function swapChord(index, altSymbol, originalSymbol, targetKey) {
         if (targetKey !== undefined) {
             swapData.key = targetKey;
         }
+        const customChord = state.customChords.find(c => c.symbol === altSymbol);
+        if (customChord) {
+            swapData.customNotes = [...customChord.customNotes];
+        }
         state.temporarySwaps[index] = swapData;
     }
     persistAppState();
@@ -288,10 +313,25 @@ export function stepInversion(index, direction) {
     const currentOffset = chordToModify.inversionOffset ?? 0;
     const newOffset = currentOffset + direction;
 
+    let symbol = chordToModify.symbol;
+    const tuning = getEffectiveTuning(symbol, chordToModify.divisions || state.divisions);
+    
+    if (tuning.periodSize > 14) {
+        const notes = getChordNotes(symbol, chordToModify.key, chordToModify.divisions || state.divisions);
+        const numNotes = notes ? notes.length : 3;
+        const baseSymbol = symbol.replace(/[+-]+$/, '');
+        if (newOffset % numNotes === 0) {
+            symbol = baseSymbol;
+        } else {
+            symbol = baseSymbol + (newOffset > 0 ? '+' : '-');
+        }
+    }
+
     if (state.temporarySwaps[index]) {
-        state.temporarySwaps[index] = { ...state.temporarySwaps[index], inversionOffset: newOffset };
+        state.temporarySwaps[index] = { ...state.temporarySwaps[index], inversionOffset: newOffset, symbol };
     } else {
         state.currentProgression[index].inversionOffset = newOffset;
+        state.currentProgression[index].symbol = symbol;
     }
     persistAppState();
 }
@@ -399,7 +439,19 @@ export function addChordFromSource(sourceChord, sourceKey, insertIndex, newLoopS
     const isAtEnd = state.loopEnd === state.currentProgression.length;
     state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
     state.selectedChordIndex = insertIndex;
-    state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, ...initPatternSet(), duration: 2 });
+    
+    const customChord = state.customChords.find(c => c.symbol === sourceChord);
+    if (customChord) {
+        state.currentProgression.splice(insertIndex, 0, {
+            symbol: customChord.symbol,
+            key: sourceKey,
+            customNotes: [...customChord.customNotes],
+            ...initPatternSet(),
+            duration: 2
+        });
+    } else {
+        state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, ...initPatternSet(), duration: 2 });
+    }
     
     if (newLoopStart !== null && newLoopEnd !== null) {
         state.loopStart = newLoopStart;
@@ -531,6 +583,9 @@ export function persistAppState() {
         state.sections[state.activeSectionId].loopEnd = state.loopEnd;
         state.sections[state.activeSectionId].temporarySwaps = state.temporarySwaps;
     }
+    if (typeof window !== 'undefined') {
+        window.__customChords = state.customChords;
+    }
     saveState(state);
 }
 
@@ -555,6 +610,7 @@ export function resetSession() {
     state.globalPatterns = state.sections[defaultId].globalPatterns;
     
     state.temporarySwaps = {};
+    state.customChords = [];
     state.history = [];
     state.baseKey = 60;
     state.bpm = 120;

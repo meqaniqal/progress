@@ -58,3 +58,10 @@ export const DRUM_PRESETS = {
         { time: 0.1875, row: 'ohh', velocity: 0.6, probability: 0.5 }, { time: 0.6875, row: 'ohh', velocity: 0.6, probability: 0.5 }
     ]
 };
+
+export const DEFAULT_DRUM_PARAMS = {
+    kick: { decay: 0.4, pitch: 50, drive: 0, volume: 1.0 },
+    snare: { decay: 0.2, pitch: 181, cutoff: 1900, drive: 1.5, volume: 1.0, noiseType: 'white' },
+    chh: { decay: 0.05, cutoff: 7000, drive: 0, volume: 1.0, noiseType: 'white' },
+    ohh: { decay: 0.3, cutoff: 7000, drive: 0, volume: 1.0, noiseType: 'white' }
+};

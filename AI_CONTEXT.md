@@ -11,6 +11,7 @@ TECH: Vanilla JS (ES6, Strict), MidiWriterJS, Web Audio API. Host: Static (GitHu
 - MOBILE DRAG & DROP: Never rely on `e.dataTransfer.getData()` to pass payloads. Always use module-scoped variables (e.g., `draggedSourceChord`, `draggedIndex`) to pass state between `dragstart` and `drop` to maintain strict compatibility with the mobile polyfill.
 - STYLING: Keep unnecessary CSS out of `index.html`. Only CSS absolutely critical for preventing initial FOUC should be inline. All other styles belong in appropriate `.css` files.
 - PERSISTENCE & MODULAR SUGGESTIONS: State initialization, version migrations, and localStorage sanitization are isolated in `storePersistence.js`. Chord suggestions and real-time chord analyzer are decoupled in `progressionSuggestions.js` and `chordAnalyzer.js`.
+- RESPONSIVE & MOBILE LAYOUT: Considerations for narrow phone displays in vertical mode (viewports < 450px) must be explicitly factored into layout coding. Use space-saving components, adaptive layout scaling, and mobile-friendly alternative interfaces (such as icon-based toggles and compact dropdowns) to deliver a seamless premium experience.
 
 ## MANDATORY WORKFLOW
 1. **CONTEXT PROVISIONING:** For any new session or task, always include `AI_CONTEXT.md` and `PROJECT_STRUCTURE.txt`. This ensures architectural alignment and prevents incorrect assumptions about the codebase.

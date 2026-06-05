@@ -13,15 +13,30 @@ export function generateAIPrompt(progression, bpm, keyName, mode = 'major') {
     let hasAltered = false;
     let totalTension = 0;
 
+    const NOTE_CLASSES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const getPitchNames = (midiNotes) => {
+        if (!midiNotes || midiNotes.length === 0) return '';
+        return midiNotes.map(n => {
+            const pc = Math.round(n) % 12;
+            return NOTE_CLASSES[pc];
+        }).join('-');
+    };
+
     progression.forEach(chord => {
         if (chord.key !== currentKey) {
             const newKeyName = KEY_NAMES[chord.key] || 'Unknown';
             progressionStringElements.push(`[Modulates to ${newKeyName}]`);
             currentKey = chord.key;
         }
-        progressionStringElements.push(chord.symbol);
+        
+        let displaySymbol = chord.symbol;
+        if (chord.customNotes && (chord.symbol.startsWith('Custom') || chord.symbol.startsWith('custom'))) {
+            const pitchesStr = getPitchNames(chord.customNotes);
+            displaySymbol = `${chord.symbol} (${pitchesStr})`;
+        }
+        progressionStringElements.push(displaySymbol);
 
-        const profile = getHarmonicProfile(chord.symbol, mode, chord.key);
+        const profile = getHarmonicProfile(chord, mode, chord.key);
         totalTension += profile.tension;
         if (profile.isBorrowed) hasBorrowed = true;
         if (/(9|11|13|maj7)/.test(chord.symbol)) hasExtensions = true;

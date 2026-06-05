@@ -102,26 +102,22 @@
 - [x] **Polyphonic Slice Pitch Editing:** Pitch Mode expanded to support custom voicings per slice in Chords.
 - [x] **Intelligent Bassline Enhancements:** Multi-note rhythmic walking bass patterns and context-aware generation.
 
-## Phase 10: Advanced Composition Tools (In Progress)
-- **Transitions Mode (Phase 1, 1.5, & 2 Complete):** Implemented a dedicated "Transitions" mode in the Pattern Editor to algorithmically program inner voice movement between chords.
+### Phase 10: Advanced Composition Tools (Complete)
+- **Transitions Mode:** Implemented a dedicated "Transitions" mode in the Pattern Editor to algorithmically program inner voice movement between chords.
 - **Independent Voice Sustain:** Re-engineered the transition evaluator to output discrete voice events, allowing static chord tones to sustain continuously while adjacent voices perform passing tones or suspensions.
 - **Voice Lanes UI:** Added horizontal continuous voice lanes and a "Master All Notes" lane for macro-tweaking.
-- **Interactive Transition Blocks:** Click and drag to insert, resize, and move transition blocks. Vertical dragging seamlessly swaps the transition type contextually based on timeline position (Passing, Suspend, Anticipate, Auto-Smooth).
-- **Melodic Flourishes:** Added multi-note generative patterns (Run Up, Run Down, Enclosure) that intelligently subdivide block time boundaries to lead into target chords.
-- **Dynamic Slice Button UI:** The 'Split' button now attaches directly to the invisible slider thumb in the Rhythm Editor, tracking horizontally with the user's finger.
-- **Transition Audio Engine:** Built `transitionEvaluator.js` to dynamically slice instances and bend pitches during playback based on adjacent chord context.
-- **Collision Physics:** Added real-time collision detection to nudge passing tones away from muddy minor-second clashes.
-- **Generative Transitions:** Wired the probability slider to transition blocks for chance-based harmonic flourishes.
-- **Flourish Rate Control:** Added a dedicated slider to control the density of multi-note flourishes (e.g., 2 to 8 notes).
-- **Dynamic Acoustic Thresholds:** The transition engine now calculates absolute chord duration to prevent microscopic, glitchy notes by dynamically throttling flourish rates (minimum 50ms per note) or gracefully downgrading to a passing tone.
-- **Flourish Consistency:** Pre-calculated step pitches to ensure that generative flourishes (like Random) do not roll consecutive duplicate notes, preserving rhythmic integrity.
-- **Expanded Grid Snapping:** Added 1/16T and 1/32 grid options for microscopic transition editing.
-- **Export Integration:** Seamlessly integrated transition math into both `.mid` (MidiWriterJS) and `.wav` (OfflineAudioContext) offline export engines with perfect loop-boundary context wrapping.
+- **Interactive Transition Blocks:** Click and drag to insert, resize, and move transition blocks. Vertical dragging contextually swaps transition types based on timeline position (Passing, Suspend, Anticipate, Auto-Smooth).
+- **Melodic Flourishes:** Added multi-note generative patterns (Run Up, Run Down, Enclosure) that intelligently lead into target chords.
 - **Scale and Modal Snapping:** Snapped transition/flourish notes to scale/mode degrees to establish a stable harmonic corridor.
 - **Real-Time Chord Re-analysis:** Real-time Roman Numeral calculation upon editing pitches, resetting offset attributes dynamically.
-- **Drum grid doubling:** Double-length button that duplicates and stretches global drum pattern structures.
-- **Architecture Modularization:** Split Suggestions and Persistence out of main theory/store files to separate modules (`progressionSuggestions.js`, `storePersistence.js`).
-- **Interactive Substitutes Preview:** Persistent Audition mode in the Inspector with 3-chord context playback, swap reset controls, and paginated pages.
-- **Transposition relationship colors:** Transposition selectors matched to emotional moods with custom hue mappings.
-- **Loop block drag collapsing:** Foldaway palette adjustments on loop dragging, combined with automatic loop brace resizing.
+- **Audition Mode Previews:** Auditions chord substitutions in context (3-chord sequence) with persistent toggles.
+- **Adaptive Loop Bounds:** Collapses foldaway palette and automatically resizes loop braces upon dropping a loop block.
 - **Diagnostic Duplicate Auditing:** Validated zero duplicate symbols across all standard and microtonal suggestions.
+
+## Phase 11: Advanced Sound Design & Rhythmic UX (Complete)
+- **Decoupled Bass Drive & Volume Controls:** Implemented discrete pre-saturation drive gains (`bassDriveGain`, `bassHarmonicDriveGain`) and post-saturation volume gains to achieve rich saturation independent of output volume.
+- **Sample Bass & ADSR Envelopes:** Built a sample-based bass synthesis option with custom buffer decoding, pitch shifting, and attack-decay-sustain-release envelope adjustments.
+- **Bass Octave Drop & Dynamic Pitch Clamping:** Implemented a `-2 Octaves Drop` toggle button that drops playback pitch by 24 semitones and dynamically caps the bass pitch slider maximum limit at `0st` to prevent invalid states.
+- **Customizable Drum Synthesis Engines:** Exposed decay, pitch, cutoff, drive, and noise type controls for synth drums, coupled with 4x volume output envelope scaling for a punchier mix.
+- **Auto-Zoom to Fill Viewport:** Wired the Rhythm Editor to automatically calculate and set the zoom level to fit the global drum pattern to the viewport width when opened.
+- **Session Persistence:** Extended `storePersistence.js` to serialize, sanitize, and restore all custom bass/drum synthesis values and UI parameters from `localStorage` across user sessions.

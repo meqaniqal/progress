@@ -42,7 +42,7 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
 
     for (let i = 0; i < progression.length; i++) {
         const chord = progression[i];
-        const chordNotes = getChordNotes(chord.symbol, chord.key, getDivisions(chord));
+        const chordNotes = chord.customNotes || getChordNotes(chord.symbol, chord.key, getDivisions(chord));
 
         if (!chordNotes || chordNotes.length === 0) {
             processed.push([]);
@@ -118,7 +118,7 @@ export function getPlayableNotes(progression, globalOptions = {}) {
         // 1b. Just use root position (dropped one period for warmth)
         baseProgression = progression.map(chord => {
             const tuning = getEffectiveTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
-            const notes = getChordNotes(chord.symbol, chord.key, tuning.divisions);
+            const notes = chord.customNotes || getChordNotes(chord.symbol, chord.key, tuning.divisions);
             const dropSize = tuning.periodSize > 14 ? CONFIG.VL_OCTAVE_SHIFT : tuning.periodSize;
             return notes ? notes.map(n => n - dropSize) : [];
         });
@@ -146,15 +146,21 @@ export function applyInversion(notes, offset = 0, periodSize = CONFIG.VL_OCTAVE_
     if (offset === 0 || !notes || notes.length === 0) return notes;
 
     const isMacrotonal = periodSize > 14;
+    const numNotes = notes.length;
 
-    // Macrotonal protection: internal inversions shatter wide-period chords.
-    // We shift the entire chord block by a standard octave (12.0) instead of the Tritave.
-    // This preserves the tight microtonal cluster while keeping it in a musical register.
     if (isMacrotonal) {
-        return [...notes].map(n => n + (offset * CONFIG.VL_OCTAVE_SHIFT)).sort((a, b) => a - b);
+        // Macrotonal protection: shift note-by-note inversions and complete block transpositions
+        // by a standard octave (12.0) to preserve register alignment from previous projects.
+        const effectiveOffset = ((offset % numNotes) + numNotes) % numNotes;
+        const octaveShift = Math.floor(offset / numNotes);
+        
+        let inverted = [...notes].sort((a, b) => a - b);
+        for (let i = 0; i < effectiveOffset; i++) {
+            inverted.push(inverted.shift() + CONFIG.VL_OCTAVE_SHIFT);
+        }
+        return inverted.map(n => n + (octaveShift * CONFIG.VL_OCTAVE_SHIFT)).sort((a, b) => a - b);
     }
 
-    const numNotes = notes.length;
     const effectiveOffset = ((offset % numNotes) + numNotes) % numNotes;
     const octaveShift = Math.floor(offset / numNotes);
 
@@ -189,8 +195,15 @@ export function generateInversions(chord, voicingType = 'auto', periodSize = CON
             inversions.push([...base]); // Root Position Close
         }
         
-        // For macrotonal scales (BP), internal inversions shatter the chord with huge gaps.
+        // For macrotonal scales (BP), generate in-between inversions using octave shifts (12)
         if (isMacrotonal) {
+            for (let i = 1; i < chord.length; i++) {
+                const inv = [...base];
+                for (let j = 0; j < i; j++) {
+                    inv[j] += CONFIG.VL_OCTAVE_SHIFT;
+                }
+                inversions.push(inv.sort((a, b) => a - b));
+            }
             continue;
         }
         
