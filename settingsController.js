@@ -8,6 +8,30 @@ import { DEFAULT_DRUM_PARAMS } from './rhythmConfig.js';
 
 let synthAuditionTimeout = null;
 
+// Exponential range mapping utilities using quadratic curves
+function volToSlider(vol, maxVal = 1.5) {
+    return Math.sqrt(Math.max(0, vol) / maxVal);
+}
+function sliderToVol(sliderVal, maxVal = 1.5) {
+    return maxVal * Math.pow(sliderVal, 2);
+}
+function envToSlider(envVal, maxVal = 2.0) {
+    return Math.sqrt(Math.max(0, envVal) / maxVal);
+}
+function sliderToEnv(sliderVal, maxVal = 2.0) {
+    return maxVal * Math.pow(sliderVal, 2);
+}
+
+const trackMaxVolumes = {
+    master: 2.0,
+    chords: 1.5,
+    bass: 1.5,
+    bassHarmonic: 1.5,
+    drums: 1.5,
+    melody: 1.5,
+    countermelody: 1.5
+};
+
 export function updateSynthEditorVisibility(track, synthType) {
     const gearBtn = document.getElementById(`btn-edit-${track}-synth`);
     const editorPanel = document.getElementById(`synth-editor-${track}`);
@@ -92,10 +116,17 @@ export function syncSettingsUI() {
     
     ['master', 'chords', 'bass', 'bassHarmonic', 'drums', 'melody', 'countermelody'].forEach(track => {
         const el = document.getElementById(`vol-${track}`);
+        const maxVal = trackMaxVolumes[track] || 1.5;
+        const currentVol = state.volumes[track] !== undefined ? state.volumes[track] : (track === 'master' ? 1.0 : (track === 'bassHarmonic' || track === 'countermelody' ? 0.0 : 0.8));
+        state.volumes[track] = currentVol;
         if (el) {
-            el.value = state.volumes[track];
-            setTrackVolume(track, state.volumes[track]);
+            el.value = volToSlider(currentVol, maxVal);
         }
+        const settingsEl = document.getElementById(`settings-vol-${track}`);
+        if (settingsEl) {
+            settingsEl.value = volToSlider(currentVol, maxVal);
+        }
+        setTrackVolume(track, currentVol);
     });
     
     const elChords = document.getElementById('inst-chords');
@@ -144,10 +175,15 @@ export function syncSettingsUI() {
     if (!state.melodyAdsr) {
         state.melodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
     }
-    ['attack', 'decay', 'sustain', 'release', 'pitch'].forEach(param => {
+    ['attack', 'decay', 'release'].forEach(param => {
         const el = document.getElementById(`melody-${param}`);
-        if (el) el.value = state.melodyAdsr[param];
+        if (el) el.value = envToSlider(state.melodyAdsr[param], 2.0);
     });
+    const elMelodySustain = document.getElementById('melody-sustain');
+    if (elMelodySustain) elMelodySustain.value = state.melodyAdsr.sustain;
+    const elMelodyPitch = document.getElementById('melody-pitch');
+    if (elMelodyPitch) elMelodyPitch.value = state.melodyAdsr.pitch;
+
     const melodyPitchVal = document.getElementById('melody-pitch-val');
     if (melodyPitchVal) {
         const p = state.melodyAdsr.pitch || 0;
@@ -158,10 +194,15 @@ export function syncSettingsUI() {
     if (!state.countermelodyAdsr) {
         state.countermelodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
     }
-    ['attack', 'decay', 'sustain', 'release', 'pitch'].forEach(param => {
+    ['attack', 'decay', 'release'].forEach(param => {
         const el = document.getElementById(`countermelody-${param}`);
-        if (el) el.value = state.countermelodyAdsr[param];
+        if (el) el.value = envToSlider(state.countermelodyAdsr[param], 2.0);
     });
+    const elCountermelodySustain = document.getElementById('countermelody-sustain');
+    if (elCountermelodySustain) elCountermelodySustain.value = state.countermelodyAdsr.sustain;
+    const elCountermelodyPitch = document.getElementById('countermelody-pitch');
+    if (elCountermelodyPitch) elCountermelodyPitch.value = state.countermelodyAdsr.pitch;
+
     const countermelodyPitchVal = document.getElementById('countermelody-pitch-val');
     if (countermelodyPitchVal) {
         const p = state.countermelodyAdsr.pitch || 0;
@@ -238,10 +279,12 @@ export function syncSettingsUI() {
         }
         bassPitchSlider.value = state.bassAdsr.pitch;
     }
-    ['attack', 'decay', 'sustain', 'release'].forEach(param => {
+    ['attack', 'decay', 'release'].forEach(param => {
         const el = document.getElementById(`bass-${param}`);
-        if (el) el.value = state.bassAdsr[param];
+        if (el) el.value = envToSlider(state.bassAdsr[param], 2.0);
     });
+    const elBassSustain = document.getElementById('bass-sustain');
+    if (elBassSustain) elBassSustain.value = state.bassAdsr.sustain;
     const bassPitchVal = document.getElementById('bass-pitch-val');
     if (bassPitchVal) {
         const p = state.bassAdsr.pitch || 0;
@@ -272,10 +315,15 @@ export function syncSettingsUI() {
     } else if (state.chordAdsr.pitch === undefined) {
         state.chordAdsr.pitch = 0;
     }
-    ['attack', 'decay', 'sustain', 'release', 'pitch'].forEach(param => {
+    ['attack', 'decay', 'release'].forEach(param => {
         const el = document.getElementById(`chord-${param}`);
-        if (el) el.value = state.chordAdsr[param];
+        if (el) el.value = envToSlider(state.chordAdsr[param], 2.0);
     });
+    const elChordSustain = document.getElementById('chord-sustain');
+    if (elChordSustain) elChordSustain.value = state.chordAdsr.sustain;
+    const elChordPitch = document.getElementById('chord-pitch');
+    if (elChordPitch) elChordPitch.value = state.chordAdsr.pitch;
+
     const chordPitchVal = document.getElementById('chord-pitch-val');
     if (chordPitchVal) {
         const p = state.chordAdsr.pitch || 0;
@@ -302,26 +350,43 @@ export function syncSettingsUI() {
     if (!state.synthParams['plucked-square'].waveform) state.synthParams['plucked-square'].waveform = 'square';
     
     const fm = state.synthParams.fm;
-    const sliderMap = { 'ratio': fm.ratio, 'index': fm.modIndex, 'attack': fm.attack, 'release': fm.release };
+    const sliderMap = { 'ratio': fm.ratio, 'index': fm.modIndex };
     for (const [key, val] of Object.entries(sliderMap)) {
         const slider = document.getElementById(`fm-${key}-slider`);
         if (slider) slider.value = val;
         setSynthParam('fm', key === 'index' ? 'modIndex' : key, val);
     }
+    const elFmAttack = document.getElementById('fm-attack-slider');
+    if (elFmAttack) elFmAttack.value = envToSlider(fm.attack, 1.0);
+    const elFmRelease = document.getElementById('fm-release-slider');
+    if (elFmRelease) elFmRelease.value = envToSlider(fm.release, 1.0);
+    
+    setSynthParam('fm', 'attack', fm.attack);
+    setSynthParam('fm', 'release', fm.release);
     
     const pluck = state.synthParams['plucked-square'];
-    const pluckMap = { 'waveform': pluck.waveform, 'cutoff': pluck.cutoff, 'resonance': pluck.resonance, 'decay': pluck.decay };
+    const pluckMap = { 'waveform': pluck.waveform, 'cutoff': pluck.cutoff, 'resonance': pluck.resonance };
     for (const [key, val] of Object.entries(pluckMap)) {
         const el = document.getElementById(`pluck-${key}-${key === 'waveform' ? 'select' : 'slider'}`);
         if (el) el.value = val;
         setSynthParam('plucked-square', key, val);
     }
+    const elPluckDecay = document.getElementById('pluck-decay-slider');
+    if (elPluckDecay) elPluckDecay.value = envToSlider(pluck.decay, 1.0);
+    setSynthParam('plucked-square', 'decay', pluck.decay);
     
     updatePluckParamsVisibility(pluck.waveform);
     
     if (!state.drumParams) {
         state.drumParams = structuredClone(DEFAULT_DRUM_PARAMS);
     }
+    ['kick', 'snare', 'chh', 'ohh'].forEach(drumType => {
+        const el = document.getElementById(`drum-vol-${drumType}`);
+        if (el && state.drumParams[drumType]) {
+            const vol = state.drumParams[drumType].volume !== undefined ? state.drumParams[drumType].volume : 1.0;
+            el.value = volToSlider(vol, 2.0);
+        }
+    });
     
     updateCustomDrumsUI();
     
@@ -386,12 +451,48 @@ export function initSettingsUI({ onRenderProgression }) {
     });
     
     ['master', 'chords', 'bass', 'bassHarmonic', 'drums', 'melody', 'countermelody'].forEach(track => {
+        const maxVal = trackMaxVolumes[track] || 1.5;
+        const updateVolVal = (val) => {
+            state.volumes[track] = val;
+            try { setTrackVolume(track, val); } catch (err) {}
+            persistAppState();
+
+            // Sync other volume input elements for the same track
+            const el = document.getElementById(`vol-${track}`);
+            const settingsEl = document.getElementById(`settings-vol-${track}`);
+            const sliderVal = volToSlider(val, maxVal);
+            if (el) el.value = sliderVal;
+            if (settingsEl) settingsEl.value = sliderVal;
+        };
+
         const el = document.getElementById(`vol-${track}`);
         if (el) {
             el.addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
-                state.volumes[track] = val;
-                try { setTrackVolume(track, val); } catch (err) {}
+                const sliderVal = parseFloat(e.target.value);
+                const val = sliderToVol(sliderVal, maxVal);
+                updateVolVal(val);
+            });
+        }
+
+        const settingsEl = document.getElementById(`settings-vol-${track}`);
+        if (settingsEl) {
+            settingsEl.addEventListener('input', (e) => {
+                const sliderVal = parseFloat(e.target.value);
+                const val = sliderToVol(sliderVal, maxVal);
+                updateVolVal(val);
+            });
+        }
+    });
+
+    ['kick', 'snare', 'chh', 'ohh'].forEach(drumType => {
+        const el = document.getElementById(`drum-vol-${drumType}`);
+        if (el) {
+            el.addEventListener('input', (e) => {
+                const sliderVal = parseFloat(e.target.value);
+                const val = sliderToVol(sliderVal, 2.0); // max drum part volume is 2.0
+                if (!state.drumParams) state.drumParams = structuredClone(DEFAULT_DRUM_PARAMS);
+                if (!state.drumParams[drumType]) state.drumParams[drumType] = structuredClone(DEFAULT_DRUM_PARAMS[drumType]);
+                state.drumParams[drumType].volume = val;
                 persistAppState();
             });
         }
@@ -399,16 +500,24 @@ export function initSettingsUI({ onRenderProgression }) {
     
     const elChords = document.getElementById('inst-chords');
     if (elChords) {
-        elChords.addEventListener('change', (e) => {
+        elChords.addEventListener('change', async (e) => {
             state.instruments.chords = e.target.value;
             updateSynthEditorVisibility('chords', e.target.value);
             persistAppState();
+            if (e.target.value === 'sample-chords') {
+                const { customChordBuffer } = await import('./synth.js');
+                if (!customChordBuffer) {
+                    const panel = document.getElementById('synth-editor-chords');
+                    if (panel) panel.style.display = 'block';
+                    document.getElementById('file-chord-sample')?.click();
+                }
+            }
         });
     }
     
     const elBassSec = document.getElementById('inst-bass-secondary');
     if (elBassSec) {
-        elBassSec.addEventListener('change', (e) => {
+        elBassSec.addEventListener('change', async (e) => {
             state.instruments.bassSecondary = e.target.value;
             updateSynthEditorVisibility('bass', e.target.value);
             const sampleControls = document.getElementById('bass-sample-controls');
@@ -420,12 +529,20 @@ export function initSettingsUI({ onRenderProgression }) {
                 ksControls.style.display = (e.target.value === 'karplus-strong') ? 'flex' : 'none';
             }
             persistAppState();
+            if (e.target.value === 'sample-bass') {
+                const { customBassBuffer } = await import('./synth.js');
+                if (!customBassBuffer) {
+                    const panel = document.getElementById('synth-editor-bass');
+                    if (panel) panel.style.display = 'block';
+                    document.getElementById('file-bass-sample')?.click();
+                }
+            }
         });
     }
 
     const elMelody = document.getElementById('inst-melody');
     if (elMelody) {
-        elMelody.addEventListener('change', (e) => {
+        elMelody.addEventListener('change', async (e) => {
             state.instruments.melody = e.target.value;
             const isSample = (e.target.value === 'sample-melody');
             const gear = document.getElementById('btn-edit-melody-synth');
@@ -435,12 +552,22 @@ export function initSettingsUI({ onRenderProgression }) {
                 if (panel) panel.style.display = 'none';
             }
             persistAppState();
+            if (isSample) {
+                const { customMelodyBuffer } = await import('./synth.js');
+                if (!customMelodyBuffer) {
+                    const panel = document.getElementById('synth-editor-melody');
+                    if (panel) panel.style.display = 'flex';
+                    const otherPanel = document.getElementById('synth-editor-countermelody');
+                    if (otherPanel) otherPanel.style.display = 'none';
+                    document.getElementById('file-melody-sample')?.click();
+                }
+            }
         });
     }
 
     const elCountermelody = document.getElementById('inst-countermelody');
     if (elCountermelody) {
-        elCountermelody.addEventListener('change', (e) => {
+        elCountermelody.addEventListener('change', async (e) => {
             state.instruments.countermelody = e.target.value;
             const isSample = (e.target.value === 'sample-countermelody');
             const gear = document.getElementById('btn-edit-countermelody-synth');
@@ -450,6 +577,16 @@ export function initSettingsUI({ onRenderProgression }) {
                 if (panel) panel.style.display = 'none';
             }
             persistAppState();
+            if (isSample) {
+                const { customCountermelodyBuffer } = await import('./synth.js');
+                if (!customCountermelodyBuffer) {
+                    const panel = document.getElementById('synth-editor-countermelody');
+                    if (panel) panel.style.display = 'flex';
+                    const otherPanel = document.getElementById('synth-editor-melody');
+                    if (otherPanel) otherPanel.style.display = 'none';
+                    document.getElementById('file-countermelody-sample')?.click();
+                }
+            }
         });
     }
 
@@ -580,7 +717,8 @@ export function initSettingsUI({ onRenderProgression }) {
         const el = document.getElementById(`bass-${param}`);
         if (el) {
             el.addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
+                const sliderVal = parseFloat(e.target.value);
+                const val = (param === 'sustain') ? sliderVal : sliderToEnv(sliderVal, 2.0);
                 state.bassAdsr[param] = val;
                 persistAppState();
             });
@@ -640,7 +778,8 @@ export function initSettingsUI({ onRenderProgression }) {
         const el = document.getElementById(`chord-${param}`);
         if (el) {
             el.addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
+                const sliderVal = parseFloat(e.target.value);
+                const val = (param === 'sustain') ? sliderVal : sliderToEnv(sliderVal, 2.0);
                 if (!state.chordAdsr) state.chordAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
                 state.chordAdsr[param] = val;
                 persistAppState();
@@ -687,7 +826,8 @@ export function initSettingsUI({ onRenderProgression }) {
         const slider = document.getElementById(`fm-${param}-slider`);
         if (slider) {
             slider.addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
+                const sliderVal = parseFloat(e.target.value);
+                const val = (param === 'attack' || param === 'release') ? sliderToEnv(sliderVal, 1.0) : sliderVal;
                 const stateKey = param === 'index' ? 'modIndex' : param;
                 if (!state.synthParams) state.synthParams = { fm: {} };
                 state.synthParams.fm[stateKey] = val;
@@ -714,7 +854,8 @@ export function initSettingsUI({ onRenderProgression }) {
         const slider = document.getElementById(`pluck-${param}-slider`);
         if (slider) {
             slider.addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
+                const sliderVal = parseFloat(e.target.value);
+                const val = (param === 'decay') ? sliderToEnv(sliderVal, 1.0) : sliderVal;
                 if (!state.synthParams) state.synthParams = { fm: {}, 'plucked-square': {} };
                 if (!state.synthParams['plucked-square']) state.synthParams['plucked-square'] = {};
                 
@@ -838,6 +979,9 @@ export function initSettingsUI({ onRenderProgression }) {
 
     const chordPitchSlider = document.getElementById('chord-pitch');
     if (chordPitchSlider) {
+        chordPitchSlider.addEventListener('pointerdown', () => {
+            triggerDualAudition('chords');
+        });
         chordPitchSlider.addEventListener('input', (e) => {
             const val = parseInt(e.target.value, 10);
             if (!state.chordAdsr) state.chordAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
@@ -857,6 +1001,9 @@ export function initSettingsUI({ onRenderProgression }) {
 
     const bassPitchSlider = document.getElementById('bass-pitch');
     if (bassPitchSlider) {
+        bassPitchSlider.addEventListener('pointerdown', () => {
+            triggerDualAudition('bass');
+        });
         bassPitchSlider.addEventListener('input', (e) => {
             const val = parseInt(e.target.value, 10);
             if (!state.bassAdsr) state.bassAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0, octaveDrop: false };
@@ -927,20 +1074,29 @@ export function initSettingsUI({ onRenderProgression }) {
         });
     });
 
-    // Toggle custom sample panels gear clicks
+    // Toggle custom sample panels gear clicks (mutually exclusive)
     const btnEditMelody = document.getElementById('btn-edit-melody-synth');
     const panelMelody = document.getElementById('synth-editor-melody');
+    const btnEditCountermelody = document.getElementById('btn-edit-countermelody-synth');
+    const panelCountermelody = document.getElementById('synth-editor-countermelody');
+
     if (btnEditMelody && panelMelody) {
         btnEditMelody.addEventListener('click', () => {
-            panelMelody.style.display = panelMelody.style.display === 'none' ? 'flex' : 'none';
+            const opening = panelMelody.style.display === 'none';
+            panelMelody.style.display = opening ? 'flex' : 'none';
+            if (opening && panelCountermelody) {
+                panelCountermelody.style.display = 'none';
+            }
         });
     }
 
-    const btnEditCountermelody = document.getElementById('btn-edit-countermelody-synth');
-    const panelCountermelody = document.getElementById('synth-editor-countermelody');
     if (btnEditCountermelody && panelCountermelody) {
         btnEditCountermelody.addEventListener('click', () => {
-            panelCountermelody.style.display = panelCountermelody.style.display === 'none' ? 'flex' : 'none';
+            const opening = panelCountermelody.style.display === 'none';
+            panelCountermelody.style.display = opening ? 'flex' : 'none';
+            if (opening && panelMelody) {
+                panelMelody.style.display = 'none';
+            }
         });
     }
 
@@ -1017,7 +1173,8 @@ export function initSettingsUI({ onRenderProgression }) {
         const el = document.getElementById(`melody-${param}`);
         if (el) {
             el.addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
+                const sliderVal = parseFloat(e.target.value);
+                const val = (param === 'sustain') ? sliderVal : sliderToEnv(sliderVal, 2.0);
                 if (!state.melodyAdsr) state.melodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
                 state.melodyAdsr[param] = val;
                 persistAppState();
@@ -1029,7 +1186,8 @@ export function initSettingsUI({ onRenderProgression }) {
         const el = document.getElementById(`countermelody-${param}`);
         if (el) {
             el.addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
+                const sliderVal = parseFloat(e.target.value);
+                const val = (param === 'sustain') ? sliderVal : sliderToEnv(sliderVal, 2.0);
                 if (!state.countermelodyAdsr) state.countermelodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
                 state.countermelodyAdsr[param] = val;
                 persistAppState();
@@ -1040,6 +1198,9 @@ export function initSettingsUI({ onRenderProgression }) {
     // Melody & Countermelody Pitch sliders
     const melodyPitchSlider = document.getElementById('melody-pitch');
     if (melodyPitchSlider) {
+        melodyPitchSlider.addEventListener('pointerdown', () => {
+            triggerDualAudition('melody');
+        });
         melodyPitchSlider.addEventListener('input', (e) => {
             const val = parseInt(e.target.value, 10);
             if (!state.melodyAdsr) state.melodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
@@ -1058,6 +1219,9 @@ export function initSettingsUI({ onRenderProgression }) {
 
     const countermelodyPitchSlider = document.getElementById('countermelody-pitch');
     if (countermelodyPitchSlider) {
+        countermelodyPitchSlider.addEventListener('pointerdown', () => {
+            triggerDualAudition('countermelody');
+        });
         countermelodyPitchSlider.addEventListener('input', (e) => {
             const val = parseInt(e.target.value, 10);
             if (!state.countermelodyAdsr) state.countermelodyAdsr = { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };

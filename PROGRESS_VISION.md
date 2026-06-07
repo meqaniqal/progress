@@ -233,4 +233,12 @@ Transitioning from mapping 12-TET math into EDOs towards supporting true, indepe
 - **Arrangement UX Enhancements (Complete ✅):**
   - Made the `+looped` button act like standard chord buttons; dragging it hides other buttons to facilitate clean drop insertion.
   - Auto-expands loop brace boundaries when a loop is dragged and dropped immediately following the last chord in the current loop.
-y following the last chord in the current loop.
+
+### 14. Future Layout & Progressive Disclosure Roadmap
+
+- **Progressive Mixer Integration (Planned):**
+  - Simplify settings by organizing into two primary tabs: General and Mixer.
+  - Clicking any track/instrument icon on a Mixer slider will expand a nested, context-specific parameters panel directly beneath that Mixer row.
+  - Expanding one section will automatically collapse any other open parameter panel.
+  - Clicking the icon again or tapping outside the settings group will return the interface to a compact mixer layout, aligning with the progressive disclosure philosophy.
+

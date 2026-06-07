@@ -29,9 +29,17 @@ function _initSettingsModal(onResetPlayback, onRenderProgression) {
         settingsModal.classList.add('visible');
     });
     
-    closeSettingsBtn.addEventListener('click', () => {
+    const closeSettings = () => {
         settingsModal.classList.remove('visible');
         setTimeout(() => settingsModal.style.display = 'none', 200);
+    };
+
+    closeSettingsBtn.addEventListener('click', closeSettings);
+
+    settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) {
+            closeSettings();
+        }
     });
     
     if (resetSessionBtn) {
@@ -107,11 +115,23 @@ function _initAIPromptModal() {
         });
     }
 
-    if (btnClosePrompt) {
-        btnClosePrompt.addEventListener('click', () => {
-            const modal = document.getElementById('ai-prompt-modal');
+    const modal = document.getElementById('ai-prompt-modal');
+    const closePrompt = () => {
+        if (modal) {
             modal.classList.remove('visible');
             setTimeout(() => modal.style.display = 'none', 200);
+        }
+    };
+
+    if (btnClosePrompt) {
+        btnClosePrompt.addEventListener('click', closePrompt);
+    }
+
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closePrompt();
+            }
         });
     }
 
@@ -259,9 +279,17 @@ function _initProjectHubModal(onRenderProgression) {
             hubModal.classList.add('visible');
         });
 
-        closeHubBtn.addEventListener('click', () => {
+        const closeHub = () => {
             hubModal.classList.remove('visible');
             setTimeout(() => hubModal.style.display = 'none', 200);
+        };
+
+        closeHubBtn.addEventListener('click', closeHub);
+
+        hubModal.addEventListener('click', (e) => {
+            if (e.target === hubModal) {
+                closeHub();
+            }
         });
     }
 }
@@ -320,9 +348,17 @@ function _initManualModal() {
             manualModal.classList.add('visible');
         });
 
-        closeBtn.addEventListener('click', () => {
+        const closeManual = () => {
             manualModal.classList.remove('visible');
             setTimeout(() => manualModal.style.display = 'none', 200);
+        };
+
+        closeBtn.addEventListener('click', closeManual);
+
+        manualModal.addEventListener('click', (e) => {
+            if (e.target === manualModal) {
+                closeManual();
+            }
         });
 
         if (state.showManualOnStartup) {

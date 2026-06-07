@@ -3,14 +3,26 @@ import { CONFIG } from './config.js';
 import { audioBufferToWav } from './wavEncoder.js';
 import { generateArpNotes } from './arp.js';
 import { resolvePattern } from './patternResolver.js';
-import { playDrum, initAudio, customBassBuffer, customChordBuffer, midiToFreq } from './synth.js';
+import { playDrum, initAudio, customBassBuffer, customChordBuffer, customMelodyBuffer, customCountermelodyBuffer, midiToFreq } from './synth.js';
 import { SYNTH_REGISTRY } from './synthEngines.js';
 import { evaluateVoiceEvents } from './transitionEvaluator.js';
 import { state as appState, getActiveProgression } from './store.js';
 import { isSongTrayOpen } from './songController.js';
+import { scheduleMelody, clearMelodyMemory } from './melodyGenerator.js';
+
+function makeSoftClipCurve(drive) {
+    const n_samples = 44100;
+    const curve = new Float32Array(n_samples);
+    for (let i = 0; i < n_samples; ++i) {
+        const x = (i * 2) / n_samples - 1;
+        curve[i] = Math.tanh(x * drive) / Math.tanh(drive);
+    }
+    return curve;
+}
 
 // --- Layer 1: Pure Timeline Calculator (Testable) ---
 export function calculateAudioTimeline(progression, bpm, useVoiceLeading, exportPasses = 1, globalOptions = {}) {
+    clearMelodyMemory();
     const timeline = [];
     let currentTime = 0;
     let currentBeat = 0;
@@ -138,6 +150,35 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
                         });
                     }
                 });
+
+                // --- Schedule Melody & Countermelody ---
+                const melodyPlayToneFn = (freq, startTime, duration, inst, bus) => {
+                    const midiNote = Math.round(12 * Math.log2(freq / CONFIG.A4_FREQ) + CONFIG.A4_MIDI);
+                    timeline.push({
+                        midiNote: midiNote,
+                        freq: freq,
+                        startTime: startTime,
+                        duration: duration,
+                        type: inst,
+                        track: bus, // 'melody' or 'countermelody'
+                        pan: 0
+                    });
+                };
+
+                scheduleMelody(
+                    currentTime,
+                    chord,
+                    progression[(absIndex + 1) % trueProgressionLength] || chord,
+                    progression[(absIndex - 1 + trueProgressionLength) % trueProgressionLength] || chord,
+                    duration,
+                    beats,
+                    Number(bpm),
+                    absIndex,
+                    trueProgressionLength,
+                    chordNotes,
+                    melodyPlayToneFn,
+                    voiceEvents
+                );
             }
             
             // Add Bass Note
@@ -282,14 +323,36 @@ export async function exportToWav(state, buttonElement) {
         masterCompressor.connect(offlineCtx.destination);
         
         const chordsGain = offlineCtx.createGain(); chordsGain.gain.value = state.volumes.chords ?? 0.8;
-        const bassGain = offlineCtx.createGain(); bassGain.gain.value = state.volumes.bass ?? 0.8;
-        const bassHarmonicGain = offlineCtx.createGain(); bassHarmonicGain.gain.value = state.volumes.bassHarmonic ?? 0.0;
         const drumsGain = offlineCtx.createGain(); drumsGain.gain.value = state.volumes.drums ?? 0.8;
+        const melodyGain = offlineCtx.createGain(); melodyGain.gain.value = state.volumes.melody ?? 0.8;
+        const countermelodyGain = offlineCtx.createGain(); countermelodyGain.gain.value = state.volumes.countermelody ?? 0.8;
+        
+        const bassGain = offlineCtx.createGain(); bassGain.gain.value = state.volumes.bass ?? 0.8;
+        const bassShaper = offlineCtx.createWaveShaper();
+        bassShaper.curve = makeSoftClipCurve(2.0);
+        bassShaper.oversample = '4x';
+        const bassDriveGain = offlineCtx.createGain();
+        bassDriveGain.gain.value = state.bassDrive !== undefined ? state.bassDrive : 1.0;
+
+        const bassHarmonicGain = offlineCtx.createGain(); bassHarmonicGain.gain.value = state.volumes.bassHarmonic ?? 0.0;
+        const bassHarmonicShaper = offlineCtx.createWaveShaper();
+        bassHarmonicShaper.curve = makeSoftClipCurve(3.0);
+        bassHarmonicShaper.oversample = '4x';
+        const bassHarmonicDriveGain = offlineCtx.createGain();
+        bassHarmonicDriveGain.gain.value = state.bassHarmonicDrive !== undefined ? state.bassHarmonicDrive : 1.0;
         
         chordsGain.connect(masterCompressor);
-        bassGain.connect(masterCompressor);
-        bassHarmonicGain.connect(masterCompressor);
         drumsGain.connect(masterCompressor);
+        melodyGain.connect(masterCompressor);
+        countermelodyGain.connect(masterCompressor);
+
+        bassDriveGain.connect(bassShaper);
+        bassShaper.connect(bassGain);
+        bassGain.connect(masterCompressor);
+
+        bassHarmonicDriveGain.connect(bassHarmonicShaper);
+        bassHarmonicShaper.connect(bassHarmonicGain);
+        bassHarmonicGain.connect(masterCompressor);
 
         timeline.forEach(ev => {
             if (ev.type === 'drum') {
@@ -297,9 +360,11 @@ export async function exportToWav(state, buttonElement) {
                 return;
             }
 
-            let targetGainNode = bassGain;
+            let targetGainNode = bassDriveGain;
             if (ev.track === 'chords') targetGainNode = chordsGain;
-            else if (ev.track === 'bassHarmonic') targetGainNode = bassHarmonicGain;
+            else if (ev.track === 'bassHarmonic') targetGainNode = bassHarmonicDriveGain;
+            else if (ev.track === 'melody') targetGainNode = melodyGain;
+            else if (ev.track === 'countermelody') targetGainNode = countermelodyGain;
 
             let finalDest = targetGainNode;
             if (ev.pan && ev.pan !== 0 && offlineCtx.createStereoPanner) {
@@ -311,7 +376,8 @@ export async function exportToWav(state, buttonElement) {
 
             const engine = SYNTH_REGISTRY[ev.type];
             if (engine) {
-                const engineParams = { vol: 1.0 };
+                const volBoost = (ev.track === 'melody' || ev.track === 'countermelody') ? 2.0 : 1.0;
+                const engineParams = { vol: volBoost };
                 
                 if (ev.type === 'sample-bass') {
                     engineParams.buffer = customBassBuffer;
@@ -328,6 +394,22 @@ export async function exportToWav(state, buttonElement) {
                     const rootMidi = 60; // C4
                     const rootFreq = midiToFreq(rootMidi);
                     const pitchShift = state.chordAdsr ? (state.chordAdsr.pitch || 0) : 0;
+                    engineParams.playbackRate = (ev.freq / rootFreq) * Math.pow(2, pitchShift / 12);
+                }
+                if (ev.type === 'sample-melody') {
+                    engineParams.buffer = customMelodyBuffer;
+                    engineParams.adsr = state.melodyAdsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
+                    const rootMidi = 60; // C4
+                    const rootFreq = midiToFreq(rootMidi);
+                    const pitchShift = state.melodyAdsr ? (state.melodyAdsr.pitch || 0) : 0;
+                    engineParams.playbackRate = (ev.freq / rootFreq) * Math.pow(2, pitchShift / 12);
+                }
+                if (ev.type === 'sample-countermelody') {
+                    engineParams.buffer = customCountermelodyBuffer;
+                    engineParams.adsr = state.countermelodyAdsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
+                    const rootMidi = 60; // C4
+                    const rootFreq = midiToFreq(rootMidi);
+                    const pitchShift = state.countermelodyAdsr ? (state.countermelodyAdsr.pitch || 0) : 0;
                     engineParams.playbackRate = (ev.freq / rootFreq) * Math.pow(2, pitchShift / 12);
                 }
                 if (ev.type === 'karplus-strong') {

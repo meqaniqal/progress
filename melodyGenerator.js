@@ -131,7 +131,15 @@ export function scheduleMelody(
         let transposed = note + transpositionOffset;
         while (transposed < melodyRangeStart) transposed += divisions;
         while (transposed > melodyRangeEnd) transposed -= divisions;
-        return findClosest(transposed, validPitches);
+        
+        const scaleSnapped = findClosest(transposed, scalePitches);
+        if (activeChordTones.length > 0) {
+            const closestChordTone = findClosest(transposed, activeChordTones);
+            if (Math.abs(transposed - closestChordTone) < Math.abs(transposed - scaleSnapped)) {
+                return closestChordTone;
+            }
+        }
+        return scaleSnapped;
     });
 
     if (settings.variationDepth > 0) {
@@ -229,14 +237,22 @@ export function scheduleMelody(
             if (step === 0 && prevChordObj) {
                 const commonTones = getCommonTones(chordNotes, prevChordNotes, divisions);
                 const tonesToTarget = commonTones.length > 0 ? commonTones : activePrevChordTones;
-                if (tonesToTarget.length > 0 && Math.random() < 0.5) {
-                    pitch = findClosest(prevPitch, tonesToTarget);
+                if (tonesToTarget.length > 0 && Math.random() < 0.25) {
+                    const closestTarget = findClosest(prevPitch, tonesToTarget);
+                    // Only apply if it doesn't cause a giant jump, preserving motif anchors
+                    if (Math.abs(closestTarget - prevPitch) <= 3) {
+                        pitch = closestTarget;
+                    }
                 }
             }
 
             // Voice leading resolution at the last step to transition smoothly to the next chord
-            if (step === totalSteps - 1 && nextChordObj && activeNextChordTones.length > 0 && Math.random() < 0.5) {
-                pitch = findClosest(pitch, activeNextChordTones);
+            if (step === totalSteps - 1 && nextChordObj && activeNextChordTones.length > 0 && Math.random() < 0.25) {
+                const closestTarget = findClosest(pitch, activeNextChordTones);
+                // Only apply if it doesn't cause a giant jump, preserving motif cohesion
+                if (Math.abs(closestTarget - pitch) <= 3) {
+                    pitch = closestTarget;
+                }
             }
 
             pitch = applyGenreRules(pitch, settings.genre, step, validPitches, divisions);

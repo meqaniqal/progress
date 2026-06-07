@@ -510,7 +510,7 @@ function _setupGlobalDoubleTap() {
 
     document.addEventListener('pointerdown', (e) => {
         // Ignore taps on all interactive elements, timelines, panels, and controls
-        const ignoredSelectors = 'button, input, select, textarea, .progression-item, .chord-btn, .rhythm-instance, .drum-hit, .bracket-element, .controls, .pattern-tab, .swap-menu, .rhythm-timeline-container, .modal-content, .drum-row-label, .piano-cell, .piano-note-block, .piano-key, .piano-row';
+        const ignoredSelectors = 'button, input, select, textarea, .progression-item, .chord-btn, .rhythm-instance, .drum-hit, .bracket-element, .controls, .pattern-tab, .swap-menu, .rhythm-timeline-container, .drum-row-label, .piano-cell, .piano-note-block, .piano-key, .piano-row';
         // CORRECT_PATTERN: Text nodes don't have .closest, so we must guard this call.
         if (e.target.closest && (e.target.closest(ignoredSelectors) || e.target.closest('#palette-custom-builder'))) {
             lastTapTime = 0;
