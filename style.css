@@ -864,3 +864,80 @@ body.beginner-mode .mode-toggle-switch .left-label {
 body.beginner-mode .mode-toggle-switch .right-label {
     opacity: 0.55;
 }
+
+/* --- Progressive Mixer Integration Styles --- */
+.mixer-row-group {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.mixer-track-trigger {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease, border-radius 0.2s ease;
+    border-radius: 4px;
+}
+
+.mixer-track-trigger:hover {
+    background: var(--ctrl-secondary-hover);
+}
+
+.mixer-trigger-arrow {
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+
+.mixer-row-group.expanded .mixer-trigger-arrow {
+    transform: rotate(90deg);
+}
+
+.mixer-nested-panel {
+    display: none;
+    animation: slideDownFade 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideDownFade {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* --- Drum Part Collapsible Settings --- */
+.drum-part-group {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.drum-part-trigger {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease, border-radius 0.2s ease;
+    border-radius: 4px;
+}
+
+.drum-part-trigger:hover {
+    background: var(--ctrl-secondary-hover);
+}
+
+.drum-trigger-arrow {
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+
+.drum-part-group.expanded .drum-trigger-arrow {
+    transform: rotate(90deg);
+}
+
+.drum-nested-panel {
+    display: none;
+    animation: slideDownFade 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
