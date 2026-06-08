@@ -776,6 +776,39 @@ export function scheduleMelody(
         }
     }
 
+    // --- Empty Slot Mitigation Fallback ---
+    // If no melody notes were scheduled, and the genre is not 'none',
+    // force a single note on the downbeat (step 0) to ensure minimal melodic activity.
+    if (melodyScheduled.length === 0 && settings.genre !== 'none') {
+        const motifNote = sliceMotif[0];
+        let pitch = findClosest(motifNote, validPitches);
+        pitch = applyGenreRules(pitch, settings.genre, 0, validPitches, divisions);
+        pitch = findClosest(pitch, validPitches);
+        
+        const melodyInst = state.instruments.melody || 'sine';
+        const stepTime = time; // Downbeat
+        const noteDuration = (chordSlotDuration / beats) * 0.9; // Approximate quarter note duration
+        
+        melodyScheduled.push({
+            pitch,
+            stepTime,
+            noteDuration,
+            melodyInst,
+            step: 0
+        });
+        
+        // Prevent repeated identical pitch from previous slot if possible
+        if (globalPrevPitch !== null && Math.abs(pitch - globalPrevPitch) < 0.01) {
+            const idx = findScaleIndex(pitch, validPitches);
+            const dir = globalLastInterval >= 0 ? 1 : -1;
+            let newIdx = idx + dir;
+            if (newIdx < 0 || newIdx >= validPitches.length) {
+                newIdx = idx - dir;
+            }
+            melodyScheduled[0].pitch = validPitches[Math.max(0, Math.min(validPitches.length - 1, newIdx))];
+        }
+    }
+
     // --- Apply Resolution Rules on the actual notes scheduled ---
     
     // Rule A: consequent phrase ending note resolves to root/3rd

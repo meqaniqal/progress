@@ -24,11 +24,14 @@ const version = new Date().getTime();
 
 // Generate an Import Map to apply cache-busting to all internal ES Module imports automatically
 const jsFiles = [
-    'arp', 'arpControls', 'bassControls', 'bassGenerator', 'chordDictionary', 'clipboardUtils',
-    'config', 'db', 'dragdrop', 'drumEditor', 'drumEngines', 'drumRenderer', 'exportController', 'inspectorController',
-    'midi', 'modalController', 'patternDrawMath', 'patternResolver', 'patternUtils', 'progressmain', 'promptGenerator', 'rhythmConfig', 
-    'rhythmControls', 'rhythmEditor', 'rhythmRenderer', 'sequencer', 'stateUtils', 'storage', 'store', 
-    'synth', 'synthEngines', 'theory', 'timelineEditor', 'transportController', 'ui', 'wavEncoder', 'wavExport'
+    'arp', 'arpControls', 'bassControls', 'bassGenerator', 'chordAnalyzer', 'chordDictionary', 'clipboardUtils',
+    'config', 'db', 'dragdrop', 'drumEditor', 'drumEngines', 'drumRenderer', 'exportController', 'exportStateBuilder',
+    'inspectorController', 'melodyGenerator', 'microtonalDictionary', 'microtonalSuggestions', 'midi', 'modalController',
+    'patternDrawMath', 'patternResolver', 'patternUtils', 'progressionSuggestions', 'progressmain', 'promptGenerator',
+    'rhythmConfig', 'rhythmControls', 'rhythmEditor', 'rhythmRenderer', 'sequencer', 'settingsController', 'songController',
+    'stateUtils', 'storage', 'store', 'storePersistence', 'synth', 'synthEngines', 'theory', 'timelineEditor',
+    'transitionEvaluator', 'transitionUtils', 'transitionsRenderer', 'transportController', 'ui', 'voiceLeading',
+    'voiceTweaksRenderer', 'wavEncoder', 'wavExport'
 ];
 
 const imports = {};

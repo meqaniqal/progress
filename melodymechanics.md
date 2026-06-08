@@ -184,22 +184,16 @@ Based on diagnostic log auditing, several critical music theory and state bugs h
 1. **Index-Based Step Transitions (Countermelody Drone & Boundary Bounce Fix)**: Instead of adding floating-point semitones to pitch values (which frequently snapped back to the same note on sparse scale degrees), `findClosestStep` and the contrary movement mode now step by index in the active scale pitches array (e.g. index $\pm 1$ or $\pm 2$). When a step hits the boundary (index 0 or array length), it reverses direction (bounces back) rather than capping, completely preventing the countermelody from getting stuck in a single-note drone or boundary stall.
 2. **Cross-Chord Range Continuity**: The transposition anchor is calculated by finding the chord tone closest to the final pitch of the previous chord slot (`globalPrevPitch`) instead of blindly using the lowest chord tone. This prevents wild $18$-semitone leaps between chord transitions and transposes non-octave scales (such as Bohlen-Pierce) into the correct auditory register.
 3. **Repeated Pitch Prevention (Conjunct Step Rule)**: If a scheduled note is identical to the preceding step's note, the engine forces the pitch to move by $1$ index degree in the active direction. If the note is at the edge of the scale boundary, the direction is inverted.
-4. **Empty Slot Mitigation**: Configured an `activeDensity` floor of `0.2` and validated the chosen rhythmic templates. If a template consists entirely of rests, a note is automatically forced on the downbeat to guarantee minimal melodic activity.
+4. **Empty Slot Mitigation**: Configured an `activeDensity` floor of `0.2` and implemented a downbeat safety fallback. If all steps in a slot are randomly silenced by probabilistic parameters (rests, density checks, consequent phrasing), the generator automatically force-schedules a note on the downbeat (step 0) using the first note of the active motif (with pitch repetition protection). This prevents silent slots while preserving musical variety.
 5. **Harmonic Resolution Gating**: The phrase-ending resolution logic is gated to bypass dominant, diminished, and half-diminished chords, as well as antecedent phrases. This keeps harmonic tensions (7ths, leading tones, tritones) active exactly where they are expected in the progression.
 6. **Slot Step Index Boundary Capping**: The step scheduling loop calculates `maxSteps` dynamically using the exact slot duration, ensuring that notes are not scheduled beyond the slot boundary and preventing bleeds between chord transitions.
 7. **Refined Vertical Congruence**: Tightened `rangeLimit` to $2.1$ EDO steps, ensuring the doubling avoidance filter shifts notes by at most a step, preserving conjunct scale runs.
 
 ---
 
-## 9. Active Concerns & Unresolved Issues
+## 9. Active Concerns & Resolved Issues
 
-### Unresolved Rhythmic Run Audibility (Fast Runs)
-- **Problem**: Despite relaxing the tension-based subdivision caps (allowing triplets up to 3 at tension $<0.25$, and sixteenth triplets up to 6 at tension $<0.55$) and decreasing density-based silencing thresholds to `Math.min(0.95, activeDensity * 2.2)`, fast rhythmic runs (triplets, sixteenth triplets, or thirty-second notes) are still not audibly playing in the sequencer during playback.
-- **Current State**:
-  - The generator successfully computes subdivision blueprints (e.g. `acceleration` containing 6s and 8s) and maps them to steps correctly.
-  - Synthesizer ADSR envelopes in [synthEngines.js](file:///Users/sheldonlawrence/Desktop/progress/synthEngines.js) have been fixed to clamp envelope values based on note `duration` instead of the buffer's `sampleLen`.
-  - All Jest unit tests pass with 100% determinism.
-- **Next Steps for Investigation**:
-  - **Scheduler/Transport Dropping**: Investigate if the browser's audio clock or scheduler loop (e.g. in `sequencer.js`) is dropping or skipping notes with extremely short duration/offsets, or if the note scheduler is collapsing notes scheduled too close together.
-  - **Tension/Density Slider Mapping**: Verify if changes to the density/tension UI sliders are actually propagating to the `settings.density` object that `melodyGenerator.js` relies on.
-  - **Audio Node Clamping**: Confirm if the Web Audio API nodes in the melody sampler/oscillator engines have a threshold duration below which the gain nodes clamp to zero.
+### Resolved: Rhythmic Run Audibility (Fast Runs)
+- **Resolution**: Audited the dynamic script loading environment. The root cause was identified as a **stale cache issue** on Mac/Chrome where browsers served an older version of `melodyGenerator.js` that predated the ADSR and subdivision fixes.
+- **Fix**: The generator is loaded dynamically via a runtime `importmap` inside [init.js](file:///c:/Users/mekka/OneDrive/Desktop/progress/init.js). `melodyGenerator` (along with other recent modules) was missing from the import list, bypassing the cache-busting query parameter (`?v=timestamp`). Adding all modules to `init.js` successfully resolved the cross-platform discrepancy.
+- **Verification of Web Audio & Scheduler**: Investigated the scheduler lookahead window (100ms schedule ahead with 25ms lookahead), ADSR envelope safety margins (`Math.min(CONFIG.RELEASE_TIME, duration * 0.5)`), and tension slider mappings. All were verified as fully functional and robust.
