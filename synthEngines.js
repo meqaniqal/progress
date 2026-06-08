@@ -307,9 +307,9 @@ export const SYNTH_REGISTRY = {
         const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
         const sampleLen = buffer.duration;
         
-        const attack = Math.min(adsr.attack, sampleLen * 0.5);
-        const decay = Math.min(adsr.decay, sampleLen * 0.5);
-        const release = Math.min(adsr.release, sampleLen * 0.5);
+        const attack = Math.min(adsr.attack, duration * 0.25);
+        const decay = Math.min(adsr.decay, duration * 0.25);
+        const release = Math.min(adsr.release, duration * 0.5);
         const sustain = adsr.sustain;
         
         const vol = params.vol !== undefined ? params.vol : 1.0;
@@ -355,9 +355,9 @@ export const SYNTH_REGISTRY = {
         const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
         const sampleLen = buffer.duration;
         
-        const attack = Math.min(adsr.attack, sampleLen * 0.5);
-        const decay = Math.min(adsr.decay, sampleLen * 0.5);
-        const release = Math.min(adsr.release, sampleLen * 0.5);
+        const attack = Math.min(adsr.attack, duration * 0.25);
+        const decay = Math.min(adsr.decay, duration * 0.25);
+        const release = Math.min(adsr.release, duration * 0.5);
         const sustain = adsr.sustain;
         
         const vol = params.vol !== undefined ? params.vol : 1.0;
@@ -403,9 +403,9 @@ export const SYNTH_REGISTRY = {
         const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
         const sampleLen = buffer.duration;
         
-        const attack = Math.min(adsr.attack, sampleLen * 0.5);
-        const decay = Math.min(adsr.decay, sampleLen * 0.5);
-        const release = Math.min(adsr.release, sampleLen * 0.5);
+        const attack = Math.min(adsr.attack, duration * 0.25);
+        const decay = Math.min(adsr.decay, duration * 0.25);
+        const release = Math.min(adsr.release, duration * 0.5);
         const sustain = adsr.sustain;
         
         const vol = params.vol !== undefined ? params.vol : 1.0;
@@ -451,9 +451,9 @@ export const SYNTH_REGISTRY = {
         const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
         const sampleLen = buffer.duration;
         
-        const attack = Math.min(adsr.attack, sampleLen * 0.5);
-        const decay = Math.min(adsr.decay, sampleLen * 0.5);
-        const release = Math.min(adsr.release, sampleLen * 0.5);
+        const attack = Math.min(adsr.attack, duration * 0.25);
+        const decay = Math.min(adsr.decay, duration * 0.25);
+        const release = Math.min(adsr.release, duration * 0.5);
         const sustain = adsr.sustain;
         
         const vol = params.vol !== undefined ? params.vol : 1.0;

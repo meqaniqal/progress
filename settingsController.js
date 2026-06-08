@@ -1148,6 +1148,14 @@ export function initSettingsUI({ onRenderProgression }) {
 
     // Click outside to collapse open mixer sections
     document.addEventListener('pointerdown', (e) => {
+        // Prevent collapsing settings when adjusting volume/envelope sliders
+        if (e.target.tagName === 'INPUT' && e.target.type === 'range') {
+            return;
+        }
+        if (e.target.closest('input[type="range"]') || e.target.closest('.volume-slider') || e.target.closest('.mixer-row-slider')) {
+            return;
+        }
+
         const expandedGroup = document.querySelector('.mixer-row-group.expanded');
         if (expandedGroup && !expandedGroup.contains(e.target) && !e.target.closest('.mixer-track-trigger')) {
             expandedGroup.classList.remove('expanded');

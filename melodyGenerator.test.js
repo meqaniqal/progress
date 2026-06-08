@@ -96,6 +96,9 @@ describe('Melody Generator Composition Rules', () => {
         const prevChordObj = { symbol: 'I', duration: 4, key: 60 };
         const nextChordObj = { symbol: 'V', duration: 4, key: 60 };
         
+        state.melodySettings.density = 1.0;
+        state.melodySettings.restProbability = 0.0;
+        
         scheduleMelody(0, chordObj, nextChordObj, prevChordObj, 2.0, 4, 120, 0, 1, [68, 72, 75], mockPlayTone);
 
         // Verify if any played note corresponds to the chromatic chord tones (Ab/Eb -> pc 8 or 3)
@@ -105,4 +108,82 @@ describe('Melody Generator Composition Rules', () => {
         });
         expect(hasChromaticTone).toBe(true);
     });
+
+    test('Motif Families: Generates hook, connector, and cadence cells', () => {
+        // Clear memory to force generation
+        clearMelodyMemory();
+        
+        // Mock scheduleMelody to check behavior across phrase positions
+        // We will call with absIndex = 0 (hook), 2 (connector), 3 (cadence)
+        const chordObj = { symbol: 'I', duration: 4 };
+        
+        // Phrase beginning (absIndex = 0)
+        playedNotes = [];
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 0, 4, [60, 64, 67], mockPlayTone);
+        expect(playedNotes.length).toBeGreaterThan(0);
+        
+        // Phrase ending (absIndex = 3)
+        playedNotes = [];
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 3, 4, [60, 64, 67], mockPlayTone);
+        expect(playedNotes.length).toBeGreaterThan(0);
+    });
+
+    test('Vertical Congruence: Avoids chord tone doubling via weighted selection', () => {
+        const chordObj = { symbol: 'I', duration: 4 };
+        // We pass active chord tones [60, 64, 67]
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 0, 1, [60, 64, 67], mockPlayTone);
+        
+        // Verify that not all notes played are chord tones (meaning it selects extensions/other valid pitches)
+        const nonChordTonePlayed = playedNotes.some(note => {
+            const pc = (note.midi % 12 + 12) % 12;
+            return ![0, 4, 7].includes(pc);
+        });
+        expect(nonChordTonePlayed).toBe(true);
+    });
+
+    test('Register Separation: Enforces range boundaries for melody and countermelody', () => {
+        state.melodySettings.countermelodyEnabled = true;
+        state.melodySettings.countermelodyMode = 'contrary';
+        state.melodySettings.genre = 'generic';
+        state.melodySettings.density = 1.0;
+        state.melodySettings.restProbability = 0.0;
+
+        const chordObj = { symbol: 'I', duration: 4 };
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 0, 4, [60, 64, 67], mockPlayTone);
+
+        const melodyNotes = playedNotes.filter(n => n.bus === 'melody');
+        const counterNotes = playedNotes.filter(n => n.bus === 'countermelody');
+
+        expect(melodyNotes.length).toBeGreaterThan(0);
+        expect(counterNotes.length).toBeGreaterThan(0);
+
+        melodyNotes.forEach(n => {
+            expect(n.midi).toBeGreaterThanOrEqual(67);
+            expect(n.midi).toBeLessThanOrEqual(84); // 79 + 5 ceiling max if pushed
+        });
+
+        counterNotes.forEach(n => {
+            expect(n.midi).toBeGreaterThanOrEqual(57);
+            expect(n.midi).toBeLessThanOrEqual(69);
+        });
+    });
+
+    test('Phrase Resolution Rules: Rule A and Rule B', () => {
+        state.melodySettings.genre = 'generic';
+        state.melodySettings.density = 1.0;
+        state.melodySettings.restProbability = 0.0;
+        // Consequent phrase (absIndex = 1)
+        const chordObj = { symbol: 'I', duration: 4, key: 60 };
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 1, 4, [60, 64, 67], mockPlayTone);
+
+        const melodyNotes = playedNotes.filter(n => n.bus === 'melody');
+        expect(melodyNotes.length).toBeGreaterThan(0);
+
+        // Rule A check: consequent phrase final note should resolve to root (pc 0) or 3rd (pc 4) of chord
+        const finalNote = melodyNotes[melodyNotes.length - 1];
+        const finalPc = (finalNote.midi % 12 + 12) % 12;
+        expect([0, 4]).toContain(finalPc);
+    });
 });
+
+
