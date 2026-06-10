@@ -55,8 +55,33 @@ export const state = {
         countermelodyMode: 'contrary',
         behaviorDuringArp: 'simplify',
         behaviorDuringTransitions: 'simplify',
-        tensionCurve: 'arch'
+        tensionCurve: 'arch',
+        seedSource: 'procedural',
+        activeMotifId: 'preset-rise',
+        midiExtractionMode: 'highest'
     },
+    userMotifs: [
+        {
+            id: 'preset-rise',
+            name: 'Arpeggiated Rise',
+            notes: [
+                { time: 0.0, duration: 0.5, pitchOffset: 0, voiceIndex: 0 },
+                { time: 0.5, duration: 0.5, pitchOffset: 2, voiceIndex: 0 },
+                { time: 1.0, duration: 0.5, pitchOffset: 4, voiceIndex: 0 },
+                { time: 1.5, duration: 0.5, pitchOffset: 7, voiceIndex: 0 }
+            ]
+        },
+        {
+            id: 'preset-dip',
+            name: 'Passing Tone Dip',
+            notes: [
+                { time: 0.0, duration: 0.5, pitchOffset: 4, voiceIndex: 0 },
+                { time: 0.5, duration: 0.5, pitchOffset: 3, voiceIndex: 0 },
+                { time: 1.0, duration: 0.5, pitchOffset: 2, voiceIndex: 0 },
+                { time: 1.5, duration: 0.5, pitchOffset: 0, voiceIndex: 0 }
+            ]
+        }
+    ],
     bassDrive: 1.0,
     bassHarmonicDrive: 1.0,
     bassAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0, octaveDrop: false },
@@ -672,8 +697,33 @@ export function resetSession() {
         countermelodyMode: 'contrary',
         behaviorDuringArp: 'simplify',
         behaviorDuringTransitions: 'simplify',
-        tensionCurve: 'arch'
+        tensionCurve: 'arch',
+        seedSource: 'procedural',
+        activeMotifId: 'preset-rise',
+        midiExtractionMode: 'highest'
     };
+    state.userMotifs = [
+        {
+            id: 'preset-rise',
+            name: 'Arpeggiated Rise',
+            notes: [
+                { time: 0.0, duration: 0.5, pitchOffset: 0, voiceIndex: 0 },
+                { time: 0.5, duration: 0.5, pitchOffset: 2, voiceIndex: 0 },
+                { time: 1.0, duration: 0.5, pitchOffset: 4, voiceIndex: 0 },
+                { time: 1.5, duration: 0.5, pitchOffset: 7, voiceIndex: 0 }
+            ]
+        },
+        {
+            id: 'preset-dip',
+            name: 'Passing Tone Dip',
+            notes: [
+                { time: 0.0, duration: 0.5, pitchOffset: 4, voiceIndex: 0 },
+                { time: 0.5, duration: 0.5, pitchOffset: 3, voiceIndex: 0 },
+                { time: 1.0, duration: 0.5, pitchOffset: 2, voiceIndex: 0 },
+                { time: 1.5, duration: 0.5, pitchOffset: 0, voiceIndex: 0 }
+            ]
+        }
+    ];
     state.selectedChordIndex = null;
     state.showManualOnStartup = true;
     state.isAdvancedMode = true;

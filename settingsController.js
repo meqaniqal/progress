@@ -5,6 +5,8 @@ import { exitSongMode } from './songController.js';
 import { auditionChord } from './sequencer.js';
 import { isPlaybackActive } from './transportController.js';
 import { DEFAULT_DRUM_PARAMS } from './rhythmConfig.js';
+import { initMotifEditors, loadActiveMotifInEditor, getCroppedMotifNotes } from './motifEditor.js';
+import { parseMidiNotes } from './midiPhraseSelector.js';
 
 let synthAuditionTimeout = null;
 
@@ -331,6 +333,31 @@ export function syncSettingsUI() {
 
         const countermelodyModeEl = document.getElementById('melody-countermelody-mode');
         if (countermelodyModeEl) countermelodyModeEl.value = state.melodySettings.countermelodyMode || 'contrary';
+
+        const seedSourceEl = document.getElementById('melody-seed-source');
+        if (seedSourceEl) seedSourceEl.value = state.melodySettings.seedSource || 'procedural';
+
+        const motifControls = document.getElementById('melody-motif-controls-container');
+        if (motifControls) {
+            motifControls.style.display = (state.melodySettings.seedSource === 'motif') ? 'flex' : 'none';
+        }
+
+        const activeMotifEl = document.getElementById('melody-active-motif');
+        if (activeMotifEl && state.userMotifs) {
+            activeMotifEl.innerHTML = '';
+            state.userMotifs.forEach(motif => {
+                const opt = document.createElement('option');
+                opt.value = motif.id;
+                opt.textContent = motif.name;
+                activeMotifEl.appendChild(opt);
+            });
+            activeMotifEl.value = state.melodySettings.activeMotifId || 'preset-rise';
+        }
+
+        const extractionEl = document.getElementById('melody-midi-extraction');
+        if (extractionEl) extractionEl.value = state.melodySettings.midiExtractionMode || 'highest';
+
+        loadActiveMotifInEditor();
     }
 
     if (state.bassDrive === undefined) state.bassDrive = 1.0;
@@ -507,6 +534,7 @@ export function syncSettingsUI() {
 }
 
 export function initSettingsUI({ onRenderProgression }) {
+    initMotifEditors(state, () => { persistAppState(); });
     const themeSelector = document.getElementById('theme-selector');
     if (themeSelector) {
         themeSelector.value = state.theme;
@@ -894,6 +922,122 @@ export function initSettingsUI({ onRenderProgression }) {
         melodyCountermelodyModeEl.addEventListener('change', (e) => {
             state.melodySettings.countermelodyMode = e.target.value;
             persistAppState();
+        });
+    }
+
+    // Melody Seeding & Motif listeners
+    const seedSourceEl = document.getElementById('melody-seed-source');
+    if (seedSourceEl) {
+        seedSourceEl.addEventListener('change', (e) => {
+            state.melodySettings.seedSource = e.target.value;
+            const container = document.getElementById('melody-motif-controls-container');
+            if (container) {
+                container.style.display = (e.target.value === 'motif') ? 'flex' : 'none';
+            }
+            loadActiveMotifInEditor();
+            persistAppState();
+        });
+    }
+
+    const activeMotifEl = document.getElementById('melody-active-motif');
+    if (activeMotifEl) {
+        activeMotifEl.addEventListener('change', (e) => {
+            state.melodySettings.activeMotifId = e.target.value;
+            loadActiveMotifInEditor();
+            persistAppState();
+        });
+    }
+
+    const extractionEl = document.getElementById('melody-midi-extraction');
+    if (extractionEl) {
+        extractionEl.addEventListener('change', (e) => {
+            state.melodySettings.midiExtractionMode = e.target.value;
+            persistAppState();
+        });
+    }
+
+    // Load MIDI Motif Button
+    const btnLoadMidiMotif = document.getElementById('btn-load-midi-motif');
+    const fileMidiMotif = document.getElementById('file-midi-motif');
+    if (btnLoadMidiMotif && fileMidiMotif) {
+        btnLoadMidiMotif.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileMidiMotif.click();
+        });
+        
+        fileMidiMotif.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const arrayBuffer = event.target.result;
+                    const parsedNotes = parseMidiNotes(arrayBuffer);
+                    
+                    // Show Cropper Panel
+                    const cropperContainer = document.getElementById('midi-cropper-container');
+                    if (cropperContainer) cropperContainer.style.display = 'flex';
+                    
+                    // Pass to cropper
+                    const { setMidiNotesForCropper } = await import('./motifEditor.js');
+                    setMidiNotesForCropper(parsedNotes);
+                } catch (err) {
+                    console.error('Error parsing MIDI seed file:', err);
+                    alert('Failed to parse MIDI file: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    // Crop Button
+    const btnCropMidiMotif = document.getElementById('btn-crop-midi-motif');
+    if (btnCropMidiMotif) {
+        btnCropMidiMotif.addEventListener('click', async () => {
+            const { getCroppedMotifNotes } = await import('./motifEditor.js');
+            const relativeNotes = getCroppedMotifNotes(state.melodySettings.midiExtractionMode);
+            
+            if (relativeNotes.length === 0) {
+                alert('No notes found in the selected range.');
+                return;
+            }
+
+            // Save as new motif
+            const motifId = 'custom-' + Date.now();
+            const motifName = 'Imported ' + (state.melodySettings.midiExtractionMode === 'polyphonic' ? 'Poly' : 'Mono') + ' (' + relativeNotes.length + ' notes)';
+            
+            if (!state.userMotifs) state.userMotifs = [];
+            state.userMotifs.push({
+                id: motifId,
+                name: motifName,
+                notes: relativeNotes
+            });
+
+            state.melodySettings.activeMotifId = motifId;
+
+            // Re-sync UI
+            syncSettingsUI();
+            persistAppState();
+
+            // Hide cropper container
+            const cropperContainer = document.getElementById('midi-cropper-container');
+            if (cropperContainer) cropperContainer.style.display = 'none';
+
+            alert('Successfully imported custom motif: ' + motifName);
+        });
+    }
+
+    // Clear Motif Notes Button
+    const btnClearMotifNotes = document.getElementById('btn-clear-motif-notes');
+    if (btnClearMotifNotes) {
+        btnClearMotifNotes.addEventListener('click', () => {
+            const activeMotif = state.userMotifs.find(m => m.id === state.melodySettings.activeMotifId) || state.userMotifs[0];
+            if (activeMotif) {
+                activeMotif.notes = [];
+                loadActiveMotifInEditor();
+                persistAppState();
+            }
         });
     }
 

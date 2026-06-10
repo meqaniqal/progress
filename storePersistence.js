@@ -86,8 +86,14 @@ export function loadAndApplyInitialState(explicitState = null) {
                 countermelodyMode: savedState.melodySettings.countermelodyMode || 'contrary',
                 behaviorDuringArp: savedState.melodySettings.behaviorDuringArp || 'simplify',
                 behaviorDuringTransitions: savedState.melodySettings.behaviorDuringTransitions || 'simplify',
-                tensionCurve: savedState.melodySettings.tensionCurve || 'arch'
+                tensionCurve: savedState.melodySettings.tensionCurve || 'arch',
+                seedSource: savedState.melodySettings.seedSource || 'procedural',
+                activeMotifId: savedState.melodySettings.activeMotifId || 'preset-rise',
+                midiExtractionMode: savedState.melodySettings.midiExtractionMode || 'highest'
             };
+        }
+        if (savedState.userMotifs) {
+            state.userMotifs = Array.isArray(savedState.userMotifs) ? savedState.userMotifs : state.userMotifs;
         }
         
         if (savedState.bassAdsr) {

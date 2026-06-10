@@ -6,30 +6,25 @@ This document contains the immediate objectives and active task checklists. To p
 
 ## 🎯 Current Objectives
 
-1. **Genre Presets & Groove Synchronization (Phase 12)**:
-   - Formulate pre-designed patterns for genres like Lofi, Neo-Soul, IDM, Synthwave, Afrobeat, and Eastern rhythms.
-   - Build a global swing/shuffle timing offset module.
-   - Implement MIDI groove import/extraction.
+1. **Melody Motifs & MIDI Selection Adaptation (Phase 13)**:
+   - Implement Motif Editor & MIDI Cropper.
+   - Synchronize custom motifs as preferred seeds in the generative engine.
+   - Support polyphonic voice extraction and conforming playback.
 
 ---
 
 ## 📝 Active Task Checklist
 
-### 1. Genre Rhythmic Presets (Planned 🚧)
-- [ ] **Curate Presets**: Define standard preset templates for arpeggios, drum patterns, and chord rhythms.
-- [ ] **Eastern Rhythms**: Map specific Eastern odd-meter cycles (e.g. 5/8, 7/8, 9/8) and maqam-linked templates.
-- [ ] **UI Category**: Introduce a dropdown or selector in the pattern tab to apply presets.
-
-### 2. Adjustable Swing & Groove Sync (Planned 🚧)
-- [ ] **Swing Slider**: Add a global swing/shuffle control in General settings or above the transport.
-- [ ] **Sequencer Delay Math**: Adjust audio scheduling tick math to delay offbeats based on the swing amount.
-- [ ] **MIDI Groove Extraction**:
-  - [ ] Implement a basic MIDI parser to read note-on timing offsets.
-  - [ ] Adapt the sequencer timeline scheduler to play with micro-timing offsets extracted from the loaded MIDI file.
+### 1. Melody Motifs & MIDI Seeding (Completed ✅)
+- [x] **State Expansion**: Define seeding, motif selection, and extraction variables.
+- [x] **MIDI Parser**: Implement binary note-event parser and register voice filters.
+- [x] **Visual Cropper**: Build interactive canvas showing file notes with drag/resize crop window.
+- [x] **Motif Editor**: Paint note pitch/time cells relative to active chord keyRoot.
+- [x] **Adaptation Engine**: Snap, transpose, and voice-lead monophonic and polyphonic motif notes to chord progression in real-time.
+- [x] **Unit Tests**: Confirm register sorting and conformed playback mathematically.
 
 ---
 
 ## 🔍 Verification & Testing Goals
-- Confirm that swing delay math applies consistently across Chords, Bass, Drums, Melody, and Countermelody sequencers.
-- Test MIDI groove file uploading and ensure correct ticks calculation.
-- Run Jest tests (`npm test`) on timing calculations.
+- Confirm all 168 tests pass successfully.
+- Test custom motif seeding and pitch-conformance against diatonic major/minor and EDO tuning frameworks.

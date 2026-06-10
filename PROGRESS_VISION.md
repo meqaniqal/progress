@@ -237,17 +237,18 @@ Transitioning from mapping 12-TET math into EDOs towards supporting true, indepe
 ### 14. Progressive Mixer Integration (Phase 11 - Complete ✅)
 - **Progressive Mixer Integration (Completed):** Organized settings into two primary tabs: General and Mixer. Clicking track/instrument names expands nested, context-specific parameter panels (instrument selections, ADSR, FM lead controls, custom sample loading, and volume gain structures) that collapse in a mutually-exclusive accordion style.
 
-## 🔮 Future Development Roadmap
-
-### 15. Genre Presets & Groove Synchronization (Phase 12 - Planned)
+### 15. Genre Presets & Groove Synchronization (Phase 12 - Complete ✅)
 - **Expanded Genre Presets**: Formulate pre-designed presets mapping arpeggiators, chord rhythms, and drum grids to specific genres (e.g., Lofi, Neo-Soul, IDM, Synthwave, Afrobeat) and Eastern rhythms (e.g., Maqam-influenced rhythms, odd-meter microtonal cycles).
 - **Adjustable Swing & Shuffle**: Introduce a global swing slider that mathematically delays offbeat subdivisions (e.g., 16th or 8th notes) dynamically across all active sequencers.
-- **MIDI Groove Extraction**: Allow importing MIDI files to extract groove templates (micro-timing offsets and note velocities). The sequencer engines will sync all active chords, arpeggiators, melody, and drum sequences to this extracted timing template.
+- **MIDI Groove Extraction**: Allow importing MIDI files to extract groove templates (micro-timing offsets and note velocities). The sequencer engines sync all active chords, arpeggiators, melody, and drum sequences to this extracted timing template.
 
-### 16. Melody Motifs & MIDI Selection Adaptation (Phase 13 - Planned)
-- **User Motif Editor**: Create a dedicated motif design panel where users can compose, save, and edit short melodic shapes/motifs.
-- **MIDI Motif Import**: Enable loading a MIDI file into a preview lane, selecting a specific window or phrase, and feeding that note sequence into the Melody Generator.
-- **Contextual Chord Adaptation**: Intelligently transpose, snap, and voice-lead the selected MIDI phrase to conform to the active chord progression's scale degrees and active extensions in real-time.
+### 16. Melody Motifs & MIDI Selection Adaptation (Phase 13 - Complete ✅)
+- **User Motif Editor**: Create an interactive canvas-based motif grid where users can draw relative note pitches and timing bounds.
+- **MIDI Motif Import & Cropper**: Load any standard MIDI file, render a visual note roll, and drag/resize a crop window to extract note ranges as custom motifs.
+- **Polyphonic & Voice Extraction**: Support Highest Note, Lowest Note, Soprano, Alto, Tenor, Bass voice index extraction, as well as full Polyphonic harmonized conforming.
+- **Dynamic Seed Adaptations**: Conformed motifs adapt to chord progressions in real-time, scale timing and pitch offsets dynamically, and apply random deviations based on the variation depth.
+
+## 🔮 Future Development Roadmap
 
 ### 17. Synthesizer Parameter & Envelope Expansion (Phase 14 - Planned)
 - **Universal ADSR Envelopes**: Add full ADSR volume and filter cutoff envelope panels for all sound sources that currently lack them (e.g., Chords Sawpad, Sine synth, and Countermelody).

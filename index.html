@@ -930,6 +930,65 @@
                                             <option value="call-response">Call & Response</option>
                                         </select>
                                     </div>
+                                    
+                                    <div class="mixer-divider" style="margin: 6px 0;"></div>
+                                    <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: var(--text-muted); text-transform: uppercase;">Melodic Seeding & Motifs</div>
+
+                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                        <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Seed Source</span>
+                                        <select id="melody-seed-source" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
+                                            <option value="procedural">Procedural AI</option>
+                                            <option value="motif">Custom Motif / MIDI</option>
+                                        </select>
+                                    </div>
+
+                                    <div id="melody-motif-controls-container" style="display: none; flex-direction: column; gap: 8px; margin-top: 4px;">
+                                        <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                            <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Active Motif</span>
+                                            <select id="melody-active-motif" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
+                                                <!-- Dynamically populated -->
+                                            </select>
+                                        </div>
+
+                                        <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                            <span class="settings-label-sm" style="width: 140px; font-size: 11px;">MIDI Extraction</span>
+                                            <select id="melody-midi-extraction" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
+                                                <option value="highest">Highest Note (Melody)</option>
+                                                <option value="lowest">Lowest Note (Bassline)</option>
+                                                <option value="soprano">Soprano (Voice 1)</option>
+                                                <option value="alto">Alto (Voice 2)</option>
+                                                <option value="tenor">Tenor (Voice 3)</option>
+                                                <option value="bass">Bass (Voice 4)</option>
+                                                <option value="polyphonic">Polyphonic Harmonization</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- MIDI Load Button -->
+                                        <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                            <span class="settings-label-sm" style="width: 120px; font-size: 11px;">Import MIDI Seed</span>
+                                            <button class="control-btn secondary" id="btn-load-midi-motif" style="flex: 1; font-size: 11px; padding: 4px 6px;">📂 Load MIDI File</button>
+                                            <input type="file" id="file-midi-motif" accept=".mid,.midi" style="display: none;">
+                                        </div>
+                                        
+                                        <!-- Visual MIDI Cropping Canvas Container -->
+                                        <div id="midi-cropper-container" style="display: none; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-main); border-radius: 4px; padding: 6px;">
+                                            <div style="font-size: 10px; color: var(--text-muted); display: flex; justify-content: space-between;">
+                                                <span>Drag crop window to select phrase:</span>
+                                                <span id="midi-cropper-bounds" style="font-family: monospace;">0.0 - 4.0 beats</span>
+                                            </div>
+                                            <canvas id="midi-cropper-canvas" width="280" height="80" style="width: 100%; height: 80px; background: #000; border-radius: 2px; border: 1px solid rgba(255,255,255,0.1); cursor: crosshair;"></canvas>
+                                            <button class="control-btn primary btn-sm" id="btn-crop-midi-motif" style="width: 100%; font-size: 10px; padding: 3px;">Crop & Save Motif</button>
+                                        </div>
+
+                                        <!-- Interactive Motif Editor Panel -->
+                                        <div style="display: flex; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-main); border-radius: 4px; padding: 6px;">
+                                            <div style="font-size: 10px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+                                                <span>Motif Editor (Click to toggle notes):</span>
+                                                <button class="control-btn secondary" id="btn-clear-motif-notes" style="font-size: 9px; padding: 1px 4px; margin: 0;">Clear</button>
+                                            </div>
+                                            <canvas id="motif-editor-canvas" width="280" height="120" style="width: 100%; height: 120px; background: #151515; border-radius: 2px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer;"></canvas>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
