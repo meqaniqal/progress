@@ -23,6 +23,9 @@ export const state = {
     midiExportRouting: 'mpe',
     globalVoicing: 'auto', // 'auto', 'close', 'spread', 'quartal'
     divisions: 12, // Standard Equal Temperament
+    customTuning: null, // Custom loaded .scl/.tun file mapping/parameters
+    importedTunings: [], // List of imported custom tuning objects
+    previousTuning: '12', // Remembers previous tuning choice to restore on prune
     loopStart: 0,
     loopEnd: 0,
     macroLoopStart: 0,

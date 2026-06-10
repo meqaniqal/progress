@@ -96,7 +96,8 @@ export function scheduleMelody(
     const settings = state.melodySettings;
     if (!settings || !settings.enabled) return;
 
-    console.log(`[MelodyGen] Entry - globalPrevPitch: ${globalPrevPitch}`);
+    // Debug logging commented out but can be reactivated if needed for debugging
+    // console.log(`[MelodyGen] Entry - globalPrevPitch: ${globalPrevPitch}`);
 
     // Check if we should disable during Arpeggiators
     const hasArp = chordObj.arpSettings && chordObj.arpSettings.pattern !== 'none';
@@ -882,16 +883,15 @@ export function scheduleMelody(
         forceTonicNext = false;
     }
 
-    console.log(`[MelodyGen] Exit - globalPrevPitch: ${globalPrevPitch}`);
-
-    // Log scheduled notes in a compact, readable format
-    if (debugNotes.length > 0) {
-        const melodyStr = debugNotes.filter(n => n.type === 'Melody').map(n => `${n.step}:${n.pitch}`).join(', ');
-        const counterStr = debugNotes.filter(n => n.type === 'Counter').map(n => `${n.step}:${n.pitch}`).join(', ');
-        console.log(`[MelodyGen] Chord: ${chordObj.symbol} | Bass PC: ${activeBassPc !== null ? activeBassPc : 'N/A'}`);
-        if (melodyStr) console.log(`  └─ Melody: [${melodyStr}]`);
-        if (counterStr) console.log(`  └─ Counter: [${counterStr}]`);
-    }
+    // Debug logging commented out but can be reactivated if needed for debugging
+    // console.log(`[MelodyGen] Exit - globalPrevPitch: ${globalPrevPitch}`);
+    // if (debugNotes.length > 0) {
+    //     const melodyStr = debugNotes.filter(n => n.type === 'Melody').map(n => `${n.step}:${n.pitch}`).join(', ');
+    //     const counterStr = debugNotes.filter(n => n.type === 'Counter').map(n => `${n.step}:${n.pitch}`).join(', ');
+    //     console.log(`[MelodyGen] Chord: ${chordObj.symbol} | Bass PC: ${activeBassPc !== null ? activeBassPc : 'N/A'}`);
+    //     if (melodyStr) console.log(`  └─ Melody: [${melodyStr}]`);
+    //     if (counterStr) console.log(`  └─ Counter: [${counterStr}]`);
+    // }
 }
 
 // Helpers

@@ -65,10 +65,10 @@ export function getChordSignature(chordNotes, periodSize = 12.0) {
     }).sort((a, b) => a - b).join(',');
 }
 
-export function getChordNotes(symbolOrChord, baseKey, divisions = 12) {
+export function getChordNotes(symbolOrChord, baseKey, divisions = 12, customTuning = null) {
     if (symbolOrChord && typeof symbolOrChord === 'object') {
         if (symbolOrChord.customNotes) return symbolOrChord.customNotes;
-        return getChordNotes(symbolOrChord.symbol, symbolOrChord.key !== undefined ? symbolOrChord.key : baseKey, symbolOrChord.divisions || divisions);
+        return getChordNotes(symbolOrChord.symbol, symbolOrChord.key !== undefined ? symbolOrChord.key : baseKey, symbolOrChord.divisions || divisions, customTuning);
     }
     let symbol = symbolOrChord;
     if (!symbol || typeof symbol !== 'string') return null;
@@ -79,7 +79,7 @@ export function getChordNotes(symbolOrChord, baseKey, divisions = 12) {
         if (found && found.customNotes) return found.customNotes;
     }
 
-    const tuning = getEffectiveTuning(symbol, divisions);
+    const tuning = getEffectiveTuning(symbol, divisions, customTuning);
     const periodMidiSize = tuning.periodSize;
 
     let intervals = CHORD_INTERVALS[symbol];
@@ -108,14 +108,14 @@ export function getChordNotes(symbolOrChord, baseKey, divisions = 12) {
             
             if (remainder.includes('sus4')) thirdOffset = 5;
             else if (remainder.includes('sus2')) thirdOffset = 2;
-
+ 
             if (remainder.includes('+') || remainder.includes('aug')) fifthOffset = 8;
             if (remainder.includes('°') || remainder.includes('dim')) fifthOffset = 6;
             
             intervals = [rootOffset, rootOffset + thirdOffset, rootOffset + fifthOffset];
             
             let has7 = remainder.includes('7') || remainder.includes('9') || remainder.includes('11') || remainder.includes('13');
-
+ 
             if (remainder.includes('maj7') || remainder.includes('maj9')) intervals.push(rootOffset + 11);
             else if (has7) {
                 if (fifthOffset === 6 && !remainder.includes('°7')) intervals.push(rootOffset + 10);
@@ -153,10 +153,34 @@ export function getChordNotes(symbolOrChord, baseKey, divisions = 12) {
         const microNotes = getMicrotonalChord(symbol, baseKey);
         if (microNotes) return microNotes; // Bypasses 12-TET mapping; BP inherently locks its own tuning math
     }
-
+ 
     if (!intervals) return null;
     
     return intervals.map(interval => {
+        if (tuning.custom) {
+            if (tuning.type === 'tun' && tuning.map) {
+                const stdMidi = baseKey + interval;
+                const tuned = tuning.map[stdMidi];
+                return tuned !== null && tuned !== undefined ? tuned : stdMidi;
+            } else if (tuning.type === 'scl' && tuning.offsets) {
+                const N = tuning.divisions;
+                const absoluteSemitones = (baseKey - 60) + interval;
+                const scaleDegree = Math.round(absoluteSemitones * (N / tuning.periodSize));
+                const periodShift = Math.floor(scaleDegree / N) * tuning.periodSize;
+                const degreeInPeriod = ((scaleDegree % N) + N) % N;
+                const pitchOffset = tuning.offsets[degreeInPeriod] + periodShift;
+                return 60 + pitchOffset;
+            }
+        }
+        
+        if (tuning.pitches) {
+            const absoluteSemitones = (baseKey - 60) + interval;
+            const step12 = Math.round(absoluteSemitones);
+            const octave = Math.floor(step12 / 12);
+            const pc = ((step12 % 12) + 12) % 12;
+            return 60 + octave * 12.0 + tuning.pitches[pc];
+        }
+
         if (tuning.divisions === 12) return baseKey + interval;
         // Find the absolute semitone distance from the global anchor (MIDI 60)
         const absoluteSemitones = (baseKey - 60) + interval;
@@ -522,7 +546,31 @@ export function freqToMidi(frequency, a4Freq = 440.0) {
  * Determines the active tuning parameters (Divisions and Period Size).
  * If a chord symbol explicitly belongs to a microtonal scale (e.g., BP), it forces that native tuning.
  */
-export function getEffectiveTuning(chordSymbol, globalDivisions = 12) {
+export function getEffectiveTuning(chordSymbol, globalDivisions = 12, customTuning = null) {
+    let custom = customTuning;
+    if (!custom) {
+        if (typeof window !== 'undefined' && window.__customTuning) {
+            custom = window.__customTuning;
+        } else {
+            // Dynamically check store if available or if state is imported
+            try {
+                // Since state is imported or can be imported, let's use the state object if we can.
+                // But wait, theory.js doesn't import store.js. Let's see if we can get it from window or if we import it.
+                // To avoid circular dependency, we can check window.__customTuning or a global variable.
+                // Let's also check if we can store state.customTuning on window.__customTuning reliably.
+                custom = typeof window !== 'undefined' ? window.__customTuning : null;
+            } catch (e) {}
+        }
+    }
+    if (custom) {
+        return { divisions: custom.divisions, periodSize: custom.periodSize, custom: true, ...custom };
+    }
+    if (typeof globalDivisions === 'string') {
+        const nativeTuning = MICRO_TUNINGS[globalDivisions.toUpperCase()];
+        if (nativeTuning) {
+            return { divisions: nativeTuning.divisions, periodSize: nativeTuning.periodSize, pitches: nativeTuning.pitches };
+        }
+    }
     if (chordSymbol) {
         const cleanSymbol = chordSymbol.replace(/[+-]+$/, '');
         const match = cleanSymbol.match(/^([A-Z0-9]+)([A-Z][a-zA-Z]+)(\d+)/);
@@ -530,16 +578,22 @@ export function getEffectiveTuning(chordSymbol, globalDivisions = 12) {
             const tuningKey = match[1].toUpperCase();
             const nativeTuning = MICRO_TUNINGS[tuningKey];
             if (nativeTuning) {
-                return { divisions: nativeTuning.divisions, periodSize: nativeTuning.periodSize };
+                return { divisions: nativeTuning.divisions, periodSize: nativeTuning.periodSize, pitches: nativeTuning.pitches };
             }
         }
     }
     let periodSize = 12.0;
     if (globalDivisions === 13) periodSize = 12 * Math.log2(3); // Global BP Fallback
     else if (globalDivisions === 5) periodSize = 12.0;
+    else if (globalDivisions !== 12 && typeof globalDivisions !== 'string') {
+        // Find if global divisions corresponds to one of the microtunings directly
+        const matched = Object.values(MICRO_TUNINGS).find(t => t.divisions === globalDivisions);
+        if (matched) {
+            return { divisions: matched.divisions, periodSize: matched.periodSize, pitches: matched.pitches };
+        }
+    }
     return { divisions: globalDivisions || 12, periodSize };
 }
-
 /**
  * Determines the tuning grid used by the Pitch Editor UI and Bass Snapping.
  * Prioritizes the Global Tuning if it is microtonal, granting the user maximum
@@ -556,6 +610,54 @@ export function snapToGrid(floatPitch, tuningObjOrDivisions = 12) {
     const tuning = typeof tuningObjOrDivisions === 'number' 
         ? getEffectiveTuning(null, tuningObjOrDivisions) 
         : tuningObjOrDivisions;
+        
+    if (tuning.custom) {
+        if (tuning.type === 'tun' && tuning.map) {
+            let bestNote = Math.round(floatPitch);
+            let minDiff = Infinity;
+            for (let i = 0; i < 128; i++) {
+                if (tuning.map[i] !== null) {
+                    const diff = Math.abs(floatPitch - tuning.map[i]);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        bestNote = tuning.map[i];
+                    }
+                }
+            }
+            return bestNote;
+        } else if (tuning.type === 'scl' && tuning.offsets) {
+            const N = tuning.divisions;
+            const relative = floatPitch - 60;
+            const periodShift = Math.floor(relative / tuning.periodSize) * tuning.periodSize;
+            const pc = ((relative % tuning.periodSize) + tuning.periodSize) % tuning.periodSize;
+            let minDiff = Infinity;
+            let bestOffset = 0;
+            for (let offset of tuning.offsets) {
+                const diff = Math.abs(pc - offset);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    bestOffset = offset;
+                }
+            }
+            return 60 + periodShift + bestOffset;
+        }
+    }
+    
+    if (tuning.pitches) {
+        const relative = floatPitch - 60;
+        const octave = Math.floor(relative / 12.0);
+        const pc = ((relative % 12.0) + 12.0) % 12.0;
+        let minDiff = Infinity;
+        let bestOffset = 0;
+        for (let offset of tuning.pitches) {
+            const diff = Math.abs(pc - offset);
+            if (diff < minDiff) {
+                minDiff = diff;
+                bestOffset = offset;
+            }
+        }
+        return 60 + octave * 12.0 + bestOffset;
+    }
         
     if (tuning.divisions === 12) return Math.round(floatPitch); // Enforce rigid integer snapping for standard 12-TET
     
@@ -707,4 +809,101 @@ export function getModulationLabel(fromKey, toKey) {
         default:
             return "";
     }
+}
+
+export function parseScl(content) {
+    const lines = content.split('\n').map(l => l.trim());
+    const cleanLines = [];
+    for (let line of lines) {
+        if (line.startsWith('!')) continue;
+        const idxOfComment = line.indexOf('!');
+        if (idxOfComment !== -1) {
+            line = line.substring(0, idxOfComment).trim();
+        }
+        if (line.length > 0) {
+            cleanLines.push(line);
+        }
+    }
+    
+    if (cleanLines.length < 2) return null;
+    
+    const name = cleanLines[0];
+    const noteCount = parseInt(cleanLines[1], 10);
+    const offsets = [0.0];
+    
+    for (let i = 2; i < 2 + noteCount; i++) {
+        if (!cleanLines[i]) break;
+        const valStr = cleanLines[i];
+        if (valStr.includes('.')) {
+            offsets.push(parseFloat(valStr) / 100.0);
+        } else if (valStr.includes('/')) {
+            const parts = valStr.split('/');
+            const num = parseFloat(parts[0]);
+            const den = parseFloat(parts[1]);
+            if (den !== 0) {
+                offsets.push(12.0 * Math.log2(num / den));
+            }
+        } else {
+            const val = parseFloat(valStr);
+            if (val < 100) {
+                offsets.push(12.0 * Math.log2(val));
+            } else {
+                offsets.push(val / 100.0);
+            }
+        }
+    }
+    
+    const periodSize = offsets[offsets.length - 1];
+    
+    return {
+        name,
+        type: 'scl',
+        offsets,
+        periodSize,
+        divisions: noteCount
+    };
+}
+
+export function parseTun(content) {
+    const lines = content.split('\n');
+    let inTuningSection = false;
+    const tuningMap = new Array(128).fill(null);
+    let name = "Custom .tun Scale";
+    
+    for (let line of lines) {
+        line = line.trim();
+        if (line.startsWith(';') || line.startsWith('#')) continue;
+        
+        if (line.toLowerCase().startsWith('[tuning]') || line.toLowerCase().startsWith('[scale]')) {
+            inTuningSection = true;
+            continue;
+        } else if (line.startsWith('[')) {
+            inTuningSection = false;
+        }
+        
+        if (line.toLowerCase().startsWith('name') && line.includes('=')) {
+            name = line.split('=')[1].trim().replace(/"/g, '');
+        }
+        
+        if (inTuningSection) {
+            const match = line.match(/^note\s+(\d+)\s*=\s*([\d\.\-]+)/i);
+            if (match) {
+                const midiNote = parseInt(match[1], 10);
+                const freq = parseFloat(match[2]);
+                if (midiNote >= 0 && midiNote < 128 && freq > 0) {
+                    const midiVal = 69 + 12 * Math.log2(freq / 440.0);
+                    tuningMap[midiNote] = midiVal;
+                }
+            }
+        }
+    }
+    
+    const parsedNotesCount = tuningMap.filter(n => n !== null).length;
+    if (parsedNotesCount === 0) return null;
+    
+    return {
+        name,
+        type: 'tun',
+        map: tuningMap
+    };
 }

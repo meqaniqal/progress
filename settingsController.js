@@ -98,6 +98,48 @@ export function updateMicrotonalSettingsUI() {
     }
 }
 
+export function updateCustomTuningUI() {
+    const optgroup = document.getElementById('optgroup-imported-custom');
+    const selector = document.getElementById('tuning-selector');
+    
+    if (optgroup) {
+        optgroup.innerHTML = '';
+        if (state.importedTunings && state.importedTunings.length > 0) {
+            optgroup.style.display = '';
+            state.importedTunings.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name;
+                optgroup.appendChild(opt);
+            });
+        } else {
+            optgroup.style.display = 'none';
+        }
+    }
+
+    if (selector) {
+        // Remove existing prune option if it exists
+        const existingPrune = selector.querySelector('option[value="prune-action"]');
+        if (existingPrune) {
+            existingPrune.remove();
+        }
+
+        // If customTuning is active, add '❌ Remove current' right before '📂 Import...' (which should be at the bottom)
+        if (state.customTuning) {
+            const pruneOpt = document.createElement('option');
+            pruneOpt.value = 'prune-action';
+            pruneOpt.textContent = '❌ Remove current';
+            
+            const importOpt = selector.querySelector('option[value="import-action"]');
+            if (importOpt) {
+                selector.insertBefore(pruneOpt, importOpt);
+            } else {
+                selector.appendChild(pruneOpt);
+            }
+        }
+    }
+}
+
 export function updateCustomDrumsUI() {
     const customDrumsPanel = document.getElementById('custom-drums-panel');
     if (customDrumsPanel) {
@@ -109,7 +151,14 @@ export function syncSettingsUI() {
     document.getElementById('bpm-slider').value = state.bpm;
     
     const tuningSelector = document.getElementById('tuning-selector');
-    if (tuningSelector) tuningSelector.value = state.divisions || 12;
+    if (tuningSelector) {
+        updateCustomTuningUI(); // Rebuild optgroup before syncing value
+        if (state.customTuning) {
+            tuningSelector.value = state.customTuning.id || 'custom';
+        } else {
+            tuningSelector.value = state.divisions || 12;
+        }
+    }
     
     if (state.volumes.bassHarmonic === undefined) state.volumes.bassHarmonic = 0.0;
     if (state.volumes.master === undefined) state.volumes.master = 1.0;
@@ -427,12 +476,139 @@ export function initSettingsUI({ onRenderProgression }) {
     }
     
     const tuningSelector = document.getElementById('tuning-selector');
+    const fileCustomTuning = document.getElementById('file-custom-tuning');
+
     if (tuningSelector) {
         tuningSelector.addEventListener('change', (e) => {
-            state.divisions = parseInt(e.target.value, 10) || 12;
+            const val = e.target.value;
+            
+            if (val === 'import-action') {
+                if (fileCustomTuning) {
+                    fileCustomTuning.click();
+                }
+                // Revert visual selection back to the current active tuning state
+                if (state.customTuning) {
+                    tuningSelector.value = state.customTuning.id || 'custom';
+                } else {
+                    tuningSelector.value = state.divisions || 12;
+                }
+                return;
+            }
+            
+            if (val === 'prune-action') {
+                let currentId = null;
+                if (state.customTuning) {
+                    currentId = state.customTuning.id;
+                    state.importedTunings = state.importedTunings.filter(t => t.id !== currentId);
+                }
+                
+                const restoreVal = state.previousTuning || '12';
+                
+                // If the restored tuning is also custom, find and activate it
+                if (restoreVal.startsWith('ct-')) {
+                    const found = state.importedTunings.find(t => t.id === restoreVal);
+                    if (found) {
+                        state.customTuning = found;
+                        if (typeof window !== 'undefined') window.__customTuning = found;
+                        state.divisions = found.divisions || 12;
+                    } else {
+                        // If that custom tuning was deleted or not found, fall back to standard 12-TET
+                        state.customTuning = null;
+                        if (typeof window !== 'undefined') window.__customTuning = null;
+                        state.divisions = 12;
+                        state.previousTuning = '12';
+                    }
+                } else {
+                    state.customTuning = null;
+                    if (typeof window !== 'undefined') window.__customTuning = null;
+                    state.divisions = isNaN(restoreVal) ? restoreVal : (parseInt(restoreVal, 10) || 12);
+                }
+                
+                persistAppState();
+                updateMicrotonalSettingsUI();
+                updateCustomTuningUI();
+                
+                // If the restored value was the pruned tuning itself, fall back to standard 12
+                const finalVal = (restoreVal === currentId) ? '12' : restoreVal;
+                tuningSelector.value = finalVal;
+                
+                if (onRenderProgression) onRenderProgression();
+                return;
+            }
+            
+            // If they selected a custom tuning from the imported custom group:
+            if (val.startsWith('ct-')) {
+                const found = state.importedTunings.find(t => t.id === val);
+                if (found) {
+                    // Save the current selection (even if custom) to previousTuning
+                    if (tuningSelector && tuningSelector.value !== 'import-action' && tuningSelector.value !== 'prune-action') {
+                        state.previousTuning = tuningSelector.value;
+                    }
+                    state.customTuning = found;
+                    if (typeof window !== 'undefined') window.__customTuning = found;
+                    state.divisions = found.divisions || 12;
+                    persistAppState();
+                    updateMicrotonalSettingsUI();
+                    updateCustomTuningUI();
+                    syncSettingsUI();
+                    if (onRenderProgression) onRenderProgression();
+                }
+                return;
+            }
+            
+            // Selecting any standard tuning clears custom tuning but remembers previous tuning choice
+            state.previousTuning = val;
+            state.customTuning = null;
+            if (typeof window !== 'undefined') window.__customTuning = null;
+            
+            state.divisions = isNaN(val) ? val : (parseInt(val, 10) || 12);
             persistAppState();
             updateMicrotonalSettingsUI();
+            updateCustomTuningUI();
             if (onRenderProgression) onRenderProgression();
+        });
+    }
+
+    if (fileCustomTuning) {
+        fileCustomTuning.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                const content = ev.target.result;
+                const { parseScl, parseTun } = await import('./theory.js');
+                let parsed = null;
+                if (file.name.toLowerCase().endsWith('.scl')) {
+                    parsed = parseScl(content);
+                } else if (file.name.toLowerCase().endsWith('.tun')) {
+                    parsed = parseTun(content);
+                }
+                
+                if (parsed) {
+                    // Save standard or previous custom tuning to restore later on prune
+                    if (tuningSelector && tuningSelector.value !== 'import-action' && tuningSelector.value !== 'prune-action') {
+                        state.previousTuning = tuningSelector.value;
+                    }
+                    
+                    // Generate unique ID for this imported custom tuning
+                    parsed.id = 'ct-' + Math.random().toString(36).substring(2, 10);
+                    
+                    // Add to imported list
+                    state.importedTunings.push(parsed);
+                    state.customTuning = parsed;
+                    if (typeof window !== 'undefined') window.__customTuning = parsed;
+                    state.divisions = parsed.divisions || 12;
+                    
+                    persistAppState();
+                    updateMicrotonalSettingsUI();
+                    updateCustomTuningUI();
+                    if (tuningSelector) tuningSelector.value = parsed.id;
+                    if (onRenderProgression) onRenderProgression();
+                } else {
+                    alert("Failed to parse custom tuning file. Please verify it is a valid Scala (.scl) or AnaMark (.tun) file.");
+                }
+            };
+            reader.readAsText(file);
         });
     }
 

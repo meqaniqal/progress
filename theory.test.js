@@ -1,4 +1,4 @@
-import { getChordNotes, applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension, midiToFreq, getEdoPitch, segmentMicrotonalCluster, snapToGrid, resolveHierarchicalCollisions, getDynamicProgSuggestions, getModulationLabel, getAlternatives, applyInversion, getEffectiveTuning } from './theory.js';
+import { getChordNotes, applyVoiceLeading, generateInversions, calculateDistance, optimizeVoicing, getTransitionSuggestions, getHarmonicProfile, calculateChordTension, midiToFreq, getEdoPitch, segmentMicrotonalCluster, snapToGrid, resolveHierarchicalCollisions, getDynamicProgSuggestions, getModulationLabel, getAlternatives, applyInversion, getEffectiveTuning, parseScl, parseTun } from './theory.js';
 
 describe('Theory & Voice Leading Module', () => {
 
@@ -377,6 +377,71 @@ describe('Theory & Voice Leading Module', () => {
             // 3rd inversion (offset = 3) should shift all notes by an octave (12)
             const result3 = applyInversion(notes, 3, periodBP);
             expect(result3).toEqual([72, 75, 79]);
+        });
+    });
+    describe('Custom Tuning File Parsers (.scl / .tun)', () => {
+        it('should correctly parse Scala (.scl) files with cents and ratios', () => {
+            const sclContent = `! test.scl
+Description of scale
+ 5
+!
+ 200.0
+ 3/2
+ 700.0
+ 2
+ 1200.0`;
+            const parsed = parseScl(sclContent);
+            expect(parsed).not.toBeNull();
+            expect(parsed.name).toBe("Description of scale");
+            expect(parsed.divisions).toBe(5);
+            expect(parsed.offsets[0]).toBe(0.0);
+            expect(parsed.offsets[1]).toBe(2.0); // 200 cents = 2 semitones
+            expect(parsed.offsets[2]).toBeCloseTo(12 * Math.log2(1.5), 3); // 3/2 ratio
+            expect(parsed.offsets[3]).toBe(7.0); // 700 cents = 7 semitones
+            expect(parsed.offsets[4]).toBeCloseTo(12 * Math.log2(2), 3); // 2 ratio (12 semitones)
+            expect(parsed.offsets[5]).toBe(12.0); // 1200 cents = 12 semitones
+        });
+
+        it('should correctly parse AnaMark (.tun) files with absolute frequencies', () => {
+            const tunContent = `; Comment line
+[Tuning]
+name="Test Tun Tuning"
+note 60 = 261.6256
+note 69 = 440.0`;
+            const parsed = parseTun(tunContent);
+            expect(parsed).not.toBeNull();
+            expect(parsed.name).toBe("Test Tun Tuning");
+            expect(parsed.map[69]).toBeCloseTo(69.0, 2);
+            expect(parsed.map[60]).toBeCloseTo(60.0, 2);
+        });
+    });
+
+    describe('New Microtonal Tuning Systems (17-EDO, 22-EDO, 53-EDO, Just Intonation, Werckmeister III)', () => {
+        it('should resolve correct divisions for EDO17, EDO22, EDO53', () => {
+            expect(getEffectiveTuning(null, 17).divisions).toBe(17);
+            expect(getEffectiveTuning(null, 22).divisions).toBe(22);
+            expect(getEffectiveTuning(null, 53).divisions).toBe(53);
+        });
+
+        it('should resolve correct unequal pitches for Just Intonation (JI)', () => {
+            const jiTuning = getEffectiveTuning(null, 'JI');
+            expect(jiTuning.divisions).toBe(12);
+            expect(jiTuning.pitches).not.toBeNull();
+            expect(jiTuning.pitches[4]).toBe(3.8631); // Pure major third (5/4) in semitones
+        });
+
+        it('should resolve correct unequal pitches for Werckmeister III (WM3)', () => {
+            const wm3Tuning = getEffectiveTuning(null, 'WM3');
+            expect(wm3Tuning.divisions).toBe(12);
+            expect(wm3Tuning.pitches[4]).toBe(3.90); // WM3 major third in semitones
+        });
+
+        it('should calculate correct chord notes under JI', () => {
+            // C major triad [60, 64, 67] in JI should be C(60), E(60 + 3.8631), G(60 + 7.0196)
+            const notes = getChordNotes('I', 60, 'JI');
+            expect(notes[0]).toBe(60);
+            expect(notes[1]).toBeCloseTo(63.8631, 3);
+            expect(notes[2]).toBeCloseTo(67.0196, 3);
         });
     });
 });

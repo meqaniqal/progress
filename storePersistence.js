@@ -20,7 +20,20 @@ export function loadAndApplyInitialState(explicitState = null) {
         state.autoPanLeading = savedState.autoPanLeading !== undefined ? Boolean(savedState.autoPanLeading) : true;
         state.midiExportRouting = savedState.midiExportRouting || 'mpe';
         state.globalVoicing = savedState.globalVoicing || 'auto';
-        state.divisions = savedState.divisions !== undefined ? parseInt(savedState.divisions, 10) : 12;
+        state.divisions = savedState.divisions !== undefined ? (typeof savedState.divisions === 'number' ? savedState.divisions : savedState.divisions) : 12;
+        if (savedState.customTuning) {
+            state.customTuning = savedState.customTuning;
+            if (typeof window !== 'undefined') {
+                window.__customTuning = state.customTuning;
+            }
+        } else {
+            state.customTuning = null;
+            if (typeof window !== 'undefined') {
+                window.__customTuning = null;
+            }
+        }
+        state.importedTunings = Array.isArray(savedState.importedTunings) ? savedState.importedTunings : [];
+        state.previousTuning = savedState.previousTuning || '12';
         state.theme = savedState.theme === 'light' ? 'light' : 'dark';
         state.mode = savedState.mode === 'minor' ? 'minor' : 'major';
         state.activeEmotion = savedState.activeEmotion || 'mournful';

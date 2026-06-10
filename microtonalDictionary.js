@@ -35,6 +35,49 @@ export const MICRO_TUNINGS = {
             Bayati: [0, 3, 6, 10, 14, 16, 20], // Features the neutral second (1.5 semitones)
             Rast: [0, 4, 7, 10, 14, 18, 21]    // Features the neutral third (3.5 semitones)
         }
+    },
+    'EDO17': {
+        name: '17-EDO',
+        divisions: 17,
+        periodSize: 12.0,
+        scales: {
+            Diatonic: [0, 3, 5, 8, 10, 13, 15]
+        }
+    },
+    'EDO22': {
+        name: '22-EDO',
+        divisions: 22,
+        periodSize: 12.0,
+        scales: {
+            Diatonic: [0, 4, 7, 11, 15, 18, 22]
+        }
+    },
+    'EDO53': {
+        name: '53-EDO',
+        divisions: 53,
+        periodSize: 12.0,
+        scales: {
+            Pythagorean: [0, 9, 17, 26, 35, 44, 53]
+        }
+    },
+    'JI': {
+        name: 'Just Intonation (5-limit)',
+        divisions: 12,
+        periodSize: 12.0,
+        pitches: [0, 1.1173, 2.0391, 3.1564, 3.8631, 4.9804, 5.8251, 7.0196, 8.1369, 8.8436, 10.1760, 10.8827],
+        scales: {
+            Major: [0, 2, 4, 5, 7, 9, 11],
+            Minor: [0, 2, 3, 5, 7, 8, 10]
+        }
+    },
+    'WM3': {
+        name: 'Werckmeister III',
+        divisions: 12,
+        periodSize: 12.0,
+        pitches: [0, 0.90, 1.92, 2.94, 3.90, 4.98, 5.88, 6.90, 7.92, 8.88, 9.96, 10.92],
+        scales: {
+            WellTemp: [0, 2, 4, 5, 7, 9, 11]
+        }
     }
 };
 
@@ -90,11 +133,18 @@ export function getMicrotonalChord(symbol, baseKey) {
     for (const stepOffset of chordSteps) {
         const scaleIndex = (degree + stepOffset) % scaleLength;
         const periodShift = Math.floor((degree + stepOffset) / scaleLength) * tuning.periodSize;
-        const pitchOffset = (scale[scaleIndex] * stepSize) + periodShift;
-        const absoluteTarget = baseKey + pitchOffset;
+        const pitchOffset = tuning.pitches 
+            ? (tuning.pitches[scale[scaleIndex]] + periodShift)
+            : ((scale[scaleIndex] * stepSize) + periodShift);
         
-        const edoStep = Math.round((absoluteTarget - 60) * (tuning.divisions / tuning.periodSize));
-        const snappedPitch = 60 + (edoStep * (tuning.periodSize / tuning.divisions));
+        let snappedPitch;
+        if (tuning.pitches) {
+            snappedPitch = baseKey + pitchOffset;
+        } else {
+            const absoluteTarget = baseKey + pitchOffset;
+            const edoStep = Math.round((absoluteTarget - 60) * (tuning.divisions / tuning.periodSize));
+            snappedPitch = 60 + (edoStep * (tuning.periodSize / tuning.divisions));
+        }
         
         chordPitches.push(snappedPitch);
     }
