@@ -40,6 +40,7 @@ export function loadAndApplyInitialState(explicitState = null) {
         state.generatorPersona = savedState.generatorPersona || 'normal';
         state.syncTransitionsToDrums = savedState.syncTransitionsToDrums !== undefined ? Boolean(savedState.syncTransitionsToDrums) : true;
         state.snapTransitionsToScale = savedState.snapTransitionsToScale !== undefined ? Boolean(savedState.snapTransitionsToScale) : true;
+        state.tuningImportSource = savedState.tuningImportSource || 'local';
         
         if (typeof savedState.loopStart === 'number') state.loopStart = Math.max(0, savedState.loopStart);
         if (typeof savedState.loopEnd === 'number') state.loopEnd = Math.max(0, savedState.loopEnd);

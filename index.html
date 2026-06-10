@@ -992,57 +992,91 @@
                 </div>
 <!-- Tab: General -->
                 <div id="settings-tab-content-general" class="settings-tab-content" style="display: none; flex-direction: column; gap: 8px;">
-                    <strong class="settings-label settings-section-title">General Application Settings</strong>
-                    <!-- Theme -->
-                    <div class="settings-row">
-                        <strong class="settings-label">Theme</strong>
-                        <select id="theme-selector" class="rhythm-select settings-select">
-                            <option value="light">Light Mode</option>
-                            <option value="dark">Dark Mode</option>
-                        </select>
+                    <!-- Group 1: Tuning Settings -->
+                    <div class="general-row-group" data-section="tuning">
+                        <div class="general-row-header settings-label-sm" role="button" tabindex="0" style="display: flex; align-items: center; padding: 6px; cursor: pointer; user-select: none; background: var(--display-bg); border: 1px solid var(--border-main); border-radius: 4px; font-weight: bold; margin-bottom: 4px;">
+                            <span class="general-trigger-arrow" style="font-size: 9px; margin-right: 6px; width: 8px; text-align: center;">▸</span>
+                            <span>🌐 Tuning & Imports</span>
+                        </div>
+                        <div class="general-nested-panel" style="display: none; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.15); border: 1px solid var(--border-main); border-radius: 6px; padding: 12px; margin-top: 4px; margin-bottom: 8px;">
+                            <div class="settings-row" title="Choose whether 'Import...' loads from your computer or from the pre-bundled server library">
+                                <strong class="settings-label">Tuning Import Source</strong>
+                                <select id="settings-tuning-source" class="rhythm-select settings-select" style="width: auto;">
+                                    <option value="local">📁 Local File (.scl/.tun)</option>
+                                    <option value="server">☁️ Server Library</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
-                    <!-- BPM -->
-                    <div class="settings-row">
-                        <strong class="settings-label">Tempo (BPM)</strong>
-                        <input type="number" id="bpm-slider" class="rhythm-select settings-select" value="120" min="40" max="240">
+
+                    <!-- Group 2: Melody & Playback -->
+                    <div class="general-row-group" data-section="melody-playback">
+                        <div class="general-row-header settings-label-sm" role="button" tabindex="0" style="display: flex; align-items: center; padding: 6px; cursor: pointer; user-select: none; background: var(--display-bg); border: 1px solid var(--border-main); border-radius: 4px; font-weight: bold; margin-bottom: 4px;">
+                            <span class="general-trigger-arrow" style="font-size: 9px; margin-right: 6px; width: 8px; text-align: center;">▸</span>
+                            <span>🧠 Melody & Playback</span>
+                        </div>
+                        <div class="general-nested-panel" style="display: none; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.15); border: 1px solid var(--border-main); border-radius: 6px; padding: 12px; margin-top: 4px; margin-bottom: 8px;">
+                            <!-- Theme -->
+                            <div class="settings-row">
+                                <strong class="settings-label">Theme</strong>
+                                <select id="theme-selector" class="rhythm-select settings-select" style="width: auto;">
+                                    <option value="light">Light Mode</option>
+                                    <option value="dark">Dark Mode</option>
+                                </select>
+                            </div>
+                            <!-- BPM -->
+                            <div class="settings-row">
+                                <strong class="settings-label">Tempo (BPM)</strong>
+                                <input type="number" id="bpm-slider" class="rhythm-select settings-select" value="120" min="40" max="240" style="width: auto;">
+                            </div>
+                            <!-- Voice Leading -->
+                            <div class="settings-row" title="Calculates the shortest melodic distance between chords for smooth transitions">
+                                <strong class="settings-label info">Voice Leading ℹ️</strong>
+                                <input type="checkbox" id="voice-leading" checked class="settings-checkbox">
+                            </div>
+                            <!-- Auto Pan-Leading -->
+                            <div class="settings-row" id="row-auto-pan" title="Automatically pans highly dissonant microtonal clusters wide left and right to prevent center channel muddiness">
+                                <strong class="settings-label info">Auto Pan-Leading ℹ️</strong>
+                                <input type="checkbox" id="auto-pan-leading" checked class="settings-checkbox">
+                            </div>
+                            <!-- Contextual Audition -->
+                            <div class="settings-row" title="Plays the preceding, current substitute, and following chord sequence when replacing in the inspector">
+                                <strong class="settings-label info">Inspector Audition ℹ️</strong>
+                                <input type="checkbox" id="settings-audition-toggle" checked class="settings-checkbox">
+                            </div>
+                            <!-- Generative Persona -->
+                            <div class="settings-row" title="Alters algorithmic complexity and density of voice transitions/flourishes">
+                                <strong class="settings-label">Generative Persona</strong>
+                                <select id="generator-persona-selector" class="rhythm-select settings-select" style="width: auto;">
+                                    <option value="normal">Normal</option>
+                                    <option value="restless">Restless (Active/Dense)</option>
+                                    <option value="lazy">Lazy (Sustained/Simple)</option>
+                                </select>
+                            </div>
+                            <!-- Groove Sync -->
+                            <div class="settings-row" title="Snaps transition note timings to match active drum hits for a cohesive groove">
+                                <strong class="settings-label info">Sync Transitions to Drum Groove ℹ️</strong>
+                                <input type="checkbox" id="sync-transitions-drums" checked class="settings-checkbox">
+                            </div>
+                            <!-- Scale Snapping -->
+                            <div class="settings-row" title="Restricts transition and flourish notes to the active scale/mode degrees to prevent sour notes">
+                                <strong class="settings-label info">Default Scale Snapping ℹ️</strong>
+                                <input type="checkbox" id="snap-transitions-scale" checked class="settings-checkbox">
+                            </div>
+                        </div>
                     </div>
-                    <!-- Voice Leading -->
-                    <div class="settings-row" title="Calculates the shortest melodic distance between chords for smooth transitions">
-                        <strong class="settings-label info">Voice Leading ℹ️</strong>
-                        <input type="checkbox" id="voice-leading" checked class="settings-checkbox">
-                    </div>
-                    <!-- Auto Pan-Leading -->
-                    <div class="settings-row" id="row-auto-pan" title="Automatically pans highly dissonant microtonal clusters wide left and right to prevent center channel muddiness">
-                        <strong class="settings-label info">Auto Pan-Leading ℹ️</strong>
-                        <input type="checkbox" id="auto-pan-leading" checked class="settings-checkbox">
-                    </div>
-                    <!-- Contextual Audition -->
-                    <div class="settings-row" title="Plays the preceding, current substitute, and following chord sequence when replacing in the inspector">
-                        <strong class="settings-label info">Inspector Audition ℹ️</strong>
-                        <input type="checkbox" id="settings-audition-toggle" checked class="settings-checkbox">
-                    </div>
-                    <!-- Generative Persona -->
-                    <div class="settings-row" title="Alters algorithmic complexity and density of voice transitions/flourishes">
-                        <strong class="settings-label">Generative Persona</strong>
-                        <select id="generator-persona-selector" class="rhythm-select settings-select">
-                            <option value="normal">Normal</option>
-                            <option value="restless">Restless (Active/Dense)</option>
-                            <option value="lazy">Lazy (Sustained/Simple)</option>
-                        </select>
-                    </div>
-                    <!-- Groove Sync -->
-                    <div class="settings-row" title="Snaps transition note timings to match active drum hits for a cohesive groove">
-                        <strong class="settings-label info">Sync Transitions to Drum Groove ℹ️</strong>
-                        <input type="checkbox" id="sync-transitions-drums" checked class="settings-checkbox">
-                    </div>
-                    <!-- Scale Snapping -->
-                    <div class="settings-row" title="Restricts transition and flourish notes to the active scale/mode degrees to prevent sour notes">
-                        <strong class="settings-label info">Default Scale Snapping ℹ️</strong>
-                        <input type="checkbox" id="snap-transitions-scale" checked class="settings-checkbox">
-                    </div>
-                    
-                    <div style="margin-top: 15px; border-top: 1px solid var(--border-main); padding-top: 10px;">
-                        <button class="control-btn btn-danger" id="btn-reset-session" title="Clear all data and reset to defaults" style="width: 100%;">⚠️ Factory Reset</button>
+
+                    <!-- Group 3: Session Maintenance -->
+                    <div class="general-row-group" data-section="session">
+                        <div class="general-row-header settings-label-sm" role="button" tabindex="0" style="display: flex; align-items: center; padding: 6px; cursor: pointer; user-select: none; background: var(--display-bg); border: 1px solid var(--border-main); border-radius: 4px; font-weight: bold; margin-bottom: 4px;">
+                            <span class="general-trigger-arrow" style="font-size: 9px; margin-right: 6px; width: 8px; text-align: center;">▸</span>
+                            <span>⚠️ Session Maintenance</span>
+                        </div>
+                        <div class="general-nested-panel" style="display: none; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.15); border: 1px solid var(--border-main); border-radius: 6px; padding: 12px; margin-top: 4px; margin-bottom: 8px;">
+                            <div style="padding-top: 5px;">
+                                <button class="control-btn btn-danger" id="btn-reset-session" title="Clear all data and reset to defaults" style="width: 100%;">⚠️ Factory Reset</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1126,6 +1160,40 @@
 
             <div class="controls modal-controls">
                 <button class="control-btn secondary" id="btn-close-project-hub">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tuning Library Browser Modal -->
+    <div id="tuning-library-modal" class="modal-overlay" style="display: none; z-index: 2100;">
+        <div class="modal-content" style="max-width: 450px; display: flex; flex-direction: column; gap: 12px;">
+            <h3 style="margin-top: 0; margin-bottom: 5px;">☁️ Server Tuning Library</h3>
+            <p class="modal-description" style="margin-bottom: 10px;">Choose a microtonal scale (.scl) from the pre-bundled Surge XT library served by the server.</p>
+            
+            <div class="settings-row" style="display: flex; flex-direction: column; align-items: stretch; gap: 10px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label for="library-category-selector" style="font-size: 12px; font-weight: bold; color: var(--text-muted);">Category</label>
+                    <select id="library-category-selector" class="rhythm-select settings-select" style="width: 100%; height: 32px;">
+                        <option value="">-- Select Category --</option>
+                    </select>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label for="library-scale-selector" style="font-size: 12px; font-weight: bold; color: var(--text-muted);">Scale</label>
+                    <select id="library-scale-selector" class="rhythm-select settings-select" style="width: 100%; height: 32px;" disabled>
+                        <option value="">-- Select Category First --</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Scale Information Box -->
+            <div id="library-scale-info" style="min-height: 80px; max-height: 150px; overflow-y: auto; background: rgba(0,0,0,0.2); border: 1px solid var(--border-main); border-radius: 6px; padding: 10px; font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;">
+                <div style="font-style: italic; text-align: center; margin-top: 15px;">Select a scale to view its details.</div>
+            </div>
+
+            <div class="settings-row" style="margin-top: 10px; display: flex; justify-content: flex-end; gap: 8px;">
+                <button class="control-btn secondary" id="btn-close-library-modal">Cancel</button>
+                <button class="control-btn primary" id="btn-load-library-scale" disabled>Import Tuning</button>
             </div>
         </div>
     </div>

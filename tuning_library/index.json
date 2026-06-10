@@ -1,0 +1,916 @@
+{
+  "Equal Linear Temperaments 17-71": [
+    {
+      "name": "689.362 ED2-47 ELT-12",
+      "filename": "689.362 ED2-47 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/689.362 ED2-47 ELT-12.scl"
+    },
+    {
+      "name": "690.000 ED2-40 ELT-12",
+      "filename": "690.000 ED2-40 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/690.000 ED2-40 ELT-12.scl"
+    },
+    {
+      "name": "690.909 ED2-33 ELT-12",
+      "filename": "690.909 ED2-33 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/690.909 ED2-33 ELT-12.scl"
+    },
+    {
+      "name": "692.308 ED2-26 ELT-12",
+      "filename": "692.308 ED2-26 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/692.308 ED2-26 ELT-12.scl"
+    },
+    {
+      "name": "693.333 ED2-45 ELT-12",
+      "filename": "693.333 ED2-45 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/693.333 ED2-45 ELT-12.scl"
+    },
+    {
+      "name": "693.750 ED2-64 ELT-12",
+      "filename": "693.750 ED2-64 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/693.750 ED2-64 ELT-12.scl"
+    },
+    {
+      "name": "694.737 ED2-19 ELT-12",
+      "filename": "694.737 ED2-19 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/694.737 ED2-19 ELT-12.scl"
+    },
+    {
+      "name": "695.652 ED2-69 ELT-12",
+      "filename": "695.652 ED2-69 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/695.652 ED2-69 ELT-12.scl"
+    },
+    {
+      "name": "696.000 ED2-50 ELT-12",
+      "filename": "696.000 ED2-50 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/696.000 ED2-50 ELT-12.scl"
+    },
+    {
+      "name": "696.774 ED2-31 ELT-12",
+      "filename": "696.774 ED2-31 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/696.774 ED2-31 ELT-12.scl"
+    },
+    {
+      "name": "697.674 ED2-43 ELT-12",
+      "filename": "697.674 ED2-43 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/697.674 ED2-43 ELT-12.scl"
+    },
+    {
+      "name": "698.182 ED2-55 ELT-12",
+      "filename": "698.182 ED2-55 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/698.182 ED2-55 ELT-12.scl"
+    },
+    {
+      "name": "698.507 ED2-67 ELT-12",
+      "filename": "698.507 ED2-67 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/698.507 ED2-67 ELT-12.scl"
+    },
+    {
+      "name": "701.538 ED2-65 ELT-12",
+      "filename": "701.538 ED2-65 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/701.538 ED2-65 ELT-12.scl"
+    },
+    {
+      "name": "701.887 ED2-53 ELT-12",
+      "filename": "701.887 ED2-53 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/701.887 ED2-53 ELT-12.scl"
+    },
+    {
+      "name": "702.439 ED2-41 ELT-12",
+      "filename": "702.439 ED2-41 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/702.439 ED2-41 ELT-12.scl"
+    },
+    {
+      "name": "702.857 ED2-70 ELT-12",
+      "filename": "702.857 ED2-70 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/702.857 ED2-70 ELT-12.scl"
+    },
+    {
+      "name": "703.448 ED2-29 ELT-12",
+      "filename": "703.448 ED2-29 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/703.448 ED2-29 ELT-12.scl"
+    },
+    {
+      "name": "704.348 ED2-46 ELT-12",
+      "filename": "704.348 ED2-46 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/704.348 ED2-46 ELT-12.scl"
+    },
+    {
+      "name": "704.762 ED2-63 ELT-12",
+      "filename": "704.762 ED2-63 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/704.762 ED2-63 ELT-12.scl"
+    },
+    {
+      "name": "705.882 ED2-17 ELT-12",
+      "filename": "705.882 ED2-17 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/705.882 ED2-17 ELT-12.scl"
+    },
+    {
+      "name": "707.143 ED2-56 ELT-12",
+      "filename": "707.143 ED2-56 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/707.143 ED2-56 ELT-12.scl"
+    },
+    {
+      "name": "707.692 ED2-39 ELT-12",
+      "filename": "707.692 ED2-39 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/707.692 ED2-39 ELT-12.scl"
+    },
+    {
+      "name": "708.197 ED2-61 ELT-12",
+      "filename": "708.197 ED2-61 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/708.197 ED2-61 ELT-12.scl"
+    },
+    {
+      "name": "709.091 ED2-22 ELT-12",
+      "filename": "709.091 ED2-22 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/709.091 ED2-22 ELT-12.scl"
+    },
+    {
+      "name": "709.859 ED2-71 ELT-12",
+      "filename": "709.859 ED2-71 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/709.859 ED2-71 ELT-12.scl"
+    },
+    {
+      "name": "710.204 ED2-49 ELT-12",
+      "filename": "710.204 ED2-49 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/710.204 ED2-49 ELT-12.scl"
+    },
+    {
+      "name": "711.111 ED2-27 ELT-12",
+      "filename": "711.111 ED2-27 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/711.111 ED2-27 ELT-12.scl"
+    },
+    {
+      "name": "711.864 ED2-59 ELT-12",
+      "filename": "711.864 ED2-59 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/711.864 ED2-59 ELT-12.scl"
+    },
+    {
+      "name": "712.500 ED2-32 ELT-12",
+      "filename": "712.500 ED2-32 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/712.500 ED2-32 ELT-12.scl"
+    },
+    {
+      "name": "713.514 ED2-37 ELT-12",
+      "filename": "713.514 ED2-37 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/713.514 ED2-37 ELT-12.scl"
+    },
+    {
+      "name": "714.286 ED2-42 ELT-12",
+      "filename": "714.286 ED2-42 ELT-12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/714.286 ED2-42 ELT-12.scl"
+    },
+    {
+      "name": "Pythagorean 12",
+      "filename": "Pythagorean 12.scl",
+      "path": "tuning_library/Equal Linear Temperaments 17-71/Pythagorean 12.scl"
+    }
+  ],
+  "SCL": [
+    {
+      "name": "12 Tone Equal Temperament",
+      "filename": "12 Tone Equal Temperament.scl",
+      "path": "tuning_library/SCL/12 Tone Equal Temperament.scl"
+    },
+    {
+      "name": "35.1 CET - Wendy Carlos - Gamma",
+      "filename": "35.1 CET - Wendy Carlos - Gamma.scl",
+      "path": "tuning_library/SCL/35.1 CET - Wendy Carlos - Gamma.scl"
+    },
+    {
+      "name": "63.8 CET - Wendy Carlos - Beta",
+      "filename": "63.8 CET - Wendy Carlos - Beta.scl",
+      "path": "tuning_library/SCL/63.8 CET - Wendy Carlos - Beta.scl"
+    },
+    {
+      "name": "78.0 CET - Wendy Carlos - Alpha",
+      "filename": "78.0 CET - Wendy Carlos - Alpha.scl",
+      "path": "tuning_library/SCL/78.0 CET - Wendy Carlos - Alpha.scl"
+    },
+    {
+      "name": "88.0 CET - Gary Morrison",
+      "filename": "88.0 CET - Gary Morrison.scl",
+      "path": "tuning_library/SCL/88.0 CET - Gary Morrison.scl"
+    },
+    {
+      "name": "Bohlen-Pierce",
+      "filename": "Bohlen-Pierce.scl",
+      "path": "tuning_library/SCL/Bohlen-Pierce.scl"
+    },
+    {
+      "name": "ED2-05",
+      "filename": "ED2-05.scl",
+      "path": "tuning_library/SCL/ED2-05.scl"
+    },
+    {
+      "name": "ED2-06",
+      "filename": "ED2-06.scl",
+      "path": "tuning_library/SCL/ED2-06.scl"
+    },
+    {
+      "name": "ED2-07",
+      "filename": "ED2-07.scl",
+      "path": "tuning_library/SCL/ED2-07.scl"
+    },
+    {
+      "name": "ED2-08",
+      "filename": "ED2-08.scl",
+      "path": "tuning_library/SCL/ED2-08.scl"
+    },
+    {
+      "name": "ED2-09",
+      "filename": "ED2-09.scl",
+      "path": "tuning_library/SCL/ED2-09.scl"
+    },
+    {
+      "name": "ED2-10",
+      "filename": "ED2-10.scl",
+      "path": "tuning_library/SCL/ED2-10.scl"
+    },
+    {
+      "name": "ED2-11",
+      "filename": "ED2-11.scl",
+      "path": "tuning_library/SCL/ED2-11.scl"
+    },
+    {
+      "name": "ED2-12",
+      "filename": "ED2-12.scl",
+      "path": "tuning_library/SCL/ED2-12.scl"
+    },
+    {
+      "name": "ED2-13",
+      "filename": "ED2-13.scl",
+      "path": "tuning_library/SCL/ED2-13.scl"
+    },
+    {
+      "name": "ED2-14",
+      "filename": "ED2-14.scl",
+      "path": "tuning_library/SCL/ED2-14.scl"
+    },
+    {
+      "name": "ED2-15",
+      "filename": "ED2-15.scl",
+      "path": "tuning_library/SCL/ED2-15.scl"
+    },
+    {
+      "name": "ED2-16",
+      "filename": "ED2-16.scl",
+      "path": "tuning_library/SCL/ED2-16.scl"
+    },
+    {
+      "name": "ED2-17",
+      "filename": "ED2-17.scl",
+      "path": "tuning_library/SCL/ED2-17.scl"
+    },
+    {
+      "name": "ED2-18",
+      "filename": "ED2-18.scl",
+      "path": "tuning_library/SCL/ED2-18.scl"
+    },
+    {
+      "name": "ED2-19",
+      "filename": "ED2-19.scl",
+      "path": "tuning_library/SCL/ED2-19.scl"
+    },
+    {
+      "name": "ED2-20",
+      "filename": "ED2-20.scl",
+      "path": "tuning_library/SCL/ED2-20.scl"
+    },
+    {
+      "name": "ED2-21",
+      "filename": "ED2-21.scl",
+      "path": "tuning_library/SCL/ED2-21.scl"
+    },
+    {
+      "name": "ED2-22",
+      "filename": "ED2-22.scl",
+      "path": "tuning_library/SCL/ED2-22.scl"
+    },
+    {
+      "name": "ED2-23",
+      "filename": "ED2-23.scl",
+      "path": "tuning_library/SCL/ED2-23.scl"
+    },
+    {
+      "name": "ED2-24",
+      "filename": "ED2-24.scl",
+      "path": "tuning_library/SCL/ED2-24.scl"
+    },
+    {
+      "name": "ED2-25",
+      "filename": "ED2-25.scl",
+      "path": "tuning_library/SCL/ED2-25.scl"
+    },
+    {
+      "name": "ED2-26",
+      "filename": "ED2-26.scl",
+      "path": "tuning_library/SCL/ED2-26.scl"
+    },
+    {
+      "name": "ED2-27",
+      "filename": "ED2-27.scl",
+      "path": "tuning_library/SCL/ED2-27.scl"
+    },
+    {
+      "name": "ED2-28",
+      "filename": "ED2-28.scl",
+      "path": "tuning_library/SCL/ED2-28.scl"
+    },
+    {
+      "name": "ED2-29",
+      "filename": "ED2-29.scl",
+      "path": "tuning_library/SCL/ED2-29.scl"
+    },
+    {
+      "name": "ED2-30",
+      "filename": "ED2-30.scl",
+      "path": "tuning_library/SCL/ED2-30.scl"
+    },
+    {
+      "name": "ED2-31",
+      "filename": "ED2-31.scl",
+      "path": "tuning_library/SCL/ED2-31.scl"
+    },
+    {
+      "name": "ED3-07",
+      "filename": "ED3-07.scl",
+      "path": "tuning_library/SCL/ED3-07.scl"
+    },
+    {
+      "name": "ED3-08",
+      "filename": "ED3-08.scl",
+      "path": "tuning_library/SCL/ED3-08.scl"
+    },
+    {
+      "name": "ED3-09",
+      "filename": "ED3-09.scl",
+      "path": "tuning_library/SCL/ED3-09.scl"
+    },
+    {
+      "name": "ED3-10",
+      "filename": "ED3-10.scl",
+      "path": "tuning_library/SCL/ED3-10.scl"
+    },
+    {
+      "name": "ED3-11",
+      "filename": "ED3-11.scl",
+      "path": "tuning_library/SCL/ED3-11.scl"
+    },
+    {
+      "name": "ED3-12",
+      "filename": "ED3-12.scl",
+      "path": "tuning_library/SCL/ED3-12.scl"
+    },
+    {
+      "name": "ED3-13",
+      "filename": "ED3-13.scl",
+      "path": "tuning_library/SCL/ED3-13.scl"
+    },
+    {
+      "name": "ED3-14",
+      "filename": "ED3-14.scl",
+      "path": "tuning_library/SCL/ED3-14.scl"
+    },
+    {
+      "name": "ED3-15",
+      "filename": "ED3-15.scl",
+      "path": "tuning_library/SCL/ED3-15.scl"
+    },
+    {
+      "name": "ED3-16",
+      "filename": "ED3-16.scl",
+      "path": "tuning_library/SCL/ED3-16.scl"
+    },
+    {
+      "name": "ED3-17",
+      "filename": "ED3-17.scl",
+      "path": "tuning_library/SCL/ED3-17.scl"
+    },
+    {
+      "name": "ED3-18",
+      "filename": "ED3-18.scl",
+      "path": "tuning_library/SCL/ED3-18.scl"
+    },
+    {
+      "name": "ED3-19",
+      "filename": "ED3-19.scl",
+      "path": "tuning_library/SCL/ED3-19.scl"
+    },
+    {
+      "name": "ED3-20",
+      "filename": "ED3-20.scl",
+      "path": "tuning_library/SCL/ED3-20.scl"
+    },
+    {
+      "name": "ED3-21",
+      "filename": "ED3-21.scl",
+      "path": "tuning_library/SCL/ED3-21.scl"
+    },
+    {
+      "name": "ED3-22",
+      "filename": "ED3-22.scl",
+      "path": "tuning_library/SCL/ED3-22.scl"
+    },
+    {
+      "name": "ED3-23",
+      "filename": "ED3-23.scl",
+      "path": "tuning_library/SCL/ED3-23.scl"
+    },
+    {
+      "name": "ED3-24",
+      "filename": "ED3-24.scl",
+      "path": "tuning_library/SCL/ED3-24.scl"
+    },
+    {
+      "name": "ED3-25",
+      "filename": "ED3-25.scl",
+      "path": "tuning_library/SCL/ED3-25.scl"
+    },
+    {
+      "name": "ED3-26",
+      "filename": "ED3-26.scl",
+      "path": "tuning_library/SCL/ED3-26.scl"
+    },
+    {
+      "name": "ED3-27",
+      "filename": "ED3-27.scl",
+      "path": "tuning_library/SCL/ED3-27.scl"
+    },
+    {
+      "name": "ED4-09",
+      "filename": "ED4-09.scl",
+      "path": "tuning_library/SCL/ED4-09.scl"
+    },
+    {
+      "name": "ED4-11",
+      "filename": "ED4-11.scl",
+      "path": "tuning_library/SCL/ED4-11.scl"
+    },
+    {
+      "name": "ED4-13",
+      "filename": "ED4-13.scl",
+      "path": "tuning_library/SCL/ED4-13.scl"
+    },
+    {
+      "name": "ED4-15",
+      "filename": "ED4-15.scl",
+      "path": "tuning_library/SCL/ED4-15.scl"
+    },
+    {
+      "name": "ED4-17",
+      "filename": "ED4-17.scl",
+      "path": "tuning_library/SCL/ED4-17.scl"
+    },
+    {
+      "name": "ED4-19",
+      "filename": "ED4-19.scl",
+      "path": "tuning_library/SCL/ED4-19.scl"
+    },
+    {
+      "name": "ED4-21",
+      "filename": "ED4-21.scl",
+      "path": "tuning_library/SCL/ED4-21.scl"
+    },
+    {
+      "name": "ED4-23",
+      "filename": "ED4-23.scl",
+      "path": "tuning_library/SCL/ED4-23.scl"
+    },
+    {
+      "name": "ED4-25",
+      "filename": "ED4-25.scl",
+      "path": "tuning_library/SCL/ED4-25.scl"
+    },
+    {
+      "name": "ED4-27",
+      "filename": "ED4-27.scl",
+      "path": "tuning_library/SCL/ED4-27.scl"
+    },
+    {
+      "name": "ED4-29",
+      "filename": "ED4-29.scl",
+      "path": "tuning_library/SCL/ED4-29.scl"
+    },
+    {
+      "name": "ED4-31",
+      "filename": "ED4-31.scl",
+      "path": "tuning_library/SCL/ED4-31.scl"
+    },
+    {
+      "name": "ED4-33",
+      "filename": "ED4-33.scl",
+      "path": "tuning_library/SCL/ED4-33.scl"
+    },
+    {
+      "name": "ED4-35",
+      "filename": "ED4-35.scl",
+      "path": "tuning_library/SCL/ED4-35.scl"
+    },
+    {
+      "name": "ED4-37",
+      "filename": "ED4-37.scl",
+      "path": "tuning_library/SCL/ED4-37.scl"
+    },
+    {
+      "name": "ED4-39",
+      "filename": "ED4-39.scl",
+      "path": "tuning_library/SCL/ED4-39.scl"
+    },
+    {
+      "name": "ED4-41",
+      "filename": "ED4-41.scl",
+      "path": "tuning_library/SCL/ED4-41.scl"
+    },
+    {
+      "name": "HD2 04-08",
+      "filename": "HD2 04-08.scl",
+      "path": "tuning_library/SCL/HD2 04-08.scl"
+    },
+    {
+      "name": "HD2 05-10",
+      "filename": "HD2 05-10.scl",
+      "path": "tuning_library/SCL/HD2 05-10.scl"
+    },
+    {
+      "name": "HD2 06-12",
+      "filename": "HD2 06-12.scl",
+      "path": "tuning_library/SCL/HD2 06-12.scl"
+    },
+    {
+      "name": "HD2 07-14",
+      "filename": "HD2 07-14.scl",
+      "path": "tuning_library/SCL/HD2 07-14.scl"
+    },
+    {
+      "name": "HD2 08-16",
+      "filename": "HD2 08-16.scl",
+      "path": "tuning_library/SCL/HD2 08-16.scl"
+    },
+    {
+      "name": "HD2 09-18",
+      "filename": "HD2 09-18.scl",
+      "path": "tuning_library/SCL/HD2 09-18.scl"
+    },
+    {
+      "name": "HD2 10-20",
+      "filename": "HD2 10-20.scl",
+      "path": "tuning_library/SCL/HD2 10-20.scl"
+    },
+    {
+      "name": "HD2 11-22",
+      "filename": "HD2 11-22.scl",
+      "path": "tuning_library/SCL/HD2 11-22.scl"
+    },
+    {
+      "name": "HD2 12-24",
+      "filename": "HD2 12-24.scl",
+      "path": "tuning_library/SCL/HD2 12-24.scl"
+    },
+    {
+      "name": "HD2 13-26",
+      "filename": "HD2 13-26.scl",
+      "path": "tuning_library/SCL/HD2 13-26.scl"
+    },
+    {
+      "name": "HD2 14-28",
+      "filename": "HD2 14-28.scl",
+      "path": "tuning_library/SCL/HD2 14-28.scl"
+    },
+    {
+      "name": "HD2 15-30",
+      "filename": "HD2 15-30.scl",
+      "path": "tuning_library/SCL/HD2 15-30.scl"
+    },
+    {
+      "name": "HD2 16-32",
+      "filename": "HD2 16-32.scl",
+      "path": "tuning_library/SCL/HD2 16-32.scl"
+    },
+    {
+      "name": "HD3 04-12",
+      "filename": "HD3 04-12.scl",
+      "path": "tuning_library/SCL/HD3 04-12.scl"
+    },
+    {
+      "name": "HD3 05-15",
+      "filename": "HD3 05-15.scl",
+      "path": "tuning_library/SCL/HD3 05-15.scl"
+    },
+    {
+      "name": "HD3 06-18",
+      "filename": "HD3 06-18.scl",
+      "path": "tuning_library/SCL/HD3 06-18.scl"
+    },
+    {
+      "name": "HD3 07-21",
+      "filename": "HD3 07-21.scl",
+      "path": "tuning_library/SCL/HD3 07-21.scl"
+    },
+    {
+      "name": "HD3 08-24",
+      "filename": "HD3 08-24.scl",
+      "path": "tuning_library/SCL/HD3 08-24.scl"
+    },
+    {
+      "name": "HD3 09-27",
+      "filename": "HD3 09-27.scl",
+      "path": "tuning_library/SCL/HD3 09-27.scl"
+    },
+    {
+      "name": "HD3 10-30",
+      "filename": "HD3 10-30.scl",
+      "path": "tuning_library/SCL/HD3 10-30.scl"
+    },
+    {
+      "name": "HD3 11-33",
+      "filename": "HD3 11-33.scl",
+      "path": "tuning_library/SCL/HD3 11-33.scl"
+    },
+    {
+      "name": "HD3 12-36",
+      "filename": "HD3 12-36.scl",
+      "path": "tuning_library/SCL/HD3 12-36.scl"
+    },
+    {
+      "name": "HD3 13-39",
+      "filename": "HD3 13-39.scl",
+      "path": "tuning_library/SCL/HD3 13-39.scl"
+    },
+    {
+      "name": "HD3 14-42",
+      "filename": "HD3 14-42.scl",
+      "path": "tuning_library/SCL/HD3 14-42.scl"
+    },
+    {
+      "name": "HD3 15-45",
+      "filename": "HD3 15-45.scl",
+      "path": "tuning_library/SCL/HD3 15-45.scl"
+    },
+    {
+      "name": "HD3 16-48",
+      "filename": "HD3 16-48.scl",
+      "path": "tuning_library/SCL/HD3 16-48.scl"
+    },
+    {
+      "name": "HD4 04-16",
+      "filename": "HD4 04-16.scl",
+      "path": "tuning_library/SCL/HD4 04-16.scl"
+    },
+    {
+      "name": "HD4 05-20",
+      "filename": "HD4 05-20.scl",
+      "path": "tuning_library/SCL/HD4 05-20.scl"
+    },
+    {
+      "name": "HD4 06-24",
+      "filename": "HD4 06-24.scl",
+      "path": "tuning_library/SCL/HD4 06-24.scl"
+    },
+    {
+      "name": "HD4 07-28",
+      "filename": "HD4 07-28.scl",
+      "path": "tuning_library/SCL/HD4 07-28.scl"
+    },
+    {
+      "name": "HD4 08-32",
+      "filename": "HD4 08-32.scl",
+      "path": "tuning_library/SCL/HD4 08-32.scl"
+    },
+    {
+      "name": "HD4 09-36",
+      "filename": "HD4 09-36.scl",
+      "path": "tuning_library/SCL/HD4 09-36.scl"
+    },
+    {
+      "name": "HD4 10-40",
+      "filename": "HD4 10-40.scl",
+      "path": "tuning_library/SCL/HD4 10-40.scl"
+    },
+    {
+      "name": "HD4 11-44",
+      "filename": "HD4 11-44.scl",
+      "path": "tuning_library/SCL/HD4 11-44.scl"
+    },
+    {
+      "name": "HD4 12-48",
+      "filename": "HD4 12-48.scl",
+      "path": "tuning_library/SCL/HD4 12-48.scl"
+    },
+    {
+      "name": "HD4 13-52",
+      "filename": "HD4 13-52.scl",
+      "path": "tuning_library/SCL/HD4 13-52.scl"
+    },
+    {
+      "name": "HD4 14-56",
+      "filename": "HD4 14-56.scl",
+      "path": "tuning_library/SCL/HD4 14-56.scl"
+    },
+    {
+      "name": "HD4 15-60",
+      "filename": "HD4 15-60.scl",
+      "path": "tuning_library/SCL/HD4 15-60.scl"
+    },
+    {
+      "name": "HD4 16-64",
+      "filename": "HD4 16-64.scl",
+      "path": "tuning_library/SCL/HD4 16-64.scl"
+    },
+    {
+      "name": "SD2 08-04",
+      "filename": "SD2 08-04.scl",
+      "path": "tuning_library/SCL/SD2 08-04.scl"
+    },
+    {
+      "name": "SD2 10-05",
+      "filename": "SD2 10-05.scl",
+      "path": "tuning_library/SCL/SD2 10-05.scl"
+    },
+    {
+      "name": "SD2 12-06",
+      "filename": "SD2 12-06.scl",
+      "path": "tuning_library/SCL/SD2 12-06.scl"
+    },
+    {
+      "name": "SD2 14-07",
+      "filename": "SD2 14-07.scl",
+      "path": "tuning_library/SCL/SD2 14-07.scl"
+    },
+    {
+      "name": "SD2 16-08",
+      "filename": "SD2 16-08.scl",
+      "path": "tuning_library/SCL/SD2 16-08.scl"
+    },
+    {
+      "name": "SD2 18-09",
+      "filename": "SD2 18-09.scl",
+      "path": "tuning_library/SCL/SD2 18-09.scl"
+    },
+    {
+      "name": "SD2 20-10",
+      "filename": "SD2 20-10.scl",
+      "path": "tuning_library/SCL/SD2 20-10.scl"
+    },
+    {
+      "name": "SD2 22-11",
+      "filename": "SD2 22-11.scl",
+      "path": "tuning_library/SCL/SD2 22-11.scl"
+    },
+    {
+      "name": "SD2 24-12",
+      "filename": "SD2 24-12.scl",
+      "path": "tuning_library/SCL/SD2 24-12.scl"
+    },
+    {
+      "name": "SD2 26-13",
+      "filename": "SD2 26-13.scl",
+      "path": "tuning_library/SCL/SD2 26-13.scl"
+    },
+    {
+      "name": "SD2 28-14",
+      "filename": "SD2 28-14.scl",
+      "path": "tuning_library/SCL/SD2 28-14.scl"
+    },
+    {
+      "name": "SD2 30-15",
+      "filename": "SD2 30-15.scl",
+      "path": "tuning_library/SCL/SD2 30-15.scl"
+    },
+    {
+      "name": "SD2 32-16",
+      "filename": "SD2 32-16.scl",
+      "path": "tuning_library/SCL/SD2 32-16.scl"
+    },
+    {
+      "name": "SD3 12-04",
+      "filename": "SD3 12-04.scl",
+      "path": "tuning_library/SCL/SD3 12-04.scl"
+    },
+    {
+      "name": "SD3 15-05",
+      "filename": "SD3 15-05.scl",
+      "path": "tuning_library/SCL/SD3 15-05.scl"
+    },
+    {
+      "name": "SD3 18-06",
+      "filename": "SD3 18-06.scl",
+      "path": "tuning_library/SCL/SD3 18-06.scl"
+    },
+    {
+      "name": "SD3 21-07",
+      "filename": "SD3 21-07.scl",
+      "path": "tuning_library/SCL/SD3 21-07.scl"
+    },
+    {
+      "name": "SD3 24-08",
+      "filename": "SD3 24-08.scl",
+      "path": "tuning_library/SCL/SD3 24-08.scl"
+    },
+    {
+      "name": "SD3 27-09",
+      "filename": "SD3 27-09.scl",
+      "path": "tuning_library/SCL/SD3 27-09.scl"
+    },
+    {
+      "name": "SD3 30-10",
+      "filename": "SD3 30-10.scl",
+      "path": "tuning_library/SCL/SD3 30-10.scl"
+    },
+    {
+      "name": "SD3 33-11",
+      "filename": "SD3 33-11.scl",
+      "path": "tuning_library/SCL/SD3 33-11.scl"
+    },
+    {
+      "name": "SD3 36-12",
+      "filename": "SD3 36-12.scl",
+      "path": "tuning_library/SCL/SD3 36-12.scl"
+    },
+    {
+      "name": "SD3 39-13",
+      "filename": "SD3 39-13.scl",
+      "path": "tuning_library/SCL/SD3 39-13.scl"
+    },
+    {
+      "name": "SD3 42-14",
+      "filename": "SD3 42-14.scl",
+      "path": "tuning_library/SCL/SD3 42-14.scl"
+    },
+    {
+      "name": "SD3 45-15",
+      "filename": "SD3 45-15.scl",
+      "path": "tuning_library/SCL/SD3 45-15.scl"
+    },
+    {
+      "name": "SD3 48-16",
+      "filename": "SD3 48-16.scl",
+      "path": "tuning_library/SCL/SD3 48-16.scl"
+    },
+    {
+      "name": "SD4 16-04",
+      "filename": "SD4 16-04.scl",
+      "path": "tuning_library/SCL/SD4 16-04.scl"
+    },
+    {
+      "name": "SD4 20-05",
+      "filename": "SD4 20-05.scl",
+      "path": "tuning_library/SCL/SD4 20-05.scl"
+    },
+    {
+      "name": "SD4 24-06",
+      "filename": "SD4 24-06.scl",
+      "path": "tuning_library/SCL/SD4 24-06.scl"
+    },
+    {
+      "name": "SD4 28-07",
+      "filename": "SD4 28-07.scl",
+      "path": "tuning_library/SCL/SD4 28-07.scl"
+    },
+    {
+      "name": "SD4 32-08",
+      "filename": "SD4 32-08.scl",
+      "path": "tuning_library/SCL/SD4 32-08.scl"
+    },
+    {
+      "name": "SD4 36-09",
+      "filename": "SD4 36-09.scl",
+      "path": "tuning_library/SCL/SD4 36-09.scl"
+    },
+    {
+      "name": "SD4 40-10",
+      "filename": "SD4 40-10.scl",
+      "path": "tuning_library/SCL/SD4 40-10.scl"
+    },
+    {
+      "name": "SD4 44-11",
+      "filename": "SD4 44-11.scl",
+      "path": "tuning_library/SCL/SD4 44-11.scl"
+    },
+    {
+      "name": "SD4 48-12",
+      "filename": "SD4 48-12.scl",
+      "path": "tuning_library/SCL/SD4 48-12.scl"
+    },
+    {
+      "name": "SD4 52-13",
+      "filename": "SD4 52-13.scl",
+      "path": "tuning_library/SCL/SD4 52-13.scl"
+    },
+    {
+      "name": "SD4 56-14",
+      "filename": "SD4 56-14.scl",
+      "path": "tuning_library/SCL/SD4 56-14.scl"
+    },
+    {
+      "name": "SD4 60-15",
+      "filename": "SD4 60-15.scl",
+      "path": "tuning_library/SCL/SD4 60-15.scl"
+    },
+    {
+      "name": "SD4 64-16",
+      "filename": "SD4 64-16.scl",
+      "path": "tuning_library/SCL/SD4 64-16.scl"
+    }
+  ]
+}

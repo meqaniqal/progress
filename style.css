@@ -941,3 +941,35 @@ body.beginner-mode .mode-toggle-switch .right-label {
     display: none;
     animation: slideDownFade 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* --- General Settings Collapsible groups --- */
+.general-row-group {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.general-row-header {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease, border-radius 0.2s ease;
+    border-radius: 4px;
+}
+
+.general-row-header:hover {
+    background: var(--ctrl-secondary-hover);
+}
+
+.general-trigger-arrow {
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+
+.general-row-group.expanded .general-trigger-arrow {
+    transform: rotate(90deg);
+}
+
+.general-nested-panel {
+    display: none;
+    animation: slideDownFade 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}

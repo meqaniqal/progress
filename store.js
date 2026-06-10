@@ -26,6 +26,7 @@ export const state = {
     customTuning: null, // Custom loaded .scl/.tun file mapping/parameters
     importedTunings: [], // List of imported custom tuning objects
     previousTuning: '12', // Remembers previous tuning choice to restore on prune
+    tuningImportSource: 'local', // 'local' or 'server'
     loopStart: 0,
     loopEnd: 0,
     macroLoopStart: 0,
@@ -650,6 +651,7 @@ export function resetSession() {
     state.syncTransitionsToDrums = true;
     state.snapTransitionsToScale = true;
     state.exportPasses = 1;
+    state.tuningImportSource = 'local';
     state.volumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8, melody: 0.8, countermelody: 0.0 };
     state.instruments = { chords: 'sawtooth', bass: 'sine', bassSecondary: 'sawtooth', melody: 'sine', countermelody: 'sine' };
     state.melodySettings = {

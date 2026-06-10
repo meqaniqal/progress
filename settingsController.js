@@ -98,6 +98,43 @@ export function updateMicrotonalSettingsUI() {
     }
 }
 
+export async function handleTuningImport(name, content, onRenderProgression) {
+    const { parseScl, parseTun } = await import('./theory.js');
+    let parsed = null;
+    if (name.toLowerCase().endsWith('.scl')) {
+        parsed = parseScl(content);
+    } else if (name.toLowerCase().endsWith('.tun')) {
+        parsed = parseTun(content);
+    }
+    
+    if (parsed) {
+        const tuningSelector = document.getElementById('tuning-selector');
+        // Save standard or previous custom tuning to restore later on prune
+        if (tuningSelector && tuningSelector.value !== 'import-action' && tuningSelector.value !== 'prune-action') {
+            state.previousTuning = tuningSelector.value;
+        }
+        
+        // Generate unique ID for this imported custom tuning
+        parsed.id = 'ct-' + Math.random().toString(36).substring(2, 10);
+        parsed.name = name.replace(/\.(scl|tun)$/i, '');
+        
+        // Add to imported list
+        if (!state.importedTunings) state.importedTunings = [];
+        state.importedTunings.push(parsed);
+        state.customTuning = parsed;
+        if (typeof window !== 'undefined') window.__customTuning = parsed;
+        state.divisions = parsed.divisions || 12;
+        
+        persistAppState();
+        updateMicrotonalSettingsUI();
+        updateCustomTuningUI();
+        if (tuningSelector) tuningSelector.value = parsed.id;
+        if (onRenderProgression) onRenderProgression();
+        return true;
+    }
+    return false;
+}
+
 export function updateCustomTuningUI() {
     const optgroup = document.getElementById('optgroup-imported-custom');
     const selector = document.getElementById('tuning-selector');
@@ -459,6 +496,11 @@ export function syncSettingsUI() {
     
     const auditionInput = document.getElementById('settings-audition-toggle');
     if (auditionInput) auditionInput.checked = state.editorState.isAuditionEnabled !== false;
+
+    const tuningSourceSelector = document.getElementById('settings-tuning-source');
+    if (tuningSourceSelector) {
+        tuningSourceSelector.value = state.tuningImportSource || 'local';
+    }
     
     updateMicrotonalSettingsUI();
     updateCountermelodyMixerVisibility();
@@ -483,7 +525,9 @@ export function initSettingsUI({ onRenderProgression }) {
             const val = e.target.value;
             
             if (val === 'import-action') {
-                if (fileCustomTuning) {
+                if (state.tuningImportSource === 'server') {
+                    openTuningLibrary();
+                } else if (fileCustomTuning) {
                     fileCustomTuning.click();
                 }
                 // Revert visual selection back to the current active tuning state
@@ -1249,7 +1293,7 @@ export function initSettingsUI({ onRenderProgression }) {
             document.querySelectorAll('.settings-tab-content').forEach(content => {
                 content.style.display = (content.id === `settings-tab-content-${targetTab}`) ? 'flex' : 'none';
             });
-            // When switching tabs, collapse any expanded mixer panels and drum part panels
+            // When switching tabs, collapse any expanded mixer panels, drum part panels, and general settings panels
             document.querySelectorAll('.mixer-row-group').forEach(group => {
                 group.classList.remove('expanded');
                 const panel = group.querySelector('.mixer-nested-panel');
@@ -1258,6 +1302,11 @@ export function initSettingsUI({ onRenderProgression }) {
             document.querySelectorAll('.drum-part-group').forEach(group => {
                 group.classList.remove('expanded');
                 const panel = group.querySelector('.drum-nested-panel');
+                if (panel) panel.style.display = 'none';
+            });
+            document.querySelectorAll('.general-row-group').forEach(group => {
+                group.classList.remove('expanded');
+                const panel = group.querySelector('.general-nested-panel');
                 if (panel) panel.style.display = 'none';
             });
         });
@@ -1508,6 +1557,231 @@ export function initSettingsUI({ onRenderProgression }) {
             state.countermelodyAdsr.pitch = val;
             persistAppState();
             triggerDualAudition('countermelody');
+        });
+    }
+
+    // Tuning Import Source Setting
+    const tuningSourceSelector = document.getElementById('settings-tuning-source');
+    if (tuningSourceSelector) {
+        tuningSourceSelector.addEventListener('change', (e) => {
+            state.tuningImportSource = e.target.value;
+            persistAppState();
+        });
+    }
+
+    // General Settings Accordion Row Toggles
+    const generalTriggers = document.querySelectorAll('.general-row-header');
+    generalTriggers.forEach(trigger => {
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const group = trigger.closest('.general-row-group');
+            const panel = group.querySelector('.general-nested-panel');
+            if (!panel) return;
+
+            const isExpanded = group.classList.contains('expanded');
+
+            // Collapse all general panels first
+            document.querySelectorAll('.general-row-group').forEach(g => {
+                g.classList.remove('expanded');
+                const p = g.querySelector('.general-nested-panel');
+                if (p) p.style.display = 'none';
+            });
+
+            // Toggle the clicked one
+            if (!isExpanded) {
+                group.classList.add('expanded');
+                panel.style.display = 'flex';
+            }
+        });
+    });
+
+    // Tuning Library Modal Setup
+    const libModal = document.getElementById('tuning-library-modal');
+    const closeLibBtn = document.getElementById('btn-close-library-modal');
+    const categorySelector = document.getElementById('library-category-selector');
+    const scaleSelector = document.getElementById('library-scale-selector');
+    const scaleInfoBox = document.getElementById('library-scale-info');
+    const loadScaleBtn = document.getElementById('btn-load-library-scale');
+
+    let cachedTuningLibrary = null;
+
+    async function openTuningLibrary() {
+        if (!libModal) return;
+        
+        // Show modal
+        libModal.style.display = 'flex';
+        libModal.offsetHeight; // force reflow
+        libModal.classList.add('visible');
+
+        // Fetch index if not cached
+        if (!cachedTuningLibrary) {
+            try {
+                if (scaleInfoBox) {
+                    scaleInfoBox.innerHTML = '<div style="text-align: center; margin-top: 15px;">Loading library index...</div>';
+                }
+                const res = await fetch('tuning_library/index.json');
+                if (!res.ok) throw new Error('Network response not ok');
+                cachedTuningLibrary = await res.json();
+                
+                // Populate category list
+                if (categorySelector) {
+                    categorySelector.innerHTML = '<option value="">-- Select Category --</option>';
+                    Object.keys(cachedTuningLibrary).forEach(category => {
+                        const opt = document.createElement('option');
+                        opt.value = category;
+                        opt.textContent = category;
+                        categorySelector.appendChild(opt);
+                    });
+                }
+                if (scaleInfoBox) {
+                    scaleInfoBox.innerHTML = '<div style="font-style: italic; text-align: center; margin-top: 15px;">Select a category and scale to view its details.</div>';
+                }
+            } catch (err) {
+                console.error("Failed to load tuning library index", err);
+                if (scaleInfoBox) {
+                    scaleInfoBox.innerHTML = '<div style="color: #ef4444; font-weight: bold; text-align: center;">Error loading library index from server.</div>';
+                }
+            }
+        }
+    }
+
+    if (closeLibBtn && libModal) {
+        const closeLib = () => {
+            libModal.classList.remove('visible');
+            setTimeout(() => {
+                libModal.style.display = 'none';
+                // Reset selectors
+                if (categorySelector) categorySelector.value = '';
+                if (scaleSelector) {
+                    scaleSelector.innerHTML = '<option value="">-- Select Category First --</option>';
+                    scaleSelector.disabled = true;
+                }
+                if (scaleInfoBox) {
+                    scaleInfoBox.innerHTML = '<div style="font-style: italic; text-align: center; margin-top: 15px;">Select a scale to view its details.</div>';
+                }
+                if (loadScaleBtn) loadScaleBtn.disabled = true;
+            }, 200);
+        };
+        closeLibBtn.addEventListener('click', closeLib);
+        libModal.addEventListener('click', (e) => {
+            if (e.target === libModal) closeLib();
+        });
+    }
+
+    if (categorySelector && scaleSelector) {
+        categorySelector.addEventListener('change', (e) => {
+            const category = e.target.value;
+            if (!category || !cachedTuningLibrary || !cachedTuningLibrary[category]) {
+                scaleSelector.innerHTML = '<option value="">-- Select Category First --</option>';
+                scaleSelector.disabled = true;
+                if (scaleInfoBox) {
+                    scaleInfoBox.innerHTML = '<div style="font-style: italic; text-align: center; margin-top: 15px;">Select a scale to view its details.</div>';
+                }
+                if (loadScaleBtn) loadScaleBtn.disabled = true;
+                return;
+            }
+
+            scaleSelector.innerHTML = '<option value="">-- Select Scale --</option>';
+            cachedTuningLibrary[category].forEach((scale, index) => {
+                const opt = document.createElement('option');
+                opt.value = index;
+                opt.textContent = scale.name;
+                scaleSelector.appendChild(opt);
+            });
+            scaleSelector.disabled = false;
+            if (loadScaleBtn) loadScaleBtn.disabled = true;
+        });
+
+        scaleSelector.addEventListener('change', async (e) => {
+            const category = categorySelector.value;
+            const index = e.target.value;
+            if (!category || index === "" || !cachedTuningLibrary || !cachedTuningLibrary[category]) {
+                if (scaleInfoBox) {
+                    scaleInfoBox.innerHTML = '<div style="font-style: italic; text-align: center; margin-top: 15px;">Select a scale to view its details.</div>';
+                }
+                if (loadScaleBtn) loadScaleBtn.disabled = true;
+                return;
+            }
+
+            const scale = cachedTuningLibrary[category][index];
+            if (loadScaleBtn) loadScaleBtn.disabled = false;
+
+            if (scaleInfoBox) {
+                scaleInfoBox.innerHTML = '<div style="text-align: center; margin-top: 15px;">Fetching scale info...</div>';
+            }
+
+            try {
+                const res = await fetch(scale.path);
+                if (!res.ok) throw new Error('Failed to fetch scale content');
+                const content = await res.text();
+                
+                // Keep the fetched scale content in dataset to load it on Import click
+                scaleSelector.dataset.activeScaleContent = content;
+                scaleSelector.dataset.activeScaleFilename = scale.filename;
+
+                // Parse details to show in preview box
+                const lines = content.split('\n').map(l => l.trim());
+                // Simple Scala parser: skip comments at top, find description and note count
+                let desc = "No description available";
+                let numNotes = 0;
+                let dataLines = [];
+                let headerFound = false;
+
+                for (let line of lines) {
+                    if (line.startsWith('!')) {
+                        // SCL comment line
+                        if (line.substring(1).trim().length > 0 && desc === "No description available") {
+                            desc = line.substring(1).trim();
+                        }
+                        continue;
+                    }
+                    if (line === "") continue;
+                    if (!headerFound) {
+                        // First non-comment line is description
+                        desc = line;
+                        headerFound = true;
+                    } else if (numNotes === 0) {
+                        // Second non-comment line is number of notes
+                        numNotes = parseInt(line, 10) || 0;
+                    } else {
+                        dataLines.push(line);
+                    }
+                }
+
+                if (scaleInfoBox) {
+                    scaleInfoBox.innerHTML = `
+                        <div><strong>Scale:</strong> ${scale.name}</div>
+                        <div><strong>Notes in Octave:</strong> ${numNotes}</div>
+                        <div><strong>Description:</strong> ${desc}</div>
+                        <div style="font-size: 11px; margin-top: 4px; border-top: 1px dashed var(--border-main); padding-top: 4px; max-height: 60px; overflow-y: auto;">
+                            ${dataLines.slice(0, 5).map(dl => dl.replace(/</g, "&lt;").replace(/>/g, "&gt;")).join('<br>')}
+                            ${dataLines.length > 5 ? '<br>...' : ''}
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                console.error(err);
+                if (scaleInfoBox) {
+                    scaleInfoBox.innerHTML = '<div style="color: #ef4444;">Error fetching scale details from server.</div>';
+                }
+                if (loadScaleBtn) loadScaleBtn.disabled = true;
+            }
+        });
+    }
+
+    if (loadScaleBtn) {
+        loadScaleBtn.addEventListener('click', async () => {
+            const content = scaleSelector.dataset.activeScaleContent;
+            const filename = scaleSelector.dataset.activeScaleFilename;
+            if (!content || !filename) return;
+
+            const success = await handleTuningImport(filename, content, onRenderProgression);
+            if (success) {
+                // Close modal
+                if (closeLibBtn) closeLibBtn.click();
+            } else {
+                alert("Failed to parse custom tuning from server.");
+            }
         });
     }
 }
