@@ -34,7 +34,7 @@ export function loadAndApplyInitialState(explicitState = null) {
         }
         state.importedTunings = Array.isArray(savedState.importedTunings) ? savedState.importedTunings : [];
         state.previousTuning = savedState.previousTuning || '12';
-        state.theme = savedState.theme === 'light' ? 'light' : 'dark';
+        state.theme = ['light', 'dark', 'warm', 'cool'].includes(savedState.theme) ? savedState.theme : 'dark';
         state.mode = savedState.mode === 'minor' ? 'minor' : 'major';
         state.activeEmotion = savedState.activeEmotion || 'mournful';
         state.generatorPersona = savedState.generatorPersona || 'normal';

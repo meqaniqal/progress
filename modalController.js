@@ -36,9 +36,18 @@ function _initSettingsModal(onResetPlayback, onRenderProgression) {
 
     closeSettingsBtn.addEventListener('click', closeSettings);
 
+    let settingsClickTimeout = null;
     settingsModal.addEventListener('click', (e) => {
         if (e.target === settingsModal) {
-            closeSettings();
+            if (settingsClickTimeout) {
+                clearTimeout(settingsClickTimeout);
+                settingsClickTimeout = null;
+            } else {
+                settingsClickTimeout = setTimeout(() => {
+                    closeSettings();
+                    settingsClickTimeout = null;
+                }, 250);
+            }
         }
     });
     

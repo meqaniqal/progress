@@ -594,9 +594,20 @@
             <h3 style="margin-top: 0; margin-bottom: 10px;">⚙️ Settings</h3>
             
             <!-- Settings Tab Headers -->
-            <div class="settings-tabs" style="display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border-main); padding-bottom: 8px; flex-wrap: wrap;">
-                <button class="control-btn secondary btn-sm settings-tab-btn active" data-tab="mixer" style="padding: 4px 8px; font-size: 11px;">🎛️ Mixer</button>
-                <button class="control-btn secondary btn-sm settings-tab-btn" data-tab="general" style="padding: 4px 8px; font-size: 11px;">⚙️ General</button>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid var(--border-main); padding-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                <div class="settings-tabs" style="display: flex; gap: 4px;">
+                    <button class="control-btn secondary btn-sm settings-tab-btn active" data-tab="mixer" style="padding: 4px 8px; font-size: 11px;">🎛️ Mixer</button>
+                    <button class="control-btn secondary btn-sm settings-tab-btn" data-tab="general" style="padding: 4px 8px; font-size: 11px;">⚙️ General</button>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button class="control-btn secondary btn-sm" id="btn-reset-session" style="padding: 4px 8px; font-size: 11px; margin: 0; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); color: #ef4444;" title="Reset all patterns and settings to factory defaults">⚠️ Factory Reset</button>
+                    <select id="theme-selector" class="rhythm-select select-sm" style="font-size: 11px; padding: 2px 6px; min-width: auto;" title="Select App Theme">
+                        <option value="dark">🌙 Dark Mode</option>
+                        <option value="light">☀️ Light Mode</option>
+                        <option value="warm">🔥 Warm Mode</option>
+                        <option value="cool">❄️ Cool Mode</option>
+                    </select>
+                </div>
             </div>
 
             <div class="settings-tab-content-wrapper" style="flex: 1; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 10px;">
@@ -1081,14 +1092,6 @@
                             <span>🧠 Melody & Playback</span>
                         </div>
                         <div class="general-nested-panel" style="display: none; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.15); border: 1px solid var(--border-main); border-radius: 6px; padding: 12px; margin-top: 4px; margin-bottom: 8px;">
-                            <!-- Theme -->
-                            <div class="settings-row">
-                                <strong class="settings-label">Theme</strong>
-                                <select id="theme-selector" class="rhythm-select settings-select" style="width: auto;">
-                                    <option value="light">Light Mode</option>
-                                    <option value="dark">Dark Mode</option>
-                                </select>
-                            </div>
                             <!-- BPM -->
                             <div class="settings-row">
                                 <strong class="settings-label">Tempo (BPM)</strong>
@@ -1127,19 +1130,6 @@
                             <div class="settings-row" title="Restricts transition and flourish notes to the active scale/mode degrees to prevent sour notes">
                                 <strong class="settings-label info">Default Scale Snapping ℹ️</strong>
                                 <input type="checkbox" id="snap-transitions-scale" checked class="settings-checkbox">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Group 3: Session Maintenance -->
-                    <div class="general-row-group" data-section="session">
-                        <div class="general-row-header settings-label-sm" role="button" tabindex="0" style="display: flex; align-items: center; padding: 6px; cursor: pointer; user-select: none; background: var(--display-bg); border: 1px solid var(--border-main); border-radius: 4px; font-weight: bold; margin-bottom: 4px;">
-                            <span class="general-trigger-arrow" style="font-size: 9px; margin-right: 6px; width: 8px; text-align: center;">▸</span>
-                            <span>⚠️ Session Maintenance</span>
-                        </div>
-                        <div class="general-nested-panel" style="display: none; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.15); border: 1px solid var(--border-main); border-radius: 6px; padding: 12px; margin-top: 4px; margin-bottom: 8px;">
-                            <div style="padding-top: 5px;">
-                                <button class="control-btn btn-danger" id="btn-reset-session" title="Clear all data and reset to defaults" style="width: 100%;">⚠️ Factory Reset</button>
                             </div>
                         </div>
                     </div>
