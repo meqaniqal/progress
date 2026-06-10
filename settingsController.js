@@ -1600,7 +1600,6 @@ export function initSettingsUI({ onRenderProgression }) {
     const closeLibBtn = document.getElementById('btn-close-library-modal');
     const categorySelector = document.getElementById('library-category-selector');
     const scaleSelector = document.getElementById('library-scale-selector');
-    const scaleInfoBox = document.getElementById('library-scale-info');
     const loadScaleBtn = document.getElementById('btn-load-library-scale');
 
     let cachedTuningLibrary = null;
@@ -1616,9 +1615,6 @@ export function initSettingsUI({ onRenderProgression }) {
         // Fetch index if not cached
         if (!cachedTuningLibrary) {
             try {
-                if (scaleInfoBox) {
-                    scaleInfoBox.innerHTML = '<div style="text-align: center; margin-top: 15px;">Loading library index...</div>';
-                }
                 const res = await fetch('tuning_library/index.json');
                 if (!res.ok) throw new Error('Network response not ok');
                 cachedTuningLibrary = await res.json();
@@ -1633,14 +1629,9 @@ export function initSettingsUI({ onRenderProgression }) {
                         categorySelector.appendChild(opt);
                     });
                 }
-                if (scaleInfoBox) {
-                    scaleInfoBox.innerHTML = '<div style="font-style: italic; text-align: center; margin-top: 15px;">Select a category and scale to view its details.</div>';
-                }
             } catch (err) {
                 console.error("Failed to load tuning library index", err);
-                if (scaleInfoBox) {
-                    scaleInfoBox.innerHTML = '<div style="color: #ef4444; font-weight: bold; text-align: center;">Error loading library index from server.</div>';
-                }
+                alert("Error loading library index from server.");
             }
         }
     }
@@ -1655,9 +1646,6 @@ export function initSettingsUI({ onRenderProgression }) {
                 if (scaleSelector) {
                     scaleSelector.innerHTML = '<option value="">-- Select Category First --</option>';
                     scaleSelector.disabled = true;
-                }
-                if (scaleInfoBox) {
-                    scaleInfoBox.innerHTML = '<div style="font-style: italic; text-align: center; margin-top: 15px;">Select a scale to view its details.</div>';
                 }
                 if (loadScaleBtn) loadScaleBtn.disabled = true;
             }, 200);
@@ -1674,9 +1662,6 @@ export function initSettingsUI({ onRenderProgression }) {
             if (!category || !cachedTuningLibrary || !cachedTuningLibrary[category]) {
                 scaleSelector.innerHTML = '<option value="">-- Select Category First --</option>';
                 scaleSelector.disabled = true;
-                if (scaleInfoBox) {
-                    scaleInfoBox.innerHTML = '<div style="font-style: italic; text-align: center; margin-top: 15px;">Select a scale to view its details.</div>';
-                }
                 if (loadScaleBtn) loadScaleBtn.disabled = true;
                 return;
             }
@@ -1692,95 +1677,42 @@ export function initSettingsUI({ onRenderProgression }) {
             if (loadScaleBtn) loadScaleBtn.disabled = true;
         });
 
-        scaleSelector.addEventListener('change', async (e) => {
-            const category = categorySelector.value;
-            const index = e.target.value;
-            if (!category || index === "" || !cachedTuningLibrary || !cachedTuningLibrary[category]) {
-                if (scaleInfoBox) {
-                    scaleInfoBox.innerHTML = '<div style="font-style: italic; text-align: center; margin-top: 15px;">Select a scale to view its details.</div>';
-                }
-                if (loadScaleBtn) loadScaleBtn.disabled = true;
-                return;
-            }
-
-            const scale = cachedTuningLibrary[category][index];
-            if (loadScaleBtn) loadScaleBtn.disabled = false;
-
-            if (scaleInfoBox) {
-                scaleInfoBox.innerHTML = '<div style="text-align: center; margin-top: 15px;">Fetching scale info...</div>';
-            }
-
-            try {
-                const res = await fetch(scale.path);
-                if (!res.ok) throw new Error('Failed to fetch scale content');
-                const content = await res.text();
-                
-                // Keep the fetched scale content in dataset to load it on Import click
-                scaleSelector.dataset.activeScaleContent = content;
-                scaleSelector.dataset.activeScaleFilename = scale.filename;
-
-                // Parse details to show in preview box
-                const lines = content.split('\n').map(l => l.trim());
-                // Simple Scala parser: skip comments at top, find description and note count
-                let desc = "No description available";
-                let numNotes = 0;
-                let dataLines = [];
-                let headerFound = false;
-
-                for (let line of lines) {
-                    if (line.startsWith('!')) {
-                        // SCL comment line
-                        if (line.substring(1).trim().length > 0 && desc === "No description available") {
-                            desc = line.substring(1).trim();
-                        }
-                        continue;
-                    }
-                    if (line === "") continue;
-                    if (!headerFound) {
-                        // First non-comment line is description
-                        desc = line;
-                        headerFound = true;
-                    } else if (numNotes === 0) {
-                        // Second non-comment line is number of notes
-                        numNotes = parseInt(line, 10) || 0;
-                    } else {
-                        dataLines.push(line);
-                    }
-                }
-
-                if (scaleInfoBox) {
-                    scaleInfoBox.innerHTML = `
-                        <div><strong>Scale:</strong> ${scale.name}</div>
-                        <div><strong>Notes in Octave:</strong> ${numNotes}</div>
-                        <div><strong>Description:</strong> ${desc}</div>
-                        <div style="font-size: 11px; margin-top: 4px; border-top: 1px dashed var(--border-main); padding-top: 4px; max-height: 60px; overflow-y: auto;">
-                            ${dataLines.slice(0, 5).map(dl => dl.replace(/</g, "&lt;").replace(/>/g, "&gt;")).join('<br>')}
-                            ${dataLines.length > 5 ? '<br>...' : ''}
-                        </div>
-                    `;
-                }
-            } catch (err) {
-                console.error(err);
-                if (scaleInfoBox) {
-                    scaleInfoBox.innerHTML = '<div style="color: #ef4444;">Error fetching scale details from server.</div>';
-                }
-                if (loadScaleBtn) loadScaleBtn.disabled = true;
+        scaleSelector.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (loadScaleBtn) {
+                loadScaleBtn.disabled = (val === "");
             }
         });
     }
 
     if (loadScaleBtn) {
         loadScaleBtn.addEventListener('click', async () => {
-            const content = scaleSelector.dataset.activeScaleContent;
-            const filename = scaleSelector.dataset.activeScaleFilename;
-            if (!content || !filename) return;
+            const category = categorySelector.value;
+            const index = scaleSelector.value;
+            if (!category || index === "" || !cachedTuningLibrary || !cachedTuningLibrary[category]) return;
 
-            const success = await handleTuningImport(filename, content, onRenderProgression);
-            if (success) {
-                // Close modal
-                if (closeLibBtn) closeLibBtn.click();
-            } else {
-                alert("Failed to parse custom tuning from server.");
+            const scale = cachedTuningLibrary[category][index];
+            loadScaleBtn.disabled = true;
+            const originalText = loadScaleBtn.textContent;
+            loadScaleBtn.textContent = "Loading...";
+
+            try {
+                const res = await fetch(scale.path);
+                if (!res.ok) throw new Error('Failed to fetch scale content');
+                const content = await res.text();
+                
+                const success = await handleTuningImport(scale.filename, content, onRenderProgression);
+                if (success) {
+                    if (closeLibBtn) closeLibBtn.click();
+                } else {
+                    alert("Failed to parse custom tuning from server.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Failed to download scale file from server.");
+            } finally {
+                loadScaleBtn.textContent = originalText;
+                loadScaleBtn.disabled = false;
             }
         });
     }
