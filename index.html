@@ -414,6 +414,7 @@
             <button class="pattern-tab active" data-tab="chordPattern">Chords</button>
             <button class="pattern-tab" data-tab="bassPattern">Bass</button>
             <button class="pattern-tab" data-tab="drumPattern">Drums</button>
+            <button class="pattern-tab" data-tab="grooveTab" style="background-color: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); border-bottom-color: transparent;">Groove</button>
         </div>
         <div class="tab-content-wrapper">
         <div class="rhythm-toolbar tabs-active">
@@ -507,6 +508,70 @@
             </div>
             <div class="rhythm-timeline-container" id="rhythm-timeline">
                 <!-- Instances rendered here dynamically -->
+            </div>
+        </div>
+        
+        <!-- Groove & Presets Panel -->
+        <div id="groove-editor-body" style="display: none; padding: 15px; background: rgba(0, 0, 0, 0.2); border-radius: 6px; border: 1px solid var(--border-main); margin-top: 10px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                <!-- Left Column: Groove Settings -->
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <h4 style="margin: 0 0 5px 0; color: var(--text-main); font-size: 15px; border-bottom: 1px solid var(--border-main); padding-bottom: 6px;">Timing & Groove Engine</h4>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <label class="settings-label" style="font-weight: bold; font-size: 13px;" for="groove-preset-select">Groove Template</label>
+                        <select id="groove-preset-select" class="rhythm-select" style="width: 100%;">
+                            <option value="none">None (Straight Grid)</option>
+                            <option value="swing">16th Note Swing</option>
+                            <option value="shuffle">8th Note Shuffle</option>
+                            <option value="latin">Latin Clave Timing</option>
+                            <option value="african">African Polyrhythmic Push/Pull</option>
+                            <option value="custom" disabled id="opt-custom-groove">Custom MIDI Groove (Not Loaded)</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label class="settings-label" style="font-weight: bold; font-size: 13px;" for="groove-swing-slider">Groove Amount / Swing</label>
+                            <span id="groove-swing-display" style="font-size: 12px; font-weight: bold; color: var(--ctrl-primary-bg);">0%</span>
+                        </div>
+                        <input type="range" id="groove-swing-slider" min="0" max="100" value="0" style="width: 100%; cursor: pointer;">
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 5px;">
+                        <label class="settings-label" style="font-weight: bold; font-size: 13px;">Import Custom MIDI Groove</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button class="control-btn secondary btn-md" id="btn-import-midi-groove" style="flex: 1;">📂 Load MIDI Groove</button>
+                            <input type="file" id="file-midi-groove" accept=".mid,.midi" style="display: none;">
+                        </div>
+                        <span id="midi-groove-status" style="font-size: 11px; color: var(--text-muted); font-style: italic; margin-top: 2px;">Extract micro-timing deviations from any note-on loop.</span>
+                    </div>
+                </div>
+
+                <!-- Right Column: Genre Presets -->
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <h4 style="margin: 0 0 5px 0; color: var(--text-main); font-size: 15px; border-bottom: 1px solid var(--border-main); padding-bottom: 6px;">Genre Rhythm Presets</h4>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <label class="settings-label" style="font-weight: bold; font-size: 13px;" for="genre-preset-select">Select Genre Preset</label>
+                        <select id="genre-preset-select" class="rhythm-select" style="width: 100%;">
+                            <option value="none">-- Select Preset --</option>
+                            <option value="lofi">Lofi Hip Hop</option>
+                            <option value="neosoul">Neo-Soul</option>
+                            <option value="synthwave">Synthwave / Outrun</option>
+                            <option value="idm">Intelligent Dance Music (IDM)</option>
+                            <option value="afrobeat">Afrobeat</option>
+                            <option value="eastern">Eastern Rhythms (9/8 Karsilama)</option>
+                        </select>
+                    </div>
+
+                    <div id="genre-preset-description-card" style="padding: 10px; background: rgba(255,255,255,0.03); border: 1px dashed var(--border-main); border-radius: 4px; font-size: 12px; color: var(--text-muted); min-height: 48px; display: flex; align-items: center; justify-content: center; text-align: center;">
+                        Select a genre preset to view details.
+                    </div>
+
+                    <button class="control-btn primary btn-md" id="btn-apply-genre-preset" disabled style="width: 100%; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">⚡ Apply Preset to Section</button>
+                    <span style="font-size: 10px; color: var(--text-muted); text-align: center; display: block; opacity: 0.8;">⚠️ Overwrites Chord, Bass, and Drum patterns for this section.</span>
+                </div>
             </div>
         </div>
         </div>

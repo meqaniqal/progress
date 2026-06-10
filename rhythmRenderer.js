@@ -22,6 +22,33 @@ const PITCH_LABELS = {
 export function renderRhythmTimeline() {
     const container = document.getElementById('rhythm-timeline');
 
+    const isGrooveTab = editorState.activeTab === 'grooveTab';
+    const groovePanel = document.getElementById('groove-editor-body');
+    const rhythmToolbar = document.querySelector('.rhythm-toolbar');
+    const contentBody = document.querySelector('.rhythm-editor-content-body');
+    const titleEl = document.getElementById('rhythm-editor-title');
+
+    if (isGrooveTab) {
+        if (groovePanel) groovePanel.style.display = 'block';
+        if (rhythmToolbar) rhythmToolbar.style.display = 'none';
+        if (contentBody) contentBody.style.display = 'none';
+        if (titleEl) titleEl.textContent = 'Timing & Groove Settings';
+        
+        document.querySelectorAll('.pattern-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.tab === editorState.activeTab);
+        });
+        
+        const panel = document.getElementById('rhythm-editor-panel');
+        if (panel) panel.dataset.activeTab = editorState.activeTab;
+
+        syncGrooveUIFromState();
+        return;
+    } else {
+        if (groovePanel) groovePanel.style.display = 'none';
+        if (rhythmToolbar) rhythmToolbar.style.display = '';
+        if (contentBody) contentBody.style.display = '';
+    }
+
     const isChordOrBass = editorState.activeTab === 'chordPattern' || editorState.activeTab === 'bassPattern';
     if (isChordOrBass) {
         editorState.isGlobal = false; // Force edit-in-place local behavior
@@ -42,7 +69,6 @@ export function renderRhythmTimeline() {
     });
     
     // Dynamic panel title
-    const titleEl = document.getElementById('rhythm-editor-title');
     if (titleEl) {
         const prefixMap = {
             chordPattern: 'Chord Pattern',
@@ -818,4 +844,34 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             overlay.remove();
         }
     });
+}
+
+export function syncGrooveUIFromState() {
+    const swingSlider = document.getElementById('groove-swing-slider');
+    const swingDisplay = document.getElementById('groove-swing-display');
+    const presetSelect = document.getElementById('groove-preset-select');
+    const customOption = document.getElementById('opt-custom-groove');
+    
+    if (swingSlider) {
+        swingSlider.value = Math.round((app.state.swing || 0) * 100);
+    }
+    if (swingDisplay) {
+        swingDisplay.textContent = `${Math.round((app.state.swing || 0) * 100)}%`;
+    }
+    if (presetSelect) {
+        presetSelect.value = app.state.groovePreset || 'none';
+    }
+    if (customOption) {
+        if (app.state.grooveTemplate) {
+            customOption.disabled = false;
+            customOption.textContent = 'Custom MIDI Groove (Loaded)';
+        } else {
+            customOption.disabled = true;
+            customOption.textContent = 'Custom MIDI Groove (Not Loaded)';
+            if (presetSelect && presetSelect.value === 'custom') {
+                presetSelect.value = 'none';
+                app.state.groovePreset = 'none';
+            }
+        }
+    }
 }

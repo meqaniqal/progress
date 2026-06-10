@@ -41,6 +41,9 @@ export function loadAndApplyInitialState(explicitState = null) {
         state.syncTransitionsToDrums = savedState.syncTransitionsToDrums !== undefined ? Boolean(savedState.syncTransitionsToDrums) : true;
         state.snapTransitionsToScale = savedState.snapTransitionsToScale !== undefined ? Boolean(savedState.snapTransitionsToScale) : true;
         state.tuningImportSource = savedState.tuningImportSource || 'local';
+        state.swing = typeof savedState.swing === 'number' ? Math.max(0, Math.min(1.0, savedState.swing)) : 0.0;
+        state.groovePreset = savedState.groovePreset || 'none';
+        state.grooveTemplate = Array.isArray(savedState.grooveTemplate) ? savedState.grooveTemplate : null;
         
         if (typeof savedState.loopStart === 'number') state.loopStart = Math.max(0, savedState.loopStart);
         if (typeof savedState.loopEnd === 'number') state.loopEnd = Math.max(0, savedState.loopEnd);

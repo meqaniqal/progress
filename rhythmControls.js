@@ -4,6 +4,9 @@ import { copyPattern, pastePattern } from './clipboardUtils.js';
 import { initArpControls } from './arpControls.js';
 import { initBassControls } from './bassControls.js';
 import { playDrum, getAudioCurrentTime } from './synth.js';
+import { parseMidiGroove } from './grooveEngine.js';
+import { GENRE_PRESETS, applyGenrePreset } from './genrePresets.js';
+import { syncGrooveUIFromState } from './rhythmRenderer.js';
 import { 
     editorState, 
     app, 
@@ -758,6 +761,115 @@ function _setupKeyboardShortcuts() {
     });
 }
 
+function _setupGrooveControls() {
+    const swingSlider = document.getElementById('groove-swing-slider');
+    const swingDisplay = document.getElementById('groove-swing-display');
+    const presetSelect = document.getElementById('groove-preset-select');
+    const fileInput = document.getElementById('file-midi-groove');
+    const importBtn = document.getElementById('btn-import-midi-groove');
+    const statusSpan = document.getElementById('midi-groove-status');
+    
+    const genreSelect = document.getElementById('genre-preset-select');
+    const genreDescription = document.getElementById('genre-preset-description-card');
+    const applyGenreBtn = document.getElementById('btn-apply-genre-preset');
+
+    if (swingSlider && swingDisplay) {
+        swingSlider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value, 10);
+            swingDisplay.textContent = `${val}%`;
+            app.state.swing = val / 100;
+            app.persistAppState();
+        });
+    }
+
+    if (presetSelect) {
+        presetSelect.addEventListener('change', (e) => {
+            app.state.groovePreset = e.target.value;
+            app.persistAppState();
+            syncGrooveUIFromState();
+        });
+    }
+
+    if (importBtn && fileInput) {
+        importBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const template = parseMidiGroove(evt.target.result);
+                    app.state.grooveTemplate = template;
+                    app.state.groovePreset = 'custom';
+                    
+                    if (statusSpan) {
+                        statusSpan.textContent = `Loaded groove from "${file.name}" successfully!`;
+                        statusSpan.style.color = '#10B981'; // Green accent
+                    }
+                    
+                    app.persistAppState();
+                    syncGrooveUIFromState();
+                } catch (err) {
+                    console.error('[groove] Failed to parse MIDI', err);
+                    if (statusSpan) {
+                        statusSpan.textContent = `Error: ${err.message}`;
+                        statusSpan.style.color = '#EF4444'; // Red error
+                    }
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    if (genreSelect && genreDescription && applyGenreBtn) {
+        genreSelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val === 'none') {
+                genreDescription.textContent = 'Select a genre preset to view details.';
+                applyGenreBtn.disabled = true;
+            } else {
+                const preset = GENRE_PRESETS[val];
+                if (preset) {
+                    genreDescription.textContent = preset.description || '';
+                    applyGenreBtn.disabled = false;
+                }
+            }
+        });
+
+        applyGenreBtn.addEventListener('click', () => {
+            const genreKey = genreSelect.value;
+            if (genreKey === 'none') return;
+
+            const preset = GENRE_PRESETS[genreKey];
+            if (!preset) return;
+
+            const section = app.state.sections[app.state.activeSectionId];
+            if (!section) return;
+
+            // Save history state before doing changes
+            if (app.saveHistoryState) app.saveHistoryState();
+
+            // Apply genre preset patterns
+            applyGenrePreset(section, genreKey);
+
+            // Apply groove settings for the genre preset
+            app.state.swing = preset.swing;
+            app.state.groovePreset = preset.groovePreset;
+
+            app.persistAppState();
+            syncGrooveUIFromState();
+
+            // Refresh UI
+            if (app.renderProgression) app.renderProgression();
+            renderRhythmTimeline();
+        });
+    }
+}
+
 export function initRhythmControls() {
     _setupTabsAndToggles();
     _setupGridSlider();
@@ -767,4 +879,5 @@ export function initRhythmControls() {
     _setupKeyboardShortcuts();
     initArpControls();
     initBassControls();
+    _setupGrooveControls();
 }

@@ -27,6 +27,9 @@ export const state = {
     importedTunings: [], // List of imported custom tuning objects
     previousTuning: '12', // Remembers previous tuning choice to restore on prune
     tuningImportSource: 'local', // 'local' or 'server'
+    swing: 0.0, // Swing amount (0 to 1)
+    groovePreset: 'none', // 'none', 'swing', 'shuffle', 'latin', 'african', 'custom'
+    grooveTemplate: null, // Array of { step, offset, velocityScale } for custom groove
     loopStart: 0,
     loopEnd: 0,
     macroLoopStart: 0,
@@ -652,6 +655,9 @@ export function resetSession() {
     state.snapTransitionsToScale = true;
     state.exportPasses = 1;
     state.tuningImportSource = 'local';
+    state.swing = 0.0;
+    state.groovePreset = 'none';
+    state.grooveTemplate = null;
     state.volumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8, melody: 0.8, countermelody: 0.0 };
     state.instruments = { chords: 'sawtooth', bass: 'sine', bassSecondary: 'sawtooth', melody: 'sine', countermelody: 'sine' };
     state.melodySettings = {

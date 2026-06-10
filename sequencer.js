@@ -7,6 +7,7 @@ import { state, getActiveProgression } from './store.js';
 import { isSongTrayOpen, getActiveSequenceIndex } from './songController.js';
 import { evaluateVoiceEvents } from './transitionEvaluator.js';
 import { scheduleMelody } from './melodyGenerator.js';
+import { getGrooveOffset } from './grooveEngine.js';
 
 let uiTimeouts = [];
 
@@ -169,6 +170,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         }
 
         const absIndex = bounds.start + chordIndexRel;
+        const absBeatStart = getAbsoluteBeatPos(activeProg, absIndex);
         
         // Must calculate from the full progression to get proper voice leading and inversion context
         const allPlayableNotes = getPlayableNotes(activeProg, state);
@@ -206,7 +208,10 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         // --- Schedule Chord Slice UI Highlights ---
         if (onSlicePlay && pattern.instances) {
             pattern.instances.forEach(instance => {
-                const instanceStartTime = time + (instance.startTime * chordSlotDuration);
+                const relativeBeat = instance.startTime * beats;
+                const offsetBeats = getGrooveOffset(absBeatStart + relativeBeat, state);
+                const offsetSec = offsetBeats * (60.0 / Number(state.bpm));
+                const instanceStartTime = time + (instance.startTime * chordSlotDuration) + offsetSec;
                 const durationMs = instance.duration * chordSlotDuration * 1000;
                 const delayMs = (instanceStartTime - getAudioCurrentTime()) * 1000;
                 const tId = setTimeout(() => {
@@ -243,6 +248,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         voiceEvents.forEach(ev => {
             if (ev.type === 'arp_slice') {
                 const instance = ev.slice;
+                const instanceRelativeBeat = instance.startTime * beats;
                 const instanceStartTime = time + (instance.startTime * chordSlotDuration);
                 const instanceDuration = instance.duration * chordSlotDuration;
                 
@@ -254,10 +260,16 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                 });
 
                 arpEvents.forEach(event => {
-                    playTone(midiToFreq(event.note), instanceStartTime + event.startTime, event.duration, chordInst, 'chords');
+                    const eventRelativeBeat = instanceRelativeBeat + (event.startTime * Number(state.bpm) / 60.0);
+                    const offsetBeats = getGrooveOffset(absBeatStart + eventRelativeBeat, state);
+                    const offsetSec = offsetBeats * (60.0 / Number(state.bpm));
+                    playTone(midiToFreq(event.note), instanceStartTime + event.startTime + offsetSec, event.duration, chordInst, 'chords');
                 });
             } else {
-                const instanceStartTime = time + (ev.startTime * chordSlotDuration);
+                const relativeBeat = ev.startTime * beats;
+                const offsetBeats = getGrooveOffset(absBeatStart + relativeBeat, state);
+                const offsetSec = offsetBeats * (60.0 / Number(state.bpm));
+                const instanceStartTime = time + (ev.startTime * chordSlotDuration) + offsetSec;
                 const instanceDuration = ev.duration * chordSlotDuration;
                 const gateDuration = instanceDuration * 0.95; // Slight gate so contiguous chops are distinctly audible
                 playTone(midiToFreq(ev.pitch), instanceStartTime, gateDuration, chordInst, 'chords', ev.pan);
@@ -283,7 +295,11 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
             bPattern.instances.forEach(instance => {
                 if (instance.probability != null && Math.random() > instance.probability) return;
 
-                const instanceStartTime = time + (instance.startTime * chordSlotDuration);
+                const relativeBeat = instance.startTime * beats;
+                const offsetBeats = getGrooveOffset(absBeatStart + relativeBeat, state);
+                const offsetSec = offsetBeats * (60.0 / Number(state.bpm));
+
+                const instanceStartTime = time + (instance.startTime * chordSlotDuration) + offsetSec;
                 const instanceDuration = instance.duration * chordSlotDuration;
                 
                 // --- Schedule Bass Slice UI Highlights ---
@@ -306,7 +322,15 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
             });
         }
 
-        // --- Schedule Melody & Countermelody ---
+        // --- Schedule Melody & Countermelody with Groove Offset Wrapper ---
+        const wrappedPlayTone = (freq, stepTime, duration, inst, bus, pan) => {
+            const relTimeSec = stepTime - time;
+            const relBeat = relTimeSec / (60.0 / Number(state.bpm));
+            const offsetBeats = getGrooveOffset(absBeatStart + relBeat, state);
+            const offsetSec = offsetBeats * (60.0 / Number(state.bpm));
+            playTone(freq, stepTime + offsetSec, duration, inst, bus, pan);
+        };
+
         scheduleMelody(
             time,
             chordObj,
@@ -318,12 +342,11 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
             absIndex,
             activeProg.length,
             notesToPlay,
-            playTone,
+            wrappedPlayTone,
             voiceEvents
         );
         
         // --- Schedule Drums ---
-        const absBeatStart = getAbsoluteBeatPos(activeProg, absIndex);
         const drumPat = chordObj.drumPattern;
         
         if (drumPat && drumPat.isLocalOverride) {
@@ -332,7 +355,11 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                 for (const hit of drumPat.hits) {
                     if (hit.probability != null && Math.random() > hit.probability) continue;
 
-                    const hitTimeSec = time + (hit.time * beats * (60.0 / Number(state.bpm)));
+                    const relativeBeat = hit.time * beats;
+                    const offsetBeats = getGrooveOffset(absBeatStart + relativeBeat, state);
+                    const offsetSec = offsetBeats * (60.0 / Number(state.bpm));
+
+                    const hitTimeSec = time + (hit.time * beats * (60.0 / Number(state.bpm))) + offsetSec;
                     playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
                     if (onDrumPlay && hit.id) {
                         const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
@@ -365,7 +392,11 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                     
                     while (absoluteHitBeat < chordEndBeatRounded) {
                         const beatWithinChord = absoluteHitBeat - absBeatStartRounded;
-                        const hitTimeSec = time + (beatWithinChord * (60.0 / Number(state.bpm)));
+                        const hitAbsoluteBeat = absBeatStart + beatWithinChord;
+                        const offsetBeats = getGrooveOffset(hitAbsoluteBeat, state);
+                        const offsetSec = offsetBeats * (60.0 / Number(state.bpm));
+
+                        const hitTimeSec = time + (beatWithinChord * (60.0 / Number(state.bpm))) + offsetSec;
                         if (hit.probability === undefined || Math.random() <= hit.probability) {
                             playDrum(hit.row, hitTimeSec, hit.velocity || 1.0);
                             if (onDrumPlay && hit.id) {
