@@ -47,7 +47,7 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **AI Text Prompt Generation:** Generate copy-pasteable text prompts detailing the key, mood, and harmonic rhythm to feed into AI models.
 - **Reference Audio Export:** Direct `.wav` export of the clean synth pad.
 
-### Phase 5: Advanced Electronica & AI Synergy (In Progress 🚧)
+### Phase 5: Advanced Electronica & AI Synergy (Complete ✅)
 - **Tension & Release Mapping UI:** Architect dramatic emotional arcs visually before rendering notes. (Complete ✅)
 - **Per-Chord Rhythm Editor:** Timeline view for slicing, moving, and generating complex rhythms within individual chord slots. (Complete ✅)
 - **Rhythm Editor UX Redesign:** Unified press/drag interactions, smart boundary collisions, and a comprehensive grid slider with triplet support. (Complete ✅)
@@ -106,6 +106,12 @@ The app is specifically tailored to act as a "creative frontend" for AI song gen
 - **4x Drum Volume Scaling:** Boosted drum synthesis engine output envelopes by 4x to match headroom levels.
 - **Auto-Zoom to Fill Viewport:** Set global drum pattern visualizer to automatically zoom to fit the viewport width.
 - **Session Persistence:** Guaranteed that all customized bass ADSR settings, octave drop configurations, drive values, and drum parameters are successfully persisted to `localStorage` across page reloads.
+
+### Phase 12: Server Scale Library & Collapsible Accordion Settings (Complete ✅)
+- **☁️ Server Tuning Library Import**: Integrated a pre-bundled Scala (`.scl`) and AnaMark (`.tun`) scale library served from the server static files (`tuning_library/index.json`), allowing instant loading of custom microtonal systems.
+- **Tuning Import Source Setting**: Added a configuration setting in settings to toggle between loading from `📁 Local File (.scl/.tun)` vs. `☁️ Server Library`.
+- **General Settings Accordion Groups**: Restructured the General settings panel into collapsible, mutually exclusive accordion sections for a decluttered layout matching the Mixer tab.
+
 
 ## 🛠️ Local Development
 

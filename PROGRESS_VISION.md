@@ -37,7 +37,7 @@
 - **Generative Arp Modes:** Arpeggiation includes several modes, such as static sequences, one-shot randomization, or continuous regeneration applied every time the playback loop restarts.
 - **Multi-Pass Generative Export:** If continuous per-loop randomization is active, users can choose to export multiple passes of the sequence to MIDI or WAV. This captures the exact randomized output that occurred in the last *x* set of loopthroughs (or *x* loops since active), ensuring fleeting generative magic is permanently captured for the DAW.
 - **Probabilistic Pattern Sequencing:** Assign probabilities to different rhythm or arpeggiator patterns occurring on a given loopthrough. This allows the progression's rhythm to organically shift and evolve over time, hooking perfectly into the Multi-Pass Generative Export.
-- **Transitions (In Progress 🚧):** Algorithmic controls to program transitions and alter inner voices. Core engine, UI, independent voice sustain, multi-note melodic flourishes (enclosures, run-ups), dynamic acoustic thresholds, and flourish rate controls are complete. Upcoming: Generative personas (Restless/Lazy), rhythmic anchoring to drum patterns, hierarchical collision priority, and deep editing UI (zoom/scroll). Operates as a dedicated mode within the Chords Pattern Tab.
+- **Transitions (Complete ✅):** Algorithmic controls to program transitions and alter inner voices. Core engine, UI, independent voice sustain, multi-note melodic flourishes (enclosures, run-ups), dynamic acoustic thresholds, flourish rate controls, generative personas (Restless/Lazy), rhythmic anchoring to drum patterns, and hierarchical collision priority are complete. Operates as a dedicated mode within the Chords Pattern Tab.
 - **Adjustable Duration:** Click and drag to change the length of each chord.
 - **Ripple Editing:** Optionally, have the timeline automatically push subsequent chords forward when a preceding chord's duration is extended, maintaining the overall sequence.
 - **Loop-Aware Resolution:** The voice-leading and suggestion engines analyze the progression as a continuous cycle, ensuring the transition from the *last* chord back to the *first* chord is as smooth and emotionally satisfying as any internal internal transition.
@@ -232,13 +232,23 @@ Transitioning from mapping 12-TET math into EDOs towards supporting true, indepe
 - **Emotional Suggestion Engine & Color-Coded Transpose (Complete ✅):** Suggests chords in the chord chooser matching desired emotional states (e.g., Luminous, Mournful, Heroic). Transposition dropdown colors reflect emotional targets.
 - **Arrangement UX Enhancements (Complete ✅):**
   - Made the `+looped` button act like standard chord buttons; dragging it hides other buttons to facilitate clean drop insertion.
-  - Auto-expands loop brace boundaries when a loop is dragged and dropped immediately following the last chord in the current loop.
+  - Auto-expands loop brace boundaries when a loop is dragged and dropped.
 
-### 14. Future Layout & Progressive Disclosure Roadmap
+### 14. Progressive Mixer Integration (Phase 11 - Complete ✅)
+- **Progressive Mixer Integration (Completed):** Organized settings into two primary tabs: General and Mixer. Clicking track/instrument names expands nested, context-specific parameter panels (instrument selections, ADSR, FM lead controls, custom sample loading, and volume gain structures) that collapse in a mutually-exclusive accordion style.
 
-- **Progressive Mixer Integration (Planned):**
-  - Simplify settings by organizing into two primary tabs: General and Mixer.
-  - Clicking any track/instrument icon on a Mixer slider will expand a nested, context-specific parameters panel directly beneath that Mixer row.
-  - Expanding one section will automatically collapse any other open parameter panel.
-  - Clicking the icon again or tapping outside the settings group will return the interface to a compact mixer layout, aligning with the progressive disclosure philosophy.
+## 🔮 Future Development Roadmap
 
+### 15. Genre Presets & Groove Synchronization (Phase 12 - Planned)
+- **Expanded Genre Presets**: Formulate pre-designed presets mapping arpeggiators, chord rhythms, and drum grids to specific genres (e.g., Lofi, Neo-Soul, IDM, Synthwave, Afrobeat) and Eastern rhythms (e.g., Maqam-influenced rhythms, odd-meter microtonal cycles).
+- **Adjustable Swing & Shuffle**: Introduce a global swing slider that mathematically delays offbeat subdivisions (e.g., 16th or 8th notes) dynamically across all active sequencers.
+- **MIDI Groove Extraction**: Allow importing MIDI files to extract groove templates (micro-timing offsets and note velocities). The sequencer engines will sync all active chords, arpeggiators, melody, and drum sequences to this extracted timing template.
+
+### 16. Melody Motifs & MIDI Selection Adaptation (Phase 13 - Planned)
+- **User Motif Editor**: Create a dedicated motif design panel where users can compose, save, and edit short melodic shapes/motifs.
+- **MIDI Motif Import**: Enable loading a MIDI file into a preview lane, selecting a specific window or phrase, and feeding that note sequence into the Melody Generator.
+- **Contextual Chord Adaptation**: Intelligently transpose, snap, and voice-lead the selected MIDI phrase to conform to the active chord progression's scale degrees and active extensions in real-time.
+
+### 17. Synthesizer Parameter & Envelope Expansion (Phase 14 - Planned)
+- **Universal ADSR Envelopes**: Add full ADSR volume and filter cutoff envelope panels for all sound sources that currently lack them (e.g., Chords Sawpad, Sine synth, and Countermelody).
+- **Universal LFO Modulations**: Integrate customizable LFO routing (speed, depth, shape) for pitch vibrato and filter modulation across all instruments.

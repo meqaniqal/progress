@@ -42,7 +42,7 @@
 - Implemented an offline WAV audio export feature using `OfflineAudioContext` for instant background rendering of the active progression.
 - Created a mathematical timeline calculation module (`wavExport.js`) and binary WAV encoder to ensure audio export logic remains highly modular and fully testable.
 
-## Phase 5: Advanced Electronica & AI Synergy (In Progress)
+## Phase 5: Advanced Electronica & AI Synergy (Complete)
 - Implemented Tension & Release Mapping UI using dynamic CSS gradient area graphs.
 - Built Per-Chord Rhythm/Timing Editor with timeline slicing, moving, and grid snapping.
 - Implemented Localized Arpeggiation for polyrhythmic MIDI and WAV export.
@@ -121,3 +121,8 @@
 - **Customizable Drum Synthesis Engines:** Exposed decay, pitch, cutoff, drive, and noise type controls for synth drums, coupled with 4x volume output envelope scaling for a punchier mix.
 - **Auto-Zoom to Fill Viewport:** Wired the Rhythm Editor to automatically calculate and set the zoom level to fit the global drum pattern to the viewport width when opened.
 - **Session Persistence:** Extended `storePersistence.js` to serialize, sanitize, and restore all custom bass/drum synthesis values and UI parameters from `localStorage` across user sessions.
+
+## Phase 12: Server Scale Library & Collapsible Accordion Settings (Complete)
+- **☁️ Server Tuning Library Import**: Integrated a pre-bundled Scala (`.scl`) and AnaMark (`.tun`) scale library served from the server static files (`tuning_library/index.json`), allowing instant loading of custom microtonal systems.
+- **Tuning Import Source Setting**: Added a configuration setting in settings to toggle between loading from `📁 Local File (.scl/.tun)` vs. `☁️ Server Library`.
+- **General Settings Accordion Groups**: Restructured the General settings panel into collapsible, mutually exclusive accordion sections for a decluttered layout matching the Mixer tab.

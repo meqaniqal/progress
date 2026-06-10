@@ -1,42 +1,35 @@
 # PROGRESS: Current Focus & Active Tasks
 
-This document contains the immediate objectives and active task checklists. To prevent context bloat, keep this file lightweight and focused only on the current sprint. Once tasks are completed, move them to the historical roadmap in [PROGRESS_VISION.md](file:///Users/sheldonlawrence/Desktop/progress/PROGRESS_VISION.md).
+This document contains the immediate objectives and active task checklists. To prevent context bloat, keep this file lightweight and focused only on the current sprint. Once tasks are completed, move them to the historical roadmap in [PROGRESS_VISION.md](file:///c:/Users/mekka/OneDrive/Desktop/progress/PROGRESS_VISION.md).
 
 ---
 
 ## 🎯 Current Objectives
 
-1. **Transitions Engine (Phase 5 Extension)**: Implement remaining algorithmic and UI components for progression transitions.
-2. **Advanced Modular Synthesis & Sound Design (Phase 6)**: Expand synthesizer customizability for bass and drums, and modularize the UI.
+1. **Genre Presets & Groove Synchronization (Phase 12)**:
+   - Formulate pre-designed patterns for genres like Lofi, Neo-Soul, IDM, Synthwave, Afrobeat, and Eastern rhythms.
+   - Build a global swing/shuffle timing offset module.
+   - Implement MIDI groove import/extraction.
 
 ---
 
 ## 📝 Active Task Checklist
 
-### 1. Transitions Engine & UI (🚧 In Progress)
-- [x] **Generative Personas**: Implement "Restless" and "Lazy" algorithmic behaviors for voice transitions and flourishes.
-- [x] **Rhythmic Anchoring**: Sync transition/flourish timing automatically to active drum patterns.
-- [x] **Hierarchical Collision Priority**: Prevent overlapping notes/voices during complex transitions by establishing priority rules.
-- [ ] **Deep Editing UI**: Introduce zoom/scroll capabilities to focus on transition micro-details within the editor.
-- [x] **Modal/Scale degree snapping**: Refine transition note choices dynamically to align with scale degrees / modal functions rather than pure chromatic movement.
+### 1. Genre Rhythmic Presets (Planned 🚧)
+- [ ] **Curate Presets**: Define standard preset templates for arpeggios, drum patterns, and chord rhythms.
+- [ ] **Eastern Rhythms**: Map specific Eastern odd-meter cycles (e.g. 5/8, 7/8, 9/8) and maqam-linked templates.
+- [ ] **UI Category**: Introduce a dropdown or selector in the pattern tab to apply presets.
 
-### 2. Intelligent Chord Analysis & Suggestions (🚧 In Progress)
-- [x] **Dynamic Pitch Analysis**: Re-analyze chord symbols in real-time when the user manually modifies note pitches in Pitch Mode, updating the chord symbol if it matches a valid type (e.g. changing root/extension to "Isus4" or "Csus4").
-- [x] **Emotional Progression Analyzer**: Add a section in the chord chooser showing chord suggestions tailored to desired emotional outcomes (e.g., "Mournful", "Luminous", "Heroic").
-- [x] **Color-Coded Key Transposition**: Match the colors of the key transposition dropdown to these emotional possibilities.
-
-### 3. Arrangement & Loop Brace UX (🚧 In Progress)
-- [x] **Loop Insertion Dragging**: Make the `+looped` button act like standard chord buttons; dragging hides other buttons for easy drop placement.
-- [x] **Adaptive Loop Brace**: Auto-expand the active loop brace boundaries when a loop is dragged and dropped immediately following the last chord inside the active loop.
-
-### 4. Bass & Drum Synthesizer Modules (✅ Completed)
-- [x] **Bass-Geared Synthesizers**: Built separate Drive and Volume gain controls for primary and enhancer bass channels, added soft-clipping wave saturation, and implemented a sample-based bass engine with customizable ADSR envelopes.
-- [x] **Professional Drums**: Integrated customizable drum parameters (decay, pitch, cutoff, drive, noise type) for synthesis engines and custom sample loading, boosted volume scaling by 4x, and added auto-fit zooming.
-- [x] **Octave Drop & Pitch Range Clamping**: Restricted the bass pitch slider max range to 0 semitones dynamically when -2 Octaves Drop is enabled, clamping positive values and persisting all state settings correctly.
-- [x] **Modular UI Architecture**: Decoupled the Synth, Bass, and Drum editor UI states into independent modules.
+### 2. Adjustable Swing & Groove Sync (Planned 🚧)
+- [ ] **Swing Slider**: Add a global swing/shuffle control in General settings or above the transport.
+- [ ] **Sequencer Delay Math**: Adjust audio scheduling tick math to delay offbeats based on the swing amount.
+- [ ] **MIDI Groove Extraction**:
+  - [ ] Implement a basic MIDI parser to read note-on timing offsets.
+  - [ ] Adapt the sequencer timeline scheduler to play with micro-timing offsets extracted from the loaded MIDI file.
 
 ---
 
 ## 🔍 Verification & Testing Goals
-- Ensure all new audio calculations pass through the master bus compressor.
-- Write unit tests in Jest for any new transition generation/priority logic.
+- Confirm that swing delay math applies consistently across Chords, Bass, Drums, Melody, and Countermelody sequencers.
+- Test MIDI groove file uploading and ensure correct ticks calculation.
+- Run Jest tests (`npm test`) on timing calculations.
