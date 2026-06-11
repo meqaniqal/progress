@@ -1539,11 +1539,12 @@ export function initSettingsUI({ onRenderProgression }) {
     });
 
     let mixerCollapseTimeout = null;
+
     let lastClickTime = 0;
     let lastClickX = 0;
     let lastClickY = 0;
 
-    // Click outside to collapse open mixer sections
+    // Clear collapse timeout on subsequent clicks of a double click
     document.addEventListener('pointerdown', (e) => {
         const currentTime = Date.now();
         const isControl = e.target.tagName === 'INPUT' ||
@@ -1558,17 +1559,17 @@ export function initSettingsUI({ onRenderProgression }) {
                           e.target.closest('.octave-btn') ||
                           e.target.closest('.chord-btn');
 
-        // Check for double click: within 300ms, close coordinates, or e.detail >= 2, and not on a control
-        const isDoubleClick = (e.detail >= 2) || 
-                              ((currentTime - lastClickTime < 300) && 
-                               (Math.abs(e.clientX - lastClickX) < 40) && 
-                               (Math.abs(e.clientY - lastClickY) < 40));
+        // Check for double click context
+        const isDoubleClickContext = (e.detail >= 2) || 
+                                     ((currentTime - lastClickTime < 450) && 
+                                      (Math.abs(e.clientX - lastClickX) < 40) && 
+                                      (Math.abs(e.clientY - lastClickY) < 40));
 
         lastClickTime = currentTime;
         lastClickX = e.clientX;
         lastClickY = e.clientY;
 
-        if (isDoubleClick) {
+        if (isDoubleClickContext) {
             if (!isControl) {
                 const inSettings = e.target.closest('#settings-modal');
                 if (inSettings) {
@@ -1576,12 +1577,6 @@ export function initSettingsUI({ onRenderProgression }) {
                         clearTimeout(mixerCollapseTimeout);
                         mixerCollapseTimeout = null;
                     }
-                    const playToggleBtn = document.getElementById('btn-play-toggle');
-                    if (playToggleBtn) {
-                        playToggleBtn.click();
-                    }
-                    e.preventDefault();
-                    e.stopPropagation();
                     return;
                 }
             }
@@ -1599,6 +1594,7 @@ export function initSettingsUI({ onRenderProgression }) {
             clearTimeout(mixerCollapseTimeout);
         }
 
+        // Delay collapse logic to allow time for double clicks
         mixerCollapseTimeout = setTimeout(() => {
             const expandedGroup = document.querySelector('.mixer-row-group.expanded');
             if (expandedGroup && !expandedGroup.contains(e.target) && !e.target.closest('.mixer-track-trigger')) {
@@ -1614,7 +1610,34 @@ export function initSettingsUI({ onRenderProgression }) {
                 if (panel) panel.style.display = 'none';
             }
             mixerCollapseTimeout = null;
-        }, 250);
+        }, 400);
+    });
+
+    // Handle native double-click to start/stop playback
+    document.addEventListener('dblclick', (e) => {
+        const isControl = e.target.tagName === 'INPUT' ||
+                          e.target.tagName === 'SELECT' ||
+                          e.target.tagName === 'BUTTON' ||
+                          e.target.tagName === 'TEXTAREA' ||
+                          e.target.closest('input') ||
+                          e.target.closest('button') ||
+                          e.target.closest('select') ||
+                          e.target.closest('.mixer-track-trigger') ||
+                          e.target.closest('.drum-part-trigger') ||
+                          e.target.closest('.octave-btn') ||
+                          e.target.closest('.chord-btn');
+
+        if (!isControl) {
+            const inSettings = e.target.closest('#settings-modal');
+            if (inSettings) {
+                const playToggleBtn = document.getElementById('btn-play-toggle');
+                if (playToggleBtn) {
+                    playToggleBtn.click();
+                }
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }
     });
 
     // Toggle custom sample panels gear clicks (mutually exclusive)
