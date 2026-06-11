@@ -391,6 +391,8 @@ function closeSectionDropdown() {
 
 function initMobileUnitabSwiping() {
     const unitab = document.getElementById('mobile-unitab');
+    const prevBtn = document.getElementById('btn-mobile-sec-prev');
+    const nextBtn = document.getElementById('btn-mobile-sec-next');
     if (!unitab) return;
 
     let touchStartX = 0;
@@ -412,30 +414,43 @@ function initMobileUnitabSwiping() {
         else openRenameDropdown(unitab, state.activeSectionId);
     });
 
+    const cycleSection = (direction) => {
+        const orderedSections = state.songSequence.map(id => state.sections[id]).filter((sec, index, self) => 
+            sec && index === self.findIndex((t) => (t.id === sec.id))
+        );
+        if (orderedSections.length <= 1) return;
+        
+        const currentIndex = orderedSections.findIndex(s => s.id === state.activeSectionId);
+        if (currentIndex === -1) return;
+
+        let nextIndex = (currentIndex + direction + orderedSections.length) % orderedSections.length;
+        if (nextIndex !== currentIndex) {
+            const nextId = orderedSections[nextIndex].id;
+            switchActiveSection(nextId);
+            setActiveSequenceIndex(state.songSequence.lastIndexOf(nextId));
+            updateSongUI();
+            if (_onRenderProgression) _onRenderProgression();
+        }
+    };
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            cycleSection(-1);
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            cycleSection(1);
+        });
+    }
+
     function handleSwipe() {
         const diff = touchEndX - touchStartX;
         if (Math.abs(diff) > CONFIG.MOBILE_SWIPE_THRESHOLD) {
-            const orderedSections = state.songSequence.map(id => state.sections[id]).filter((sec, index, self) => 
-                index === self.findIndex((t) => (t.id === sec.id))
-            );
-            
-            const currentIndex = orderedSections.findIndex(s => s.id === state.activeSectionId);
-            if (currentIndex === -1) return;
-
-            let nextIndex = currentIndex;
-            if (diff < 0) { // Swiped left -> next tab
-                nextIndex = (currentIndex + 1) % orderedSections.length;
-            } else { // Swiped right -> prev tab
-                nextIndex = (currentIndex - 1 + orderedSections.length) % orderedSections.length;
-            }
-            
-            if (nextIndex !== currentIndex) {
-                const nextId = orderedSections[nextIndex].id;
-                switchActiveSection(nextId);
-                setActiveSequenceIndex(state.songSequence.lastIndexOf(nextId));
-                updateSongUI();
-                if (_onRenderProgression) _onRenderProgression();
-            }
+            cycleSection(diff < 0 ? 1 : -1);
         }
     }
 }

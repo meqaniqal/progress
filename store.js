@@ -26,7 +26,7 @@ export const state = {
     customTuning: null, // Custom loaded .scl/.tun file mapping/parameters
     importedTunings: [], // List of imported custom tuning objects
     previousTuning: '12', // Remembers previous tuning choice to restore on prune
-    tuningImportSource: 'local', // 'local' or 'server'
+    tuningImportSource: 'server', // 'local' or 'server'
     swing: 0.0, // Swing amount (0 to 1)
     groovePreset: 'none', // 'none', 'swing', 'shuffle', 'latin', 'african', 'custom'
     grooveTemplate: null, // Array of { step, offset, velocityScale } for custom groove
@@ -679,7 +679,7 @@ export function resetSession() {
     state.syncTransitionsToDrums = true;
     state.snapTransitionsToScale = true;
     state.exportPasses = 1;
-    state.tuningImportSource = 'local';
+    state.tuningImportSource = 'server';
     state.swing = 0.0;
     state.groovePreset = 'none';
     state.grooveTemplate = null;

@@ -40,7 +40,7 @@ export function loadAndApplyInitialState(explicitState = null) {
         state.generatorPersona = savedState.generatorPersona || 'normal';
         state.syncTransitionsToDrums = savedState.syncTransitionsToDrums !== undefined ? Boolean(savedState.syncTransitionsToDrums) : true;
         state.snapTransitionsToScale = savedState.snapTransitionsToScale !== undefined ? Boolean(savedState.snapTransitionsToScale) : true;
-        state.tuningImportSource = savedState.tuningImportSource || 'local';
+        state.tuningImportSource = savedState.tuningImportSource || 'server';
         state.swing = typeof savedState.swing === 'number' ? Math.max(0, Math.min(1.0, savedState.swing)) : 0.0;
         state.groovePreset = savedState.groovePreset || 'none';
         state.grooveTemplate = Array.isArray(savedState.grooveTemplate) ? savedState.grooveTemplate : null;

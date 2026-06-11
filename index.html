@@ -350,9 +350,13 @@
                 <!-- Rendered tabs go here -->
             </div>
             <!-- Mobile Adaptive Single-Tab -->
-            <div id="mobile-unitab" class="mobile-unitab" style="display: none;" title="Swipe left/right to change sections">
-                <span id="mobile-unitab-label">Section</span>
-                <div id="mobile-unitab-dots"></div>
+            <div id="mobile-unitab-container" style="display: none; align-items: center; gap: 4px; flex: 1; min-width: 0;">
+                <button id="btn-mobile-sec-prev" class="control-btn secondary icon-btn" style="height: 38px; width: 34px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; margin: 0; flex-shrink: 0;" title="Previous Section">◀</button>
+                <div id="mobile-unitab" class="mobile-unitab" title="Swipe left/right to change sections" style="flex: 1;">
+                    <span id="mobile-unitab-label">Section</span>
+                    <div id="mobile-unitab-dots"></div>
+                </div>
+                <button id="btn-mobile-sec-next" class="control-btn secondary icon-btn" style="height: 38px; width: 34px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; margin: 0; flex-shrink: 0;" title="Next Section">▶</button>
             </div>
             
             <div class="section-add-wrapper">
@@ -518,22 +522,21 @@
         <div id="groove-editor-body" style="display: none; padding: 10px; background: rgba(0, 0, 0, 0.2); border-radius: 6px; border: 1px solid var(--border-main); margin-top: 10px;">
             <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
                 <!-- Groove Controls -->
-                <div style="display: flex; align-items: center; gap: 10px; flex: 1.5; min-width: 320px;">
-                    <select id="groove-preset-select" class="rhythm-select" style="width: auto; min-width: 140px;">
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1.5; min-width: 280px;">
+                    <select id="groove-preset-select" class="rhythm-select" style="width: auto; min-width: 120px;">
                         <option value="none">-- No Groove --</option>
-                        <option value="swing">16th Note Swing</option>
-                        <option value="shuffle">8th Note Shuffle</option>
-                        <option value="latin">Latin Clave Timing</option>
-                        <option value="african">African Polyrhythmic Push/Pull</option>
-                        <option value="custom" disabled id="opt-custom-groove">Custom MIDI Groove (Not Loaded)</option>
+                        <option value="swing">16th Swing</option>
+                        <option value="shuffle">8th Shuffle</option>
+                        <option value="latin">Latin Clave</option>
+                        <option value="african">African Polyrhythm</option>
+                        <option value="custom" disabled id="opt-custom-groove">Custom MIDI (Not Loaded)</option>
                     </select>
                     
-                    <div id="groove-slider-container" style="display: none; align-items: center; gap: 6px; flex: 1;">
-                        <input type="range" id="groove-swing-slider" min="0" max="100" value="0" style="flex: 1; cursor: pointer;">
+                    <div id="groove-slider-container" style="display: none; align-items: center; gap: 6px; flex: 1; min-width: 100px;">
+                        <input type="range" id="groove-swing-slider" min="0" max="100" value="0" style="flex: 1; cursor: pointer; min-width: 50px;">
                         <span id="groove-swing-display" style="font-size: 11px; font-weight: bold; color: var(--ctrl-primary-bg); min-width: 28px; text-align: right;">0%</span>
                     </div>
 
-                    <button class="control-btn secondary btn-sm" id="btn-import-midi-groove" style="padding: 4px 8px; font-size: 11px;" title="Import Custom MIDI Groove">📂 From MIDI</button>
                     <input type="file" id="file-midi-groove" accept=".mid,.midi" style="display: none;">
                     <span id="midi-groove-status" style="display: none;"></span>
                 </div>
@@ -661,10 +664,14 @@
                                             <input type="range" id="chord-release" min="0" max="1.0" step="0.01" value="0.4" class="mixer-slider">
                                         </div>
                                         <div class="mixer-row">
-                                            <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Pitch (Shift)</span>
-                                            <input type="range" id="chord-pitch" min="-24" max="24" step="1" value="0" style="flex: 1;" class="mixer-slider">
-                                            <span id="chord-pitch-val" style="font-size: 11px; font-family: monospace; min-width: 35px; text-align: right;">+0st</span>
-                                        </div>
+                                             <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Pitch (Shift)</span>
+                                             <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                                                 <button class="octave-btn" data-target="chord-pitch" data-dir="down" style="background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: bold; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Octave Down">◀</button>
+                                                 <input type="range" id="chord-pitch" min="-24" max="24" step="1" value="0" style="flex: 1;" class="mixer-slider">
+                                                 <button class="octave-btn" data-target="chord-pitch" data-dir="up" style="background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: bold; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Octave Up">▶</button>
+                                             </div>
+                                             <span id="chord-pitch-val" style="font-size: 11px; font-family: monospace; min-width: 35px; text-align: right;">+0st</span>
+                                         </div>
                                     </div>
                                     <div id="fm-params-section">
                                         <div style="font-size: 11px; font-weight: bold; margin-bottom: 6px; color: var(--text-muted);">FM PARAMETERS</div>
@@ -785,7 +792,11 @@
                                     </div>
                                     <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Pitch</span>
-                                        <input type="range" id="bass-pitch" min="-24" max="24" step="1" value="0" style="flex: 1;" class="mixer-slider">
+                                        <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                                            <button class="octave-btn" data-target="bass-pitch" data-dir="down" style="background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: bold; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Octave Down">◀</button>
+                                            <input type="range" id="bass-pitch" min="-24" max="24" step="1" value="0" style="flex: 1;" class="mixer-slider">
+                                            <button class="octave-btn" data-target="bass-pitch" data-dir="up" style="background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: bold; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Octave Up">▶</button>
+                                        </div>
                                         <span id="bass-pitch-val" style="font-size: 11px; font-family: monospace; min-width: 35px; text-align: right;">+0st</span>
                                     </div>
                                     <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
@@ -855,7 +866,9 @@
                                         </div>
                                         <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                             <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Pitch</span>
+                                            <button class="octave-btn" data-target="melody-pitch" data-dir="down" style="background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: bold; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Octave Down">◀</button>
                                             <input type="range" id="melody-pitch" min="-24" max="24" step="1" value="0" style="flex: 1;" class="mixer-slider">
+                                            <button class="octave-btn" data-target="melody-pitch" data-dir="up" style="background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: bold; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Octave Up">▶</button>
                                             <span id="melody-pitch-val" style="font-size: 11px; font-family: monospace; min-width: 35px; text-align: right;">+0st</span>
                                         </div>
                                     </div>
@@ -1026,7 +1039,9 @@
                                     </div>
                                     <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Pitch</span>
+                                        <button class="octave-btn" data-target="countermelody-pitch" data-dir="down" style="background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: bold; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Octave Down">◀</button>
                                         <input type="range" id="countermelody-pitch" min="-24" max="24" step="1" value="0" style="flex: 1;" class="mixer-slider">
+                                        <button class="octave-btn" data-target="countermelody-pitch" data-dir="up" style="background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: bold; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Octave Up">▶</button>
                                         <span id="countermelody-pitch-val" style="font-size: 11px; font-family: monospace; min-width: 35px; text-align: right;">+0st</span>
                                     </div>
                                 </div>

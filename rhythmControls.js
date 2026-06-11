@@ -766,7 +766,6 @@ function _setupGrooveControls() {
     const swingDisplay = document.getElementById('groove-swing-display');
     const presetSelect = document.getElementById('groove-preset-select');
     const fileInput = document.getElementById('file-midi-groove');
-    const importBtn = document.getElementById('btn-import-midi-groove');
     const statusSpan = document.getElementById('midi-groove-status');
     
     const genreSelect = document.getElementById('genre-preset-select');
@@ -784,17 +783,21 @@ function _setupGrooveControls() {
 
     if (presetSelect) {
         presetSelect.addEventListener('change', (e) => {
-            app.state.groovePreset = e.target.value;
-            app.persistAppState();
-            syncGrooveUIFromState();
+            const val = e.target.value;
+            if (val === 'load-midi') {
+                if (fileInput) {
+                    fileInput.click();
+                }
+                presetSelect.value = app.state.groovePreset || 'none';
+            } else {
+                app.state.groovePreset = val;
+                app.persistAppState();
+                syncGrooveUIFromState();
+            }
         });
     }
 
-    if (importBtn && fileInput) {
-        importBtn.addEventListener('click', () => {
-            fileInput.click();
-        });
-
+    if (fileInput) {
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;

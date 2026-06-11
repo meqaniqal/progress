@@ -574,8 +574,14 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
     // 1. Remove obsolete nodes to prevent memory leaks and ghost elements
     const existingNodes = Array.from(sliceInner.querySelectorAll('.rhythm-instance'));
     const newIds = new Set(pattern.instances.map(i => i.id));
+    const seenIds = new Set();
     existingNodes.forEach(node => {
-        if (!newIds.has(node.dataset.id)) node.remove();
+        const id = node.dataset.id;
+        if (!newIds.has(id) || seenIds.has(id)) {
+            node.remove();
+        } else {
+            seenIds.add(id);
+        }
     });
 
     // 2. Update existing nodes or create new ones
@@ -679,8 +685,14 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             el.style.height = '100%';
             el.style.background = ''; // Allow CSS classes to handle selection colors
             
-            let noteContainer = el.querySelector('.note-container');
-            if (!noteContainer) {
+            const noteContainers = Array.from(el.querySelectorAll('.note-container'));
+            let noteContainer;
+            if (noteContainers.length > 0) {
+                noteContainer = noteContainers[0];
+                for (let i = 1; i < noteContainers.length; i++) {
+                    noteContainers[i].remove();
+                }
+            } else {
                 noteContainer = document.createElement('div');
                 noteContainer.className = 'note-container';
                 noteContainer.style.position = 'absolute';
@@ -723,12 +735,10 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             });
             noteContainer.innerHTML = html;
             
-            const pitchLabel = el.querySelector('.pitch-label');
-            if (pitchLabel) pitchLabel.remove();
+            el.querySelectorAll('.pitch-label').forEach(node => node.remove());
             
         } else if (isPitchMode) {
-            const noteContainer = el.querySelector('.note-container');
-            if (noteContainer) noteContainer.remove();
+            el.querySelectorAll('.note-container').forEach(node => node.remove());
             const pOffset = inst.pitchOffset || 0;
             const blockHeight = 16;
             const topPercent = 50 - (pOffset * 3) - (blockHeight / 2);
@@ -736,8 +746,14 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             el.style.height = `${blockHeight}%`;
 
             // Auto-updating pitch indicator directly on the block
-            let pitchLabel = el.querySelector('.pitch-label');
-            if (!pitchLabel) {
+            const pitchLabels = Array.from(el.querySelectorAll('.pitch-label'));
+            let pitchLabel;
+            if (pitchLabels.length > 0) {
+                pitchLabel = pitchLabels[0];
+                for (let i = 1; i < pitchLabels.length; i++) {
+                    pitchLabels[i].remove();
+                }
+            } else {
                 pitchLabel = document.createElement('span');
                 pitchLabel.className = 'pitch-label';
                 pitchLabel.style.position = 'absolute';
@@ -764,10 +780,8 @@ function _renderSliceTimeline(container, pattern, isChordTab) {
             el.classList.remove('pitch-mode-chord');
             el.style.top = '10%';
             el.style.height = '80%';
-            const noteContainer = el.querySelector('.note-container');
-            if (noteContainer) noteContainer.remove();
-            const pitchLabel = el.querySelector('.pitch-label');
-            if (pitchLabel) pitchLabel.remove();
+            el.querySelectorAll('.note-container').forEach(node => node.remove());
+            el.querySelectorAll('.pitch-label').forEach(node => node.remove());
         }
 
         let overlay = el.querySelector('.slice-overlay');
@@ -860,7 +874,41 @@ export function syncGrooveUIFromState() {
     const swingSlider = document.getElementById('groove-swing-slider');
     const swingDisplay = document.getElementById('groove-swing-display');
     const presetSelect = document.getElementById('groove-preset-select');
-    const customOption = document.getElementById('opt-custom-groove');
+    
+    if (presetSelect) {
+        presetSelect.innerHTML = '';
+        
+        const options = [
+            { value: 'none', text: '-- No Groove --' },
+            { value: 'swing', text: '16th Swing' },
+            { value: 'shuffle', text: '8th Shuffle' },
+            { value: 'latin', text: 'Latin Clave' },
+            { value: 'african', text: 'African Polyrhythm' }
+        ];
+        
+        options.forEach(opt => {
+            const el = document.createElement('option');
+            el.value = opt.value;
+            el.textContent = opt.text;
+            presetSelect.appendChild(el);
+        });
+
+        if (app.state.grooveTemplate) {
+            const elCustom = document.createElement('option');
+            elCustom.value = 'custom';
+            elCustom.textContent = 'Use Loaded MIDI';
+            presetSelect.appendChild(elCustom);
+        } else if (app.state.groovePreset === 'custom') {
+            app.state.groovePreset = 'none';
+        }
+        
+        const elLoad = document.createElement('option');
+        elLoad.value = 'load-midi';
+        elLoad.textContent = '📂 Load MIDI...';
+        presetSelect.appendChild(elLoad);
+
+        presetSelect.value = app.state.groovePreset || 'none';
+    }
     
     const sliderContainer = document.getElementById('groove-slider-container');
     if (sliderContainer) {
@@ -874,22 +922,7 @@ export function syncGrooveUIFromState() {
     if (swingDisplay) {
         swingDisplay.textContent = `${Math.round((app.state.swing || 0) * 100)}%`;
     }
-    if (presetSelect) {
-        presetSelect.value = app.state.groovePreset || 'none';
-    }
-    if (customOption) {
-        if (app.state.grooveTemplate) {
-            customOption.disabled = false;
-            customOption.textContent = 'Custom MIDI Groove (Loaded)';
-        } else {
-            customOption.disabled = true;
-            customOption.textContent = 'Custom MIDI Groove (Not Loaded)';
-            if (presetSelect && presetSelect.value === 'custom') {
-                presetSelect.value = 'none';
-                app.state.groovePreset = 'none';
-            }
-        }
-    }
+    
     const section = app.state?.sections?.[app.state.activeSectionId];
     const originalOption = document.getElementById('opt-original-rhythm');
     if (originalOption) {

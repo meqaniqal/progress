@@ -526,7 +526,7 @@ export function syncSettingsUI() {
 
     const tuningSourceSelector = document.getElementById('settings-tuning-source');
     if (tuningSourceSelector) {
-        tuningSourceSelector.value = state.tuningImportSource || 'local';
+        tuningSourceSelector.value = state.tuningImportSource || 'server';
     }
     
     updateMicrotonalSettingsUI();
@@ -1427,6 +1427,29 @@ export function initSettingsUI({ onRenderProgression }) {
         });
     }
 
+    // Wire up octave buttons
+    document.querySelectorAll('.octave-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const targetId = btn.getAttribute('data-target');
+            const dir = btn.getAttribute('data-dir');
+            const slider = document.getElementById(targetId);
+            if (slider) {
+                let val = parseInt(slider.value, 10) || 0;
+                const min = parseInt(slider.min, 10) || -24;
+                const max = parseInt(slider.max, 10) || 24;
+                if (dir === 'up') {
+                    val = Math.min(max, val + 12);
+                } else {
+                    val = Math.max(min, val - 12);
+                }
+                slider.value = val;
+                slider.dispatchEvent(new Event('input', { bubbles: true }));
+                slider.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+    });
+
     // Tab switching listener
     const tabBtns = document.querySelectorAll('.settings-tab-btn');
     tabBtns.forEach(btn => {
@@ -1515,8 +1538,55 @@ export function initSettingsUI({ onRenderProgression }) {
         });
     });
 
+    let mixerCollapseTimeout = null;
+    let lastClickTime = 0;
+    let lastClickX = 0;
+    let lastClickY = 0;
+
     // Click outside to collapse open mixer sections
     document.addEventListener('pointerdown', (e) => {
+        const currentTime = Date.now();
+        const isControl = e.target.tagName === 'INPUT' ||
+                          e.target.tagName === 'SELECT' ||
+                          e.target.tagName === 'BUTTON' ||
+                          e.target.tagName === 'TEXTAREA' ||
+                          e.target.closest('input') ||
+                          e.target.closest('button') ||
+                          e.target.closest('select') ||
+                          e.target.closest('.mixer-track-trigger') ||
+                          e.target.closest('.drum-part-trigger') ||
+                          e.target.closest('.octave-btn') ||
+                          e.target.closest('.chord-btn');
+
+        // Check for double click: within 300ms, close coordinates, or e.detail >= 2, and not on a control
+        const isDoubleClick = (e.detail >= 2) || 
+                              ((currentTime - lastClickTime < 300) && 
+                               (Math.abs(e.clientX - lastClickX) < 40) && 
+                               (Math.abs(e.clientY - lastClickY) < 40));
+
+        lastClickTime = currentTime;
+        lastClickX = e.clientX;
+        lastClickY = e.clientY;
+
+        if (isDoubleClick) {
+            if (!isControl) {
+                const inSettings = e.target.closest('#settings-modal');
+                if (inSettings) {
+                    if (mixerCollapseTimeout) {
+                        clearTimeout(mixerCollapseTimeout);
+                        mixerCollapseTimeout = null;
+                    }
+                    const playToggleBtn = document.getElementById('btn-play-toggle');
+                    if (playToggleBtn) {
+                        playToggleBtn.click();
+                    }
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+            }
+        }
+
         // Prevent collapsing settings when adjusting volume/envelope sliders
         if (e.target.tagName === 'INPUT' && e.target.type === 'range') {
             return;
@@ -1525,19 +1595,26 @@ export function initSettingsUI({ onRenderProgression }) {
             return;
         }
 
-        const expandedGroup = document.querySelector('.mixer-row-group.expanded');
-        if (expandedGroup && !expandedGroup.contains(e.target) && !e.target.closest('.mixer-track-trigger')) {
-            expandedGroup.classList.remove('expanded');
-            const panel = expandedGroup.querySelector('.mixer-nested-panel');
-            if (panel) panel.style.display = 'none';
+        if (mixerCollapseTimeout) {
+            clearTimeout(mixerCollapseTimeout);
         }
 
-        const expandedDrumGroup = document.querySelector('.drum-part-group.expanded');
-        if (expandedDrumGroup && !expandedDrumGroup.contains(e.target) && !e.target.closest('.drum-part-trigger')) {
-            expandedDrumGroup.classList.remove('expanded');
-            const panel = expandedDrumGroup.querySelector('.drum-nested-panel');
-            if (panel) panel.style.display = 'none';
-        }
+        mixerCollapseTimeout = setTimeout(() => {
+            const expandedGroup = document.querySelector('.mixer-row-group.expanded');
+            if (expandedGroup && !expandedGroup.contains(e.target) && !e.target.closest('.mixer-track-trigger')) {
+                expandedGroup.classList.remove('expanded');
+                const panel = expandedGroup.querySelector('.mixer-nested-panel');
+                if (panel) panel.style.display = 'none';
+            }
+
+            const expandedDrumGroup = document.querySelector('.drum-part-group.expanded');
+            if (expandedDrumGroup && !expandedDrumGroup.contains(e.target) && !e.target.closest('.drum-part-trigger')) {
+                expandedDrumGroup.classList.remove('expanded');
+                const panel = expandedDrumGroup.querySelector('.drum-nested-panel');
+                if (panel) panel.style.display = 'none';
+            }
+            mixerCollapseTimeout = null;
+        }, 250);
     });
 
     // Toggle custom sample panels gear clicks (mutually exclusive)

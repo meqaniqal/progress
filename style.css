@@ -435,7 +435,7 @@ body:not(.beginner-mode) #btn-manual {
 
 .section-tabs {
     display: flex;
-    flex: 1;
+    flex: 0 1 auto;
     min-width: 0;
     overflow-x: auto;
     gap: 4px;
@@ -490,7 +490,8 @@ body:not(.beginner-mode) #btn-manual {
 /* Target narrow mobile phones strictly (< 450px) */
 @media (max-width: 450px) {
     .section-tabs { display: none !important; }
-    .mobile-unitab { display: flex !important; }
+    #mobile-unitab-container { display: flex !important; }
+    #mobile-unitab-container .mobile-unitab { display: flex !important; }
     .hide-on-mobile { display: none; }
     
     /* Rhythm Toolbar Wrap & Button Compression */
@@ -563,7 +564,7 @@ body:not(.beginner-mode) #btn-manual {
     }
 }
 @media (min-width: 451px) {
-    .mobile-unitab { display: none !important; }
+    #mobile-unitab-container { display: none !important; }
 }
 
 /* --- Extracted Inline Styles --- */

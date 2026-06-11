@@ -609,14 +609,43 @@ function auditionCurrentBuilderChord(force = false) {
     auditionChord('CustomTemp', state.baseKey, notes, state.divisions);
 }
 
-let builderDragAuditionTimeout = null;
-function debouncedAuditionCurrentBuilderChord(delayMs = 250) {
-    if (builderDragAuditionTimeout) {
-        clearTimeout(builderDragAuditionTimeout);
+let lastAuditionTime = 0;
+let auditionThrottleTimeout = null;
+function throttleAuditionCurrentBuilderChord() {
+    const now = Date.now();
+    const notes = Array.from(customBuilderNotes).map(n => n + (customBuilderOffsets[n] || 0)).sort((a, b) => a - b);
+    if (notes.length === 0) return;
+
+    const key = notes.map(n => n.toFixed(4)).join(',');
+    if (key === lastAuditionedChordKey) {
+        return;
     }
-    builderDragAuditionTimeout = setTimeout(() => {
-        auditionCurrentBuilderChord(false);
-    }, delayMs);
+
+    const timeSinceLast = now - lastAuditionTime;
+    const throttleLimit = 150; // 150ms minimum between auditions
+
+    if (auditionThrottleTimeout) {
+        clearTimeout(auditionThrottleTimeout);
+        auditionThrottleTimeout = null;
+    }
+
+    if (timeSinceLast >= throttleLimit) {
+        lastAuditionedChordKey = key;
+        lastAuditionTime = now;
+        auditionChord('CustomTemp', state.baseKey, notes, state.divisions);
+    } else {
+        const remaining = throttleLimit - timeSinceLast;
+        auditionThrottleTimeout = setTimeout(() => {
+            const currentNotes = Array.from(customBuilderNotes).map(n => n + (customBuilderOffsets[n] || 0)).sort((a, b) => a - b);
+            if (currentNotes.length === 0) return;
+            const currentKey = currentNotes.map(n => n.toFixed(4)).join(',');
+            if (currentKey !== lastAuditionedChordKey) {
+                lastAuditionedChordKey = currentKey;
+                lastAuditionTime = Date.now();
+                auditionChord('CustomTemp', state.baseKey, currentNotes, state.divisions);
+            }
+        }, remaining);
+    }
 }
 
 function _setupCustomChordBuilder() {
@@ -782,7 +811,7 @@ function _setupCustomChordBuilder() {
         
         customBuilderOffsets[newBaseNote] = newOffset;
         window.__renderCustomBuilderGrid();
-        debouncedAuditionCurrentBuilderChord(250);
+        throttleAuditionCurrentBuilderChord();
     });
 
     grid.addEventListener('pointerup', (e) => {
@@ -792,8 +821,9 @@ function _setupCustomChordBuilder() {
                 try { cell.releasePointerCapture(e.pointerId); } catch(err) {}
             }
             draggedBuilderPitch = null;
-            if (builderDragAuditionTimeout) {
-                clearTimeout(builderDragAuditionTimeout);
+            if (auditionThrottleTimeout) {
+                clearTimeout(auditionThrottleTimeout);
+                auditionThrottleTimeout = null;
             }
             auditionCurrentBuilderChord();
         }
