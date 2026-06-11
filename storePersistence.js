@@ -137,6 +137,13 @@ export function loadAndApplyInitialState(explicitState = null) {
         if (savedState.bassKsDecay !== undefined) state.bassKsDecay = Number(savedState.bassKsDecay);
         if (savedState.bassDrive !== undefined) state.bassDrive = Number(savedState.bassDrive);
         if (savedState.bassHarmonicDrive !== undefined) state.bassHarmonicDrive = Number(savedState.bassHarmonicDrive);
+        
+        if (savedState.synthParams) {
+            state.synthParams = {
+                fm: savedState.synthParams.fm ? { ...state.synthParams.fm, ...savedState.synthParams.fm } : state.synthParams.fm,
+                'plucked-square': savedState.synthParams['plucked-square'] ? { ...state.synthParams['plucked-square'], ...savedState.synthParams['plucked-square'] } : state.synthParams['plucked-square']
+            };
+        }
 
         if (savedState.drumParams) {
             state.drumParams = {

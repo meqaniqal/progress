@@ -873,25 +873,54 @@ body.beginner-mode .mode-toggle-switch .right-label {
     width: 100%;
 }
 
-.mixer-track-trigger {
-    display: inline-flex;
+.mixer-track-trigger,
+.synth-editor-trigger,
+.drum-part-trigger {
+    display: inline-flex !important;
     align-items: center;
     cursor: pointer;
     user-select: none;
-    transition: background-color 0.2s ease, border-radius 0.2s ease;
+    transition: all 0.2s ease;
+    border: 1px solid var(--border-main);
     border-radius: 4px;
+    padding: 4px 8px !important;
+    background: rgba(0, 0, 0, 0.03);
+    width: auto !important;
+    min-width: 130px;
+    box-sizing: border-box;
 }
 
-.mixer-track-trigger:hover {
+.drum-part-trigger {
+    min-width: 90px;
+}
+
+[data-theme="dark"] .mixer-track-trigger,
+[data-theme="dark"] .synth-editor-trigger,
+[data-theme="dark"] .drum-part-trigger {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.mixer-track-trigger:hover,
+.synth-editor-trigger:hover,
+.drum-part-trigger:hover {
     background: var(--ctrl-secondary-hover);
+    border-color: rgba(255, 255, 255, 0.25);
 }
 
-.mixer-trigger-arrow {
+.mixer-trigger-arrow,
+.synth-editor-trigger-arrow,
+.drum-trigger-arrow {
     display: inline-block;
     transition: transform 0.2s ease;
+    font-size: 12px !important;
+    width: 12px !important;
+    margin-right: 6px !important;
+    text-align: center;
 }
 
-.mixer-row-group.expanded .mixer-trigger-arrow {
+.mixer-row-group.expanded .mixer-trigger-arrow,
+.synth-editor-trigger.expanded .synth-editor-trigger-arrow,
+.drum-part-group.expanded .drum-trigger-arrow {
     transform: rotate(90deg);
 }
 
@@ -974,3 +1003,5 @@ body.beginner-mode .mode-toggle-switch .right-label {
     display: none;
     animation: slideDownFade 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* --- Synth/Sample Parameter Submenu Triggers --- */

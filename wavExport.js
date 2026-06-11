@@ -334,7 +334,8 @@ export async function exportToWav(state, buttonElement) {
         const bassDriveGain = offlineCtx.createGain();
         bassDriveGain.gain.value = state.bassDrive !== undefined ? state.bassDrive : 1.0;
 
-        const bassHarmonicGain = offlineCtx.createGain(); bassHarmonicGain.gain.value = state.volumes.bassHarmonic ?? 0.0;
+        const bassHarmonicRaw = state.volumes.bassHarmonic !== undefined ? state.volumes.bassHarmonic : 0.0;
+        const bassHarmonicGain = offlineCtx.createGain(); bassHarmonicGain.gain.value = Math.pow(bassHarmonicRaw, 2.5);
         const bassHarmonicShaper = offlineCtx.createWaveShaper();
         bassHarmonicShaper.curve = makeSoftClipCurve(3.0);
         bassHarmonicShaper.oversample = '4x';

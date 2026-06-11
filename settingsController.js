@@ -35,44 +35,62 @@ const trackMaxVolumes = {
 };
 
 export function updateSynthEditorVisibility(track, synthType) {
-    const gearBtn = document.getElementById(`btn-edit-${track}-synth`);
     const editorPanel = document.getElementById(`synth-editor-${track}`);
-    
+    if (!editorPanel) return;
+
     if (track === 'chords') {
-        const hasEditor = synthType === 'fm' || synthType === 'plucked-square' || synthType === 'sample-chords';
-        if (gearBtn) gearBtn.style.display = hasEditor ? 'inline-block' : 'none';
-        if (editorPanel && !hasEditor) {
-            editorPanel.style.display = 'none';
-        } else if (editorPanel && hasEditor) {
-            const fmSection = document.getElementById('fm-params-section');
-            const pluckSection = document.getElementById('pluck-params-section');
-            const chordSampleSection = document.getElementById('chord-sample-params-section');
-            if (fmSection) fmSection.style.display = synthType === 'fm' ? 'block' : 'none';
-            if (pluckSection) pluckSection.style.display = synthType === 'plucked-square' ? 'block' : 'none';
-            if (chordSampleSection) chordSampleSection.style.display = synthType === 'sample-chords' ? 'flex' : 'none';
+        const fmSection = document.getElementById('fm-params-section');
+        const pluckSection = document.getElementById('pluck-params-section');
+        const chordSampleSection = document.getElementById('chord-sample-params-section');
+        
+        if (fmSection) fmSection.style.display = synthType === 'fm' ? 'block' : 'none';
+        if (pluckSection) pluckSection.style.display = synthType === 'plucked-square' ? 'block' : 'none';
+        
+        if (chordSampleSection) {
+            const isSample = synthType === 'sample-chords';
+            const uploadRow = document.getElementById('chord-sample-upload-row');
+            const headerText = document.getElementById('chord-sample-header-text');
+            
+            chordSampleSection.style.display = (synthType === 'sample-chords' || synthType === 'sawtooth' || synthType === 'sine') ? 'flex' : 'none';
+            if (uploadRow) uploadRow.style.display = isSample ? 'flex' : 'none';
+            if (headerText) headerText.textContent = isSample ? 'SAMPLE PARAMETERS' : 'SYNTH PARAMETERS';
         }
     } else if (track === 'bass') {
-        const hasEditor = synthType === 'sample-bass' || synthType === 'karplus-strong';
-        if (gearBtn) gearBtn.style.display = hasEditor ? 'inline-block' : 'none';
-        if (editorPanel && !hasEditor) {
-            editorPanel.style.display = 'none';
-        } else if (editorPanel && hasEditor) {
-            const sampleControls = document.getElementById('bass-sample-controls') || document.getElementById('synth-editor-bass'); // fallback/direct wrapper
-            // Note: in our revised layout we have different param sections inside the editor panel
-            const sampleParams = document.getElementById('bass-sample-params-section');
-            const ksParams = document.getElementById('bass-ks-controls');
-            if (sampleParams) sampleParams.style.display = synthType === 'sample-bass' ? 'flex' : 'none';
-            if (ksParams) ksParams.style.display = synthType === 'karplus-strong' ? 'flex' : 'none';
+        const sampleUploadRow = document.getElementById('bass-sample-upload-row');
+        const headerText = document.getElementById('bass-sample-header-text');
+        const isSample = synthType === 'sample-bass';
+        
+        if (sampleUploadRow) sampleUploadRow.style.display = isSample ? 'flex' : 'none';
+        if (headerText) headerText.textContent = isSample ? 'Bass Sample' : 'Bass Synth';
+    } else if (track === 'melody' || track === 'countermelody') {
+        const fmSection = document.getElementById(`${track}-fm-params-section`);
+        const pluckSection = document.getElementById(`${track}-pluck-params-section`);
+        const envSection = document.getElementById(`${track}-envelope-section`);
+        
+        if (fmSection) fmSection.style.display = synthType === 'fm' ? 'flex' : 'none';
+        if (pluckSection) pluckSection.style.display = synthType === 'plucked-square' ? 'flex' : 'none';
+        
+        if (envSection) {
+            const isSample = (synthType === `sample-${track}`);
+            const isStandard = (synthType === 'sine' || synthType === 'sawtooth' || synthType === 'triangle' || synthType === 'square');
+            const uploadRow = document.getElementById(`${track}-sample-upload-row`);
+            const headerText = document.getElementById(`${track}-sample-header-text`);
+            
+            envSection.style.display = (isSample || isStandard) ? 'flex' : 'none';
+            if (uploadRow) uploadRow.style.display = isSample ? 'flex' : 'none';
+            if (headerText) headerText.textContent = isSample ? 'SAMPLE PARAMETERS' : 'SYNTH PARAMETERS';
         }
     }
 }
 
 export function updatePluckParamsVisibility(waveform) {
-    const cutoffRow = document.getElementById('pluck-cutoff-row');
-    const resonanceRow = document.getElementById('pluck-resonance-row');
-    const isSine = waveform === 'sine';
-    if (cutoffRow) cutoffRow.style.display = isSine ? 'none' : '';
-    if (resonanceRow) resonanceRow.style.display = isSine ? 'none' : '';
+    ['', 'melody-', 'countermelody-'].forEach(prefix => {
+        const cutoffRow = document.getElementById(`${prefix}pluck-cutoff-row`);
+        const resonanceRow = document.getElementById(`${prefix}pluck-resonance-row`);
+        const isSine = waveform === 'sine';
+        if (cutoffRow) cutoffRow.style.display = isSine ? 'none' : '';
+        if (resonanceRow) resonanceRow.style.display = isSine ? 'none' : '';
+    });
 }
 
 export function updateMicrotonalSettingsUI() {
@@ -237,27 +255,8 @@ export function syncSettingsUI() {
         elCountermelody.value = state.instruments.countermelody || 'sine';
     }
 
-    // Update Melody & Countermelody Gear visibility
-    const updateMelodyGearVisibility = () => {
-        const isSample = (document.getElementById('inst-melody')?.value === 'sample-melody');
-        const gear = document.getElementById('btn-edit-melody-synth');
-        if (gear) gear.style.display = isSample ? 'inline-block' : 'none';
-        if (!isSample) {
-            const panel = document.getElementById('synth-editor-melody');
-            if (panel) panel.style.display = 'none';
-        }
-    };
-    const updateCountermelodyGearVisibility = () => {
-        const isSample = (document.getElementById('inst-countermelody')?.value === 'sample-countermelody');
-        const gear = document.getElementById('btn-edit-countermelody-synth');
-        if (gear) gear.style.display = isSample ? 'inline-block' : 'none';
-        if (!isSample) {
-            const panel = document.getElementById('synth-editor-countermelody');
-            if (panel) panel.style.display = 'none';
-        }
-    };
-    updateMelodyGearVisibility();
-    updateCountermelodyGearVisibility();
+    updateSynthEditorVisibility('melody', state.instruments.melody || 'sine');
+    updateSynthEditorVisibility('countermelody', state.instruments.countermelody || 'sine');
 
     // Sync Melody ADSR & Pitch
     if (!state.melodyAdsr) {
@@ -465,14 +464,18 @@ export function syncSettingsUI() {
     const fm = state.synthParams.fm;
     const sliderMap = { 'ratio': fm.ratio, 'index': fm.modIndex };
     for (const [key, val] of Object.entries(sliderMap)) {
-        const slider = document.getElementById(`fm-${key}-slider`);
-        if (slider) slider.value = val;
+        ['', 'melody-', 'countermelody-'].forEach(prefix => {
+            const slider = document.getElementById(`${prefix}fm-${key}-slider`);
+            if (slider) slider.value = val;
+        });
         setSynthParam('fm', key === 'index' ? 'modIndex' : key, val);
     }
-    const elFmAttack = document.getElementById('fm-attack-slider');
-    if (elFmAttack) elFmAttack.value = envToSlider(fm.attack, 1.0);
-    const elFmRelease = document.getElementById('fm-release-slider');
-    if (elFmRelease) elFmRelease.value = envToSlider(fm.release, 1.0);
+    ['', 'melody-', 'countermelody-'].forEach(prefix => {
+        const elFmAttack = document.getElementById(`${prefix}fm-attack-slider`);
+        if (elFmAttack) elFmAttack.value = envToSlider(fm.attack, 1.0);
+        const elFmRelease = document.getElementById(`${prefix}fm-release-slider`);
+        if (elFmRelease) elFmRelease.value = envToSlider(fm.release, 1.0);
+    });
     
     setSynthParam('fm', 'attack', fm.attack);
     setSynthParam('fm', 'release', fm.release);
@@ -480,12 +483,16 @@ export function syncSettingsUI() {
     const pluck = state.synthParams['plucked-square'];
     const pluckMap = { 'waveform': pluck.waveform, 'cutoff': pluck.cutoff, 'resonance': pluck.resonance };
     for (const [key, val] of Object.entries(pluckMap)) {
-        const el = document.getElementById(`pluck-${key}-${key === 'waveform' ? 'select' : 'slider'}`);
-        if (el) el.value = val;
+        ['', 'melody-', 'countermelody-'].forEach(prefix => {
+            const el = document.getElementById(`${prefix}pluck-${key}-${key === 'waveform' ? 'select' : 'slider'}`);
+            if (el) el.value = val;
+        });
         setSynthParam('plucked-square', key, val);
     }
-    const elPluckDecay = document.getElementById('pluck-decay-slider');
-    if (elPluckDecay) elPluckDecay.value = envToSlider(pluck.decay, 1.0);
+    ['', 'melody-', 'countermelody-'].forEach(prefix => {
+        const elPluckDecay = document.getElementById(`${prefix}pluck-decay-slider`);
+        if (elPluckDecay) elPluckDecay.value = envToSlider(pluck.decay, 1.0);
+    });
     setSynthParam('plucked-square', 'decay', pluck.decay);
     
     updatePluckParamsVisibility(pluck.waveform);
@@ -793,21 +800,19 @@ export function initSettingsUI({ onRenderProgression }) {
     if (elMelody) {
         elMelody.addEventListener('change', async (e) => {
             state.instruments.melody = e.target.value;
-            const isSample = (e.target.value === 'sample-melody');
-            const gear = document.getElementById('btn-edit-melody-synth');
-            if (gear) gear.style.display = isSample ? 'inline-block' : 'none';
-            if (!isSample) {
-                const panel = document.getElementById('synth-editor-melody');
-                if (panel) panel.style.display = 'none';
-            }
+            updateSynthEditorVisibility('melody', e.target.value);
             persistAppState();
-            if (isSample) {
+            if (e.target.value === 'sample-melody') {
                 const { customMelodyBuffer } = await import('./synth.js');
                 if (!customMelodyBuffer) {
                     const panel = document.getElementById('synth-editor-melody');
                     if (panel) panel.style.display = 'flex';
+                    const trigger = document.querySelector('.synth-editor-trigger[data-track="melody"]');
+                    if (trigger) trigger.classList.add('expanded');
                     const otherPanel = document.getElementById('synth-editor-countermelody');
                     if (otherPanel) otherPanel.style.display = 'none';
+                    const otherTrigger = document.querySelector('.synth-editor-trigger[data-track="countermelody"]');
+                    if (otherTrigger) otherTrigger.classList.remove('expanded');
                     document.getElementById('file-melody-sample')?.click();
                 }
             }
@@ -818,21 +823,19 @@ export function initSettingsUI({ onRenderProgression }) {
     if (elCountermelody) {
         elCountermelody.addEventListener('change', async (e) => {
             state.instruments.countermelody = e.target.value;
-            const isSample = (e.target.value === 'sample-countermelody');
-            const gear = document.getElementById('btn-edit-countermelody-synth');
-            if (gear) gear.style.display = isSample ? 'inline-block' : 'none';
-            if (!isSample) {
-                const panel = document.getElementById('synth-editor-countermelody');
-                if (panel) panel.style.display = 'none';
-            }
+            updateSynthEditorVisibility('countermelody', e.target.value);
             persistAppState();
-            if (isSample) {
+            if (e.target.value === 'sample-countermelody') {
                 const { customCountermelodyBuffer } = await import('./synth.js');
                 if (!customCountermelodyBuffer) {
                     const panel = document.getElementById('synth-editor-countermelody');
                     if (panel) panel.style.display = 'flex';
+                    const trigger = document.querySelector('.synth-editor-trigger[data-track="countermelody"]');
+                    if (trigger) trigger.classList.add('expanded');
                     const otherPanel = document.getElementById('synth-editor-melody');
                     if (otherPanel) otherPanel.style.display = 'none';
+                    const otherTrigger = document.querySelector('.synth-editor-trigger[data-track="melody"]');
+                    if (otherTrigger) otherTrigger.classList.remove('expanded');
                     document.getElementById('file-countermelody-sample')?.click();
                 }
             }
@@ -1123,22 +1126,7 @@ export function initSettingsUI({ onRenderProgression }) {
             persistAppState();
         });
     }
-    
-    const btnEditChordsSynth = document.getElementById('btn-edit-chords-synth');
-    const synthEditorChords = document.getElementById('synth-editor-chords');
-    if (btnEditChordsSynth && synthEditorChords) {
-        btnEditChordsSynth.addEventListener('click', () => {
-            synthEditorChords.style.display = synthEditorChords.style.display === 'none' ? 'block' : 'none';
-        });
-    }
 
-    const btnEditBassSynth = document.getElementById('btn-edit-bass-synth');
-    const synthEditorBass = document.getElementById('synth-editor-bass');
-    if (btnEditBassSynth && synthEditorBass) {
-        btnEditBassSynth.addEventListener('click', () => {
-            synthEditorBass.style.display = synthEditorBass.style.display === 'none' ? 'block' : 'none';
-        });
-    }
 
     ['attack', 'decay', 'sustain', 'release'].forEach(param => {
         const el = document.getElementById(`chord-${param}`);
@@ -1188,48 +1176,102 @@ export function initSettingsUI({ onRenderProgression }) {
         });
     }
 
-    ['ratio', 'index', 'attack', 'release'].forEach(param => {
-        const slider = document.getElementById(`fm-${param}-slider`);
-        if (slider) {
-            slider.addEventListener('input', (e) => {
-                const sliderVal = parseFloat(e.target.value);
-                const val = (param === 'attack' || param === 'release') ? sliderToEnv(sliderVal, 1.0) : sliderVal;
-                const stateKey = param === 'index' ? 'modIndex' : param;
-                if (!state.synthParams) state.synthParams = { fm: {} };
-                state.synthParams.fm[stateKey] = val;
-                setSynthParam('fm', stateKey, val);
-                persistAppState();
+    ['', 'melody-', 'countermelody-'].forEach(prefix => {
+        ['ratio', 'index', 'attack', 'release'].forEach(param => {
+            const slider = document.getElementById(`${prefix}fm-${param}-slider`);
+            if (slider) {
+                slider.addEventListener('input', (e) => {
+                    const sliderVal = parseFloat(e.target.value);
+                    const val = (param === 'attack' || param === 'release') ? sliderToEnv(sliderVal, 1.0) : sliderVal;
+                    const stateKey = param === 'index' ? 'modIndex' : param;
+                    if (!state.synthParams) state.synthParams = { fm: {} };
+                    state.synthParams.fm[stateKey] = val;
+                    setSynthParam('fm', stateKey, val);
+                    persistAppState();
 
-                // Safely audition the changes without flooding the Web Audio engine
-                if (!isPlaybackActive()) {
-                    if (synthAuditionTimeout) clearTimeout(synthAuditionTimeout);
-                    synthAuditionTimeout = setTimeout(() => {
-                        let chordToPlay = { symbol: 'I', key: state.baseKey, divisions: state.divisions };
-                        if (state.selectedChordIndex !== null && state.currentProgression.length > 0) {
-                            const activeProg = getActiveProgression();
-                            chordToPlay = activeProg[state.selectedChordIndex] || activeProg[0];
+                    // Sync other sliders for the same parameter
+                    ['', 'melody-', 'countermelody-'].forEach(otherPrefix => {
+                        const otherSlider = document.getElementById(`${otherPrefix}fm-${param}-slider`);
+                        if (otherSlider && otherSlider !== slider) {
+                            otherSlider.value = sliderVal;
                         }
-                        auditionChord(chordToPlay.symbol, chordToPlay.key, null, chordToPlay.divisions);
-                    }, 100);
-                }
-            });
-        }
-    });
+                    });
 
-    ['cutoff', 'resonance', 'decay'].forEach(param => {
-        const slider = document.getElementById(`pluck-${param}-slider`);
-        if (slider) {
-            slider.addEventListener('input', (e) => {
-                const sliderVal = parseFloat(e.target.value);
-                const val = (param === 'decay') ? sliderToEnv(sliderVal, 1.0) : sliderVal;
+                    // Safely audition the changes without flooding the Web Audio engine
+                    if (!isPlaybackActive()) {
+                        if (synthAuditionTimeout) clearTimeout(synthAuditionTimeout);
+                        synthAuditionTimeout = setTimeout(() => {
+                            let chordToPlay = { symbol: 'I', key: state.baseKey, divisions: state.divisions };
+                            if (state.selectedChordIndex !== null && state.currentProgression.length > 0) {
+                                const activeProg = getActiveProgression();
+                                chordToPlay = activeProg[state.selectedChordIndex] || activeProg[0];
+                            }
+                            auditionChord(chordToPlay.symbol, chordToPlay.key, null, chordToPlay.divisions);
+                        }, 100);
+                    }
+                });
+            }
+        });
+
+        ['cutoff', 'resonance', 'decay'].forEach(param => {
+            const slider = document.getElementById(`${prefix}pluck-${param}-slider`);
+            if (slider) {
+                slider.addEventListener('input', (e) => {
+                    const sliderVal = parseFloat(e.target.value);
+                    const val = (param === 'decay') ? sliderToEnv(sliderVal, 1.0) : sliderVal;
+                    if (!state.synthParams) state.synthParams = { fm: {}, 'plucked-square': {} };
+                    if (!state.synthParams['plucked-square']) state.synthParams['plucked-square'] = {};
+                    
+                    state.synthParams['plucked-square'][param] = val;
+                    setSynthParam('plucked-square', param, val);
+                    persistAppState();
+
+                    // Sync other sliders for the same parameter
+                    ['', 'melody-', 'countermelody-'].forEach(otherPrefix => {
+                        const otherSlider = document.getElementById(`${otherPrefix}pluck-${param}-slider`);
+                        if (otherSlider && otherSlider !== slider) {
+                            otherSlider.value = sliderVal;
+                        }
+                    });
+
+                    // Safely audition the changes without flooding the Web Audio engine
+                    if (!isPlaybackActive()) {
+                        if (synthAuditionTimeout) clearTimeout(synthAuditionTimeout);
+                        synthAuditionTimeout = setTimeout(() => {
+                            let chordToPlay = { symbol: 'I', key: state.baseKey, divisions: state.divisions };
+                            if (state.selectedChordIndex !== null && state.currentProgression.length > 0) {
+                                const activeProg = getActiveProgression();
+                                chordToPlay = activeProg[state.selectedChordIndex] || activeProg[0];
+                            }
+                            auditionChord(chordToPlay.symbol, chordToPlay.key, null, chordToPlay.divisions);
+                        }, 100);
+                    }
+                });
+            }
+        });
+
+        const pluckWaveformSelect = document.getElementById(`${prefix}pluck-waveform-select`);
+        if (pluckWaveformSelect) {
+            pluckWaveformSelect.addEventListener('change', (e) => {
+                const val = e.target.value;
                 if (!state.synthParams) state.synthParams = { fm: {}, 'plucked-square': {} };
                 if (!state.synthParams['plucked-square']) state.synthParams['plucked-square'] = {};
                 
-                state.synthParams['plucked-square'][param] = val;
-                setSynthParam('plucked-square', param, val);
+                state.synthParams['plucked-square']['waveform'] = val;
+                setSynthParam('plucked-square', 'waveform', val);
                 persistAppState();
+                
+                // Sync other waveform selects
+                ['', 'melody-', 'countermelody-'].forEach(otherPrefix => {
+                    const otherSelect = document.getElementById(`${otherPrefix}pluck-waveform-select`);
+                    if (otherSelect && otherSelect !== pluckWaveformSelect) {
+                        otherSelect.value = val;
+                    }
+                });
+                
+                updatePluckParamsVisibility(val);
 
-                // Safely audition the changes without flooding the Web Audio engine
+                // Safely audition the changes
                 if (!isPlaybackActive()) {
                     if (synthAuditionTimeout) clearTimeout(synthAuditionTimeout);
                     synthAuditionTimeout = setTimeout(() => {
@@ -1244,34 +1286,6 @@ export function initSettingsUI({ onRenderProgression }) {
             });
         }
     });
-
-    const pluckWaveformSelect = document.getElementById('pluck-waveform-select');
-    if (pluckWaveformSelect) {
-        pluckWaveformSelect.addEventListener('change', (e) => {
-            const val = e.target.value;
-            if (!state.synthParams) state.synthParams = { fm: {}, 'plucked-square': {} };
-            if (!state.synthParams['plucked-square']) state.synthParams['plucked-square'] = {};
-            
-            state.synthParams['plucked-square']['waveform'] = val;
-            setSynthParam('plucked-square', 'waveform', val);
-            persistAppState();
-            
-            updatePluckParamsVisibility(val);
-
-            // Safely audition the changes
-            if (!isPlaybackActive()) {
-                if (synthAuditionTimeout) clearTimeout(synthAuditionTimeout);
-                synthAuditionTimeout = setTimeout(() => {
-                    let chordToPlay = { symbol: 'I', key: state.baseKey, divisions: state.divisions };
-                    if (state.selectedChordIndex !== null && state.currentProgression.length > 0) {
-                        const activeProg = getActiveProgression();
-                        chordToPlay = activeProg[state.selectedChordIndex] || activeProg[0];
-                    }
-                    auditionChord(chordToPlay.symbol, chordToPlay.key, null, chordToPlay.divisions);
-                }, 100);
-            }
-        });
-    }
     const btnClearDrums = document.getElementById('btn-clear-custom-drums');
     if (btnClearDrums) {
         btnClearDrums.addEventListener('click', async () => {
@@ -1495,6 +1509,7 @@ export function initSettingsUI({ onRenderProgression }) {
                 g.classList.remove('expanded');
                 const p = g.querySelector('.mixer-nested-panel');
                 if (p) p.style.display = 'none';
+                g.querySelectorAll('.synth-editor-trigger').forEach(t => t.classList.remove('expanded'));
             });
             document.querySelectorAll('.drum-part-group').forEach(g => {
                 g.classList.remove('expanded');
@@ -1556,6 +1571,7 @@ export function initSettingsUI({ onRenderProgression }) {
                           e.target.closest('select') ||
                           e.target.closest('.mixer-track-trigger') ||
                           e.target.closest('.drum-part-trigger') ||
+                          e.target.closest('.synth-editor-trigger') ||
                           e.target.closest('.octave-btn') ||
                           e.target.closest('.chord-btn');
 
@@ -1601,6 +1617,7 @@ export function initSettingsUI({ onRenderProgression }) {
                 expandedGroup.classList.remove('expanded');
                 const panel = expandedGroup.querySelector('.mixer-nested-panel');
                 if (panel) panel.style.display = 'none';
+                expandedGroup.querySelectorAll('.synth-editor-trigger').forEach(t => t.classList.remove('expanded'));
             }
 
             const expandedDrumGroup = document.querySelector('.drum-part-group.expanded');
@@ -1640,31 +1657,30 @@ export function initSettingsUI({ onRenderProgression }) {
         }
     });
 
-    // Toggle custom sample panels gear clicks (mutually exclusive)
-    const btnEditMelody = document.getElementById('btn-edit-melody-synth');
-    const panelMelody = document.getElementById('synth-editor-melody');
-    const btnEditCountermelody = document.getElementById('btn-edit-countermelody-synth');
-    const panelCountermelody = document.getElementById('synth-editor-countermelody');
+    // Toggle synth parameter editors via trigger click
+    const synthTriggers = document.querySelectorAll('.synth-editor-trigger');
+    synthTriggers.forEach(trigger => {
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const track = trigger.getAttribute('data-track');
+            const panel = document.getElementById(`synth-editor-${track}`);
+            if (!panel) return;
 
-    if (btnEditMelody && panelMelody) {
-        btnEditMelody.addEventListener('click', () => {
-            const opening = panelMelody.style.display === 'none';
-            panelMelody.style.display = opening ? 'flex' : 'none';
-            if (opening && panelCountermelody) {
-                panelCountermelody.style.display = 'none';
+            const isExpanded = trigger.classList.contains('expanded');
+
+            if (isExpanded) {
+                trigger.classList.remove('expanded');
+                panel.style.display = 'none';
+            } else {
+                trigger.classList.add('expanded');
+                panel.style.display = (track === 'melody' || track === 'countermelody' || track === 'bass') ? 'flex' : 'block';
+                const instSelect = document.getElementById(track === 'chords' ? 'inst-chords' : (track === 'bass' ? 'inst-bass-secondary' : `inst-${track}`));
+                if (instSelect) {
+                    updateSynthEditorVisibility(track, instSelect.value);
+                }
             }
         });
-    }
-
-    if (btnEditCountermelody && panelCountermelody) {
-        btnEditCountermelody.addEventListener('click', () => {
-            const opening = panelCountermelody.style.display === 'none';
-            panelCountermelody.style.display = opening ? 'flex' : 'none';
-            if (opening && panelMelody) {
-                panelMelody.style.display = 'none';
-            }
-        });
-    }
+    });
 
     // Melody sample upload/clear
     const fileMelodySample = document.getElementById('file-melody-sample');

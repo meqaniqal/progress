@@ -39,19 +39,20 @@ export function setSynthParam(synthType, paramName, value) {
 }
 
 export function setTrackVolume(track, vol) {
-    trackVolumes[track] = vol;
+    const cleanVol = typeof vol === 'number' && !isNaN(vol) ? vol : (track === 'master' ? 1.0 : (track === 'bassHarmonic' || track === 'countermelody' ? 0.0 : 0.8));
+    trackVolumes[track] = cleanVol;
     if (audioCtx) {
         const time = audioCtx.currentTime;
-        if (track === 'master' && masterGain) masterGain.gain.setTargetAtTime(vol, time, 0.05);
-        if (track === 'chords' && chordsGain) chordsGain.gain.setTargetAtTime(vol, time, 0.05);
-        if (track === 'bass' && bassGain) bassGain.gain.setTargetAtTime(vol, time, 0.05);
+        if (track === 'master' && masterGain) masterGain.gain.setTargetAtTime(cleanVol, time, 0.05);
+        if (track === 'chords' && chordsGain) chordsGain.gain.setTargetAtTime(cleanVol, time, 0.05);
+        if (track === 'bass' && bassGain) bassGain.gain.setTargetAtTime(cleanVol, time, 0.05);
         if (track === 'bassHarmonic' && bassHarmonicGain) {
-            const mappedVol = Math.pow(vol, 2.5);
+            const mappedVol = Math.pow(cleanVol, 2.5);
             bassHarmonicGain.gain.setTargetAtTime(mappedVol, time, 0.05);
         }
-        if (track === 'drums' && drumsGain) drumsGain.gain.setTargetAtTime(vol, time, 0.05);
-        if (track === 'melody' && melodyGain) melodyGain.gain.setTargetAtTime(vol, time, 0.05);
-        if (track === 'countermelody' && countermelodyGain) countermelodyGain.gain.setTargetAtTime(vol, time, 0.05);
+        if (track === 'drums' && drumsGain) drumsGain.gain.setTargetAtTime(cleanVol, time, 0.05);
+        if (track === 'melody' && melodyGain) melodyGain.gain.setTargetAtTime(cleanVol, time, 0.05);
+        if (track === 'countermelody' && countermelodyGain) countermelodyGain.gain.setTargetAtTime(cleanVol, time, 0.05);
     }
 }
 
@@ -136,12 +137,15 @@ export function initAudio() {
             bassHarmonicDriveGain = audioCtx.createGain();
             bassHarmonicDriveGain.gain.value = state.bassHarmonicDrive !== undefined ? state.bassHarmonicDrive : 1.0;
             
-            chordsGain.gain.value = trackVolumes.chords;
-            bassGain.gain.value = trackVolumes.bass;
-            bassHarmonicGain.gain.value = trackVolumes.bassHarmonic;
-            drumsGain.gain.value = trackVolumes.drums;
-            melodyGain.gain.value = trackVolumes.melody;
-            countermelodyGain.gain.value = trackVolumes.countermelody;
+            chordsGain.gain.value = typeof trackVolumes.chords === 'number' && !isNaN(trackVolumes.chords) ? trackVolumes.chords : 0.8;
+            bassGain.gain.value = typeof trackVolumes.bass === 'number' && !isNaN(trackVolumes.bass) ? trackVolumes.bass : 0.8;
+            
+            const rawBassHarmonic = typeof trackVolumes.bassHarmonic === 'number' && !isNaN(trackVolumes.bassHarmonic) ? trackVolumes.bassHarmonic : 0.0;
+            bassHarmonicGain.gain.value = Math.pow(rawBassHarmonic, 2.5);
+            
+            drumsGain.gain.value = typeof trackVolumes.drums === 'number' && !isNaN(trackVolumes.drums) ? trackVolumes.drums : 0.8;
+            melodyGain.gain.value = typeof trackVolumes.melody === 'number' && !isNaN(trackVolumes.melody) ? trackVolumes.melody : 0.8;
+            countermelodyGain.gain.value = typeof trackVolumes.countermelody === 'number' && !isNaN(trackVolumes.countermelody) ? trackVolumes.countermelody : 0.0;
             
             chordsGain.connect(masterCompressor);
             

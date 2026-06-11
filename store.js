@@ -90,6 +90,10 @@ export const state = {
     countermelodyAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 },
     bassKsDamping: 400,
     bassKsDecay: 0.95,
+    synthParams: {
+        fm: { ratio: 2, modIndex: 3, attack: 0.1, release: 0.5 },
+        'plucked-square': { waveform: 'square', cutoff: 4, resonance: 1.5, decay: 0.4 }
+    },
     drumParams: structuredClone(DEFAULT_DRUM_PARAMS),
     selectedChordIndex: null,
     globalPatterns: initPatternSet(),
@@ -685,6 +689,10 @@ export function resetSession() {
     state.grooveTemplate = null;
     state.volumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8, melody: 0.8, countermelody: 0.0 };
     state.instruments = { chords: 'sawtooth', bass: 'sine', bassSecondary: 'sawtooth', melody: 'sine', countermelody: 'sine' };
+    state.synthParams = {
+        fm: { ratio: 2, modIndex: 3, attack: 0.1, release: 0.5 },
+        'plucked-square': { waveform: 'square', cutoff: 4, resonance: 1.5, decay: 0.4 }
+    };
     state.melodySettings = {
         enabled: false,
         genre: 'none',
