@@ -59,7 +59,7 @@
 /* --- Pattern Editor Tabs & Toggles --- */
 .pattern-tabs { display: flex; margin-bottom: 0; padding: 0 10px; gap: 4px; position: relative; z-index: 2; }
 
-.pattern-tab { padding: 8px 16px; border: 2px solid transparent; color: var(--text-main); cursor: pointer; font-weight: 600; transition: all 0.2s ease; border-radius: 6px 6px 0 0; opacity: 0.7; margin-bottom: -2px; position: relative; z-index: 1; }
+.pattern-tab { padding: 8px 10px; border: 2px solid transparent; color: var(--text-main); cursor: pointer; font-weight: 600; transition: all 0.2s ease; border-radius: 6px 6px 0 0; opacity: 0.7; margin-bottom: -2px; position: relative; z-index: 1; }
 .pattern-tab[data-tab="chordPattern"] { background-color: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); border-bottom-color: transparent; }
 .pattern-tab[data-tab="bassPattern"] { background-color: rgba(139, 92, 246, 0.15); border-color: rgba(139, 92, 246, 0.3); border-bottom-color: transparent; }
 .pattern-tab[data-tab="drumPattern"] { background-color: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.3); border-bottom-color: transparent; }

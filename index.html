@@ -386,21 +386,24 @@
                 <span id="rhythm-editor-title">Pattern Editor</span>
             </h3>
             <div id="pattern-mode-controls">
-                <button class="tool-btn" id="btn-solo-toggle" style="padding: 4px 10px; font-size: 11px; margin-right: 4px;" title="Solo: Loop the currently edited chord only">🎧 Solo</button>
+                <button class="tool-btn" id="btn-solo-toggle" style="padding: 4px 10px; font-size: 11px; margin-right: 4px; position: relative;" title="Solo: Loop the currently edited chord only">
+                    🎧 Solo
+                    <span class="solo-arrow" style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 8px; color: #fbbf24; text-shadow: 0 0 2px rgba(0,0,0,0.8);">▲</span>
+                </button>
                 <div class="global-local-toggle" id="legacy-mode-toggle">
                     <button class="toggle-btn" data-mode="global">Global Pattern</button>
                     <button class="toggle-btn active" data-mode="local">Local Override</button>
                 </div>
                 <div id="experimental-push-pull" class="experimental-push-pull">
                 <div id="push-pull-btn-container" class="push-pull-btn-container" style="align-items: center; justify-content: center;">
-                    <div id="global-mode-container" class="global-mode-container">
-                        <button id="btn-apply-inherit-all" class="control-btn secondary btn-sm" style="padding: 2px 6px; font-size: 11px;" title="Apply this fit mode to all chords using the Global Pattern">Apply Fit</button>
-                        <select id="global-mode-select" class="rhythm-select select-sm" style="min-width: auto; padding: 2px 4px;">
+                    <div id="global-mode-container" style="display: inline-flex; align-items: center; border: 1px solid var(--border-main); border-radius: 4px; overflow: hidden; background: rgba(0,0,0,0.15); padding: 0;">
+                        <button id="btn-apply-inherit-all" class="control-btn secondary btn-sm" style="padding: 2px 6px; font-size: 11px; border: none; border-radius: 0; background: transparent;" title="Apply this fit mode to all chords using the Global Pattern">Apply Fit</button>
+                        <select id="global-mode-select" class="rhythm-select select-sm" style="min-width: auto; padding: 2px 4px; border: none; border-left: 1px solid var(--border-main); border-right: 1px solid var(--border-main); border-radius: 0; background: transparent; color: var(--text-main); height: 22px; outline: none; cursor: pointer;">
                             <option value="loop">Repeat to Fill</option>
                             <option value="stretch">Stretch to Fit</option>
                             <option value="truncate">Play Once</option>
                         </select>
-                        <button id="btn-global-fit-info" class="icon-btn" style="cursor: pointer; opacity: 0.8; font-size: 14px; padding: 0;" title="Info">ℹ️</button>
+                        <button id="btn-global-fit-info" class="icon-btn" style="cursor: pointer; opacity: 0.8; font-size: 11px; padding: 2px 6px; border: none; background: transparent;" title="Info">ℹ️</button>
                     </div>
                     <button class="control-btn secondary btn-sm" id="btn-pull-global" title="Revert to inheriting the Global Pattern">↺ From Global</button>
                     <button class="control-btn secondary btn-sm" id="btn-push-global" title="Push this pattern to update the Global Master">⇡ Set Global</button>
@@ -512,65 +515,44 @@
         </div>
         
         <!-- Groove & Presets Panel -->
-        <div id="groove-editor-body" style="display: none; padding: 15px; background: rgba(0, 0, 0, 0.2); border-radius: 6px; border: 1px solid var(--border-main); margin-top: 10px;">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
-                <!-- Left Column: Groove Settings -->
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                    <h4 style="margin: 0 0 5px 0; color: var(--text-main); font-size: 15px; border-bottom: 1px solid var(--border-main); padding-bottom: 6px;">Timing & Groove Engine</h4>
+        <div id="groove-editor-body" style="display: none; padding: 10px; background: rgba(0, 0, 0, 0.2); border-radius: 6px; border: 1px solid var(--border-main); margin-top: 10px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
+                <!-- Groove Controls -->
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1.5; min-width: 320px;">
+                    <select id="groove-preset-select" class="rhythm-select" style="width: auto; min-width: 140px;">
+                        <option value="none">-- No Groove --</option>
+                        <option value="swing">16th Note Swing</option>
+                        <option value="shuffle">8th Note Shuffle</option>
+                        <option value="latin">Latin Clave Timing</option>
+                        <option value="african">African Polyrhythmic Push/Pull</option>
+                        <option value="custom" disabled id="opt-custom-groove">Custom MIDI Groove (Not Loaded)</option>
+                    </select>
                     
-                    <div style="display: flex; flex-direction: column; gap: 6px;">
-                        <label class="settings-label" style="font-weight: bold; font-size: 13px;" for="groove-preset-select">Groove Template</label>
-                        <select id="groove-preset-select" class="rhythm-select" style="width: 100%;">
-                            <option value="none">None (Straight Grid)</option>
-                            <option value="swing">16th Note Swing</option>
-                            <option value="shuffle">8th Note Shuffle</option>
-                            <option value="latin">Latin Clave Timing</option>
-                            <option value="african">African Polyrhythmic Push/Pull</option>
-                            <option value="custom" disabled id="opt-custom-groove">Custom MIDI Groove (Not Loaded)</option>
-                        </select>
+                    <div id="groove-slider-container" style="display: none; align-items: center; gap: 6px; flex: 1;">
+                        <input type="range" id="groove-swing-slider" min="0" max="100" value="0" style="flex: 1; cursor: pointer;">
+                        <span id="groove-swing-display" style="font-size: 11px; font-weight: bold; color: var(--ctrl-primary-bg); min-width: 28px; text-align: right;">0%</span>
                     </div>
 
-                    <div style="display: flex; flex-direction: column; gap: 6px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <label class="settings-label" style="font-weight: bold; font-size: 13px;" for="groove-swing-slider">Groove Amount / Swing</label>
-                            <span id="groove-swing-display" style="font-size: 12px; font-weight: bold; color: var(--ctrl-primary-bg);">0%</span>
-                        </div>
-                        <input type="range" id="groove-swing-slider" min="0" max="100" value="0" style="width: 100%; cursor: pointer;">
-                    </div>
-
-                    <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 5px;">
-                        <label class="settings-label" style="font-weight: bold; font-size: 13px;">Import Custom MIDI Groove</label>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <button class="control-btn secondary btn-md" id="btn-import-midi-groove" style="flex: 1;">📂 Load MIDI Groove</button>
-                            <input type="file" id="file-midi-groove" accept=".mid,.midi" style="display: none;">
-                        </div>
-                        <span id="midi-groove-status" style="font-size: 11px; color: var(--text-muted); font-style: italic; margin-top: 2px;">Extract micro-timing deviations from any note-on loop.</span>
-                    </div>
+                    <button class="control-btn secondary btn-sm" id="btn-import-midi-groove" style="padding: 4px 8px; font-size: 11px;" title="Import Custom MIDI Groove">📂 From MIDI</button>
+                    <input type="file" id="file-midi-groove" accept=".mid,.midi" style="display: none;">
+                    <span id="midi-groove-status" style="display: none;"></span>
                 </div>
 
-                <!-- Right Column: Genre Presets -->
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                    <h4 style="margin: 0 0 5px 0; color: var(--text-main); font-size: 15px; border-bottom: 1px solid var(--border-main); padding-bottom: 6px;">Genre Rhythm Presets</h4>
-                    
-                    <div style="display: flex; flex-direction: column; gap: 6px;">
-                        <label class="settings-label" style="font-weight: bold; font-size: 13px;" for="genre-preset-select">Select Genre Preset</label>
-                        <select id="genre-preset-select" class="rhythm-select" style="width: 100%;">
-                            <option value="none">-- Select Preset --</option>
-                            <option value="lofi">Lofi Hip Hop</option>
-                            <option value="neosoul">Neo-Soul</option>
-                            <option value="synthwave">Synthwave / Outrun</option>
-                            <option value="idm">Intelligent Dance Music (IDM)</option>
-                            <option value="afrobeat">Afrobeat</option>
-                            <option value="eastern">Eastern Rhythms (9/8 Karsilama)</option>
-                        </select>
-                    </div>
+                <!-- Genre Presets -->
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 240px; justify-content: flex-end;">
+                    <select id="genre-preset-select" class="rhythm-select" style="width: auto; min-width: 150px; flex: 1;">
+                        <option value="none">-- Select Genre Preset --</option>
+                        <option value="original" id="opt-original-rhythm" style="display: none;">[Original Rhythm Backup]</option>
+                        <option value="lofi">Lofi Hip Hop</option>
+                        <option value="neosoul">Neo-Soul</option>
+                        <option value="synthwave">Synthwave / Outrun</option>
+                        <option value="idm">Intelligent Dance Music (IDM)</option>
+                        <option value="afrobeat">Afrobeat</option>
+                        <option value="eastern">Eastern Rhythms (9/8 Karsilama)</option>
+                    </select>
+                    <div id="genre-preset-description-card" style="display: none;"></div>
 
-                    <div id="genre-preset-description-card" style="padding: 10px; background: rgba(255,255,255,0.03); border: 1px dashed var(--border-main); border-radius: 4px; font-size: 12px; color: var(--text-muted); min-height: 48px; display: flex; align-items: center; justify-content: center; text-align: center;">
-                        Select a genre preset to view details.
-                    </div>
-
-                    <button class="control-btn primary btn-md" id="btn-apply-genre-preset" disabled style="width: 100%; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">⚡ Apply Preset to Section</button>
-                    <span style="font-size: 10px; color: var(--text-muted); text-align: center; display: block; opacity: 0.8;">⚠️ Overwrites Chord, Bass, and Drum patterns for this section.</span>
+                    <button class="control-btn primary btn-sm" id="btn-apply-genre-preset" disabled style="font-weight: bold; padding: 4px 10px; font-size: 11px;">⚡ Apply Preset</button>
                 </div>
             </div>
         </div>

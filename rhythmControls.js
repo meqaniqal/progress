@@ -831,6 +831,9 @@ function _setupGrooveControls() {
             if (val === 'none') {
                 genreDescription.textContent = 'Select a genre preset to view details.';
                 applyGenreBtn.disabled = true;
+            } else if (val === 'original') {
+                genreDescription.textContent = 'Restore the original user-edited rhythm patterns and timings backup.';
+                applyGenreBtn.disabled = false;
             } else {
                 const preset = GENRE_PRESETS[val];
                 if (preset) {
@@ -844,14 +847,66 @@ function _setupGrooveControls() {
             const genreKey = genreSelect.value;
             if (genreKey === 'none') return;
 
-            const preset = GENRE_PRESETS[genreKey];
-            if (!preset) return;
-
             const section = app.state.sections[app.state.activeSectionId];
             if (!section) return;
 
+            if (genreKey === 'original') {
+                if (!section.backupPatterns) return;
+
+                if (app.saveHistoryState) app.saveHistoryState();
+
+                // Restore global patterns
+                if (section.backupPatterns.globalPatterns) {
+                    section.globalPatterns.chordPattern = structuredClone(section.backupPatterns.globalPatterns.chordPattern);
+                    section.globalPatterns.bassPattern = structuredClone(section.backupPatterns.globalPatterns.bassPattern);
+                    section.globalPatterns.drumPattern = structuredClone(section.backupPatterns.globalPatterns.drumPattern);
+                }
+
+                // Restore progression overrides
+                if (section.backupPatterns.progressionPatterns && section.progression) {
+                    section.progression.forEach((chord, idx) => {
+                        const backup = section.backupPatterns.progressionPatterns[idx];
+                        if (backup) {
+                            if (backup.chordPattern) chord.chordPattern = structuredClone(backup.chordPattern);
+                            if (backup.bassPattern) chord.bassPattern = structuredClone(backup.bassPattern);
+                            if (backup.drumPattern) chord.drumPattern = structuredClone(backup.drumPattern);
+                        }
+                    });
+                }
+
+                // Clean backup after restore
+                delete section.backupPatterns;
+
+                // Reset preset select selection back to none
+                genreSelect.value = 'none';
+                genreDescription.textContent = 'Select a genre preset to view details.';
+                applyGenreBtn.disabled = true;
+
+                app.persistAppState();
+                syncGrooveUIFromState();
+
+                if (app.renderProgression) app.renderProgression();
+                renderRhythmTimeline();
+                return;
+            }
+
+            const preset = GENRE_PRESETS[genreKey];
+            if (!preset) return;
+
             // Save history state before doing changes
             if (app.saveHistoryState) app.saveHistoryState();
+
+            // Save backup of the current patterns and overrides on the section ONLY if a backup does not already exist
+            if (!section.backupPatterns) {
+                section.backupPatterns = {
+                    globalPatterns: structuredClone(section.globalPatterns),
+                    progressionPatterns: section.progression.map(chord => ({
+                        chordPattern: chord.chordPattern ? structuredClone(chord.chordPattern) : null,
+                        bassPattern: chord.bassPattern ? structuredClone(chord.bassPattern) : null,
+                        drumPattern: chord.drumPattern ? structuredClone(chord.drumPattern) : null
+                    }))
+                };
+            }
 
             // Apply genre preset patterns
             applyGenrePreset(section, genreKey);

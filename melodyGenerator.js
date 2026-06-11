@@ -903,6 +903,29 @@ export function scheduleMelody(
         }
     }
 
+    // --- Identify Isolated Notes and snap to Chord/Scale Tones ---
+    const gapThreshold = beatDuration * 0.95; // ~1 beat gap
+
+    melodyScheduled.forEach((n, idx) => {
+        const prevNote = idx > 0 ? melodyScheduled[idx - 1] : null;
+        const nextNote = idx < melodyScheduled.length - 1 ? melodyScheduled[idx + 1] : null;
+
+        const spaceBefore = prevNote ? (n.stepTime - prevNote.stepTime) : (n.stepTime - time);
+        const spaceAfter = nextNote ? (nextNote.stepTime - n.stepTime) : (time + chordSlotDuration - n.stepTime);
+
+        if (spaceBefore >= gapThreshold && spaceAfter >= gapThreshold) {
+            n.isIsolated = true;
+            if (activeChordTones.length > 0) {
+                n.pitch = findClosest(n.pitch, activeChordTones);
+            } else {
+                const baseScalePitches = validPitches.filter(p => isBaseScaleTone(p));
+                if (baseScalePitches.length > 0) {
+                    n.pitch = findClosest(n.pitch, baseScalePitches);
+                }
+            }
+        }
+    });
+
     // --- Apply Resolution Rules on the actual notes scheduled ---
     
     // Rule A: consequent phrase ending note resolves to root/3rd
@@ -921,7 +944,9 @@ export function scheduleMelody(
     // Play/Schedule all collected melody notes
     melodyScheduled.forEach(n => {
         playToneFn(midiToFreq(n.pitch), n.stepTime, n.noteDuration, n.melodyInst, 'melody');
-        applyOrnaments(n.pitch, n.stepTime, n.noteDuration, settings.genre, ornamentProb, n.melodyInst, 'melody', playToneFn);
+        if (!n.isIsolated) {
+            applyOrnaments(n.pitch, n.stepTime, n.noteDuration, settings.genre, ornamentProb, n.melodyInst, 'melody', playToneFn);
+        }
         debugNotes.push({ step: n.step, type: 'Melody', pitch: n.pitch });
         melodyHistory.push(n.pitch);
         if (melodyHistory.length > 32) {

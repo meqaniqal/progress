@@ -28,11 +28,14 @@ export function renderRhythmTimeline() {
     const contentBody = document.querySelector('.rhythm-editor-content-body');
     const titleEl = document.getElementById('rhythm-editor-title');
 
+    const modeControls = document.getElementById('pattern-mode-controls');
+
     if (isGrooveTab) {
         if (groovePanel) groovePanel.style.display = 'block';
         if (rhythmToolbar) rhythmToolbar.style.display = 'none';
         if (contentBody) contentBody.style.display = 'none';
         if (titleEl) titleEl.textContent = 'Timing & Groove Settings';
+        if (modeControls) modeControls.style.display = 'none';
         
         document.querySelectorAll('.pattern-tab').forEach(tab => {
             tab.classList.toggle('active', tab.dataset.tab === editorState.activeTab);
@@ -47,6 +50,7 @@ export function renderRhythmTimeline() {
         if (groovePanel) groovePanel.style.display = 'none';
         if (rhythmToolbar) rhythmToolbar.style.display = '';
         if (contentBody) contentBody.style.display = '';
+        if (modeControls) modeControls.style.display = '';
     }
 
     const isChordOrBass = editorState.activeTab === 'chordPattern' || editorState.activeTab === 'bassPattern';
@@ -264,6 +268,12 @@ export function renderRhythmTimeline() {
     const zoomSlider = document.getElementById('zoom-slider');
     if (zoomGroup) zoomGroup.style.display = isGlobalDrums ? 'flex' : 'none';
     if (zoomSlider && isGlobalDrums) {
+        const beats = pattern ? (pattern.lengthBeats || 4) : 4;
+        const minZoom = 4 / beats;
+        zoomSlider.min = minZoom;
+        if ((editorState.zoomLevel || 1.0) < minZoom) {
+            editorState.zoomLevel = minZoom;
+        }
         zoomSlider.value = editorState.zoomLevel || 1.0;
     }
 
@@ -852,6 +862,12 @@ export function syncGrooveUIFromState() {
     const presetSelect = document.getElementById('groove-preset-select');
     const customOption = document.getElementById('opt-custom-groove');
     
+    const sliderContainer = document.getElementById('groove-slider-container');
+    if (sliderContainer) {
+        const hasGroove = app.state.groovePreset && app.state.groovePreset !== 'none';
+        sliderContainer.style.display = hasGroove ? 'flex' : 'none';
+    }
+
     if (swingSlider) {
         swingSlider.value = Math.round((app.state.swing || 0) * 100);
     }
@@ -873,5 +889,10 @@ export function syncGrooveUIFromState() {
                 app.state.groovePreset = 'none';
             }
         }
+    }
+    const section = app.state?.sections?.[app.state.activeSectionId];
+    const originalOption = document.getElementById('opt-original-rhythm');
+    if (originalOption) {
+        originalOption.style.display = (section && section.backupPatterns) ? 'block' : 'none';
     }
 }

@@ -276,6 +276,50 @@ export const GENRE_PRESETS = {
     }
 };
 
+// Helpers to adjust local override patterns to match preset grid timing
+function adjustPatternToPreset(userPattern, presetPattern) {
+    if (!userPattern || !userPattern.instances || !presetPattern || !presetPattern.instances || presetPattern.instances.length === 0) return;
+    
+    userPattern.instances.forEach(inst => {
+        let closestPresetInst = null;
+        let minDiff = Infinity;
+        presetPattern.instances.forEach(pInst => {
+            const diff = Math.abs(inst.startTime - pInst.startTime);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestPresetInst = pInst;
+            }
+        });
+        
+        if (closestPresetInst) {
+            inst.startTime = closestPresetInst.startTime;
+            inst.duration = closestPresetInst.duration;
+        }
+    });
+}
+
+function adjustDrumPatternToPreset(userPattern, presetPattern) {
+    if (!userPattern || !userPattern.hits || !presetPattern || !presetPattern.hits || presetPattern.hits.length === 0) return;
+    
+    userPattern.hits.forEach(hit => {
+        let closestPresetHit = null;
+        let minDiff = Infinity;
+        presetPattern.hits.forEach(pHit => {
+            if (pHit.row === hit.row) {
+                const diff = Math.abs(hit.time - pHit.time);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestPresetHit = pHit;
+                }
+            }
+        });
+        
+        if (closestPresetHit) {
+            hit.time = closestPresetHit.time;
+        }
+    });
+}
+
 /**
  * Overwrites the given section patterns with the chosen genre preset patterns.
  * @param {object} section - The active section object containing globalPatterns and progression.
@@ -298,18 +342,33 @@ export function applyGenrePreset(section, genreKey) {
     newDrumPat.isLocalOverride = false;
     newDrumPat.hits.forEach(hit => hit.id = generateId());
 
-    section.globalPatterns = {
-        chordPattern: newChordPat,
-        bassPattern: newBassPat,
-        drumPattern: newDrumPat
-    };
+    if (!section.globalPatterns) {
+        section.globalPatterns = {};
+    }
+    section.globalPatterns.chordPattern = newChordPat;
+    section.globalPatterns.bassPattern = newBassPat;
+    section.globalPatterns.drumPattern = newDrumPat;
 
-    // Clean local overrides on the progression to inherit the new preset cleanly
+    // Adjust local overrides on the progression instead of overriding them completely
     if (section.progression) {
         section.progression.forEach(chord => {
-            if (chord.chordPattern) chord.chordPattern.isLocalOverride = false;
-            if (chord.bassPattern) chord.bassPattern.isLocalOverride = false;
-            if (chord.drumPattern) chord.drumPattern.isLocalOverride = false;
+            if (chord.chordPattern && chord.chordPattern.isLocalOverride) {
+                adjustPatternToPreset(chord.chordPattern, newChordPat);
+            } else if (chord.chordPattern) {
+                chord.chordPattern.isLocalOverride = false;
+            }
+            
+            if (chord.bassPattern && chord.bassPattern.isLocalOverride) {
+                adjustPatternToPreset(chord.bassPattern, newBassPat);
+            } else if (chord.bassPattern) {
+                chord.bassPattern.isLocalOverride = false;
+            }
+            
+            if (chord.drumPattern && chord.drumPattern.isLocalOverride) {
+                adjustDrumPatternToPreset(chord.drumPattern, newDrumPat);
+            } else if (chord.drumPattern) {
+                chord.drumPattern.isLocalOverride = false;
+            }
         });
     }
 

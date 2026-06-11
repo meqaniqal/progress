@@ -226,8 +226,8 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         const activeDrumPat = chordObj.drumPattern;
         if (activeDrumPat && activeDrumPat.isLocalOverride) {
             drumHits = activeDrumPat.hits || [];
-        } else if (state.globalPatterns && state.globalPatterns.drumPattern) {
-            drumHits = state.globalPatterns.drumPattern.hits || [];
+        } else if (secState.globalPatterns && secState.globalPatterns.drumPattern) {
+            drumHits = secState.globalPatterns.drumPattern.hits || [];
         }
 
         const voiceEvents = evaluateVoiceEvents(
