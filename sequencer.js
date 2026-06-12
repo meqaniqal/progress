@@ -10,6 +10,13 @@ import { scheduleMelody } from './melodyGenerator.js';
 import { getGrooveOffset } from './grooveEngine.js';
 
 let uiTimeouts = [];
+let sequenceHighlightTimeouts = [];
+
+function clearSequenceHighlights() {
+    sequenceHighlightTimeouts.forEach(clearTimeout);
+    sequenceHighlightTimeouts = [];
+    import('./ui.js').then(m => m.highlightChordInUI(-1));
+}
 
 export function auditionChord(chordSymbol, baseKey, specificNotes = null, divisions = null) {
     if (!chordSymbol) return;
@@ -519,6 +526,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
 export function stopAllAudio(onHighlightCallback) {
     uiTimeouts.forEach(clearTimeout);
     uiTimeouts = [];
+    clearSequenceHighlights();
     if (onHighlightCallback) onHighlightCallback(-1);
 
     stopOscillators();
@@ -598,11 +606,21 @@ export function auditionThreeChordSequence(index, substituteSymbol, targetKey, s
     });
 
     const now = getAudioCurrentTime() + 0.05; // 50ms scheduling buffer
-
     let currentTime = now;
+    const audioTime = getAudioCurrentTime();
+
+    // Helper to queue highlights matching the audition timing
+    const scheduleHighlight = (chordIdx, startTime) => {
+        const delayMs = Math.max(0, (startTime - audioTime) * 1000);
+        const t = setTimeout(() => {
+            import('./ui.js').then(m => m.highlightChordInUI(chordIdx));
+        }, delayMs);
+        sequenceHighlightTimeouts.push(t);
+    };
 
     // 1. Preceding Chord
     if (index > 0) {
+        scheduleHighlight(index - 1, currentTime);
         const precChord = tempProg[index - 1];
         const precNotes = getAuditionNotesForSeq(tempProg, index - 1, state);
         scheduleChordAudition(precChord.symbol, precChord.key, precNotes, precChord.divisions, currentTime, chordDuration);
@@ -610,14 +628,23 @@ export function auditionThreeChordSequence(index, substituteSymbol, targetKey, s
     }
 
     // 2. Substitute Chord
+    scheduleHighlight(index, currentTime);
     const subNotes = getAuditionNotesForSeq(tempProg, index, state);
     scheduleChordAudition(substituteSymbol, targetKey !== undefined ? targetKey : activeProg[index].key, subNotes, activeProg[index].divisions, currentTime, chordDuration);
     currentTime += chordDuration;
 
     // 3. Following Chord
     if (index < tempProg.length - 1) {
+        scheduleHighlight(index + 1, currentTime);
         const follChord = tempProg[index + 1];
         const follNotes = getAuditionNotesForSeq(tempProg, index + 1, state);
         scheduleChordAudition(follChord.symbol, follChord.key, follNotes, follChord.divisions, currentTime, chordDuration);
+        currentTime += chordDuration;
     }
+
+    // Clear highlight at the end of the sequence
+    const endTimeout = setTimeout(() => {
+        import('./ui.js').then(m => m.highlightChordInUI(-1));
+    }, Math.max(0, (currentTime - audioTime) * 1000));
+    sequenceHighlightTimeouts.push(endTimeout);
 }

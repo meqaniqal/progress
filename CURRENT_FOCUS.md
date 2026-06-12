@@ -6,25 +6,25 @@ This document contains the immediate objectives and active task checklists. To p
 
 ## 🎯 Current Objectives
 
-1. **Melody Motifs & MIDI Selection Adaptation (Phase 13)**:
-   - Implement Motif Editor & MIDI Cropper.
-   - Synchronize custom motifs as preferred seeds in the generative engine.
-   - Support polyphonic voice extraction and conforming playback.
+1. **Melody Structural Paradigm Shift (Next Session Priority)**:
+   - Transition the melody generation engine from local note-level constraints to a **Hierarchical Structural Tone Layer** as outlined in [melodymechanics.md#10-chatgpt-architectural-advice--paradigm-shift-june-2026](file:///Users/sheldonlawrence/Desktop/progress/melodymechanics.md#10-chatgpt-architectural-advice--paradigm-shift-june-2026).
+   - Implement structural melody planning (planning a singular target structural pitch per bar before generating decorations).
+   - Integrate high-level phrase intent roles (`antecedent`, `consequent`, `climax`, `release`) and manage climax peaks to avoid redundant high notes.
+   - Refactor motivic development to prioritize human transformations (rhythmic variation, partial recall, expansion/compression) over geometric alterations.
 
 ---
 
 ## 📝 Active Task Checklist
 
-### 1. Melody Motifs & MIDI Seeding (Completed ✅)
-- [x] **State Expansion**: Define seeding, motif selection, and extraction variables.
-- [x] **MIDI Parser**: Implement binary note-event parser and register voice filters.
-- [x] **Visual Cropper**: Build interactive canvas showing file notes with drag/resize crop window.
-- [x] **Motif Editor**: Paint note pitch/time cells relative to active chord keyRoot.
-- [x] **Adaptation Engine**: Snap, transpose, and voice-lead monophonic and polyphonic motif notes to chord progression in real-time.
-- [x] **Unit Tests**: Confirm register sorting and conformed playback mathematically.
+### 1. Structural Tone Layer & Hierarchical Melody Generation (Planned ⏳)
+- [ ] **Structural Planner**: Implement first-pass planner to select key structural targets per bar based on active chord progression.
+- [ ] **Decorative Fill Engine**: Refactor note-generation loop to treat intermediate pitches strictly as resolutions or connective decorations around targets.
+- [ ] **Phrase Intent Roles**: Map `phraseRole` states to control ending pitches (preventing tonic resolution on antecedents).
+- [ ] **Climax Management**: Add `phraseHighestPitch` / `songHighestPitch` checks to restrict multiple climax repetitions.
+- [ ] **Human Motivic Transforms**: Implement partial recall and rhythmic motif variation.
 
 ---
 
 ## 🔍 Verification & Testing Goals
-- Confirm all 168 tests pass successfully.
-- Test custom motif seeding and pitch-conformance against diatonic major/minor and EDO tuning frameworks.
+- Confirm that tests in [melodyGenerator.test.js](file:///Users/sheldonlawrence/Desktop/progress/melodyGenerator.test.js) pass successfully.
+- Manually audit generated output to ensure structural grounding and check that isolated notes no longer clank outside the home key.

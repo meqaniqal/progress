@@ -5,6 +5,7 @@ import { playTone } from './synth.js';
 // Cache for motif memory across iterations
 // Structure: { keyString: { hook: [], connector: [], cadence: [], hookRhythm: [] } }
 let motifCache = {};
+let originalHook = null;
 
 // Phrase and surprise state tracking
 let stepsSinceLastSurprise = 10;
@@ -15,6 +16,8 @@ let globalPrevPitch = null;
 let globalPrevCounterPitch = null;
 let globalLastInterval = 0;
 let globalMelodyHistory = [];
+let phraseLocalScaleOffset = -1;
+let globalPrevPitchIsColor = false;
 
 // Narrative State Tracker
 let narrativeState = {
@@ -26,6 +29,7 @@ let narrativeState = {
 
 export function clearMelodyMemory() {
     motifCache = {};
+    originalHook = null;
     stepsSinceLastSurprise = 10;
     noteCountThisPhrase = 0;
     forceContraryNext = false;
@@ -34,6 +38,8 @@ export function clearMelodyMemory() {
     globalPrevCounterPitch = null;
     globalLastInterval = 0;
     globalMelodyHistory = [];
+    phraseLocalScaleOffset = -1;
+    globalPrevPitchIsColor = false;
     narrativeState = {
         consecutiveSteps: 0,
         lowRegisterBars: 0,
@@ -117,6 +123,13 @@ export function scheduleMelody(
     if (absIndex % 4 === 0) {
         noteCountThisPhrase = 0;
         narrativeState.phraseSubdivisions = generatePhraseSubdivisions(settings.genre);
+        
+        const localChance = settings.variationDepth >= 0.4 ? (settings.variationDepth * 0.6) : 0.0;
+        if (settings.genre !== 'none' && Math.random() < localChance) {
+            phraseLocalScaleOffset = Math.floor(Math.random() * 4);
+        } else {
+            phraseLocalScaleOffset = -1;
+        }
     }
 
     // --- 5. Multi-Parameter Tension Curve Automation ---
@@ -141,13 +154,14 @@ export function scheduleMelody(
     const counterRangeStart = 57;
     const counterRangeEnd = 69;
 
-    const chordKey = chordObj.key !== undefined ? Number(chordObj.key) : keyRoot;
-    const chordMode = deduceSourceMode(chordObj.symbol, state.mode || 'major') || state.mode || 'major';
-    const scaleIntervals = getScaleIntervals(chordMode, settings.genre);
+    const baseChordKey = chordObj.key !== undefined ? Number(chordObj.key) : keyRoot;
+    let chordKey = baseChordKey;
+    let chordMode = deduceSourceMode(chordObj.symbol, state.mode || 'major') || state.mode || 'major';
+    let scaleIntervals = getScaleIntervals(chordMode, settings.genre);
 
     // Calculate custom offsets for pitch classes based on the difference between custom chordNotes and standard chord notes
     const pcOffsets = {};
-    const standardNotes = getChordNotes(chordObj.symbol, chordKey, divisions) || [];
+    const standardNotes = getChordNotes(chordObj.symbol, baseChordKey, divisions) || [];
     if (standardNotes.length > 0 && chordNotes && chordNotes.length > 0) {
         chordNotes.forEach(customNote => {
             const customPc = (customNote % periodSize + periodSize) % periodSize;
@@ -191,9 +205,53 @@ export function scheduleMelody(
         });
     };
 
-    // Build pools for Melody
-    const scalePitchesRaw = buildScalePitches(chordKey, scaleIntervals, divisions, melodyRangeStart, melodyRangeEnd);
-    const scalePitches = adjustScalePitches(scalePitchesRaw);
+    // Build global pools for Melody
+    const globalScaleIntervals = getScaleIntervals(state.mode || 'major', settings.genre);
+    const globalScalePitchesRaw = buildScalePitches(keyRoot, globalScaleIntervals, divisions, melodyRangeStart, melodyRangeEnd);
+    const globalScalePitches = adjustScalePitches(globalScalePitchesRaw);
+    const globalScalePcSet = new Set(globalScalePitches.map(p => Math.round(((p % periodSize + periodSize) % periodSize) * 100) / 100));
+
+    // Dynamic Scale Center Selection: Local Chord-Scale vs Global Scale (phrase-level, and bypass during recapitulation)
+    let isLocalScale = false;
+    const isRecap = (progressVal > 0.9);
+    const parsedChord = deduceChordRootAndQuality(chordObj.symbol, baseChordKey, divisions);
+    if (parsedChord && phraseLocalScaleOffset !== -1 && (absIndex % 4) === phraseLocalScaleOffset && !isRecap && settings.genre !== 'none') {
+        const candidateMode = getLocalScaleMode(parsedChord.quality, settings.genre);
+        const candidateIntervals = getScaleIntervals(candidateMode, settings.genre);
+        const candidateScalePitchesRaw = buildScalePitches(parsedChord.rootPitch, candidateIntervals, divisions, melodyRangeStart, melodyRangeEnd);
+        const candidateScalePitches = adjustScalePitches(candidateScalePitchesRaw);
+        const candidateScalePcSet = new Set(candidateScalePitches.map(p => Math.round(((p % periodSize + periodSize) % periodSize) * 100) / 100));
+
+        // Overlap compatibility check: count how many pitch classes are shared with globalScalePitches
+        let sharedCount = 0;
+        candidateScalePcSet.forEach(pc => {
+            if (globalScalePcSet.has(pc)) sharedCount++;
+        });
+
+        if (sharedCount >= 5) {
+            isLocalScale = true;
+            chordKey = parsedChord.rootPitch;
+            chordMode = candidateMode;
+            scaleIntervals = candidateIntervals;
+        }
+    }
+
+    let scalePitches;
+    if (isLocalScale) {
+        const localScalePitchesRaw = buildScalePitches(chordKey, scaleIntervals, divisions, melodyRangeStart, melodyRangeEnd);
+        const localScalePitches = adjustScalePitches(localScalePitchesRaw);
+        
+        // Delta Tones approach: isolate specific delta pitch classes introduced by the local mode
+        const deltaPitches = localScalePitches.filter(p => {
+            const pc = Math.round(((p % periodSize + periodSize) % periodSize) * 100) / 100;
+            return !globalScalePcSet.has(pc);
+        });
+
+        scalePitches = Array.from(new Set([...globalScalePitches, ...deltaPitches])).sort((a, b) => a - b);
+    } else {
+        scalePitches = globalScalePitches;
+    }
+
     const activeChordTones = (chordNotes || []).map(n => {
         let note = n;
         while (note < melodyRangeStart) note += periodSize;
@@ -203,8 +261,25 @@ export function scheduleMelody(
     const validPitches = Array.from(new Set([...scalePitches, ...activeChordTones])).sort((a, b) => a - b);
 
     // Build pools for Countermelody
-    const counterScalePitchesRaw = buildScalePitches(chordKey, scaleIntervals, divisions, counterRangeStart, counterRangeEnd);
-    const counterScalePitches = adjustScalePitches(counterScalePitchesRaw);
+    const counterGlobalScalePitchesRaw = buildScalePitches(keyRoot, globalScaleIntervals, divisions, counterRangeStart, counterRangeEnd);
+    const counterGlobalScalePitches = adjustScalePitches(counterGlobalScalePitchesRaw);
+    const counterGlobalScalePcSet = new Set(counterGlobalScalePitches.map(p => Math.round(((p % periodSize + periodSize) % periodSize) * 100) / 100));
+
+    let counterScalePitches;
+    if (isLocalScale) {
+        const counterLocalScalePitchesRaw = buildScalePitches(chordKey, scaleIntervals, divisions, counterRangeStart, counterRangeEnd);
+        const counterLocalScalePitches = adjustScalePitches(counterLocalScalePitchesRaw);
+        
+        // Delta Tones for countermelody
+        const counterDeltaPitches = counterLocalScalePitches.filter(p => {
+            const pc = Math.round(((p % periodSize + periodSize) % periodSize) * 100) / 100;
+            return !counterGlobalScalePcSet.has(pc);
+        });
+
+        counterScalePitches = Array.from(new Set([...counterGlobalScalePitches, ...counterDeltaPitches])).sort((a, b) => a - b);
+    } else {
+        counterScalePitches = counterGlobalScalePitches;
+    }
     const counterActiveChordTones = (chordNotes || []).map(n => {
         let note = n;
         while (note < counterRangeStart) note += periodSize;
@@ -212,6 +287,8 @@ export function scheduleMelody(
         return note;
     }).filter(n => n >= counterRangeStart && n <= counterRangeEnd);
     const counterValidPitches = Array.from(new Set([...counterScalePitches, ...counterActiveChordTones])).sort((a, b) => a - b);
+
+    const chordTonePcSet = new Set((chordNotes || []).map(n => Math.round(((n % periodSize + periodSize) % periodSize) * 100) / 100));
 
     // Retrieve previous/next chord notes
     const prevChordNotes = prevChordObj ? (prevChordObj.customNotes || getChordNotes(prevChordObj.symbol, prevChordObj.key !== undefined ? Number(prevChordObj.key) : state.baseKey, divisions)) : [];
@@ -286,6 +363,10 @@ export function scheduleMelody(
         }
     }
 
+    if (originalHook === null && motifFamily && motifFamily.hook) {
+        originalHook = [...motifFamily.hook];
+    }
+
     const hookRhythm = motifFamily.hookRhythm || [1, 0, 1, 0];
 
     let currentCell = motifFamily.hook;
@@ -293,6 +374,11 @@ export function scheduleMelody(
         currentCell = motifFamily.cadence;
     } else if (progressVal >= 0.25 && progressVal < 0.75) {
         currentCell = motifFamily.connector;
+    }
+
+    // Long-range motivic recall: recapitulate original first hook at the end of the progression loop
+    if (progressVal > 0.9 && originalHook && settings.genre !== 'none') {
+        currentCell = originalHook;
     }
 
     // Transpose active cell to chord anchor
@@ -492,6 +578,7 @@ export function scheduleMelody(
         melodyScheduled.sort((a, b) => a.stepTime - b.stepTime);
         counterScheduled.sort((a, b) => a.stepTime - b.stepTime);
     } else {
+        let prevPitchIsColor = globalPrevPitchIsColor;
         for (let beat = 0; beat < beats; beat++) {
             // Choose subdivision rate per beat based on pre-computed phrase blueprint
             let subdivision = 4;
@@ -513,6 +600,8 @@ export function scheduleMelody(
             for (let sub = 0; sub < subdivision; sub++) {
                 const step = beat * stepsPerBeat + Math.round((sub / subdivision) * stepsPerBeat);
                 if (step >= maxSteps) continue;
+                
+                let surpriseLeapTriggeredThisStep = false;
                 
                 // Swing timing adjustments
                 let stepOffsetInBeat = sub / subdivision;
@@ -623,11 +712,11 @@ export function scheduleMelody(
                         const isStrongBeatTarget = (step + 1) % stepsPerBeat === 0 || (step + 1) % stepsPerBeat === 2;
                         const isUpbeatStep = step % stepsPerBeat === 1 || step % stepsPerBeat === 3;
                         
-                        if (settings.genre === 'jazz' && isUpbeatStep && isStrongBeatTarget && activeChordTones.length > 0 && Math.random() < 0.7) {
+                        if (settings.genre === 'jazz' && isUpbeatStep && isStrongBeatTarget && activeChordTones.length > 0 && Math.random() < 0.3 + chromaticProb) {
                             const target = findClosest(sliceMotif[(step + 1) % sliceMotif.length], activeChordTones);
-                            const upperApproach = target + 1; // 1 EDO step chromatic above
+                            const upperApproach = target + (12.0 / divisions); // EDO step chromatic above
                             const lowerCandidates = validPitches.filter(p => p < target);
-                            const lowerApproach = lowerCandidates.length > 0 ? lowerCandidates[lowerCandidates.length - 1] : target - 1;
+                            const lowerApproach = lowerCandidates.length > 0 ? lowerCandidates[lowerCandidates.length - 1] : target - (12.0 / divisions);
                             
                             // Schedule approach notes immediately
                             const appDuration = noteDuration * 0.45;
@@ -681,11 +770,53 @@ export function scheduleMelody(
                                         const isInnerVoice = [3, 4, 10, 11].includes(normDiff);
                                         if (isInnerVoice) w *= 0.8;
                                     }
+                                    
+                                    // Coherence logic: favor global scale diatonic pitches and active chord tones.
+                                    // Penalize non-diatonic notes that are not active chord tones, scaling with tension.
+                                    const roundedPc = Math.round(pc * 100) / 100;
+                                    const isDiatonic = globalScalePcSet.has(roundedPc);
+                                    const isChordTone = chordTonePcSet.has(roundedPc);
+
+                                    // Stepwise resolution rule for color tones:
+                                    // If prevPitchIsColor is true, prioritize resolving to a diatonic or chord tone.
+                                    if (prevPitchIsColor) {
+                                        const isCandidateDiatonic = isDiatonic;
+                                        const isCandidateChordTone = isChordTone;
+                                        const isStepwise = Math.abs(p - prevPitch) <= 2.1 * (12 / divisions);
+                                        const isLeap = Math.abs(p - prevPitch) > 2.1 * (12 / divisions);
+
+                                        if (!isCandidateDiatonic && !isCandidateChordTone) {
+                                            // penalize color tone candidates
+                                            w *= 0.05;
+                                        }
+                                        if (isStepwise && (isCandidateDiatonic || isCandidateChordTone)) {
+                                            // boost stepwise diatonic/chord-tone resolution candidates
+                                            w *= 3.0;
+                                        }
+                                        if (isLeap) {
+                                            // penalize leaps
+                                            w *= 0.5;
+                                        }
+                                    }
+
+                                    if (!isDiatonic && !isChordTone) {
+                                        const tension = currentTension;
+                                        const penalty = 0.2 + (tension * 0.5); // ranges from 0.2 (low tension) to 0.7 (high tension)
+                                        w *= penalty;
+                                    } else if (isChordTone) {
+                                        w *= 1.25; // boost active chord tones to anchor the progression
+                                    }
+
                                     // Boost chromatic chord tones to ensure they are voiced properly
-                                    const isChordTone = activeChordTones.includes(p);
-                                    const isChromatic = !isBaseScaleTone(p);
-                                    if (isChordTone && isChromatic) {
-                                        w *= 5.0; // 5x weight boost for chromatic chord tones
+                                    // Bass doubling avoidance: penalize notes that double the active bass note in close range (within 1 octave)
+                                    if (activeBassPc !== null) {
+                                        const isBassPcMatch = Math.abs(pc - activeBassPc) < 0.01;
+                                        const distanceToBass = Math.abs(p - activeBassMidi);
+                                        // Penalize if it's the same pitch class and close to bass (e.g. within 12 semitones / 1 octave)
+                                        // except on the first downbeat of the chord slot (structural cadential downbeat / unison arrival)
+                                        if (isBassPcMatch && distanceToBass <= periodSize && step > 0) {
+                                            w *= 0.3; // 70% weight penalty for bass doubling
+                                        }
                                     }
                                     return w;
                                 });
@@ -724,6 +855,7 @@ export function scheduleMelody(
                                   pitch = findClosest(pitch + (pitch < melodyRangeStart ? periodSize : -periodSize), validPitches);
                             }
                             forceContraryNext = true; // Force next note to resolve contrary
+                            surpriseLeapTriggeredThisStep = true;
                         } else if (surpriseRoll < 0.5) {
                             const scaleDegrees = getScaleIntervals(chordMode, settings.genre);
                             const degree6 = scaleDegrees[5] !== undefined ? scaleDegrees[5] : 9;
@@ -743,7 +875,7 @@ export function scheduleMelody(
                     }
 
                     // Force contrary resolution after leap surprise
-                    if (forceContraryNext && lastInterval !== 0) {
+                    if (forceContraryNext && lastInterval !== 0 && !surpriseLeapTriggeredThisStep) {
                         const contraryDirection = lastInterval > 0 ? -1 : 1;
                         const candidates = validPitches.filter(p => contraryDirection > 0 ? p > prevPitch : p < prevPitch);
                         if (candidates.length > 0) {
@@ -754,7 +886,7 @@ export function scheduleMelody(
                     }
 
                     if (melodyPlays) {
-                        pitch = applyGenreRules(pitch, settings.genre, step, validPitches, divisions);
+                        pitch = applyGenreRules(pitch, settings.genre, step, validPitches, divisions, chromaticProb);
                         
                         // Enforce contrary motion resolution for any leap > 4 semitones or forceContraryNext
                         if (lastInterval !== 0 && (Math.abs(lastInterval) > 4 || forceContraryNext)) {
@@ -805,6 +937,8 @@ export function scheduleMelody(
 
                         lastInterval = pitch - prevPitch;
                         prevPitch = pitch;
+                        const pitchPc = Math.round(((pitch % periodSize + periodSize) % periodSize) * 100) / 100;
+                        prevPitchIsColor = !globalScalePcSet.has(pitchPc) && !chordTonePcSet.has(pitchPc);
                         if (sub === 0 || settings.genre === 'none' || subdivision !== 4) {
                             noteCountThisPhrase++;
                         }
@@ -899,6 +1033,20 @@ export function scheduleMelody(
                                 if (Math.abs(p - pitch) <= 5.0) {
                                     w *= 0.1;
                                 }
+                                
+                                const pc = (p % periodSize + periodSize) % periodSize;
+                                const roundedPc = Math.round(pc * 100) / 100;
+                                const isDiatonic = globalScalePcSet.has(roundedPc);
+                                const isChordTone = chordTonePcSet.has(roundedPc);
+
+                                if (!isDiatonic && !isChordTone) {
+                                    const tension = currentTension;
+                                    const penalty = 0.2 + (tension * 0.5); // ranges from 0.2 (low tension) to 0.7 (high tension)
+                                    w *= penalty;
+                                } else if (isChordTone) {
+                                    w *= 1.25; // boost chord tones
+                                }
+
                                 return w;
                             });
                             counterPitch = selectWeightedPitch(counterCandidates, weights);
@@ -924,7 +1072,7 @@ export function scheduleMelody(
     if (melodyScheduled.length === 0 && settings.genre !== 'none') {
         const motifNote = sliceMotif[0];
         let pitch = findClosest(motifNote, validPitches);
-        pitch = applyGenreRules(pitch, settings.genre, 0, validPitches, divisions);
+        pitch = applyGenreRules(pitch, settings.genre, 0, validPitches, divisions, chromaticProb);
         pitch = findClosest(pitch, validPitches);
         
         const melodyInst = state.instruments.melody || 'sine';
@@ -993,7 +1141,17 @@ export function scheduleMelody(
 
     // Play/Schedule all collected melody notes
     melodyScheduled.forEach(n => {
-        playToneFn(midiToFreq(n.pitch), n.stepTime, n.noteDuration, n.melodyInst, 'melody');
+        let pitch = n.pitch;
+        // Expressive intonation drift for tense tones under high tension
+        if (currentTension > 0.4 && settings.genre !== 'none') {
+            const pc = (pitch % periodSize + periodSize) % periodSize;
+            const relPc = ((pc - (chordKey % periodSize) + periodSize) % periodSize);
+            const isTenseTone = Math.abs(relPc - 11.0) < 0.25 || Math.abs(relPc - 6.0) < 0.25;
+            if (isTenseTone) {
+                pitch += 0.15 * ((currentTension - 0.4) / 0.6);
+            }
+        }
+        playToneFn(midiToFreq(pitch), n.stepTime, n.noteDuration, n.melodyInst, 'melody');
         if (!n.isIsolated) {
             applyOrnaments(n.pitch, n.stepTime, n.noteDuration, settings.genre, ornamentProb, n.melodyInst, 'melody', playToneFn);
         }
@@ -1022,6 +1180,10 @@ export function scheduleMelody(
         } else {
             lastInterval = 0;
         }
+        const finalPc = Math.round(((finalNote.pitch % periodSize + periodSize) % periodSize) * 100) / 100;
+        globalPrevPitchIsColor = !globalScalePcSet.has(finalPc) && !chordTonePcSet.has(finalPc);
+    } else {
+        globalPrevPitchIsColor = false;
     }
     
     globalPrevPitch = prevPitch;
@@ -1348,8 +1510,33 @@ function findClosestStep(prev, scalePitches, divisions) {
 
 function isDominantChord(chordObj) {
     if (!chordObj || !chordObj.symbol) return false;
-    const sym = chordObj.symbol.toLowerCase();
-    return sym.includes('v') || sym.includes('vii') || sym.includes('7') || sym.includes('dom') || sym.includes('dim') || sym.includes('°') || sym.includes('ø');
+    const sym = chordObj.symbol;
+    const symLower = sym.toLowerCase();
+    
+    // Diminished, half-diminished, or augmented tension
+    if (symLower.includes('dim') || symLower.includes('°') || symLower.includes('ø') || symLower.includes('m7b5') || symLower.includes('aug')) {
+        return true;
+    }
+    
+    // V or VII (e.g. G7, Bdim) in roman numerals
+    if (/\b(v|vii)\b/i.test(sym) || /\b(v|vii)\d+/i.test(sym)) {
+        // Ensure it's not minor V or major VII with maj/min suffixes
+        if (!symLower.includes('maj') && !symLower.includes('min') && !symLower.includes('m7')) {
+            return true;
+        }
+    }
+    
+    // Check if it has a dominant 7th, 9th, 11th, or 13th extension
+    const match = sym.match(/(7|9|11|13)/);
+    if (match) {
+        const before = sym.substring(0, match.index).toLowerCase();
+        const isMaj = before.endsWith('maj') || before.endsWith('m') || before.endsWith('min') || before.endsWith('j') || before.endsWith('m');
+        if (!isMaj) {
+            return true;
+        }
+    }
+    
+    return symLower.includes('dom');
 }
 
 function selectWeightedPitch(candidates, weights) {
@@ -1383,9 +1570,10 @@ function getCommonTones(notesA, notesB, periodSize) {
     return notesA.filter(n => commons.includes((n % periodSize + periodSize) % periodSize));
 }
 
-function applyGenreRules(pitch, genre, step, scalePitches, divisions) {
+function applyGenreRules(pitch, genre, step, scalePitches, divisions, chromaticProb = 0.0) {
     if (genre === 'blues') {
-        if (step % 4 === 2 && Math.random() < 0.4) {
+        const prob = 0.2 + chromaticProb;
+        if (step % 4 === 2 && Math.random() < prob) {
             return pitch - 0.5 * (12 / divisions);
         }
     }
@@ -1479,5 +1667,73 @@ function generateMotifFamilyFromUser(userMotif, pool, activeChordTones, validPit
     });
 
     return { hook, connector, cadence, hookRhythm };
+}
+
+function deduceChordRootAndQuality(symbol, baseKey, divisions) {
+    if (!symbol || typeof symbol !== 'string') return null;
+    let accidental = 0;
+    let stripped = symbol.replace(/[+-]+$/, '');
+    
+    if (stripped.startsWith('b')) { accidental = -1; stripped = stripped.substring(1); }
+    else if (stripped.startsWith('#')) { accidental = 1; stripped = stripped.substring(1); }
+    
+    const match = stripped.match(/^(IV|III|II|I|VII|VI|V|iv|iii|ii|i|vii|vi|v)/);
+    
+    if (match) {
+        const numeral = match[1];
+        const remainder = stripped.substring(numeral.length);
+        
+        const scaleOffsets = {
+            'i': 0, 'ii': 2, 'iii': 4, 'iv': 5, 'v': 7, 'vi': 9, 'vii': 11,
+            'I': 0, 'II': 2, 'III': 4, 'IV': 5, 'V': 7, 'VI': 9, 'VII': 11
+        };
+        const rootOffset = scaleOffsets[numeral] + accidental;
+        
+        const isMinor = numeral === numeral.toLowerCase();
+        let quality = isMinor ? 'minor' : 'major';
+        
+        if (remainder.includes('dim') || remainder.includes('°')) {
+            quality = 'diminished';
+        } else if (remainder.includes('aug') || remainder.includes('+')) {
+            quality = 'augmented';
+        } else if (remainder.includes('7') || remainder.includes('9') || remainder.includes('11') || remainder.includes('13')) {
+            if (!remainder.includes('maj') && !remainder.includes('M7') && !remainder.includes('j7')) {
+                quality = isMinor ? 'minor7' : 'dominant';
+            }
+        }
+        if (remainder.includes('sus')) {
+            quality = 'suspended';
+        }
+        const rootPitch = baseKey + rootOffset;
+        return { rootPitch, quality };
+    }
+    
+    return null;
+}
+
+function getLocalScaleMode(quality, settingsGenre) {
+    if (settingsGenre === 'jazz') {
+        switch(quality) {
+            case 'major': return 'lydian';
+            case 'minor': return 'dorian';
+            case 'minor7': return 'dorian';
+            case 'dominant': return 'mixolydian';
+            case 'diminished': return 'diminishedWH';
+            case 'augmented': return 'wholeTone';
+            case 'suspended': return 'mixolydian';
+            default: return 'major';
+        }
+    } else {
+        switch(quality) {
+            case 'major': return 'major';
+            case 'minor': return 'minor';
+            case 'minor7': return 'minor';
+            case 'dominant': return 'mixolydian';
+            case 'diminished': return 'diminishedWH';
+            case 'augmented': return 'wholeTone';
+            case 'suspended': return 'mixolydian';
+            default: return 'major';
+        }
+    }
 }
 

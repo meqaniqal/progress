@@ -18,6 +18,14 @@ export function restartTransport() {
         resetTransport();
         const playToggleBtn = document.getElementById('btn-play-toggle');
         if (playToggleBtn) {
+            state.editorState.isAuditionEnabled = false;
+            state.editorState.activeAuditionSymbol = null;
+            state.editorState.activeAuditionIndex = null;
+            const settingsToggle = document.getElementById('settings-audition-toggle');
+            if (settingsToggle) settingsToggle.checked = false;
+            persistAppState();
+            import('./inspectorController.js').then(m => m.renderChordInspector(state, state.selectedChordIndex));
+
             currentPlaybackStopFunction = playProgression(
                 () => state,
                 (index, sectionId, macroIndex) => {
@@ -35,6 +43,7 @@ export function restartTransport() {
                     playToggleBtn.textContent = '▶';
                     isPlaying = false;
                     currentPlaybackStopFunction = null;
+                    import('./inspectorController.js').then(m => m.renderChordInspector(state, state.selectedChordIndex));
                 },
                 highlightDrumHit,
                 highlightSlice
@@ -52,6 +61,7 @@ export function resetTransport() {
     const playToggleBtn = document.getElementById('btn-play-toggle');
     if (playToggleBtn) playToggleBtn.textContent = '▶';
     currentPlaybackStopFunction = null;
+    import('./inspectorController.js').then(m => m.renderChordInspector(state, state.selectedChordIndex));
 }
 
 export function initTransport(callbacks) {
@@ -146,6 +156,14 @@ export function initTransport(callbacks) {
         if (isPlaying) {
             resetTransport();
         } else {
+            state.editorState.isAuditionEnabled = false;
+            state.editorState.activeAuditionSymbol = null;
+            state.editorState.activeAuditionIndex = null;
+            const settingsToggle = document.getElementById('settings-audition-toggle');
+            if (settingsToggle) settingsToggle.checked = false;
+            persistAppState();
+            import('./inspectorController.js').then(m => m.renderChordInspector(state, state.selectedChordIndex));
+
             currentPlaybackStopFunction = playProgression(
                 () => state, // Pass raw state, the new macro engine handles active swaps dynamically
                 (index, sectionId, macroIndex) => {
@@ -163,6 +181,7 @@ export function initTransport(callbacks) {
                     playToggleBtn.textContent = '▶';
                     isPlaying = false;
                     currentPlaybackStopFunction = null;
+                    import('./inspectorController.js').then(m => m.renderChordInspector(state, state.selectedChordIndex));
                 },
                 highlightDrumHit,
                 highlightSlice

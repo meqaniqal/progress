@@ -184,6 +184,58 @@ describe('Melody Generator Composition Rules', () => {
         const finalPc = (finalNote.midi % 12 + 12) % 12;
         expect([0, 4]).toContain(finalPc);
     });
+
+    test('Local Chord-Scale Transposition matches quality and root', () => {
+        state.melodySettings.genre = 'generic';
+        state.melodySettings.density = 1.0;
+        state.melodySettings.restProbability = 0.0;
+        state.melodySettings.variationDepth = 1.0; // Force high chance of local transposition
+
+        // Chord II (D major) in C major (key 60)
+        // Root is 62 (D). Notes D (62), F# (66), A (69)
+        const chordObj = { symbol: 'II', duration: 4, key: 60 };
+        const originalRandom = Math.random;
+        Math.random = () => 0.0; // Force local scale selection
+
+        try {
+            scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 0, 4, [62, 66, 69], mockPlayTone);
+            
+            const melodyNotes = playedNotes.filter(n => n.bus === 'melody');
+            expect(melodyNotes.length).toBeGreaterThan(0);
+            
+            // D major scale pitch classes: D(2), E(4), F#(6), G(7), A(9), B(11), C#(1)
+            const dMajorPcs = [1, 2, 4, 6, 7, 9, 11];
+            melodyNotes.forEach(note => {
+                const pc = (note.midi % 12 + 12) % 12;
+                expect(dMajorPcs).toContain(pc);
+            });
+        } finally {
+            Math.random = originalRandom;
+        }
+    });
+
+    test('Color tone stepwise resolution rule', () => {
+        state.melodySettings.genre = 'generic';
+        state.melodySettings.density = 1.0;
+        state.melodySettings.restProbability = 0.0;
+        
+        const chordObj = { symbol: 'I', duration: 4 };
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 0, 1, [60, 64, 67], mockPlayTone);
+
+        for (let i = 1; i < playedNotes.length; i++) {
+            const prevNote = playedNotes[i - 1];
+            const prevPc = (prevNote.midi % 12 + 12) % 12;
+            const isPrevColor = ![0, 2, 4, 5, 7, 9, 11].includes(prevPc) && ![0, 4, 7].includes(prevPc);
+            if (isPrevColor) {
+                const currentNote = playedNotes[i];
+                const currentPc = (currentNote.midi % 12 + 12) % 12;
+                const isCurrentDiatonicOrChordTone = [0, 2, 4, 5, 7, 9, 11].includes(currentPc) || [0, 4, 7].includes(currentPc);
+                const diff = Math.abs(currentNote.midi - prevNote.midi);
+                // The note after a color tone should resolve stepwise or be diatonic/chord-tone
+                expect(diff <= 2 || isCurrentDiatonicOrChordTone).toBe(true);
+            }
+        }
+    });
 });
 
 

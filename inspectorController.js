@@ -1,10 +1,12 @@
 import { getPlayableNotes, getAlternatives, getTurnaroundSuggestions, getEffectiveTuning, getChordNotes, getChordSignature, getModulationLabel, getDynamicProgSuggestions, getProceduralCategory, getCategoryIndex, HAND_CURATED_CATEGORIES } from './theory.js';
 import { KEY_NAMES } from './ui.js';
 import { persistAppState } from './store.js';
+import { isPlaybackActive } from './transportController.js';
 
 let isInspectorDelegated = false;
 let currentUIState = null;
 let currentUICallbacks = null;
+let swapClickTimeout = null;
 
 function handleInspectorClick(e) {
     if (!currentUICallbacks || !currentUIState) return;
@@ -17,14 +19,48 @@ function handleInspectorClick(e) {
     switch (action) {
         case 'swap':
             const orig = currentUIState.currentProgression[index];
-            const isAudition = currentUIState.editorState.isAuditionEnabled;
-            if (isAudition) {
-                if (currentUICallbacks.onAuditionThreeChordSequence) {
-                    currentUICallbacks.onAuditionThreeChordSequence(index, btn.dataset.alt, btn.dataset.key ? parseInt(btn.dataset.key, 10) : undefined);
+            const isPlayingSwap = isPlaybackActive();
+            if (isPlayingSwap) {
+                if (swapClickTimeout) {
+                    clearTimeout(swapClickTimeout);
+                    swapClickTimeout = null;
                 }
-            } else {
+                currentUIState.editorState.activeAuditionSymbol = null;
+                currentUIState.editorState.activeAuditionIndex = null;
                 currentUICallbacks.onSwapChord(index, btn.dataset.alt, orig, btn.dataset.key ? parseInt(btn.dataset.key, 10) : undefined);
+            } else {
+                const isAudition = currentUIState.editorState.isAuditionEnabled;
+                if (isAudition) {
+                    if (swapClickTimeout) {
+                        clearTimeout(swapClickTimeout);
+                    }
+                    swapClickTimeout = setTimeout(() => {
+                        currentUIState.editorState.activeAuditionSymbol = btn.dataset.alt;
+                        currentUIState.editorState.activeAuditionIndex = index;
+                        renderChordInspector(currentUIState, index, currentUICallbacks);
+                        
+                        if (currentUICallbacks.onAuditionThreeChordSequence) {
+                            currentUICallbacks.onAuditionThreeChordSequence(index, btn.dataset.alt, btn.dataset.key ? parseInt(btn.dataset.key, 10) : undefined);
+                        }
+                        swapClickTimeout = null;
+                    }, 250);
+                } else {
+                    currentUICallbacks.onSwapChord(index, btn.dataset.alt, orig, btn.dataset.key ? parseInt(btn.dataset.key, 10) : undefined);
+                }
             }
+            break;
+        case 'toggle-audition':
+            currentUIState.editorState.isAuditionEnabled = !currentUIState.editorState.isAuditionEnabled;
+            if (!currentUIState.editorState.isAuditionEnabled) {
+                currentUIState.editorState.activeAuditionSymbol = null;
+                currentUIState.editorState.activeAuditionIndex = null;
+            }
+            const settingsToggle = document.getElementById('settings-audition-toggle');
+            if (settingsToggle) {
+                settingsToggle.checked = currentUIState.editorState.isAuditionEnabled;
+            }
+            persistAppState();
+            renderChordInspector(currentUIState, currentUIState.selectedChordIndex, currentUICallbacks);
             break;
         case 'reset-swap':
             const originalChord = currentUIState.currentProgression[index];
@@ -69,6 +105,10 @@ function handleInspectorDblClick(e) {
     const index = parseInt(btn.dataset.index, 10);
 
     if (action === 'swap') {
+        if (swapClickTimeout) {
+            clearTimeout(swapClickTimeout);
+            swapClickTimeout = null;
+        }
         const isAudition = currentUIState.editorState.isAuditionEnabled;
         if (isAudition) {
             const orig = currentUIState.currentProgression[index];
@@ -161,6 +201,15 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         if (notes) activeSignatures.add(getChordSignature(notes, tuning.periodSize));
     });
 
+    const isPlaying = isPlaybackActive();
+    const auditionBtnStyle = isPlaying ? 'display: none;' : 'display: inline-flex;';
+    const isAudition = state.editorState.isAuditionEnabled !== false;
+    const auditionBtnHtml = `
+        <button id="inspector-title-audition-toggle" class="control-btn secondary btn-sm icon-btn audition-toggle-btn" data-action="toggle-audition" style="${auditionBtnStyle} margin: 0 10px 0 0; padding: 4px 10px; font-size: 12px; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--border-main); border-radius: 4px; cursor: pointer; height: 26px; line-height: 1;" title="Toggle between 3-chord audition and instant autoswap">
+            <span>${isAudition ? '🔊' : '↑'}</span> <span style="font-weight: 500;">${isAudition ? 'Audition' : 'Autoswap'}</span>
+        </button>
+    `;
+
     const index = selectedChordIndex;
     const originalChord = state.currentProgression[index];
     const isTemp = state.temporarySwaps[index] !== undefined;
@@ -170,7 +219,10 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     const resetBtnHtml = isTemp ? `<button class="chord-btn reset-swap-btn" data-action="reset-swap" data-index="${index}" style="margin: 0 4px; padding: 2px 8px; font-size: 11px; background: var(--bg-hover); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; cursor: pointer;" title="Reset back to original chord">↺ Original</button>` : '';
 
     document.getElementById('inspector-title').innerHTML = `
-        <span style="display: flex; align-items: center; gap: 4px;">Selected Chord: ${displayChord.symbol} ${resetBtnHtml}</span>
+        <div style="display: flex; align-items: center;">
+            ${auditionBtnHtml}
+            <span style="display: flex; align-items: center; gap: 4px;">Selected Chord: ${displayChord.symbol} ${resetBtnHtml}</span>
+        </div>
         <button class="chord-btn del-btn" data-action="delete" data-index="${index}" style="margin: 0; padding: 4px 12px; font-size: 13px;">🗑 Delete</button>
     `;
 
@@ -183,40 +235,20 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         settingsRow.className = 'inspector-row inspector-row-swap-settings';
         settingsRow.style.display = 'flex';
         settingsRow.style.alignItems = 'center';
-        settingsRow.style.justifyContent = 'space-between';
+        settingsRow.style.justifyContent = 'flex-start';
         settingsRow.style.width = '100%';
         settingsRow.style.gap = '8px';
 
         settingsRow.innerHTML = `
-            <strong class="inspector-label inspector-swap-category-header" style="flex-shrink: 0; font-size: 14px; margin: 0;">🎭:</strong>
-            <div style="display: flex; align-items: center; gap: 4px; flex-grow: 1; min-width: 0;">
+            <strong class="inspector-label inspector-swap-category-header" style="flex-shrink: 0; font-size: 13px; margin: 0;">Chord Sets:</strong>
+            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
                 <button id="btn-inspector-emotion-prev" class="control-btn secondary btn-sm inspector-emotion-page-btn" style="padding: 2px 6px; font-size: 10px;" title="Previous page">◀</button>
-                <select id="inspector-emotion-dropdown" class="rhythm-select" style="flex-grow: 1; padding: 2px 4px; font-size: 11px; border-radius: 4px; background: var(--bg-panel); border: 1px solid var(--border-main); color: var(--text-main); cursor: pointer; min-width: 0;">
+                <select id="inspector-emotion-dropdown" class="rhythm-select" style="width: auto; max-width: fit-content; padding: 2px 4px; font-size: 11px; border-radius: 4px; background: var(--bg-panel); border: 1px solid var(--border-main); color: var(--text-main); cursor: pointer;">
                 </select>
                 <button id="btn-inspector-emotion-next" class="control-btn secondary btn-sm inspector-emotion-page-btn" style="padding: 2px 6px; font-size: 10px;" title="Next page">▶</button>
             </div>
-            <button id="inspector-audition-toggle" class="control-btn secondary btn-sm icon-btn" title="Toggle substitute audition" style="font-size: 14px; padding: 2px 8px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; min-width: 32px; min-height: 24px; flex-shrink: 0;">
-                ${state.editorState.isAuditionEnabled ? '🔊' : '🔇'}
-            </button>
         `;
         content.appendChild(settingsRow);
-    }
-
-    const insAuditionToggle = settingsRow.querySelector('#inspector-audition-toggle');
-    if (insAuditionToggle) {
-        insAuditionToggle.onclick = (e) => {
-            e.stopPropagation();
-            state.editorState.isAuditionEnabled = !state.editorState.isAuditionEnabled;
-            insAuditionToggle.textContent = state.editorState.isAuditionEnabled ? '🔊' : '🔇';
-
-            // Sync with global settings checkbox
-            const settingsToggle = document.getElementById('settings-audition-toggle');
-            if (settingsToggle) {
-                settingsToggle.checked = state.editorState.isAuditionEnabled;
-            }
-
-            persistAppState();
-        };
     }
 
     const insEmotionDropdown = settingsRow.querySelector('#inspector-emotion-dropdown');
@@ -246,7 +278,7 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         // Add standard Alternatives option
         const subOpt = document.createElement('option');
         subOpt.value = 'substitutes';
-        subOpt.textContent = 'Alternatives';
+        subOpt.textContent = '🎹 Standard';
         insEmotionDropdown.appendChild(subOpt);
 
         pageCategories.forEach(cat => {
@@ -308,12 +340,12 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
         altsRow.style.width = '100%';
 
         altsRow.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 6px;">
-                <button class="control-btn secondary btn-sm swap-prev-btn" style="padding: 2px 6px; font-size: 10px;">◀</button>
-                <strong class="inspector-label" style="font-size: 12px; margin: 0 4px;">Swap Chord</strong>
-                <button class="control-btn secondary btn-sm swap-next-btn" style="padding: 2px 6px; font-size: 10px;">▶</button>
-            </div>
-            <div class="inspector-btn-group alts-btn-group" style="display: flex; flex-wrap: wrap; gap: 4px; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 4px; justify-content: flex-start;">
+                <strong class="inspector-label" style="font-size: 13px; margin: 0 4px 0 0; flex-shrink: 0;">Swap:</strong>
+                <button class="control-btn secondary btn-sm swap-prev-btn" style="padding: 2px 6px; font-size: 10px; flex-shrink: 0;">◀</button>
+                <div class="inspector-btn-group alts-btn-group" style="display: flex; flex-wrap: wrap; gap: 4px; border: 1px dashed var(--border-main); padding: 4px; border-radius: 4px;">
+                </div>
+                <button class="control-btn secondary btn-sm swap-next-btn" style="padding: 2px 6px; font-size: 10px; flex-shrink: 0;">▶</button>
             </div>
         `;
         content.appendChild(altsRow);
@@ -361,8 +393,12 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
     if (currentPage < 0) currentPage = 0;
     state.editorState.swapPage = currentPage;
 
-    if (prevBtn) prevBtn.disabled = currentPage === 0;
-    if (nextBtn) nextBtn.disabled = currentPage === totalPages - 1;
+    if (prevBtn) {
+        prevBtn.style.visibility = (currentPage === 0) ? 'hidden' : 'visible';
+    }
+    if (nextBtn) {
+        nextBtn.style.visibility = (currentPage === totalPages - 1) ? 'hidden' : 'visible';
+    }
 
     const pageAlts = alts.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
 
@@ -408,6 +444,16 @@ export function renderChordInspector(state, selectedChordIndex, callbacks) {
                 btn.title = (btn.title ? btn.title + " | " : "") + "Already elsewhere in progression";
             } else {
                 btn.classList.remove('dimmed-chord');
+            }
+
+            // Audition highlight styling
+            const isAuditionActive = state.editorState.isAuditionEnabled && 
+                                     state.editorState.activeAuditionIndex === index && 
+                                     state.editorState.activeAuditionSymbol === altObj.symbol;
+            if (isAuditionActive) {
+                btn.classList.add('audition-active-chord');
+            } else {
+                btn.classList.remove('audition-active-chord');
             }
         });
 

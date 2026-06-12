@@ -341,6 +341,7 @@ button.control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .dur-slider { width: 120px; margin: 0; cursor: pointer; }
 .del-btn { color: #ef4444; border-color: rgba(239, 68, 68, 0.5); margin-left: auto; padding: 4px 12px; }
 .inspector-alt-btn { background: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.3); box-shadow: none; }
+.inspector-alt-btn.audition-active-chord { background: rgba(245, 158, 11, 0.25); border: 1.5px solid #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); font-weight: bold; }
 .v-btn-group { display: flex; gap: 6px; }
 .stepper-container { display: flex; align-items: center; gap: 4px; }
 .inv-display { min-width: 30px; text-align: center; font-weight: 600; font-size: 16px; }
