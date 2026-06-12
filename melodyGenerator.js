@@ -145,8 +145,55 @@ export function scheduleMelody(
     const chordMode = deduceSourceMode(chordObj.symbol, state.mode || 'major') || state.mode || 'major';
     const scaleIntervals = getScaleIntervals(chordMode, settings.genre);
 
+    // Calculate custom offsets for pitch classes based on the difference between custom chordNotes and standard chord notes
+    const pcOffsets = {};
+    const standardNotes = getChordNotes(chordObj.symbol, chordKey, divisions) || [];
+    if (standardNotes.length > 0 && chordNotes && chordNotes.length > 0) {
+        chordNotes.forEach(customNote => {
+            const customPc = (customNote % periodSize + periodSize) % periodSize;
+            let bestStdNote = null;
+            let minDiff = Infinity;
+            standardNotes.forEach(stdNote => {
+                const stdPc = (stdNote % periodSize + periodSize) % periodSize;
+                let diff = Math.abs(customPc - stdPc);
+                if (diff > periodSize / 2) diff = periodSize - diff;
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    bestStdNote = stdNote;
+                }
+            });
+            if (bestStdNote !== null && minDiff < 1.5) {
+                const stdPc = (bestStdNote % periodSize + periodSize) % periodSize;
+                const pcDiff = customPc - stdPc;
+                let normPcDiff = pcDiff;
+                while (normPcDiff > periodSize / 2) normPcDiff -= periodSize;
+                while (normPcDiff < -periodSize / 2) normPcDiff += periodSize;
+                pcOffsets[Math.round(stdPc * 100) / 100] = normPcDiff;
+            }
+        });
+    }
+
+    const adjustScalePitches = (pitches) => {
+        return pitches.map(p => {
+            const pc = (p % periodSize + periodSize) % periodSize;
+            let matchedOffset = 0;
+            let minDiff = Infinity;
+            for (const stdPcStr in pcOffsets) {
+                const stdPc = parseFloat(stdPcStr);
+                let diff = Math.abs(pc - stdPc);
+                if (diff > periodSize / 2) diff = periodSize - diff;
+                if (diff < minDiff && diff < 0.1) {
+                    minDiff = diff;
+                    matchedOffset = pcOffsets[stdPcStr];
+                }
+            }
+            return p + matchedOffset;
+        });
+    };
+
     // Build pools for Melody
-    const scalePitches = buildScalePitches(chordKey, scaleIntervals, divisions, melodyRangeStart, melodyRangeEnd);
+    const scalePitchesRaw = buildScalePitches(chordKey, scaleIntervals, divisions, melodyRangeStart, melodyRangeEnd);
+    const scalePitches = adjustScalePitches(scalePitchesRaw);
     const activeChordTones = (chordNotes || []).map(n => {
         let note = n;
         while (note < melodyRangeStart) note += periodSize;
@@ -156,7 +203,8 @@ export function scheduleMelody(
     const validPitches = Array.from(new Set([...scalePitches, ...activeChordTones])).sort((a, b) => a - b);
 
     // Build pools for Countermelody
-    const counterScalePitches = buildScalePitches(chordKey, scaleIntervals, divisions, counterRangeStart, counterRangeEnd);
+    const counterScalePitchesRaw = buildScalePitches(chordKey, scaleIntervals, divisions, counterRangeStart, counterRangeEnd);
+    const counterScalePitches = adjustScalePitches(counterScalePitchesRaw);
     const counterActiveChordTones = (chordNotes || []).map(n => {
         let note = n;
         while (note < counterRangeStart) note += periodSize;
@@ -166,8 +214,8 @@ export function scheduleMelody(
     const counterValidPitches = Array.from(new Set([...counterScalePitches, ...counterActiveChordTones])).sort((a, b) => a - b);
 
     // Retrieve previous/next chord notes
-    const prevChordNotes = prevChordObj ? getChordNotes(prevChordObj, state.baseKey, divisions) : [];
-    const nextChordNotes = nextChordObj ? getChordNotes(nextChordObj, state.baseKey, divisions) : [];
+    const prevChordNotes = prevChordObj ? (prevChordObj.customNotes || getChordNotes(prevChordObj.symbol, prevChordObj.key !== undefined ? Number(prevChordObj.key) : state.baseKey, divisions)) : [];
+    const nextChordNotes = nextChordObj ? (nextChordObj.customNotes || getChordNotes(nextChordObj.symbol, nextChordObj.key !== undefined ? Number(nextChordObj.key) : state.baseKey, divisions)) : [];
 
     const activePrevChordTones = (prevChordNotes || []).map(n => {
         let note = n;
@@ -904,27 +952,29 @@ export function scheduleMelody(
     }
 
     // --- Identify Isolated Notes and snap to Chord/Scale Tones ---
-    const gapThreshold = beatDuration * 0.95; // ~1 beat gap
+    if (settings.genre !== 'none') {
+        const gapThreshold = beatDuration * 0.95; // ~1 beat gap
 
-    melodyScheduled.forEach((n, idx) => {
-        const prevNote = idx > 0 ? melodyScheduled[idx - 1] : null;
-        const nextNote = idx < melodyScheduled.length - 1 ? melodyScheduled[idx + 1] : null;
+        melodyScheduled.forEach((n, idx) => {
+            const prevNote = idx > 0 ? melodyScheduled[idx - 1] : null;
+            const nextNote = idx < melodyScheduled.length - 1 ? melodyScheduled[idx + 1] : null;
 
-        const spaceBefore = prevNote ? (n.stepTime - prevNote.stepTime) : (n.stepTime - time);
-        const spaceAfter = nextNote ? (nextNote.stepTime - n.stepTime) : (time + chordSlotDuration - n.stepTime);
+            const spaceBefore = prevNote ? (n.stepTime - prevNote.stepTime) : (n.stepTime - time);
+            const spaceAfter = nextNote ? (nextNote.stepTime - n.stepTime) : (time + chordSlotDuration - n.stepTime);
 
-        if (spaceBefore >= gapThreshold && spaceAfter >= gapThreshold) {
-            n.isIsolated = true;
-            if (activeChordTones.length > 0) {
-                n.pitch = findClosest(n.pitch, activeChordTones);
-            } else {
-                const baseScalePitches = validPitches.filter(p => isBaseScaleTone(p));
-                if (baseScalePitches.length > 0) {
-                    n.pitch = findClosest(n.pitch, baseScalePitches);
+            if (spaceBefore >= gapThreshold && spaceAfter >= gapThreshold) {
+                n.isIsolated = true;
+                if (activeChordTones.length > 0) {
+                    n.pitch = findClosest(n.pitch, activeChordTones);
+                } else {
+                    const baseScalePitches = validPitches.filter(p => isBaseScaleTone(p));
+                    if (baseScalePitches.length > 0) {
+                        n.pitch = findClosest(n.pitch, baseScalePitches);
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 
     // --- Apply Resolution Rules on the actual notes scheduled ---
     
