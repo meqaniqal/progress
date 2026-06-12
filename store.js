@@ -58,7 +58,10 @@ export const state = {
         tensionCurve: 'arch',
         seedSource: 'procedural',
         activeMotifId: 'preset-rise',
-        midiExtractionMode: 'highest'
+        midiExtractionMode: 'highest',
+        macroPlannerEnabled: false,
+        macroContourArchetype: 'auto',
+        shortestNoteLimit: 9
     },
     userMotifs: [
         {
@@ -708,7 +711,10 @@ export function resetSession() {
         tensionCurve: 'arch',
         seedSource: 'procedural',
         activeMotifId: 'preset-rise',
-        midiExtractionMode: 'highest'
+        midiExtractionMode: 'highest',
+        macroPlannerEnabled: false,
+        macroContourArchetype: 'auto',
+        shortestNoteLimit: 9
     };
     state.userMotifs = [
         {

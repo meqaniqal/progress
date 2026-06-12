@@ -30,7 +30,8 @@ describe('Melody Generator Composition Rules', () => {
             countermelodyEnabled: false,
             behaviorDuringArp: 'simplify',
             behaviorDuringTransitions: 'simplify',
-            tensionCurve: 'flat'
+            tensionCurve: 'flat',
+            shortestNoteLimit: 6
         };
     });
 
@@ -53,6 +54,7 @@ describe('Melody Generator Composition Rules', () => {
         }
 
         const totalIntervals = stepsCount + leapsCount;
+        console.log('PLAYED NOTES:', playedNotes.map(n => n.midi));
         if (totalIntervals > 0) {
             const stepRatio = stepsCount / totalIntervals;
             // We targeted ~70% stepwise. Check if it's statistically prominent (>50%)
@@ -101,6 +103,7 @@ describe('Melody Generator Composition Rules', () => {
         
         scheduleMelody(0, chordObj, nextChordObj, prevChordObj, 2.0, 4, 120, 0, 1, [68, 72, 75], mockPlayTone);
 
+        console.log('CHROMATIC PLAYED NOTES:', playedNotes.map(n => ({ midi: n.midi, pc: (n.midi % 12 + 12) % 12 })));
         // Verify if any played note corresponds to the chromatic chord tones (Ab/Eb -> pc 8 or 3)
         const hasChromaticTone = playedNotes.some(note => {
             const pc = (note.midi % 12 + 12) % 12;

@@ -321,11 +321,40 @@ export function syncSettingsUI() {
         const restsEl = document.getElementById('melody-rests');
         if (restsEl) restsEl.value = state.melodySettings.restProbability || 0.3;
 
+        const shortestEl = document.getElementById('melody-shortest-note');
+        const shortestValEl = document.getElementById('melody-shortest-note-val');
+        if (shortestEl) {
+            const limit = state.melodySettings.shortestNoteLimit !== undefined ? state.melodySettings.shortestNoteLimit : 9;
+            shortestEl.value = limit;
+                const labels = {
+                    1: '1/64 Note',
+                    2: 'Dotted 1/32',
+                    3: '1/32 Note',
+                    4: '1/24 Note (1/16 Triplet)',
+                    5: 'Dotted 1/16',
+                    6: '1/16 Note',
+                    7: '1/12 Note (1/8 Triplet)',
+                    8: 'Dotted 1/8',
+                    9: '1/8 Note',
+                    10: '1/6 Note (1/4 Triplet)',
+                    11: 'Dotted 1/4',
+                    12: '1/4 Note',
+                    13: '1/2 Note'
+                };
+                shortestValEl.textContent = labels[limit] || '1/8 Note';
+        }
+
         const ornamentsEl = document.getElementById('melody-ornaments');
         if (ornamentsEl) ornamentsEl.value = state.melodySettings.ornamentIntensity || 0.5;
 
         const curveEl = document.getElementById('melody-tension-curve');
         if (curveEl) curveEl.value = state.melodySettings.tensionCurve || 'arch';
+
+        const macroPlannerEl = document.getElementById('melody-macro-planner');
+        if (macroPlannerEl) macroPlannerEl.checked = !!state.melodySettings.macroPlannerEnabled;
+
+        const macroContourEl = document.getElementById('melody-macro-contour');
+        if (macroContourEl) macroContourEl.value = state.melodySettings.macroContourArchetype || 'auto';
 
         const countermelodyToggleEl = document.getElementById('melody-countermelody-toggle');
         if (countermelodyToggleEl) countermelodyToggleEl.checked = !!state.melodySettings.countermelodyEnabled;
@@ -895,6 +924,34 @@ export function initSettingsUI({ onRenderProgression }) {
         });
     }
 
+    const melodyShortestEl = document.getElementById('melody-shortest-note');
+    if (melodyShortestEl) {
+        melodyShortestEl.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value, 10);
+            state.melodySettings.shortestNoteLimit = val;
+            const valEl = document.getElementById('melody-shortest-note-val');
+            if (valEl) {
+                const labels = {
+                    1: '1/64 Note',
+                    2: 'Dotted 1/32',
+                    3: '1/32 Note',
+                    4: '1/24 Note (1/16 Triplet)',
+                    5: 'Dotted 1/16',
+                    6: '1/16 Note',
+                    7: '1/12 Note (1/8 Triplet)',
+                    8: 'Dotted 1/8',
+                    9: '1/8 Note',
+                    10: '1/6 Note (1/4 Triplet)',
+                    11: 'Dotted 1/4',
+                    12: '1/4 Note',
+                    13: '1/2 Note'
+                };
+                valEl.textContent = labels[val] || '1/8 Note';
+            }
+            persistAppState();
+        });
+    }
+
     const melodyOrnamentsEl = document.getElementById('melody-ornaments');
     if (melodyOrnamentsEl) {
         melodyOrnamentsEl.addEventListener('input', (e) => {
@@ -907,6 +964,22 @@ export function initSettingsUI({ onRenderProgression }) {
     if (melodyCurveEl) {
         melodyCurveEl.addEventListener('change', (e) => {
             state.melodySettings.tensionCurve = e.target.value;
+            persistAppState();
+        });
+    }
+
+    const melodyMacroPlannerEl = document.getElementById('melody-macro-planner');
+    if (melodyMacroPlannerEl) {
+        melodyMacroPlannerEl.addEventListener('change', (e) => {
+            state.melodySettings.macroPlannerEnabled = e.target.checked;
+            persistAppState();
+        });
+    }
+
+    const melodyMacroContourEl = document.getElementById('melody-macro-contour');
+    if (melodyMacroContourEl) {
+        melodyMacroContourEl.addEventListener('change', (e) => {
+            state.melodySettings.macroContourArchetype = e.target.value;
             persistAppState();
         });
     }

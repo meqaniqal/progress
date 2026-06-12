@@ -11,11 +11,11 @@
     <meta http-equiv="Expires" content="0">
     
     <!-- 1. CSS loaded first to block render until styles are ready -->
-    <link rel="stylesheet" href="theme.css?v=1781216823456">
-    <link rel="stylesheet" href="style.css?v=1781216823456">
-    <link rel="stylesheet" href="drum-grid.css?v=1781216823456">
-    <link rel="stylesheet" href="rhythm-editor.css?v=1781216823456">
-    <link rel="stylesheet" href="song-mode.css?v=1781216823456">
+    <link rel="stylesheet" href="theme.css?v=1781276145755">
+    <link rel="stylesheet" href="style.css?v=1781276145755">
+    <link rel="stylesheet" href="drum-grid.css?v=1781276145755">
+    <link rel="stylesheet" href="rhythm-editor.css?v=1781276145755">
+    <link rel="stylesheet" href="song-mode.css?v=1781276145755">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
     
     <!-- Hide body and show spinner to prevent Flash of Unstyled Content (FOUC) while scripts load -->
@@ -115,7 +115,7 @@
     <!-- 2. Scripts deferred to prevent HTML parsing blocks -->
     <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@2.1.4/browser/midiwriter.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js" defer></script>
-    <script src="init.js?v=1781216823456" defer></script>
+    <script src="init.js?v=1781276145755" defer></script>
 </head>
 <body>
     <div id="loading-screen">
@@ -960,6 +960,13 @@
                                         <input type="range" id="melody-rests" min="0.0" max="0.9" step="0.05" value="0.3" class="mixer-slider" style="flex: 1;">
                                     </div>
                                     <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                        <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Shortest Note Run</span>
+                                        <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                                            <input type="range" id="melody-shortest-note" min="1" max="13" step="1" value="9" class="mixer-slider" style="flex: 1;">
+                                            <span id="melody-shortest-note-val" style="font-size: 10px; font-family: monospace; min-width: 160px; width: 160px; display: inline-block; text-align: right;">1/8 Note</span>
+                                        </div>
+                                    </div>
+                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Ornamentation</span>
                                         <input type="range" id="melody-ornaments" min="0.0" max="1.0" step="0.05" value="0.5" class="mixer-slider" style="flex: 1;">
                                     </div>
@@ -968,6 +975,20 @@
                                         <select id="melody-tension-curve" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
                                             <option value="flat">Flat Constant</option>
                                             <option value="arch">Arch (Rise & Fall)</option>
+                                        </select>
+                                    </div>
+                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                        <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Macro Planner</span>
+                                        <input type="checkbox" id="melody-macro-planner" style="width: 16px; height: 16px; cursor: pointer;">
+                                    </div>
+                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                        <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Contour Shape</span>
+                                        <select id="melody-macro-contour" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
+                                            <option value="auto">Auto (Progressive)</option>
+                                            <option value="arch">Arch</option>
+                                            <option value="valley">Valley (Inverted Arch)</option>
+                                            <option value="staircase">Staircase</option>
+                                            <option value="launch">Launch</option>
                                         </select>
                                     </div>
                                     <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">

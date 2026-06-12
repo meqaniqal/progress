@@ -89,7 +89,10 @@ export function loadAndApplyInitialState(explicitState = null) {
                 tensionCurve: savedState.melodySettings.tensionCurve || 'arch',
                 seedSource: savedState.melodySettings.seedSource || 'procedural',
                 activeMotifId: savedState.melodySettings.activeMotifId || 'preset-rise',
-                midiExtractionMode: savedState.melodySettings.midiExtractionMode || 'highest'
+                midiExtractionMode: savedState.melodySettings.midiExtractionMode || 'highest',
+                macroPlannerEnabled: typeof savedState.melodySettings.macroPlannerEnabled !== 'undefined' ? Boolean(savedState.melodySettings.macroPlannerEnabled) : true,
+                macroContourArchetype: savedState.melodySettings.macroContourArchetype || 'auto',
+                shortestNoteLimit: typeof savedState.melodySettings.shortestNoteLimit === 'number' ? savedState.melodySettings.shortestNoteLimit : 9
             };
         }
         if (savedState.userMotifs) {

@@ -204,3 +204,69 @@ Based on consultation, the melody generator's core limitation is that it relies 
 ### E. Emotional Interval & Color Tone Rhetoric
 - **Interval Rhetoric**: Weight interval sizes based on active phrase role (e.g., upward 6ths and octaves for yearnings/climaxes; descending 2nds for releases).
 - **Color Tone Purpose**: Treat colors (b9, #11, 13) not as mathematically "allowed" options, but as deliberate structural tensions that *must* resolve to specific goals (e.g., `tension` $\rightarrow$ `goal` resolution paths).
+
+---
+
+## 11. Current State & Analysis of Out-of-Key Clashes (June 2026 Update)
+
+### A. Current Implementation State
+The generator has recently been extended with a **Hierarchical Macro Planner** (toggled via `macroPlannerEnabled` and configured with `macroContourArchetype` shapes: `arch`, `valley`, `staircase`, `launch`).
+- **Plan Generation**: Generates a song-wide plan `macroTargetPlan` mapping each chord slot to specific roles (`statement`, `build`, `climax`, `release`, `resolution`) and target contour pitches.
+- **Dynamic Shaping**: Adjusts subdivisions, note density, rest probabilities, and pitch selection weights (favoring leaps for climax/build roles, descending/stepwise motions for releases) based on the planner's slot target role.
+- **Climax Gravity**: Implements a `phraseHighestPitch` tracker that penalizes re-hitting climax peaks to ensure singular climatic moments.
+
+All 7 critical bugs and architectural issues identified by Claude have been successfully resolved:
+
+1. **Deceptive Landing EDO Unit Mismatch Fixed**:
+   - The calculation now correctly uses the microtonal `periodSize` instead of EDO divisions, preventing unit mismatches across non-12-EDO tunings.
+
+2. **Unit Mismatch in `buildScalePitches` and `isBaseScaleTone` Fixed**:
+   - The scale period mapping correctly handles Bohlen-Pierce and arbitrary microtonal tunings using `periodSize` instead of assuming 12-semitone octaves.
+
+3. **Lookahead Isolated Note Snapping**:
+   - Snapping has been moved upfront to the lookahead pass, preserving the identity and intervals of motif families.
+
+4. **Jazz Enclosures Scheduled Correctly**:
+   - Approach notes are now scheduled into `melodyScheduled`, ensuring correct subsequent voice leading and preventing stale tracking.
+
+5. **Octave-Leap Contrary Motion Resolution Scaled**:
+   - Contrary motion guard now scales resolution size matching the leap size.
+
+6. **Synchronized Motif Index Drift**:
+   - `noteCountThisPhrase` is incremented precisely when notes are scheduled.
+
+7. **Repeated-Pitch Penalty**:
+   - Post-hoc direct indexing offset is replaced with a `w *= 0.01` candidate weight penalty.
+
+8. **Merged Scale Pools Resolved**:
+   - Scale transposition now restricts to the local candidate scale when local scale transposition is active.
+
+9. **Lookahead Pass Randomness Synchronization**:
+   - Random decisions in the pre-pass match actual playback decisions, ensuring correct simulated state and resolving test discrepancies.
+
+### D. Additional Microtonal & Rhythmic Controls (June 2026 Features)
+1. **Shortest Note Runs Limit Slider**:
+   - Converted the "Shortest Note Run" slider (`melody-shortest-note`) from millisecond units to a 13-step note-interval range (1/64, Dotted 1/32, 1/32, 1/24, Dotted 1/16, 1/16, 1/12, Dotted 1/8, 1/8, 1/6, Dotted 1/4, 1/4, 1/2).
+   - Enforced these note limits dynamically inside the lookahead and playback loops by preventing beat subdivisions that yield notes shorter than the selected limit.
+   - Scaled internal step indexing to a 96-resolution grid (`beat * 96 + sub / subdivision * 96`) to prevent step key collisions at high subdivisions (up to 1/64 notes).
+2. **Melodic Run Enforcement (3+ Notes in a Row)**:
+   - Added a post-processing pass to the lookahead grid: if a chord slot generates active notes, it enforces at least 3 active notes in a row (or adjacent steps) most of the time (90% upgrade probability for 1-note slots, 75% for 2-note slots). This prevents isolated 1-note or 2-note fragments per chord.
+3. **Countermelody Density Boost**:
+   - Scaled the effective melody density up by 1.35x when countermelody is active to leverage the richer voice combination.
+4. **Macro Planner Resolution Coherence**:
+   - Shifted the macro target planner pitch alignment from strictly step 0 to the first note scheduled in the slot (`melodyScheduled.length === 0`), and bypassed contrary motion leap resolutions on this first note to prevent voice-leading rules from overriding structural contour targets.
+
+All 172 unit tests are verified passing successfully.
+
+---
+
+## 12. User Feedback Report & Session Diagnostics (June 2026)
+
+### A. Feedback Summary
+- **Infrequent Melodic Runs**: Despite configuring shorter note limits, active runs of fast notes seem infrequent or underrepresented during playback.
+- **Off-Key Note Choices & Unintelligent Structure**: Melodies frequently choose pitches that sound out of key or clash with active chords, and the note progressions often sound random, chaotic, or lack musical intent.
+- **Fiddly Slider Layout Jumps (Resolved)**: Dragging the shortest note limit slider previously caused it to jump around. 
+  - *Diagnosis*: The text width of the dynamic labels (e.g. `1/24 Note (1/16 Triplet)`) changed dynamically, causing the flexbox layout of the slider to shrink and grow. This changed the relative position of the mouse on the slider input, creating a layout feedback loop that made the slider jump.
+  - *Resolution*: Fixed in [index.html](file:///c:/Users/mekka/OneDrive/Desktop/progress/index.html) by assigning a fixed `width: 160px; min-width: 160px; display: inline-block;` to `#melody-shortest-note-val`.
+
+
