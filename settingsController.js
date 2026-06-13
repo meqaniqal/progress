@@ -324,17 +324,10 @@ export function syncSettingsUI() {
         const shortestEl = document.getElementById('melody-shortest-note');
         const shortestValEl = document.getElementById('melody-shortest-note-val');
         if (shortestEl) {
-            const limit = state.melodySettings.shortestNoteLimit !== undefined ? state.melodySettings.shortestNoteLimit : 9;
+            let limit = state.melodySettings.shortestNoteLimit !== undefined ? state.melodySettings.shortestNoteLimit : 9;
+            limit = Math.max(9, limit);
             shortestEl.value = limit;
                 const labels = {
-                    1: '1/64 Note',
-                    2: 'Dotted 1/32',
-                    3: '1/32 Note',
-                    4: '1/24 Note (1/16 Triplet)',
-                    5: 'Dotted 1/16',
-                    6: '1/16 Note',
-                    7: '1/12 Note (1/8 Triplet)',
-                    8: 'Dotted 1/8',
                     9: '1/8 Note',
                     10: '1/6 Note (1/4 Triplet)',
                     11: 'Dotted 1/4',
@@ -927,19 +920,11 @@ export function initSettingsUI({ onRenderProgression }) {
     const melodyShortestEl = document.getElementById('melody-shortest-note');
     if (melodyShortestEl) {
         melodyShortestEl.addEventListener('input', (e) => {
-            const val = parseInt(e.target.value, 10);
+            const val = Math.max(9, parseInt(e.target.value, 10));
             state.melodySettings.shortestNoteLimit = val;
             const valEl = document.getElementById('melody-shortest-note-val');
             if (valEl) {
                 const labels = {
-                    1: '1/64 Note',
-                    2: 'Dotted 1/32',
-                    3: '1/32 Note',
-                    4: '1/24 Note (1/16 Triplet)',
-                    5: 'Dotted 1/16',
-                    6: '1/16 Note',
-                    7: '1/12 Note (1/8 Triplet)',
-                    8: 'Dotted 1/8',
                     9: '1/8 Note',
                     10: '1/6 Note (1/4 Triplet)',
                     11: 'Dotted 1/4',

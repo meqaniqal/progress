@@ -6,7 +6,7 @@ import { resolvePattern } from './patternResolver.js';
 import { state, getActiveProgression } from './store.js';
 import { isSongTrayOpen, getActiveSequenceIndex } from './songController.js';
 import { evaluateVoiceEvents } from './transitionEvaluator.js';
-import { scheduleMelody } from './melodyGenerator.js';
+import { scheduleMelody, clearMelodyMemory } from './melodyGenerator.js';
 import { getGrooveOffset } from './grooveEngine.js';
 
 let uiTimeouts = [];
@@ -515,6 +515,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         if (onHighlight) onHighlight(-1); // Clear all highlights
 
         stopOscillators();
+        clearMelodyMemory();
     }
 
     scheduler(); // Start the scheduler
@@ -530,6 +531,7 @@ export function stopAllAudio(onHighlightCallback) {
     if (onHighlightCallback) onHighlightCallback(-1);
 
     stopOscillators();
+    clearMelodyMemory();
 }
 
 function scheduleChordAudition(chordSymbol, baseKey, specificNotes, divisions, startTime, duration) {

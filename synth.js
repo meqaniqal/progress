@@ -8,6 +8,7 @@ let audioCtx;
 let decodeCtx; // Used to decode audio on page load without triggering Autoplay warnings
 let activeOscillators = [];
 let masterCompressor; // Module-scoped, but only initialized once
+let lastScheduledNotes = {};
 
 let masterGain, chordsGain, bassGain, bassHarmonicGain, drumsGain, melodyGain, countermelodyGain;
 let bassShaper, bassHarmonicShaper;
@@ -251,7 +252,7 @@ export function midiToFreq(m) {
     return Math.pow(2, (m - CONFIG.A4_MIDI) / 12) * CONFIG.A4_FREQ;
 }
 
-export function playTone(freq, startTime, duration, type = 'sine', destBus = null, pan = 0, vol = 1.0) {
+export function playTone(freq, startTime, duration, type = 'sine', destBus = null, pan = 0, vol = 1.0, extraParams = {}) {
     const engine = SYNTH_REGISTRY[type];
     if (!engine) return;
 
@@ -281,7 +282,13 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
     if (destBus === 'melody' || destBus === 'countermelody') {
         volBoost = 2.0;
     }
-    const engineParams = { ...(currentSynthParams[type] || {}), vol: vol * volBoost };
+    const engineParams = { ...(currentSynthParams[type] || {}), vol: vol * volBoost, ...extraParams };
+    if (!engineParams.adsr) {
+        if (destBus === 'melody') engineParams.adsr = state.melodyAdsr;
+        else if (destBus === 'countermelody') engineParams.adsr = state.countermelodyAdsr;
+        else if (destBus === 'chords') engineParams.adsr = state.chordAdsr;
+        else if (destBus === 'bass' || destBus === 'bassHarmonic') engineParams.adsr = state.bassAdsr;
+    }
     if (type === 'sample-bass') {
         engineParams.buffer = customBassBuffer;
         engineParams.adsr = state.bassAdsr;
@@ -320,12 +327,32 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
         engineParams.decay = state.bassKsDecay !== undefined ? state.bassKsDecay : 0.95;
     }
 
+    if (destBus === 'melody' || destBus === 'countermelody') {
+        const prevNode = lastScheduledNotes[destBus];
+        if (prevNode && prevNode.gainNode && prevNode.endTime > startTime) {
+            const fadeDuration = 0.010; // 10ms fade to avoid clicks
+            const fadeStart = Math.max(prevNode.startTime, startTime - fadeDuration);
+            try {
+                const gainParam = prevNode.gainNode.gain;
+                gainParam.cancelScheduledValues(fadeStart);
+                gainParam.setTargetAtTime(0, fadeStart, 0.003);
+            } catch (e) {
+                console.warn("Error fading out overlapping note:", e);
+            }
+        }
+    }
+
     const osc = engine(audioCtx, freq, startTime, duration, finalDest, (deadOsc) => {
         activeOscillators = activeOscillators.filter(o => o !== deadOsc);
         if (panner) panner.disconnect();
     }, engineParams);
     
-    if (osc) activeOscillators.push(osc);
+    if (osc) {
+        activeOscillators.push(osc);
+        if (destBus === 'melody' || destBus === 'countermelody') {
+            lastScheduledNotes[destBus] = osc;
+        }
+    }
 }
 
 export function playDrum(type, startTime, velocity = 1.0, customCtx = null, customDest = null) {
@@ -368,6 +395,7 @@ export function stopOscillators() {
         } catch (e) { /* Ignore InvalidStateError */ }
     });
     activeOscillators = [];
+    lastScheduledNotes = {};
 }
 
 export function setBassDrive(driveVal) {

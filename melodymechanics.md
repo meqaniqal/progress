@@ -305,5 +305,31 @@ To solve the issue of chaotic and off-key notes, the melody generator has been r
 * **Isolated Note Snapping**: Identifies "lonely" notes that are surrounded by rests/space and snaps them directly to stable chord tones (roots, 3rds, 5ths) to prevent exposed out-of-key clashes.
 * **Countermelody Coordination**: Couples the countermelody's active mode and density directly with the melody's aesthetic mode for a cohesive texture.
 
+### Pass 4: Post-Processing & Performance Safety (June 2026)
+* **Chronological Safety Sorting**: Before any post-processing is executed, the scheduled notes are sorted chronologically by `stepTime` to ensure duration-clamping math is bounds-safe.
+* **Overlap Prevention (Duration Clamping)**: Limits note durations dynamically so that no note extends past the start time of the next scheduled note.
+* **Chord Foreshadowing / Anticipation**: Notes followed by a long silence (>0.6 beats) snap their pitches to the closest octave-equivalent pitch of the upcoming chord tones, preparing the listener for the harmonic change.
+* **Strict Repeated Pitch Prevention**: If a scheduled note lands on the same pitch as the preceding note, it is shifted by $\pm 1$ scale degree (bypassing final consequent phrase endings).
+
+---
+
+## 14. Monophonic Voice Stealing & Click-Free Transitions
+
+To completely eliminate overlapping audio trails and resulting click transients when a new note begins:
+- **`lastScheduledNotes` Registry**: A tracker in `synth.js` records the active playing node and its calculated `endTime` for the `'melody'` and `'countermelody'` buses.
+- **Node Property Exposure**: All synth and sample engines in `synthEngines.js` calculate their absolute `endTime` (taking into account whether the release phase starts at the note's duration or extends into silence) and attach the `gainNode`, `startTime`, and `endTime` references directly to the returned source node.
+- **Exponential Fadeout**: When a new tone is scheduled, if the previous note's `endTime` overlaps with the new note's `startTime`, the previous note is intercepted:
+  - Its future volume automation is cancelled starting 10ms prior to the new note's start.
+  - An exponential decay targeting 0 is scheduled with a 3ms time constant using `setTargetAtTime(0, fadeStart, 0.003)`.
+  - This guarantees the old voice is completely silent before the new voice triggers, preventing overlapping overlap and resolving click glitches.
+
+---
+
+## 15. Shortest Note Runs Limit Slider
+
+- **Range Restriction**: Caps the `#melody-shortest-note` slider to a minimum of `9` (1/8 notes) and a maximum of `13` (1/2 notes).
+- **Subdivision Enforcement**: The generator lookahead and playback loops query the `shortestNoteLimit` value and bypass subdivision rates that would result in notes shorter than the selected note duration.
+- **Layout Stabilization**: Assigned a fixed `160px` width to the text element displaying the subdivision label (e.g. `1/8 Note`) to prevent layout width oscillations from causing feedback loops during slider drag adjustments.
+
 
 

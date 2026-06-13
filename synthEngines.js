@@ -1,5 +1,49 @@
 import { CONFIG } from './config.js';
 
+function getEnvelopeTimes(duration, adsr, gapAfter = 999) {
+    const attack = adsr ? adsr.attack : CONFIG.ATTACK_TIME;
+    const decay = adsr ? adsr.decay : 0.2;
+    const sustain = adsr ? adsr.sustain : CONFIG.SUSTAIN_LEVEL;
+    const release = adsr ? adsr.release : CONFIG.RELEASE_TIME;
+
+    const isShort = duration < 0.15;
+    const hasSpace = gapAfter >= 0.05;
+
+    if (isShort && !hasSpace) {
+        return {
+            attack: 0.002,
+            decay: 0,
+            sustain: 1.0,
+            release: 0.008,
+            releaseStartsAtDuration: true
+        };
+    }
+
+    if (hasSpace) {
+        const safeAttack = Math.min(attack, duration * 0.25);
+        const safeDecay = Math.min(decay, duration * 0.25);
+        const safeRelease = Math.max(0.015, Math.min(release, gapAfter - 0.01));
+        return {
+            attack: safeAttack,
+            decay: safeDecay,
+            sustain,
+            release: safeRelease,
+            releaseStartsAtDuration: false
+        };
+    } else {
+        const safeRelease = Math.max(0.015, Math.min(release, duration * 0.5));
+        const safeAttack = Math.min(attack, (duration - safeRelease) * 0.5);
+        const safeDecay = Math.min(decay, (duration - safeRelease) * 0.5);
+        return {
+            attack: safeAttack,
+            decay: safeDecay,
+            sustain,
+            release: safeRelease,
+            releaseStartsAtDuration: true
+        };
+    }
+}
+
 export const SYNTH_REGISTRY = {
     'sine': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
         const osc = ctx.createOscillator();
@@ -7,40 +51,43 @@ export const SYNTH_REGISTRY = {
         osc.type = 'sine';
         osc.frequency.value = freq;
 
-        const adsr = params.adsr;
-        let safeAttack, safeDecay, safeRelease, sustain;
         const vol = params.vol !== undefined ? params.vol : 1.0;
-        
-        if (adsr) {
-            safeAttack = Math.min(adsr.attack, duration * 0.25);
-            safeDecay = Math.min(adsr.decay, duration * 0.25);
-            safeRelease = Math.min(adsr.release, duration * 0.5);
-            sustain = adsr.sustain * vol;
-        } else {
-            safeAttack = Math.min(CONFIG.ATTACK_TIME, duration * 0.3);
-            safeDecay = 0.2;
-            safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
-            sustain = CONFIG.SUSTAIN_LEVEL * vol;
-        }
+        const env = getEnvelopeTimes(duration, params.adsr, params.gapAfter);
+        const sustainVal = env.sustain * vol;
 
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(vol, startTime + safeAttack);
-        gainNode.gain.setValueAtTime(vol, startTime + safeAttack);
-        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustain), startTime + safeAttack + safeDecay);
-        gainNode.gain.setValueAtTime(sustain, startTime + duration - safeRelease);
-        gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+        gainNode.gain.linearRampToValueAtTime(vol, startTime + env.attack);
+        if (env.decay > 0) {
+            gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
+        } else {
+            gainNode.gain.setValueAtTime(vol, startTime + env.attack);
+        }
 
         osc.connect(gainNode);
         gainNode.connect(dest);
-
         osc.start(startTime);
-        osc.stop(startTime + duration + 0.1);
+
+        const releaseTime = env.release;
+        if (env.releaseStartsAtDuration) {
+            const releaseStart = startTime + duration - releaseTime;
+            gainNode.gain.setValueAtTime(sustainVal, releaseStart);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+            osc.stop(startTime + duration + 0.05);
+        } else {
+            gainNode.gain.setValueAtTime(sustainVal, startTime + duration);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration + releaseTime);
+            osc.stop(startTime + duration + releaseTime + 0.05);
+        }
 
         osc.onended = () => {
             osc.disconnect();
             gainNode.disconnect();
             if (onCleanup) onCleanup(osc);
         };
+        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
+        osc.gainNode = gainNode;
+        osc.startTime = startTime;
+        osc.endTime = endTime;
         return osc;
     },
     'triangle': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -49,40 +96,43 @@ export const SYNTH_REGISTRY = {
         osc.type = 'triangle';
         osc.frequency.value = freq;
 
-        const adsr = params.adsr;
-        let safeAttack, safeDecay, safeRelease, sustain;
         const vol = params.vol !== undefined ? params.vol : 1.0;
-        
-        if (adsr) {
-            safeAttack = Math.min(adsr.attack, duration * 0.25);
-            safeDecay = Math.min(adsr.decay, duration * 0.25);
-            safeRelease = Math.min(adsr.release, duration * 0.5);
-            sustain = adsr.sustain * vol;
-        } else {
-            safeAttack = Math.min(CONFIG.ATTACK_TIME, duration * 0.3);
-            safeDecay = 0.2;
-            safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
-            sustain = CONFIG.SUSTAIN_LEVEL * vol;
-        }
+        const env = getEnvelopeTimes(duration, params.adsr, params.gapAfter);
+        const sustainVal = env.sustain * vol;
 
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(vol, startTime + safeAttack);
-        gainNode.gain.setValueAtTime(vol, startTime + safeAttack);
-        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustain), startTime + safeAttack + safeDecay);
-        gainNode.gain.setValueAtTime(sustain, startTime + duration - safeRelease);
-        gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+        gainNode.gain.linearRampToValueAtTime(vol, startTime + env.attack);
+        if (env.decay > 0) {
+            gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
+        } else {
+            gainNode.gain.setValueAtTime(vol, startTime + env.attack);
+        }
 
         osc.connect(gainNode);
         gainNode.connect(dest);
-
         osc.start(startTime);
-        osc.stop(startTime + duration + 0.1);
+
+        const releaseTime = env.release;
+        if (env.releaseStartsAtDuration) {
+            const releaseStart = startTime + duration - releaseTime;
+            gainNode.gain.setValueAtTime(sustainVal, releaseStart);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+            osc.stop(startTime + duration + 0.05);
+        } else {
+            gainNode.gain.setValueAtTime(sustainVal, startTime + duration);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration + releaseTime);
+            osc.stop(startTime + duration + releaseTime + 0.05);
+        }
 
         osc.onended = () => {
             osc.disconnect();
             gainNode.disconnect();
             if (onCleanup) onCleanup(osc);
         };
+        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
+        osc.gainNode = gainNode;
+        osc.startTime = startTime;
+        osc.endTime = endTime;
         return osc;
     },
     'sawtooth': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -93,40 +143,39 @@ export const SYNTH_REGISTRY = {
         osc.type = 'sawtooth';
         osc.frequency.value = freq;
 
-        const adsr = params.adsr;
-        let safeAttack, safeDecay, safeRelease, sustain;
         const vol = params.vol !== undefined ? params.vol : 1.0;
-        
-        if (adsr) {
-            safeAttack = Math.min(adsr.attack, duration * 0.25);
-            safeDecay = Math.min(adsr.decay, duration * 0.25);
-            safeRelease = Math.min(adsr.release, duration * 0.5);
-            sustain = adsr.sustain * vol;
-        } else {
-            safeAttack = Math.min(CONFIG.ATTACK_TIME, duration * 0.3);
-            safeDecay = 0.2;
-            safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
-            sustain = CONFIG.SUSTAIN_LEVEL * vol;
-        }
+        const env = getEnvelopeTimes(duration, params.adsr, params.gapAfter);
+        const sustainVal = env.sustain * vol;
 
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(vol, startTime + safeAttack);
-        gainNode.gain.setValueAtTime(vol, startTime + safeAttack);
-        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustain), startTime + safeAttack + safeDecay);
-        gainNode.gain.setValueAtTime(sustain, startTime + duration - safeRelease);
-        gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+        gainNode.gain.linearRampToValueAtTime(vol, startTime + env.attack);
+        if (env.decay > 0) {
+            gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
+        } else {
+            gainNode.gain.setValueAtTime(vol, startTime + env.attack);
+        }
 
         filterNode.type = 'lowpass';
         filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 1.5, startTime);
-        filterNode.frequency.exponentialRampToValueAtTime(CONFIG.SYNTH_LPF_CUTOFF, startTime + safeAttack);
+        filterNode.frequency.exponentialRampToValueAtTime(CONFIG.SYNTH_LPF_CUTOFF, startTime + env.attack);
         filterNode.Q.value = CONFIG.SYNTH_LPF_RESONANCE;
 
         osc.connect(filterNode);
         filterNode.connect(gainNode);
         gainNode.connect(dest);
-
         osc.start(startTime);
-        osc.stop(startTime + duration + 0.1);
+
+        const releaseTime = env.release;
+        if (env.releaseStartsAtDuration) {
+            const releaseStart = startTime + duration - releaseTime;
+            gainNode.gain.setValueAtTime(sustainVal, releaseStart);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+            osc.stop(startTime + duration + 0.05);
+        } else {
+            gainNode.gain.setValueAtTime(sustainVal, startTime + duration);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration + releaseTime);
+            osc.stop(startTime + duration + releaseTime + 0.05);
+        }
 
         osc.onended = () => {
             osc.disconnect();
@@ -134,6 +183,10 @@ export const SYNTH_REGISTRY = {
             gainNode.disconnect();
             if (onCleanup) onCleanup(osc);
         };
+        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
+        osc.gainNode = gainNode;
+        osc.startTime = startTime;
+        osc.endTime = endTime;
         return osc;
     },
     'sawtooth-bass': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -144,28 +197,17 @@ export const SYNTH_REGISTRY = {
         osc.type = 'sawtooth';
         osc.frequency.value = freq;
 
-        const adsr = params.adsr;
-        let safeAttack, safeDecay, safeRelease, sustain;
         const vol = params.vol !== undefined ? params.vol : 1.0;
-        
-        if (adsr) {
-            safeAttack = Math.min(adsr.attack, duration * 0.25);
-            safeDecay = Math.min(adsr.decay, duration * 0.25);
-            safeRelease = Math.min(adsr.release, duration * 0.5);
-            sustain = adsr.sustain * 0.8 * vol;
-        } else {
-            safeAttack = Math.min(CONFIG.ATTACK_TIME, duration * 0.3);
-            safeDecay = 0.2;
-            safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
-            sustain = CONFIG.SUSTAIN_LEVEL * 0.8 * vol;
-        }
+        const env = getEnvelopeTimes(duration, params.adsr, params.gapAfter);
+        const sustainVal = env.sustain * 0.8 * vol;
 
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(vol, startTime + safeAttack);
-        gainNode.gain.setValueAtTime(vol, startTime + safeAttack);
-        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustain), startTime + safeAttack + safeDecay);
-        gainNode.gain.setValueAtTime(sustain, startTime + duration - safeRelease);
-        gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+        gainNode.gain.linearRampToValueAtTime(vol, startTime + env.attack);
+        if (env.decay > 0) {
+            gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
+        } else {
+            gainNode.gain.setValueAtTime(vol, startTime + env.attack);
+        }
 
         filterNode.type = 'lowpass';
         filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * 2.5, startTime);
@@ -173,9 +215,19 @@ export const SYNTH_REGISTRY = {
         osc.connect(filterNode);
         filterNode.connect(gainNode);
         gainNode.connect(dest);
-
         osc.start(startTime);
-        osc.stop(startTime + duration + 0.1);
+
+        const releaseTime = env.release;
+        if (env.releaseStartsAtDuration) {
+            const releaseStart = startTime + duration - releaseTime;
+            gainNode.gain.setValueAtTime(sustainVal, releaseStart);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+            osc.stop(startTime + duration + 0.05);
+        } else {
+            gainNode.gain.setValueAtTime(sustainVal, startTime + duration);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration + releaseTime);
+            osc.stop(startTime + duration + releaseTime + 0.05);
+        }
 
         osc.onended = () => {
             osc.disconnect();
@@ -183,6 +235,10 @@ export const SYNTH_REGISTRY = {
             gainNode.disconnect();
             if (onCleanup) onCleanup(osc);
         };
+        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
+        osc.gainNode = gainNode;
+        osc.startTime = startTime;
+        osc.endTime = endTime;
         return osc;
     },
     'fm': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -196,39 +252,47 @@ export const SYNTH_REGISTRY = {
         const attackTime = params.attack !== undefined ? params.attack : CONFIG.ATTACK_TIME;
         const releaseTime = params.release !== undefined ? params.release : CONFIG.RELEASE_TIME;
         const vol = params.vol !== undefined ? params.vol : 1.0;
-        const sustain = CONFIG.SUSTAIN_LEVEL * vol;
 
         carrier.type = 'sine';
         carrier.frequency.value = freq;
 
-        // 2:1 ratio creates classic FM electric piano/bell timbres
         modulator.type = 'sine';
         modulator.frequency.value = freq * ratio; 
 
-        const maxModIndex = freq * modIndexMultiplier; // Modulation depth
+        const maxModIndex = freq * modIndexMultiplier;
+        
+        const env = getEnvelopeTimes(duration, { attack: attackTime, decay: 0.2, sustain: CONFIG.SUSTAIN_LEVEL, release: releaseTime }, params.gapAfter);
+        const sustainVal = env.sustain * vol;
+
         modGain.gain.setValueAtTime(0, startTime);
-        modGain.gain.linearRampToValueAtTime(maxModIndex, startTime + Math.min(attackTime, duration * 0.1));
-        // Use Math.max to prevent exponentialRamp from crashing on 0
+        modGain.gain.linearRampToValueAtTime(maxModIndex, startTime + env.attack);
         modGain.gain.exponentialRampToValueAtTime(Math.max(0.01, maxModIndex * 0.1), startTime + duration);
 
-        const safeAttack = Math.min(attackTime, duration * 0.3);
-        const safeRelease = Math.min(releaseTime, duration * 0.5);
-
         mainGain.gain.setValueAtTime(0, startTime);
-        mainGain.gain.linearRampToValueAtTime(sustain, startTime + safeAttack);
-        mainGain.gain.linearRampToValueAtTime(sustain * 0.8, startTime + duration - safeRelease);
-        mainGain.gain.linearRampToValueAtTime(0, startTime + duration);
+        mainGain.gain.linearRampToValueAtTime(sustainVal, startTime + env.attack);
 
         modulator.connect(modGain);
-        modGain.connect(carrier.frequency); // Route modulator into carrier pitch
+        modGain.connect(carrier.frequency);
         carrier.connect(mainGain);
         mainGain.connect(dest);
 
         modulator.start(startTime);
         carrier.start(startTime);
 
-        modulator.stop(startTime + duration + 0.1);
-        carrier.stop(startTime + duration + 0.1);
+        if (env.releaseStartsAtDuration) {
+            const releaseStart = startTime + duration - env.release;
+            mainGain.gain.linearRampToValueAtTime(sustainVal * 0.8, releaseStart);
+            mainGain.gain.linearRampToValueAtTime(0, startTime + duration);
+            modGain.gain.linearRampToValueAtTime(0, startTime + duration);
+            carrier.stop(startTime + duration + 0.05);
+            modulator.stop(startTime + duration + 0.05);
+        } else {
+            mainGain.gain.linearRampToValueAtTime(sustainVal * 0.8, startTime + duration);
+            mainGain.gain.linearRampToValueAtTime(0, startTime + duration + env.release);
+            modGain.gain.linearRampToValueAtTime(0, startTime + duration + env.release);
+            carrier.stop(startTime + duration + env.release + 0.05);
+            modulator.stop(startTime + duration + env.release + 0.05);
+        }
 
         carrier.onended = () => {
             carrier.disconnect();
@@ -237,6 +301,10 @@ export const SYNTH_REGISTRY = {
             mainGain.disconnect();
             if (onCleanup) onCleanup(carrier);
         };
+        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
+        carrier.gainNode = mainGain;
+        carrier.startTime = startTime;
+        carrier.endTime = endTime;
         return carrier;
     },
     'plucked-square': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -253,13 +321,15 @@ export const SYNTH_REGISTRY = {
         osc.type = waveform;
         osc.frequency.value = freq;
 
-        const safeAttack = Math.min(CONFIG.ATTACK_TIME * 0.5, duration * 0.1);
-        const safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
+        const env = getEnvelopeTimes(duration, { attack: CONFIG.ATTACK_TIME * 0.5, decay: decayTime, sustain: 0.1, release: CONFIG.RELEASE_TIME }, params.gapAfter);
+        const peakVal = CONFIG.SUSTAIN_LEVEL * 0.7 * vol;
+        const sustainVal = CONFIG.SUSTAIN_LEVEL * 0.1 * vol;
 
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(CONFIG.SUSTAIN_LEVEL * 0.7 * vol, startTime + safeAttack);
-        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.01, CONFIG.SUSTAIN_LEVEL * 0.1 * vol), startTime + Math.min(decayTime, duration * 0.5));
-        gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+        gainNode.gain.linearRampToValueAtTime(peakVal, startTime + env.attack);
+        if (env.decay > 0) {
+            gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
+        }
 
         filterNode.type = 'lowpass';
         filterNode.frequency.setValueAtTime(CONFIG.SYNTH_LPF_CUTOFF * cutoffMultiplier, startTime);
@@ -269,9 +339,17 @@ export const SYNTH_REGISTRY = {
         osc.connect(filterNode);
         filterNode.connect(gainNode);
         gainNode.connect(dest);
-
         osc.start(startTime);
-        osc.stop(startTime + duration + 0.1);
+
+        if (env.releaseStartsAtDuration) {
+            gainNode.gain.setValueAtTime(sustainVal, startTime + duration - env.release);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+            osc.stop(startTime + duration + 0.05);
+        } else {
+            gainNode.gain.setValueAtTime(sustainVal, startTime + duration);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration + env.release);
+            osc.stop(startTime + duration + env.release + 0.05);
+        }
 
         osc.onended = () => {
             osc.disconnect();
@@ -279,6 +357,10 @@ export const SYNTH_REGISTRY = {
             gainNode.disconnect();
             if (onCleanup) onCleanup(osc);
         };
+        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
+        osc.gainNode = gainNode;
+        osc.startTime = startTime;
+        osc.endTime = endTime;
         return osc;
     },
     'square': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -287,40 +369,43 @@ export const SYNTH_REGISTRY = {
         osc.type = 'square';
         osc.frequency.value = freq;
 
-        const adsr = params.adsr;
-        let safeAttack, safeDecay, safeRelease, sustain;
         const vol = params.vol !== undefined ? params.vol : 1.0;
-        
-        if (adsr) {
-            safeAttack = Math.min(adsr.attack, duration * 0.25);
-            safeDecay = Math.min(adsr.decay, duration * 0.25);
-            safeRelease = Math.min(adsr.release, duration * 0.5);
-            sustain = adsr.sustain * vol;
-        } else {
-            safeAttack = Math.min(CONFIG.ATTACK_TIME, duration * 0.3);
-            safeDecay = 0.2;
-            safeRelease = Math.min(CONFIG.RELEASE_TIME, duration * 0.5);
-            sustain = CONFIG.SUSTAIN_LEVEL * vol;
-        }
+        const env = getEnvelopeTimes(duration, params.adsr, params.gapAfter);
+        const sustainVal = env.sustain * vol;
 
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(vol, startTime + safeAttack);
-        gainNode.gain.setValueAtTime(vol, startTime + safeAttack);
-        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustain), startTime + safeAttack + safeDecay);
-        gainNode.gain.setValueAtTime(sustain, startTime + duration - safeRelease);
-        gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+        gainNode.gain.linearRampToValueAtTime(vol, startTime + env.attack);
+        if (env.decay > 0) {
+            gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
+        } else {
+            gainNode.gain.setValueAtTime(vol, startTime + env.attack);
+        }
 
         osc.connect(gainNode);
         gainNode.connect(dest);
-
         osc.start(startTime);
-        osc.stop(startTime + duration + 0.1);
+
+        const releaseTime = env.release;
+        if (env.releaseStartsAtDuration) {
+            const releaseStart = startTime + duration - releaseTime;
+            gainNode.gain.setValueAtTime(sustainVal, releaseStart);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+            osc.stop(startTime + duration + 0.05);
+        } else {
+            gainNode.gain.setValueAtTime(sustainVal, startTime + duration);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + duration + releaseTime);
+            osc.stop(startTime + duration + releaseTime + 0.05);
+        }
 
         osc.onended = () => {
             osc.disconnect();
             gainNode.disconnect();
             if (onCleanup) onCleanup(osc);
         };
+        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
+        osc.gainNode = gainNode;
+        osc.startTime = startTime;
+        osc.endTime = endTime;
         return osc;
     },
     'karplus-strong': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -345,7 +430,6 @@ export const SYNTH_REGISTRY = {
         filterNode.frequency.setValueAtTime(dampingFreq, startTime);
         
         const feedbackGain = ctx.createGain();
-        // Compute feedback coefficient based on target decay time in seconds
         const decayTime = params.decay !== undefined ? params.decay : 0.8;
         const feedbackCoeff = Math.min(0.99, Math.pow(0.001, period / decayTime));
         feedbackGain.gain.setValueAtTime(feedbackCoeff, startTime);
@@ -353,8 +437,17 @@ export const SYNTH_REGISTRY = {
         const outputGain = ctx.createGain();
         const vol = params.vol !== undefined ? params.vol : 1.0;
         outputGain.gain.setValueAtTime(vol * 0.3, startTime);
-        outputGain.gain.setValueAtTime(vol * 0.3, startTime + duration - 0.02);
-        outputGain.gain.linearRampToValueAtTime(0, startTime + duration);
+        
+        const env = getEnvelopeTimes(duration, null, params.gapAfter);
+        const releaseTime = env.release;
+        
+        if (env.releaseStartsAtDuration) {
+            outputGain.gain.setValueAtTime(vol * 0.3, startTime + duration - releaseTime);
+            outputGain.gain.linearRampToValueAtTime(0, startTime + duration);
+        } else {
+            outputGain.gain.setValueAtTime(vol * 0.3, startTime + duration);
+            outputGain.gain.linearRampToValueAtTime(0, startTime + duration + releaseTime);
+        }
         
         burstSource.connect(delayNode);
         delayNode.connect(filterNode);
@@ -369,7 +462,12 @@ export const SYNTH_REGISTRY = {
         const dummyOsc = ctx.createOscillator();
         dummyOsc.connect(ctx.destination);
         dummyOsc.start(startTime);
-        dummyOsc.stop(startTime + duration + 0.2);
+        
+        if (env.releaseStartsAtDuration) {
+            dummyOsc.stop(startTime + duration + 0.05);
+        } else {
+            dummyOsc.stop(startTime + duration + releaseTime + 0.05);
+        }
         
         dummyOsc.onended = () => {
             dummyOsc.disconnect();
@@ -380,7 +478,10 @@ export const SYNTH_REGISTRY = {
             outputGain.disconnect();
             if (onCleanup) onCleanup(dummyOsc);
         };
-        
+        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
+        dummyOsc.gainNode = outputGain;
+        dummyOsc.startTime = startTime;
+        dummyOsc.endTime = endTime;
         return dummyOsc;
     },
     'sample-bass': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -399,36 +500,43 @@ export const SYNTH_REGISTRY = {
         
         const adsrGain = ctx.createGain();
         const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
-        const sampleLen = buffer.duration;
-        
-        const attack = Math.min(adsr.attack, duration * 0.25);
-        const decay = Math.min(adsr.decay, duration * 0.25);
-        const release = Math.min(adsr.release, duration * 0.5);
-        const sustain = adsr.sustain;
-        
         const vol = params.vol !== undefined ? params.vol : 1.0;
         
-        adsrGain.gain.setValueAtTime(0, startTime);
-        adsrGain.gain.linearRampToValueAtTime(vol, startTime + attack);
-        adsrGain.gain.setValueAtTime(vol, startTime + attack);
-        adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * sustain), startTime + attack + decay);
+        const env = getEnvelopeTimes(duration, adsr, params.gapAfter);
+        const sustainVal = env.sustain * vol;
         
-        const noteOffTime = startTime + duration;
-        adsrGain.gain.setValueAtTime(vol * sustain, noteOffTime);
-        adsrGain.gain.linearRampToValueAtTime(0, noteOffTime + release);
+        adsrGain.gain.setValueAtTime(0, startTime);
+        adsrGain.gain.linearRampToValueAtTime(vol, startTime + env.attack);
+        if (env.decay > 0) {
+            adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
+        } else {
+            adsrGain.gain.setValueAtTime(vol, startTime + env.attack);
+        }
         
         source.connect(adsrGain);
         adsrGain.connect(dest);
-        
         source.start(startTime);
-        source.stop(noteOffTime + release + 0.1);
+        
+        if (env.releaseStartsAtDuration) {
+            const releaseStart = startTime + duration - env.release;
+            adsrGain.gain.setValueAtTime(sustainVal, releaseStart);
+            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration);
+            source.stop(startTime + duration + 0.05);
+        } else {
+            adsrGain.gain.setValueAtTime(sustainVal, startTime + duration);
+            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration + env.release);
+            source.stop(startTime + duration + env.release + 0.05);
+        }
         
         source.onended = () => {
             source.disconnect();
             adsrGain.disconnect();
             if (onCleanup) onCleanup(source);
         };
-        
+        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
+        source.gainNode = adsrGain;
+        source.startTime = startTime;
+        source.endTime = endTime;
         return source;
     },
     'sample-chords': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -447,36 +555,43 @@ export const SYNTH_REGISTRY = {
         
         const adsrGain = ctx.createGain();
         const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
-        const sampleLen = buffer.duration;
-        
-        const attack = Math.min(adsr.attack, duration * 0.25);
-        const decay = Math.min(adsr.decay, duration * 0.25);
-        const release = Math.min(adsr.release, duration * 0.5);
-        const sustain = adsr.sustain;
-        
         const vol = params.vol !== undefined ? params.vol : 1.0;
         
-        adsrGain.gain.setValueAtTime(0, startTime);
-        adsrGain.gain.linearRampToValueAtTime(vol, startTime + attack);
-        adsrGain.gain.setValueAtTime(vol, startTime + attack);
-        adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * sustain), startTime + attack + decay);
+        const env = getEnvelopeTimes(duration, adsr, params.gapAfter);
+        const sustainVal = env.sustain * vol;
         
-        const noteOffTime = startTime + duration;
-        adsrGain.gain.setValueAtTime(vol * sustain, noteOffTime);
-        adsrGain.gain.linearRampToValueAtTime(0, noteOffTime + release);
+        adsrGain.gain.setValueAtTime(0, startTime);
+        adsrGain.gain.linearRampToValueAtTime(vol, startTime + env.attack);
+        if (env.decay > 0) {
+            adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
+        } else {
+            adsrGain.gain.setValueAtTime(vol, startTime + env.attack);
+        }
         
         source.connect(adsrGain);
         adsrGain.connect(dest);
-        
         source.start(startTime);
-        source.stop(noteOffTime + release + 0.1);
+        
+        if (env.releaseStartsAtDuration) {
+            const releaseStart = startTime + duration - env.release;
+            adsrGain.gain.setValueAtTime(sustainVal, releaseStart);
+            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration);
+            source.stop(startTime + duration + 0.05);
+        } else {
+            adsrGain.gain.setValueAtTime(sustainVal, startTime + duration);
+            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration + env.release);
+            source.stop(startTime + duration + env.release + 0.05);
+        }
         
         source.onended = () => {
             source.disconnect();
             adsrGain.disconnect();
             if (onCleanup) onCleanup(source);
         };
-        
+        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
+        source.gainNode = adsrGain;
+        source.startTime = startTime;
+        source.endTime = endTime;
         return source;
     },
     'sample-melody': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -495,36 +610,43 @@ export const SYNTH_REGISTRY = {
         
         const adsrGain = ctx.createGain();
         const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
-        const sampleLen = buffer.duration;
-        
-        const attack = Math.min(adsr.attack, duration * 0.25);
-        const decay = Math.min(adsr.decay, duration * 0.25);
-        const release = Math.min(adsr.release, duration * 0.5);
-        const sustain = adsr.sustain;
-        
         const vol = params.vol !== undefined ? params.vol : 1.0;
         
-        adsrGain.gain.setValueAtTime(0, startTime);
-        adsrGain.gain.linearRampToValueAtTime(vol, startTime + attack);
-        adsrGain.gain.setValueAtTime(vol, startTime + attack);
-        adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * sustain), startTime + attack + decay);
+        const env = getEnvelopeTimes(duration, adsr, params.gapAfter);
+        const sustainVal = env.sustain * vol;
         
-        const noteOffTime = startTime + duration;
-        adsrGain.gain.setValueAtTime(vol * sustain, noteOffTime);
-        adsrGain.gain.linearRampToValueAtTime(0, noteOffTime + release);
+        adsrGain.gain.setValueAtTime(0, startTime);
+        adsrGain.gain.linearRampToValueAtTime(vol, startTime + env.attack);
+        if (env.decay > 0) {
+            adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
+        } else {
+            adsrGain.gain.setValueAtTime(vol, startTime + env.attack);
+        }
         
         source.connect(adsrGain);
         adsrGain.connect(dest);
-        
         source.start(startTime);
-        source.stop(noteOffTime + release + 0.1);
+        
+        if (env.releaseStartsAtDuration) {
+            const releaseStart = startTime + duration - env.release;
+            adsrGain.gain.setValueAtTime(sustainVal, releaseStart);
+            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration);
+            source.stop(startTime + duration + 0.05);
+        } else {
+            adsrGain.gain.setValueAtTime(sustainVal, startTime + duration);
+            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration + env.release);
+            source.stop(startTime + duration + env.release + 0.05);
+        }
         
         source.onended = () => {
             source.disconnect();
             adsrGain.disconnect();
             if (onCleanup) onCleanup(source);
         };
-        
+        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
+        source.gainNode = adsrGain;
+        source.startTime = startTime;
+        source.endTime = endTime;
         return source;
     },
     'sample-countermelody': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -543,36 +665,43 @@ export const SYNTH_REGISTRY = {
         
         const adsrGain = ctx.createGain();
         const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
-        const sampleLen = buffer.duration;
-        
-        const attack = Math.min(adsr.attack, duration * 0.25);
-        const decay = Math.min(adsr.decay, duration * 0.25);
-        const release = Math.min(adsr.release, duration * 0.5);
-        const sustain = adsr.sustain;
-        
         const vol = params.vol !== undefined ? params.vol : 1.0;
         
-        adsrGain.gain.setValueAtTime(0, startTime);
-        adsrGain.gain.linearRampToValueAtTime(vol, startTime + attack);
-        adsrGain.gain.setValueAtTime(vol, startTime + attack);
-        adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * sustain), startTime + attack + decay);
+        const env = getEnvelopeTimes(duration, adsr, params.gapAfter);
+        const sustainVal = env.sustain * vol;
         
-        const noteOffTime = startTime + duration;
-        adsrGain.gain.setValueAtTime(vol * sustain, noteOffTime);
-        adsrGain.gain.linearRampToValueAtTime(0, noteOffTime + release);
+        adsrGain.gain.setValueAtTime(0, startTime);
+        adsrGain.gain.linearRampToValueAtTime(vol, startTime + env.attack);
+        if (env.decay > 0) {
+            adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
+        } else {
+            adsrGain.gain.setValueAtTime(vol, startTime + env.attack);
+        }
         
         source.connect(adsrGain);
         adsrGain.connect(dest);
-        
         source.start(startTime);
-        source.stop(noteOffTime + release + 0.1);
+        
+        if (env.releaseStartsAtDuration) {
+            const releaseStart = startTime + duration - env.release;
+            adsrGain.gain.setValueAtTime(sustainVal, releaseStart);
+            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration);
+            source.stop(startTime + duration + 0.05);
+        } else {
+            adsrGain.gain.setValueAtTime(sustainVal, startTime + duration);
+            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration + env.release);
+            source.stop(startTime + duration + env.release + 0.05);
+        }
         
         source.onended = () => {
             source.disconnect();
             adsrGain.disconnect();
             if (onCleanup) onCleanup(source);
         };
-        
+        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
+        source.gainNode = adsrGain;
+        source.startTime = startTime;
+        source.endTime = endTime;
         return source;
     }
 };
