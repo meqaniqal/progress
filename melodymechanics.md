@@ -269,4 +269,41 @@ All 172 unit tests are verified passing successfully.
   - *Diagnosis*: The text width of the dynamic labels (e.g. `1/24 Note (1/16 Triplet)`) changed dynamically, causing the flexbox layout of the slider to shrink and grow. This changed the relative position of the mouse on the slider input, creating a layout feedback loop that made the slider jump.
   - *Resolution*: Fixed in [index.html](file:///c:/Users/mekka/OneDrive/Desktop/progress/index.html) by assigning a fixed `width: 160px; min-width: 160px; display: inline-block;` to `#melody-shortest-note-val`.
 
+---
+
+## 13. Multi-Pass Hierarchical Planner & Aesthetic Modes (June 2026 Refactor)
+
+To solve the issue of chaotic and off-key notes, the melody generator has been restructured from a flat stochastic weighting engine into a **Hierarchical Multi-Pass Planner** that determines phrase structure, aesthetic choices, rhythm grids, and pitch transitions in five structured passes.
+
+### Pass 0: Phrase-Level Aesthetic Mode Selection
+* **Persistence**: Every 4 chord slots (`absIndex % 4 === 0`), a phrase-level `phraseActivityCurve` and an `activeAestheticMode` are chosen and locked in for the entire phrase.
+* **Mode Mapping**:
+  * *Major Chords*: **Cantabile** (flowing, lyrical stepwise motion).
+  * *Minor/Diminished Chords*: **Sighs & Suspensions** (appoggiatura leaps resolving downward stepwise).
+  * *Suspended/Dominant Chords*: **Declamatory** (motivic cells, syncopated patterns).
+  * *Climax/Build Roles*: Overridden to **Virtuoso** (fast runs, scale sweeps, arpeggios).
+  * *Resolution Role*: Overridden to **Cantabile** to ground the ending.
+
+### Pass 1: Structural Target Planner (Anchors)
+* **Anchor Allocation**: Deterministically plans **Anchor 1** on Beat 1 (downbeat) and **Anchor 2** on Beat 3 (conditionally).
+* **Conjunct Motion Constraint**: Structural anchors are forced to move step-wise. The leap distance between Anchor 1 and Anchor 2, and between the last anchor of slot N and Anchor 1 of slot N+1, is constrained to at most **3 scale-degree indices** in `validPitches` (except when the slot's role = `climax`, which allows up to **5**).
+* **Microtonal Adaptability**: All voice-leading calculations are performed in scale-degree index offsets within `validPitches` rather than raw semitones, ensuring full compatibility with custom EDO/microtonal divisions.
+
+### Pass 1B: Rhythmic Backbone Planner
+* **Mode-Specific Subdivision Palettes**: Subdivisions are selected dynamically based on the active mode (e.g. *Cantabile* runs {1, 2}, *Declamatory* syncopation {1, 2, 4}).
+* **Downbeat Protection**: Target anchors planned in Pass 1 are explicitly exempt from density and rest rolls, guaranteeing they are scheduled.
+
+### Pass 2: Connective Fills
+* Generates the notes between anchors using style-specific heuristics:
+  * **Cantabile**: Smooth stepwise passing and neighbor tones.
+  * **Sighs**: Leaps up to an accented appoggiatura on the beat, followed by stepwise resolution down.
+  * **Virtuoso**: Rapid scale runs and arpeggios spanning active registers.
+  * **Declamatory**: Repeated short rhythmic/motivic cells.
+
+### Pass 3: Resolutions & Snapping
+* **Leading-Tone Resolutions**: Detects leading/color tones and ensures they resolve step-wise to stable scale tones.
+* **Isolated Note Snapping**: Identifies "lonely" notes that are surrounded by rests/space and snaps them directly to stable chord tones (roots, 3rds, 5ths) to prevent exposed out-of-key clashes.
+* **Countermelody Coordination**: Couples the countermelody's active mode and density directly with the melody's aesthetic mode for a cohesive texture.
+
+
 

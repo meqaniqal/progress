@@ -25,6 +25,9 @@ let phraseHighestPitch = null;
 let songHighestPitch = null;
 let peakPitchHitsCount = 0;
 
+let activeAestheticMode = 'cantabile';
+let phraseActivityCurve = [];
+
 // Narrative State Tracker
 
 let narrativeState = {
@@ -51,6 +54,8 @@ export function clearMelodyMemory() {
     phraseHighestPitch = null;
     songHighestPitch = null;
     peakPitchHitsCount = 0;
+    activeAestheticMode = 'cantabile';
+    phraseActivityCurve = [];
 
     narrativeState = {
         consecutiveSteps: 0,
@@ -60,39 +65,7 @@ export function clearMelodyMemory() {
     };
 }
 
-// 16-step rhythmic templates to encode deliberate syncopation personalities per genre
-const RHYTHMIC_TEMPLATES = {
-    none: {
-        low:    [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
-        mid:    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
-        high:   [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]
-    },
-    generic: {
-        low:    [1,0,0,0, 0,0,1,0, 0,0,0,0, 1,0,0,0],  // sparse, quarter-note feel
-        mid:    [1,0,0,1, 0,0,1,0, 1,0,0,0, 0,1,0,0],  // moderate syncopation
-        high:   [1,0,1,0, 1,1,0,1, 0,1,0,1, 1,0,1,0]   // active, 8th-note dominant
-    },
-    blues: {
-        low:    [1,0,0,0, 0,1,0,0, 1,0,0,0, 0,0,1,0],  // call-and-response gaps
-        mid:    [1,0,0,1, 0,0,1,0, 0,1,0,0, 1,0,0,0],  // shuffle feel
-        high:   [1,0,1,0, 0,1,0,1, 1,0,0,1, 0,1,0,0]   // dense blues run
-    },
-    jazz: {
-        low:    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],  // 8th-note line (swing applied separately)
-        mid:    [1,0,1,1, 0,1,0,1, 1,0,1,0, 0,1,1,0],  // bebop syncopation
-        high:   [1,1,0,1, 1,0,1,1, 0,1,1,0, 1,0,1,1]   // dense chromatic run
-    },
-    latin: {
-        low:    [1,0,0,1, 0,1,0,0, 1,0,0,1, 0,0,1,0],  // clave-influenced
-        mid:    [1,0,1,0, 0,1,0,1, 1,0,1,0, 0,1,0,1],  // bossa feel
-        high:   [1,0,1,1, 0,1,0,1, 0,1,1,0, 1,0,1,0]   // active montuno-style
-    },
-    classical: {
-        low:    [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
-        mid:    [1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1],
-        high:   [1,1,0,1, 1,1,0,1, 1,1,0,1, 1,1,0,1]
-    }
-};
+
 
 /**
  * Main entry point to generate and schedule melody and countermelody notes for a chord slot.
@@ -151,12 +124,98 @@ export function scheduleMelody(
         } else {
             phraseLocalScaleOffset = -1;
         }
+
+        // --- Pass 0: Phrase-Level Aesthetic Mode Selection & Activity Curve ---
+        phraseActivityCurve = [];
+        for (let i = 0; i < 4; i++) {
+            const slotIdx = absIndex + i;
+            if (slotIdx >= totalChords) {
+                phraseActivityCurve.push(0.5);
+                continue;
+            }
+            const prog = slotIdx / Math.max(1, totalChords);
+            const tcVal = settings.tensionCurve === 'arch' ? Math.sin(prog * Math.PI) : 0.5;
+            
+            let role = 'statement';
+            if (settings.macroPlannerEnabled && macroTargetPlan && macroTargetPlan[slotIdx]) {
+                role = macroTargetPlan[slotIdx].role;
+            }
+            
+            let baseActivity = 0.5;
+            if (role === 'climax') baseActivity = 0.9;
+            else if (role === 'build') baseActivity = 0.75;
+            else if (role === 'release') baseActivity = 0.35;
+            else if (role === 'resolution') baseActivity = 0.2;
+            else if (role === 'statement') baseActivity = 0.55;
+            
+            const slotActivity = Math.max(0.2, Math.min(1.0, settings.density * 0.4 + baseActivity * 0.6 + (tcVal - 0.5) * 0.2));
+            phraseActivityCurve.push(slotActivity);
+        }
+
+        const firstProg = absIndex / Math.max(1, totalChords);
+        const firstTcVal = settings.tensionCurve === 'arch' ? Math.sin(firstProg * Math.PI) : 0.5;
+        const firstSlotTension = Math.max(0.0, Math.min(1.0, settings.density * 0.4 + firstTcVal * 0.6));
+        const firstSlotRole = (settings.macroPlannerEnabled && macroTargetPlan && macroTargetPlan[absIndex]) ? macroTargetPlan[absIndex].role : 'statement';
+        
+        const keyRootLocal = Number(state.baseKey) || 60;
+        const baseChordKeyLocal = chordObj.key !== undefined ? Number(chordObj.key) : keyRootLocal;
+        const parsed = deduceChordRootAndQuality(chordObj.symbol, baseChordKeyLocal, divisions);
+        const quality = parsed ? parsed.quality : 'major';
+        
+        let mode = 'cantabile';
+        if (quality === 'major') {
+            mode = (firstSlotRole === 'build' || firstSlotTension > 0.6) ? 'declamatory' : 'cantabile';
+        } else if (quality === 'minor') {
+            mode = (firstSlotRole === 'build' || (absIndex % 4 >= 1 && firstSlotTension > 0.6)) ? 'sighs' : 'cantabile';
+        } else if (quality === 'minor7') {
+            mode = (firstSlotTension < 0.3) ? 'cantabile' : 'sighs';
+        } else if (quality === 'dominant') {
+            mode = (firstSlotRole === 'climax' || firstSlotTension > 0.6) ? 'virtuoso' : 'declamatory';
+        } else if (quality === 'diminished') {
+            mode = (firstSlotRole === 'climax' || firstSlotRole === 'build' || firstSlotTension > 0.6) ? 'declamatory' : 'sighs';
+        } else if (quality === 'augmented') {
+            mode = (firstSlotRole === 'climax' || firstSlotTension > 0.6) ? 'virtuoso' : 'sighs';
+        } else if (quality === 'suspended') {
+            mode = (firstSlotRole === 'build' || firstSlotTension > 0.6) ? 'declamatory' : 'cantabile';
+        }
+
+        if (settings.macroPlannerEnabled) {
+            if (firstSlotRole === 'resolution') {
+                mode = 'cantabile';
+            } else if (firstSlotRole === 'climax') {
+                if (quality !== 'diminished' && quality !== 'augmented') {
+                    mode = 'virtuoso';
+                } else {
+                    mode = 'sighs';
+                }
+            } else if (firstSlotRole === 'release') {
+                if (mode === 'virtuoso' || mode === 'declamatory') {
+                    mode = (quality === 'minor' || quality === 'minor7' || quality === 'diminished') ? 'sighs' : 'cantabile';
+                }
+            }
+        }
+
+        if (settings.genre === 'none') {
+            mode = 'cantabile';
+        }
+        activeAestheticMode = mode;
     }
 
     // --- 5. Multi-Parameter Tension Curve Automation ---
     const progressVal = absIndex / Math.max(1, totalChords);
     const tensionCurveValue = settings.tensionCurve === 'arch' ? Math.sin(progressVal * Math.PI) : 0.5;
     const currentTension = Math.max(0.0, Math.min(1.0, settings.density * 0.4 + tensionCurveValue * 0.6));
+
+    let slotAestheticMode = activeAestheticMode;
+    if (absIndex % 4 !== 0 && settings.macroPlannerEnabled && macroTargetPlan && macroTargetPlan[absIndex]) {
+        const slotRole = macroTargetPlan[absIndex].role;
+        if (slotRole === 'climax') {
+            slotAestheticMode = 'virtuoso';
+        } else if (slotRole === 'resolution') {
+            slotAestheticMode = 'cantabile';
+        }
+    }
+    const slotActivity = (phraseActivityCurve && phraseActivityCurve.length > (absIndex % 4)) ? phraseActivityCurve[absIndex % 4] : currentTension;
 
     // Automation mappings (enforce 0.2 density floor so slots aren't fully silent)
     let activeDensity = Math.max(0.2, settings.density * (0.3 + currentTension * 0.7));
@@ -471,15 +530,7 @@ export function scheduleMelody(
     const melodyScheduled = [];
     const counterScheduled = [];
 
-    // --- 2. Rhythmic Syncopation Templates & Swing ---
-    const genre = settings.genre || 'generic';
-    const energyLevel = currentTension < 0.35 ? 'low' : currentTension >= 0.7 ? 'high' : 'mid';
-    const templatesGroup = RHYTHMIC_TEMPLATES[genre] || RHYTHMIC_TEMPLATES.generic;
-    const activeTemplateRaw = templatesGroup[energyLevel] || templatesGroup.mid;
-    const activeTemplate = [...activeTemplateRaw];
-    if (activeTemplate.every(step => !step)) {
-        activeTemplate[0] = 1;
-    }
+
 
     // Compute dynamic Swing ratio (scales down at fast tempos)
     let swingRatio = 0.5;
@@ -516,6 +567,63 @@ export function scheduleMelody(
             const resolveTarget = keyRoot + 12;
             targetPitch = melodyRangeEnd - t * (melodyRangeEnd - resolveTarget);
         }
+    }
+
+    // --- Pass 1: Structural Target Planner ---
+    let plannedAnchor1 = null;
+    let plannedAnchor2 = null;
+
+    let target1Raw = targetPitch;
+    let target2Raw = targetPitch;
+    if (settings.macroPlannerEnabled && macroSlotTarget) {
+        target1Raw = macroSlotTarget.targetPitch;
+        if (nextChordObj && macroTargetPlan && macroTargetPlan[absIndex + 1]) {
+            target2Raw = macroTargetPlan[absIndex + 1].targetPitch;
+        } else {
+            target2Raw = target1Raw;
+        }
+    }
+
+    let hasSurprise = false;
+    let surpriseType = null;
+    if (settings.genre !== 'none' && Math.random() < surpriseQuotient && stepsSinceLastSurprise >= 8) {
+        hasSurprise = true;
+        surpriseType = Math.random();
+    }
+
+    let anchor1Limit = activeRole === 'climax' ? 5 : 3;
+    if (globalPrevPitch !== null && !hasSurprise) {
+        plannedAnchor1 = getConstrainedAnchor(globalPrevPitch, target1Raw, anchor1Limit, validPitches, activeChordTones);
+    } else {
+        plannedAnchor1 = activeChordTones.length > 0 ? findClosest(target1Raw, activeChordTones) : findClosest(target1Raw, validPitches);
+    }
+
+    if (hasSurprise) {
+        if (surpriseType < 0.25) { // octave leap
+            let surprisePitch = plannedAnchor1 + (Math.random() > 0.5 ? periodSize : -periodSize);
+            if (surprisePitch < melodyRangeStart || surprisePitch > melodyRangeEnd) {
+                surprisePitch = plannedAnchor1 + (surprisePitch < melodyRangeStart ? periodSize : -periodSize);
+            }
+            plannedAnchor1 = findClosest(surprisePitch, validPitches);
+            stepsSinceLastSurprise = 0;
+        } else if (surpriseType < 0.5) { // deceptive landing
+            const scaleDegrees = getScaleIntervals(chordMode, settings.genre);
+            const degree6 = scaleDegrees[5] !== undefined ? scaleDegrees[5] : 9;
+            const deceptivePc = (chordKey + degree6) % periodSize;
+            const deceptivePitches = validPitches.filter(p => {
+                const pc = (p % periodSize + periodSize) % periodSize;
+                return Math.abs(pc - deceptivePc) < 0.01;
+            });
+            if (deceptivePitches.length > 0) {
+                plannedAnchor1 = findClosest(plannedAnchor1, deceptivePitches);
+            }
+            stepsSinceLastSurprise = 0;
+        }
+    }
+
+    if (beats >= 2 && ['build', 'climax', 'statement'].includes(activeRole)) {
+        let anchor2Limit = activeRole === 'climax' ? 5 : 3;
+        plannedAnchor2 = getConstrainedAnchor(plannedAnchor1, target2Raw, anchor2Limit, validPitches, activeChordTones);
     }
 
 
@@ -619,6 +727,15 @@ export function scheduleMelody(
         for (let beat = 0; beat < beats; beat++) {
             let subdivision = 4;
             if (settings.genre !== 'none') {
+                if (slotAestheticMode === 'cantabile' || slotAestheticMode === 'sighs') {
+                    subdivision = slotActivity > 0.6 ? 2 : 1;
+                } else if (slotAestheticMode === 'declamatory') {
+                    const declPattern = [1, 2, 4, 2];
+                    subdivision = declPattern[beat % declPattern.length];
+                } else if (slotAestheticMode === 'virtuoso') {
+                    subdivision = slotActivity > 0.75 ? 8 : (slotActivity > 0.5 ? 6 : 4);
+                }
+            } else {
                 const progressInPhrase = ((absIndex % 4) * beats + beat) / (4 * beats);
                 const subIdx = Math.floor(progressInPhrase * narrativeState.phraseSubdivisions.length);
                 subdivision = narrativeState.phraseSubdivisions[subIdx] || 4;
@@ -693,70 +810,24 @@ export function scheduleMelody(
                 stepSubMap[step] = sub;
                 stepBeatMap[step] = beat;
                 
+                const isAnchor1Step = (beat === 0 && sub === 0);
+                const isAnchor2Step = (beat === 2 && sub === 0 && beats >= 2 && ['build', 'climax', 'statement'].includes(activeRole));
+                const isAnchor = isAnchor1Step || isAnchor2Step;
+
                 let plays = true;
-                const playRoll = Math.random();
-                const restRoll = Math.random();
-                if (settings.countermelodyEnabled && settings.countermelodyMode === 'call-response') {
-                    const stepProgress = sixteenthStep / totalSteps;
-                    if (stepProgress < dialogueSplitTime) {
-                        if (subdivision === 3 || subdivision === 6 || subdivision === 8 || subdivision === 12) {
-                            if (playRoll > activeDensity) plays = false;
-                        } else {
-                            if (!activeTemplate[sixteenthStep % activeTemplate.length]) plays = false;
-                            if (settings.genre !== 'none') {
-                                if (playRoll > activeDensity) plays = false;
-                                if (sixteenthStep === totalSteps - 1 || (sixteenthStep % 4 === 0 && restRoll < restProbability)) plays = false;
-                            } else {
-                                if (sixteenthStep === totalSteps - 1) plays = false;
-                            }
-                        }
-                    } else {
+                if (isAnchor) {
+                    plays = true;
+                } else if (settings.genre !== 'none') {
+                    const playRoll = Math.random();
+                    const restChance = Math.max(0.0, 1.0 - slotActivity);
+                    if (playRoll < restChance) {
                         plays = false;
                     }
                 } else {
-                    if (subdivision === 3 || subdivision === 6 || subdivision === 8 || subdivision === 12) {
-                        if (playRoll > Math.min(0.95, activeDensity * 2.2)) plays = false;
-                    } else {
-                        if (!activeTemplate[sixteenthStep % activeTemplate.length]) plays = false;
-                        if (settings.genre !== 'none') {
-                            if (playRoll > activeDensity) plays = false;
-                            if (sixteenthStep === totalSteps - 1 || (sixteenthStep % 4 === 0 && restRoll < restProbability)) plays = false;
-                            if (isConsequentPhrase && sixteenthStep < 4 && Math.random() < 0.65) plays = false;
-                        } else {
-                            if (sixteenthStep === totalSteps - 1) plays = false;
-                        }
-                    }
+                    if (sixteenthStep === totalSteps - 1) plays = false;
                 }
                 
                 stepPlaysMap[step] = plays;
-            }
-        }
-        
-        // Post-process stepPlaysMap to ensure at least 3 notes are played most of the time (less often 2, rarely 1)
-        let activeSteps = Object.keys(stepPlaysMap).map(Number).filter(s => stepPlaysMap[s]).sort((a, b) => a - b);
-        const allSteps = Object.keys(stepTimeMap).map(Number).sort((a, b) => a - b);
-        if (allSteps.length >= 3 && activeSteps.length < 3 && activeSteps.length > 0) {
-            const roll = Math.random();
-            const targetLength = 3;
-            const probability = activeSteps.length === 1 ? 0.90 : 0.75;
-            if (roll < probability) {
-                let baseStep = activeSteps[0];
-                let baseIdx = allSteps.indexOf(baseStep);
-                let neighborsAdded = 0;
-                let offsets = [1, -1, 2, -2, 3, -3];
-                for (let offset of offsets) {
-                    let neighborIdx = baseIdx + offset;
-                    if (neighborIdx >= 0 && neighborIdx < allSteps.length) {
-                        let neighborStep = allSteps[neighborIdx];
-                        if (!stepPlaysMap[neighborStep]) {
-                            stepPlaysMap[neighborStep] = true;
-                            neighborsAdded++;
-                            if (activeSteps.length + neighborsAdded >= targetLength) {
-                                break;
-                            }
-                        }
-                    }
-                }
             }
         }
         
@@ -909,248 +980,98 @@ export function scheduleMelody(
 
                 let pitch = prevPitch;
                 if (melodyPlays) {
-                    // Force tonic resolution at step 0 if previous ended on leading tone (Rule B)
-                    if (sixteenthStep === 0 && forceTonicNext) {
+                    const isAnchor1Step = (beat === 0 && sub === 0);
+                    const isAnchor2Step = (beat === 2 && sub === 0 && beats >= 2 && ['build', 'climax', 'statement'].includes(activeRole));
+                    
+                    if (isAnchor1Step && plannedAnchor1 !== null) {
+                        pitch = plannedAnchor1;
+                    } else if (isAnchor2Step && plannedAnchor2 !== null) {
+                        pitch = plannedAnchor2;
+                    } else if (sixteenthStep === 0 && forceTonicNext) {
                         pitch = findClosest(chordKey + 12, validPitches);
                         forceTonicNext = false;
-                    } else if (melodyScheduled.length === 0 && settings.macroPlannerEnabled && macroSlotTarget) {
-                        pitch = findClosest(macroSlotTarget.targetPitch, validPitches);
                     } else if (activeTransition) {
                         pitch = activeTransition.pitch;
                         while (pitch < melodyRangeStart) pitch += periodSize;
                         while (pitch > melodyRangeEnd) pitch -= periodSize;
                     } else {
-                        // --- 8. Jazz Enclosure algorithm implementation ---
-                        const isStrongBeatTarget = (sixteenthStep + 1) % stepsPerBeat === 0 || (sixteenthStep + 1) % stepsPerBeat === 2;
-                        const isUpbeatStep = sixteenthStep % stepsPerBeat === 1 || sixteenthStep % stepsPerBeat === 3;
+                        // Pass 2: Connective Fill
+                        let connectivePitch = prevPitch;
+                        const prevIdx = findScaleIndex(prevPitch, validPitches);
                         
-                        if (settings.genre === 'jazz' && isUpbeatStep && isStrongBeatTarget && activeChordTones.length > 0 && Math.random() < 0.3 + chromaticProb) {
-                            const target = findClosest(sliceMotif[(sixteenthStep + 1) % sliceMotif.length], activeChordTones);
-                            const upperApproach = target + (12.0 / divisions);
-                            const lowerCandidates = validPitches.filter(p => p < target);
-                            const lowerApproach = lowerCandidates.length > 0 ? lowerCandidates[lowerCandidates.length - 1] : target - (12.0 / divisions);
-                            
-                            const appDuration = noteDuration * 0.45;
-                            const melodyInst = state.instruments.melody || 'sine';
-                            
-                            melodyScheduled.push({
-                                pitch: upperApproach,
-                                stepTime,
-                                noteDuration: appDuration,
-                                melodyInst,
-                                step: sixteenthStep,
-                                isIsolated: isolatedStepsSet.has(step)
-                            });
-                            melodyScheduled.push({
-                                pitch: lowerApproach,
-                                stepTime: stepTime + noteDuration * 0.5,
-                                noteDuration: appDuration,
-                                melodyInst,
-                                step: sixteenthStep,
-                                isIsolated: isolatedStepsSet.has(step)
-                            });
-                            
-                            melodyPlays = false; 
-                            prevPitch = target;
-                            lastInterval = target - lowerApproach;
-                            prevPitchIsColor = !globalScalePcSet.has(Math.round((target % periodSize) * 100) / 100) && !chordTonePcSet.has(Math.round((target % periodSize) * 100) / 100);
-                            noteCountThisPhrase++;
-                        } else {
+                        if (settings.genre === 'none') {
                             let motifNote;
                             if (subdivision >= 4 && sub > 0) {
                                 const dir = lastInterval >= 0 ? 1 : -1;
-                                const prevIdx = findScaleIndex(prevPitch, validPitches);
                                 motifNote = prevIdx !== -1 ? validPitches[Math.max(0, Math.min(validPitches.length - 1, prevIdx + dir))] : sliceMotif[noteCountThisPhrase % sliceMotif.length];
                             } else {
                                 motifNote = sliceMotif[noteCountThisPhrase % sliceMotif.length];
                             }
-
-                            // --- 3. Vertical Congruence with Genre-Gated Doubling Avoidance ---
-                            const rangeLimit = 2.1 * (12 / divisions);
-                            let candidates = validPitches.filter(p => Math.abs(p - motifNote) <= rangeLimit);
-                            
-                            // Upfront isolated steps check
-                            if (isolatedStepsSet.has(step)) {
-                                if (activeChordTones.length > 0) {
-                                    candidates = candidates.filter(p => activeChordTones.includes(p));
-                                    if (candidates.length === 0) {
-                                        candidates = [findClosest(motifNote, activeChordTones)];
-                                    }
-                                } else {
-                                    const baseScalePitches = validPitches.filter(p => isBaseScaleTone(p));
-                                    if (baseScalePitches.length > 0) {
-                                        candidates = candidates.filter(p => baseScalePitches.includes(p));
-                                        if (candidates.length === 0) {
-                                            candidates = [findClosest(motifNote, baseScalePitches)];
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            let preferredCandidates = candidates.filter(p => Math.abs(p - targetPitch) <= 4.01);
-                            if (preferredCandidates.length > 0) {
-                                candidates = preferredCandidates;
-                            }
-
-                            if (narrativeState.consecutiveSteps > 6) {
-                                const leapCandidates = candidates.filter(p => Math.abs(p - prevPitch) > 2.1 * (12 / divisions));
-                                if (leapCandidates.length > 0) {
-                                    candidates = leapCandidates;
-                                }
-                            }
-
-                            if (candidates.length > 0) {
-                                const weights = candidates.map(p => {
-                                    const pc = (p % periodSize + periodSize) % periodSize;
-                                    let w = 1.0;
-                                    
-                                    if (settings.macroPlannerEnabled && macroSlotTarget) {
-                                        if (phraseHighestPitch !== null && p >= phraseHighestPitch) {
-                                            w *= 0.1;
-                                        }
-                                        const intervalFromPrev = p - prevPitch;
-                                        if (macroSlotTarget.role === 'climax' || macroSlotTarget.role === 'build') {
-                                            if (intervalFromPrev > 5) {
-                                                w *= 2.0;
-                                            }
-                                        } else if (macroSlotTarget.role === 'release') {
-                                            if (intervalFromPrev < 0) {
-                                                w *= 2.0;
-                                            }
-                                            if (Math.abs(intervalFromPrev) === 2 || Math.abs(intervalFromPrev) === 1) {
-                                                w *= 1.5;
-                                            }
-                                        }
-                                    }
-                                    if (settings.genre === 'jazz') {
-                                        const pcDiff = ((pc - (chordKey % periodSize) + periodSize) % periodSize);
-                                        const normDiff = Math.round(pcDiff);
-                                        const isInnerVoice = [3, 4, 10, 11].includes(normDiff);
-                                        if (isInnerVoice) w *= 0.6;
-                                    } else if (settings.genre === 'blues') {
-                                        const pcDiff = ((pc - (chordKey % periodSize) + periodSize) % periodSize);
-                                        const normDiff = Math.round(pcDiff);
-                                        const isInnerVoice = [3, 4, 10, 11].includes(normDiff);
-                                        if (isInnerVoice) w *= 0.8;
-                                    }
-                                    
-                                    const roundedPc = Math.round(pc * 100) / 100;
-                                    const isDiatonic = globalScalePcSet.has(roundedPc);
-                                    const isChordTone = chordTonePcSet.has(roundedPc);
-
-                                    if (prevPitchIsColor) {
-                                        const isCandidateDiatonic = isDiatonic;
-                                        const isCandidateChordTone = isChordTone;
-                                        const isStepwise = Math.abs(p - prevPitch) <= 2.1 * (12 / divisions);
-                                        const isLeap = Math.abs(p - prevPitch) > 2.1 * (12 / divisions);
-
-                                        if (!isCandidateDiatonic && !isCandidateChordTone) {
-                                            w *= 0.05;
-                                        }
-                                        if (isStepwise && (isCandidateDiatonic || isCandidateChordTone)) {
-                                            w *= 3.0;
-                                        }
-                                        if (isLeap) {
-                                            w *= 0.5;
-                                        }
-                                    }
-
-                                    if (!isDiatonic && !isChordTone) {
-                                        const tension = currentTension;
-                                        const penalty = 0.2 + (tension * 0.5);
-                                        w *= penalty;
-                                    } else if (isChordTone) {
-                                        w *= 1.25;
-                                    }
-
-                                    const isStepwiseFromPrev = Math.abs(p - prevPitch) <= 2.1 * (12 / divisions);
-                                    if (isStepwiseFromPrev) {
-                                        w *= 1.3;
-                                    }
-
-                                    // Repeated pitch penalty: heavily penalize candidate repeating prevPitch to prevent post-hoc fallback
-                                    if (Math.abs(p - prevPitch) < 0.01) {
-                                        w *= 0.01;
-                                    }
-
-                                    if (activeBassPc !== null) {
-                                        const isBassPcMatch = Math.abs(pc - activeBassPc) < 0.01;
-                                        const distanceToBass = Math.abs(p - activeBassMidi);
-                                        if (isBassPcMatch && distanceToBass <= periodSize && step > 0) {
-                                            w *= 0.3;
-                                        }
-                                    }
-                                    return w;
-                                });
-
-                                pitch = selectWeightedPitch(candidates, weights);
-                            } else {
-                                pitch = motifNote;
-                            }
-                        }
-                    }
-
-                    if (sixteenthStep === 0 && prevChordObj && settings.genre !== 'none') {
-                        const commonTones = getCommonTones(chordNotes, prevChordNotes, periodSize);
-                        const tonesToTarget = commonTones.length > 0 ? commonTones : activePrevChordTones;
-                        if (tonesToTarget.length > 0 && Math.random() < 0.25) {
-                            const closestTarget = findClosest(prevPitch, tonesToTarget);
-                            if (Math.abs(closestTarget - prevPitch) <= 3 * (12 / divisions)) {
-                                pitch = closestTarget;
-                            }
-                        }
-                    }
-
-                    if (sixteenthStep === totalSteps - 1 && nextChordObj && activeNextChordTones.length > 0 && settings.genre !== 'none') {
-                        const closestTarget = findClosest(pitch, activeNextChordTones);
-                        if (Math.abs(closestTarget - pitch) <= 3 * (12 / divisions)) {
-                            pitch = closestTarget;
-                        }
-                    }
-
-                    // --- 6. Surprise Gestures with Guards ---
-                    const isBeatBoundary = (sixteenthStep % 4 === 0);
-                    if (Math.random() < surpriseQuotient && stepsSinceLastSurprise >= 8 && isBeatBoundary) {
-                        const surpriseRoll = Math.random();
-                        if (surpriseRoll < 0.25) {
-                            pitch = pitch + (Math.random() > 0.5 ? periodSize : -periodSize);
-                            if (pitch < melodyRangeStart || pitch > melodyRangeEnd) {
-                                  pitch = findClosest(pitch + (pitch < melodyRangeStart ? periodSize : -periodSize), validPitches);
-                            }
-                            forceContraryNext = true;
-                            surpriseLeapTriggeredThisStep = true;
-                        } else if (surpriseRoll < 0.5) {
-                            const scaleDegrees = getScaleIntervals(chordMode, settings.genre);
-                            const degree6 = scaleDegrees[5] !== undefined ? scaleDegrees[5] : 9;
-                            const deceptivePc = (chordKey + degree6) % periodSize;
-                            const deceptivePitches = validPitches.filter(p => {
-                                const pc = (p % periodSize + periodSize) % periodSize;
-                                return Math.abs(pc - deceptivePc) < 0.01;
-                            });
-                            if (deceptivePitches.length > 0) {
-                                pitch = findClosest(pitch, deceptivePitches);
-                            }
-                        } else if (surpriseRoll < 0.75) {
-                            pitch = prevPitch;
+                            connectivePitch = motifNote;
                         } else {
-                            melodyPlays = false;
+                            const nextAnchor = (beat < 2 && plannedAnchor2 !== null) ? plannedAnchor2 : plannedAnchor1;
+                            const nextAnchorIdx = findScaleIndex(nextAnchor, validPitches);
+                            
+                            if (slotAestheticMode === 'cantabile') {
+                                if (prevIdx !== -1 && nextAnchorIdx !== -1) {
+                                    const dir = nextAnchorIdx > prevIdx ? 1 : (nextAnchorIdx < prevIdx ? -1 : (Math.random() > 0.5 ? 1 : -1));
+                                    const nextIdx = Math.max(0, Math.min(validPitches.length - 1, prevIdx + dir));
+                                    connectivePitch = validPitches[nextIdx];
+                                } else {
+                                    connectivePitch = findClosestStep(prevPitch, validPitches, divisions);
+                                }
+                            } else if (slotAestheticMode === 'sighs') {
+                                const wasLeap = Math.abs(lastInterval) >= 4;
+                                if (!wasLeap && prevIdx !== -1) {
+                                    const leapAmount = 4 + Math.floor(Math.random() * 3);
+                                    let leapIdx = Math.min(validPitches.length - 1, prevIdx + leapAmount);
+                                    let attempts = 0;
+                                    while (attempts < 3 && chordTonePcSet.has(Math.round(((validPitches[leapIdx] % periodSize + periodSize) % periodSize) * 100) / 100)) {
+                                        leapIdx = Math.max(0, leapIdx - 1);
+                                        attempts++;
+                                    }
+                                    connectivePitch = validPitches[leapIdx];
+                                } else {
+                                    if (prevIdx !== -1) {
+                                        connectivePitch = validPitches[Math.max(0, prevIdx - 1)];
+                                    } else {
+                                        connectivePitch = prevPitch - 1;
+                                    }
+                                }
+                            } else if (slotAestheticMode === 'virtuoso') {
+                                const dir = lastInterval >= 0 ? 1 : -1;
+                                if (prevIdx !== -1) {
+                                    const nextIdx = Math.max(0, Math.min(validPitches.length - 1, prevIdx + dir));
+                                    connectivePitch = validPitches[nextIdx];
+                                } else {
+                                    connectivePitch = findClosestStep(prevPitch, validPitches, divisions);
+                                }
+                            } else if (slotAestheticMode === 'declamatory') {
+                                const cellOffsets = [0, 2, 1];
+                                const cellStep = sixteenthStep % cellOffsets.length;
+                                const cellOffset = cellOffsets[cellStep];
+                                
+                                const anchor1Idx = findScaleIndex(plannedAnchor1, validPitches);
+                                if (anchor1Idx !== -1) {
+                                    let targetIdx = Math.max(0, Math.min(validPitches.length - 1, anchor1Idx + cellOffset));
+                                    connectivePitch = validPitches[targetIdx];
+                                } else {
+                                    connectivePitch = plannedAnchor1;
+                                }
+                                
+                                if (Math.random() < slotActivity * 0.25) {
+                                    const octaveShift = Math.random() > 0.5 ? periodSize : -periodSize;
+                                    let shifted = connectivePitch + octaveShift;
+                                    if (shifted >= melodyRangeStart && shifted <= melodyRangeEnd) {
+                                        connectivePitch = findClosest(shifted, validPitches);
+                                    }
+                                }
+                            }
                         }
-                        stepsSinceLastSurprise = 0;
-                    } else {
-                        stepsSinceLastSurprise++;
+                        
+                        pitch = findClosest(connectivePitch, validPitches);
                     }
-
-                    // Force contrary resolution after leap surprise - scaled contrary leap size
-                    if (forceContraryNext && lastInterval !== 0 && !surpriseLeapTriggeredThisStep) {
-                        const contraryDirection = lastInterval > 0 ? -1 : 1;
-                        const candidates = validPitches.filter(p => contraryDirection > 0 ? p > prevPitch : p < prevPitch);
-                        if (candidates.length > 0) {
-                            const leapSize = Math.abs(lastInterval);
-                            const target = prevPitch + contraryDirection * Math.max(2 * (12 / divisions), leapSize * 0.5);
-                            pitch = findClosest(target, candidates);
-                        }
-                        forceContraryNext = false;
-                    }
+                    stepsSinceLastSurprise++;
 
                     if (melodyPlays) {
                         pitch = applyGenreRules(pitch, settings.genre, sixteenthStep, validPitches, divisions, chromaticProb);
@@ -1210,67 +1131,112 @@ export function scheduleMelody(
                 }
 
 
-                if (settings.countermelodyEnabled && playCounter) {
-                    const counterInst = state.instruments.countermelody || 'sine';
-                    let counterPitch = prevCounterPitch;
-
-                    const mode = settings.countermelodyMode || 'contrary';
-                    
-                    if (mode === 'call-response' && melodyHistory.length > 0) {
-                        const quoteIndex = step % Math.max(1, melodyHistory.length);
-                        const quotePitch = melodyHistory[quoteIndex];
-                        counterPitch = findClosest(quotePitch - periodSize, counterValidPitches);
-                        
-                        const lastCallPitch = melodyHistory[melodyHistory.length - 1];
-                        const lastPc = (lastCallPitch % periodSize + periodSize) % periodSize;
-                        const isTense = [6, 10, 11].includes((lastPc - (chordKey % periodSize) + periodSize) % periodSize);
-                        
-                        if (isTense && counterActiveChordTones.length > 0 && Math.random() < 0.7) {
-                            const stableTones = counterActiveChordTones.filter(ct => {
-                                const pcDiff = ((ct % periodSize) - (chordKey % periodSize) + periodSize) % periodSize;
-                                return [0, 3, 4, 7].includes(pcDiff);
-                            });
-                            if (stableTones.length > 0) {
-                                counterPitch = findClosest(counterPitch, stableTones);
-                            }
-                        }
-                    } else if (activeTransition && mode === 'harmonize') {
-                        const targetHarm = activeTransition.pitch + (Math.random() > 0.5 ? 4 : 3);
-                        counterPitch = findClosest(targetHarm - periodSize, counterValidPitches);
-                    } else if (mode === 'harmonize' && melodyPlays) {
-                        const index = findScaleIndex(pitch, validPitches);
-                        if (index !== -1) {
-                            const shift = Math.random() > 0.5 ? 2 : 4;
-                            let targetIndex = index - shift;
-                            if (targetIndex < 0) targetIndex = 0;
-                            counterPitch = findClosest(validPitches[targetIndex] - periodSize, counterValidPitches);
-                        } else {
-                            counterPitch = findClosest(pitch - periodSize, counterValidPitches);
-                        }
-                    } else if (mode === 'call-response') {
-                        if (counterActiveChordTones.length > 0 && Math.random() < 0.6) {
-                            counterPitch = findClosest(prevCounterPitch, counterActiveChordTones);
-                        } else {
-                            counterPitch = findClosestStep(prevCounterPitch, counterValidPitches, divisions);
-                        }
+                if (settings.countermelodyEnabled) {
+                    let counterPlays = false;
+                    if (settings.genre === 'none') {
+                        counterPlays = playCounter;
                     } else {
-                        const melodyMoved = lastInterval !== 0;
-                        if (melodyMoved && Math.random() < 0.8) {
-                            const contraryDirection = lastInterval > 0 ? -1 : 1;
-                            let idx = findScaleIndex(prevCounterPitch, counterValidPitches);
-                            if (idx === -1) {
-                                idx = findScaleIndex(findClosest(prevCounterPitch, counterValidPitches), counterValidPitches);
-                            }
-                            const stepShift = Math.random() > 0.5 ? 2 : 1;
-                            let newIdx = idx + contraryDirection * stepShift;
-                            if (newIdx < 0 || newIdx >= counterValidPitches.length) {
-                                newIdx = idx - contraryDirection * stepShift;
-                            }
-                            counterPitch = counterValidPitches[Math.max(0, Math.min(counterValidPitches.length - 1, newIdx))];
-                        } else {
-                            counterPitch = findClosestStep(prevCounterPitch, counterValidPitches, divisions);
+                        if (slotAestheticMode === 'cantabile') {
+                            counterPlays = Math.random() < 0.4 + slotActivity * 0.2;
+                        } else if (slotAestheticMode === 'sighs') {
+                            counterPlays = (sub === 0 && (beat === 0 || beat === 2));
+                        } else if (slotAestheticMode === 'declamatory') {
+                            counterPlays = !melodyPlays && (sixteenthStep % 4 === 2 || sixteenthStep % 4 === 3) && (Math.random() < 0.5);
+                        } else if (slotAestheticMode === 'virtuoso') {
+                            counterPlays = (beat === 0 && sub === 0);
                         }
                     }
+
+                    if (counterPlays) {
+                        const counterInst = state.instruments.countermelody || 'sine';
+                        let counterPitch = prevCounterPitch;
+
+                        if (settings.genre === 'none') {
+                            const mode = settings.countermelodyMode || 'contrary';
+                            
+                            if (mode === 'call-response' && melodyHistory.length > 0) {
+                                const quoteIndex = step % Math.max(1, melodyHistory.length);
+                                const quotePitch = melodyHistory[quoteIndex];
+                                counterPitch = findClosest(quotePitch - periodSize, counterValidPitches);
+                                
+                                const lastCallPitch = melodyHistory[melodyHistory.length - 1];
+                                const lastPc = (lastCallPitch % periodSize + periodSize) % periodSize;
+                                const isTense = [6, 10, 11].includes((lastPc - (chordKey % periodSize) + periodSize) % periodSize);
+                                
+                                if (isTense && counterActiveChordTones.length > 0 && Math.random() < 0.7) {
+                                    const stableTones = counterActiveChordTones.filter(ct => {
+                                        const pcDiff = ((ct % periodSize) - (chordKey % periodSize) + periodSize) % periodSize;
+                                        return [0, 3, 4, 7].includes(pcDiff);
+                                    });
+                                    if (stableTones.length > 0) {
+                                        counterPitch = findClosest(counterPitch, stableTones);
+                                    }
+                                }
+                            } else if (activeTransition && mode === 'harmonize') {
+                                const targetHarm = activeTransition.pitch + (Math.random() > 0.5 ? 4 : 3);
+                                counterPitch = findClosest(targetHarm - periodSize, counterValidPitches);
+                            } else if (mode === 'harmonize' && melodyPlays) {
+                                const index = findScaleIndex(pitch, validPitches);
+                                if (index !== -1) {
+                                    const shift = Math.random() > 0.5 ? 2 : 4;
+                                    let targetIndex = index - shift;
+                                    if (targetIndex < 0) targetIndex = 0;
+                                    counterPitch = findClosest(validPitches[targetIndex] - periodSize, counterValidPitches);
+                                } else {
+                                    counterPitch = findClosest(pitch - periodSize, counterValidPitches);
+                                }
+                            } else if (mode === 'call-response') {
+                                if (counterActiveChordTones.length > 0 && Math.random() < 0.6) {
+                                    counterPitch = findClosest(prevCounterPitch, counterActiveChordTones);
+                                } else {
+                                    counterPitch = findClosestStep(prevCounterPitch, counterValidPitches, divisions);
+                                }
+                            } else {
+                                const melodyMoved = lastInterval !== 0;
+                                if (melodyMoved && Math.random() < 0.8) {
+                                    const contraryDirection = lastInterval > 0 ? -1 : 1;
+                                    let idx = findScaleIndex(prevCounterPitch, counterValidPitches);
+                                    if (idx === -1) {
+                                        idx = findScaleIndex(findClosest(prevCounterPitch, counterValidPitches), counterValidPitches);
+                                    }
+                                    const stepShift = Math.random() > 0.5 ? 2 : 1;
+                                    let newIdx = idx + contraryDirection * stepShift;
+                                    if (newIdx < 0 || newIdx >= counterValidPitches.length) {
+                                        newIdx = idx - contraryDirection * stepShift;
+                                    }
+                                    counterPitch = counterValidPitches[Math.max(0, Math.min(counterValidPitches.length - 1, newIdx))];
+                                } else {
+                                    counterPitch = findClosestStep(prevCounterPitch, counterValidPitches, divisions);
+                                }
+                            }
+                        } else {
+                            if (slotAestheticMode === 'cantabile') {
+                                const melodyMoved = lastInterval !== 0;
+                                if (melodyMoved) {
+                                    const contraryDirection = lastInterval > 0 ? -1 : 1;
+                                    let idx = findScaleIndex(prevCounterPitch, counterValidPitches);
+                                    if (idx === -1) idx = findScaleIndex(findClosest(prevCounterPitch, counterValidPitches), counterValidPitches);
+                                    let newIdx = idx + contraryDirection * (Math.random() > 0.5 ? 2 : 1);
+                                    counterPitch = counterValidPitches[Math.max(0, Math.min(counterValidPitches.length - 1, newIdx))];
+                                } else {
+                                    counterPitch = findClosestStep(prevCounterPitch, counterValidPitches, divisions);
+                                }
+                            } else if (slotAestheticMode === 'sighs') {
+                                if (counterActiveChordTones.length > 0) {
+                                    counterPitch = findClosest(prevCounterPitch, counterActiveChordTones);
+                                } else {
+                                    counterPitch = findClosest(keyRoot - periodSize, counterValidPitches);
+                                }
+                            } else if (slotAestheticMode === 'declamatory') {
+                                if (counterActiveChordTones.length > 0 && Math.random() < 0.6) {
+                                    counterPitch = findClosest(prevCounterPitch, counterActiveChordTones);
+                                } else {
+                                    counterPitch = findClosestStep(prevCounterPitch, counterValidPitches, divisions);
+                                }
+                            } else if (slotAestheticMode === 'virtuoso') {
+                                counterPitch = counterActiveChordTones.length > 0 ? counterActiveChordTones[0] : findClosest(keyRoot - periodSize, counterValidPitches);
+                            }
+                        }
 
                     // Snap countermelody strictly to counterValidPitches
                     counterPitch = findClosest(counterPitch, counterValidPitches);
@@ -1330,6 +1296,7 @@ export function scheduleMelody(
             }
         }
     }
+}
 
     // --- Empty Slot Mitigation Fallback ---
     // If no melody notes were scheduled, and the genre is not 'none',
@@ -2046,4 +2013,25 @@ function planMacroMelodyTargets(totalChords, keyRoot, divisions, stateMode, sett
     }
     
     return plan;
+}
+
+function getConstrainedAnchor(fromPitch, targetRaw, maxOffset, validPitches, chordTones) {
+    const fromIdx = findScaleIndex(fromPitch, validPitches);
+    if (fromIdx === -1) {
+        return chordTones.length > 0 ? findClosest(targetRaw, chordTones) : findClosest(targetRaw, validPitches);
+    }
+    
+    const minIdx = Math.max(0, fromIdx - maxOffset);
+    const maxIdx = Math.min(validPitches.length - 1, fromIdx + maxOffset);
+    const allowedPitches = validPitches.slice(minIdx, maxIdx + 1);
+    
+    if (allowedPitches.length === 0) {
+        return fromPitch;
+    }
+    
+    const allowedChordTones = allowedPitches.filter(p => chordTones.includes(p));
+    if (allowedChordTones.length > 0) {
+        return findClosest(targetRaw, allowedChordTones);
+    }
+    return findClosest(targetRaw, allowedPitches);
 }
