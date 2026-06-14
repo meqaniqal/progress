@@ -162,6 +162,10 @@ export function syncUIToState(explicitState = null) {
     syncSettingsUI();
 
     document.body.classList.toggle('beginner-mode', !state.isAdvancedMode);
+    const label = document.getElementById('mode-toggle-label');
+    if (label) {
+        label.textContent = state.isAdvancedMode ? 'Advanced' : 'Beginner';
+    }
 }
 
 function _setupTopBarEvents() {

@@ -62,6 +62,11 @@ export function updateSynthEditorVisibility(track, synthType) {
         
         if (sampleUploadRow) sampleUploadRow.style.display = isSample ? 'flex' : 'none';
         if (headerText) headerText.textContent = isSample ? 'Bass Sample' : 'Bass Synth';
+
+        const pitchRow = document.getElementById('bass-pitch')?.closest('.mixer-row');
+        const octaveDropRow = document.getElementById('btn-bass-octave-drop')?.closest('.mixer-row');
+        if (pitchRow) pitchRow.style.display = isSample ? 'flex' : 'none';
+        if (octaveDropRow) octaveDropRow.style.display = isSample ? 'flex' : 'none';
     } else if (track === 'melody' || track === 'countermelody') {
         const fmSection = document.getElementById(`${track}-fm-params-section`);
         const pluckSection = document.getElementById(`${track}-pluck-params-section`);
@@ -207,6 +212,11 @@ export function updateCustomDrumsUI() {
 export function syncSettingsUI() {
     document.getElementById('bpm-slider').value = state.bpm;
     
+    const label = document.getElementById('mode-toggle-label');
+    if (label) {
+        label.textContent = state.isAdvancedMode ? 'Advanced' : 'Beginner';
+    }
+    
     const tuningSelector = document.getElementById('tuning-selector');
     if (tuningSelector) {
         updateCustomTuningUI(); // Rebuild optgroup before syncing value
@@ -327,6 +337,7 @@ export function syncSettingsUI() {
             let limit = state.melodySettings.shortestNoteLimit !== undefined ? state.melodySettings.shortestNoteLimit : 9;
             limit = Math.max(9, limit);
             shortestEl.value = limit;
+            if (shortestValEl) {
                 const labels = {
                     9: '1/8 Note',
                     10: '1/6 Note (1/4 Triplet)',
@@ -335,6 +346,7 @@ export function syncSettingsUI() {
                     13: '1/2 Note'
                 };
                 shortestValEl.textContent = labels[limit] || '1/8 Note';
+            }
         }
 
         const ornamentsEl = document.getElementById('melody-ornaments');
@@ -718,6 +730,10 @@ export function initSettingsUI({ onRenderProgression }) {
         btnModeToggle.addEventListener('click', () => {
             state.isAdvancedMode = !state.isAdvancedMode;
             document.body.classList.toggle('beginner-mode', !state.isAdvancedMode);
+            const label = document.getElementById('mode-toggle-label');
+            if (label) {
+                label.textContent = state.isAdvancedMode ? 'Advanced' : 'Beginner';
+            }
             persistAppState();
             if (!state.isAdvancedMode) exitSongMode();
         });
@@ -919,7 +935,7 @@ export function initSettingsUI({ onRenderProgression }) {
 
     const melodyShortestEl = document.getElementById('melody-shortest-note');
     if (melodyShortestEl) {
-        melodyShortestEl.addEventListener('input', (e) => {
+        melodyShortestEl.addEventListener('change', (e) => {
             const val = Math.max(9, parseInt(e.target.value, 10));
             state.melodySettings.shortestNoteLimit = val;
             const valEl = document.getElementById('melody-shortest-note-val');
