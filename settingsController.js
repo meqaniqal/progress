@@ -334,18 +334,21 @@ export function syncSettingsUI() {
         const shortestEl = document.getElementById('melody-shortest-note');
         const shortestValEl = document.getElementById('melody-shortest-note-val');
         if (shortestEl) {
-            let limit = state.melodySettings.shortestNoteLimit !== undefined ? state.melodySettings.shortestNoteLimit : 9;
-            limit = Math.max(9, limit);
+            let limit = state.melodySettings.shortestNoteLimit !== undefined ? state.melodySettings.shortestNoteLimit : 16;
+            limit = Math.max(2, limit);
             shortestEl.value = limit;
             if (shortestValEl) {
                 const labels = {
-                    9: '1/8 Note',
-                    10: '1/6 Note (1/4 Triplet)',
-                    11: 'Dotted 1/4',
-                    12: '1/4 Note',
-                    13: '1/2 Note'
+                    64: '1/64 Note',
+                    32: '1/32 Note',
+                    16: '1/16 Note',
+                    12: '1/12 Note (1/8 Triplet)',
+                    8: '1/8 Note',
+                    6: '1/6 Note (1/4 Triplet)',
+                    4: '1/4 Note',
+                    2: '1/2 Note'
                 };
-                shortestValEl.textContent = labels[limit] || '1/8 Note';
+                shortestValEl.textContent = labels[limit] || '1/16 Note';
             }
         }
 
@@ -936,18 +939,21 @@ export function initSettingsUI({ onRenderProgression }) {
     const melodyShortestEl = document.getElementById('melody-shortest-note');
     if (melodyShortestEl) {
         melodyShortestEl.addEventListener('change', (e) => {
-            const val = Math.max(9, parseInt(e.target.value, 10));
+            const val = Math.max(2, parseInt(e.target.value, 10));
             state.melodySettings.shortestNoteLimit = val;
             const valEl = document.getElementById('melody-shortest-note-val');
             if (valEl) {
                 const labels = {
-                    9: '1/8 Note',
-                    10: '1/6 Note (1/4 Triplet)',
-                    11: 'Dotted 1/4',
-                    12: '1/4 Note',
-                    13: '1/2 Note'
+                    64: '1/64 Note',
+                    32: '1/32 Note',
+                    16: '1/16 Note',
+                    12: '1/12 Note (1/8 Triplet)',
+                    8: '1/8 Note',
+                    6: '1/6 Note (1/4 Triplet)',
+                    4: '1/4 Note',
+                    2: '1/2 Note'
                 };
-                valEl.textContent = labels[val] || '1/8 Note';
+                valEl.textContent = labels[val] || '1/16 Note';
             }
             persistAppState();
         });

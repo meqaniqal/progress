@@ -1,0 +1,358 @@
+import { state } from './store.js';
+
+export function getScaleIntervals(mode, genre = 'none') {
+    if (genre === 'jazz') {
+        const BEBOP_SCALES = {
+            major: [0, 2, 4, 5, 7, 8, 9, 11],
+            minor: [0, 2, 3, 4, 5, 7, 9, 10],
+            dorian: [0, 2, 3, 4, 5, 7, 9, 10],
+            mixolydian: [0, 2, 4, 5, 7, 9, 10, 11]
+        };
+        if (BEBOP_SCALES[mode]) return BEBOP_SCALES[mode];
+    }
+
+    const SCALES = {
+        major: [0, 2, 4, 5, 7, 9, 11],
+        minor: [0, 2, 3, 5, 7, 8, 10],
+        harmonicMinor: [0, 2, 3, 5, 7, 8, 11],
+        melodicMinor: [0, 2, 3, 5, 7, 9, 11],
+        dorian: [0, 2, 3, 5, 7, 9, 10],
+        phrygian: [0, 1, 3, 5, 7, 8, 10],
+        lydian: [0, 2, 4, 6, 7, 9, 11],
+        mixolydian: [0, 2, 4, 5, 7, 9, 10],
+        wholeTone: [0, 2, 4, 6, 8, 10],
+        diminishedWH: [0, 2, 3, 5, 6, 8, 9, 11],
+        altered: [0, 1, 3, 4, 6, 8, 10]
+    };
+    return SCALES[mode] || SCALES.major;
+}
+
+export function buildScalePitches(keyRoot, intervals, divisions, start, end, periodSize = 12.0) {
+    const stepSize = 12.0 / divisions;
+    const scalePitches = [];
+    const bottomOctave = Math.floor((start - keyRoot) / periodSize) - 1;
+    const topOctave = Math.ceil((end - keyRoot) / periodSize) + 1;
+    
+    for (let oct = bottomOctave; oct <= topOctave; oct++) {
+        for (let i = 0; i < intervals.length; i++) {
+            const pitch = keyRoot + oct * periodSize + intervals[i] * stepSize;
+            if (pitch >= start && pitch <= end) {
+                scalePitches.push(pitch);
+            }
+        }
+    }
+    return Array.from(new Set(scalePitches)).sort((a, b) => a - b);
+}
+
+export function findScaleIndex(pitch, scalePitches) {
+    for (let i = 0; i < scalePitches.length; i++) {
+        if (Math.abs(scalePitches[i] - pitch) < 0.01) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+export function isLeadingTone(pitch, keyRoot, periodSize) {
+    const pc = (pitch % periodSize + periodSize) % periodSize;
+    const keyPc = (keyRoot % periodSize + periodSize) % periodSize;
+    const diff = (pc - keyPc + periodSize) % periodSize;
+    return Math.abs(diff - 11.0) < 0.1 || Math.abs(diff - 11.5) < 0.1;
+}
+
+export function findClosest(val, array) {
+    if (array.length === 0) return val;
+    return array.reduce((prev, curr) => Math.abs(curr - val) < Math.abs(prev - val) ? curr : prev);
+}
+
+export function findClosestStep(prev, scalePitches, divisions) {
+    if (scalePitches.length === 0) return prev;
+    const idx = findScaleIndex(prev, scalePitches);
+    const stepSize = 12.0 / divisions;
+    
+    if (idx !== -1) {
+        const dir = Math.random() > 0.5 ? 1 : -1;
+        let nextIdx = idx + dir;
+        if (nextIdx < 0 || nextIdx >= scalePitches.length) {
+            nextIdx = idx - dir;
+        }
+        return scalePitches[Math.max(0, Math.min(scalePitches.length - 1, nextIdx))];
+    }
+    
+    const closest = findClosest(prev, scalePitches);
+    const closestIdx = findScaleIndex(closest, scalePitches);
+    if (closestIdx !== -1) {
+        return scalePitches[closestIdx];
+    }
+    return prev;
+}
+
+/**
+ * Stepwise movement with direction memory and no-return guard.
+ *
+ * @param {number}  prev          - The current pitch to move from.
+ * @param {number[]} scalePitches - The available pitch pool.
+ * @param {number}  directionBias - +1 (ascending), -1 (descending), 0 (free).
+ * @param {number|null} lastPitch - The pitch before `prev`; prevents
+ *                                  immediately reversing to it.
+ * @returns {number} The next pitch.
+ */
+export function findDirectedStep(prev, scalePitches, directionBias, lastPitch = null) {
+    if (scalePitches.length === 0) return prev;
+
+    const idx = findScaleIndex(prev, scalePitches);
+    const anchorIdx = idx !== -1 ? idx : (() => {
+        const closest = findClosest(prev, scalePitches);
+        return findScaleIndex(closest, scalePitches);
+    })();
+
+    if (anchorIdx === -1) return findClosest(prev, scalePitches);
+
+    // Resolve direction: use bias if provided, else choose randomly.
+    let dir = directionBias !== 0 ? directionBias : (Math.random() > 0.5 ? 1 : -1);
+
+    // Attempt primary step in chosen direction.
+    let nextIdx = anchorIdx + dir;
+
+    // If we'd step off the edge, reverse direction.
+    if (nextIdx < 0 || nextIdx >= scalePitches.length) {
+        dir = -dir;
+        nextIdx = anchorIdx + dir;
+    }
+
+    // No-return guard: if this step would land back on lastPitch,
+    // try extending one more step in the same direction.
+    if (lastPitch !== null && nextIdx >= 0 && nextIdx < scalePitches.length) {
+        if (Math.abs(scalePitches[nextIdx] - lastPitch) < 0.01) {
+            const extendedIdx = anchorIdx + dir * 2;
+            if (extendedIdx >= 0 && extendedIdx < scalePitches.length) {
+                nextIdx = extendedIdx;
+            }
+        }
+    }
+
+    return scalePitches[Math.max(0, Math.min(scalePitches.length - 1, nextIdx))];
+}
+
+
+export function isDominantChord(chordObj) {
+    if (!chordObj || !chordObj.symbol) return false;
+    const sym = chordObj.symbol;
+    return sym.includes('7') || sym.includes('9') || sym.includes('11') || sym.includes('13') || sym.includes('alt');
+}
+
+export function selectWeightedPitch(candidates, weights) {
+    if (candidates.length === 0) return 0;
+    let sum = weights.reduce((a, b) => a + b, 0);
+    if (sum === 0) {
+        return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+    let r = Math.random() * sum;
+    for (let i = 0; i < candidates.length; i++) {
+        r -= weights[i];
+        if (r <= 0) return candidates[i];
+    }
+    return candidates[candidates.length - 1];
+}
+
+export function getStableTones(activeChordTones, chordKey, keyRoot, periodSize, validPitches) {
+    // If the caller has explicit chord tones (standard or microtonal),
+    // those are definitionally the stable tones for this slot.
+    // Do not re-derive stability via 12-EDO interval heuristics.
+    if (activeChordTones.length > 0) {
+        return activeChordTones.slice().sort((a, b) => a - b);
+    }
+
+    // Fallback: no explicit chord tones provided, derive from validPitches.
+    // This path only runs for slots where chordNotes was empty or undefined.
+    const keyRootPc = ((keyRoot % periodSize) + periodSize) % periodSize;
+    const stable = validPitches.filter(p => {
+        const pc = ((p % periodSize) + periodSize) % periodSize;
+        return Math.abs(pc - keyRootPc) < 0.01;
+    });
+    return stable.length > 0 ? stable.sort((a, b) => a - b) : validPitches;
+}
+
+export function enforceChordToneOnDownbeat(anchor, activeChordTones, validPitches, stablePcSet, periodSize) {
+    if (activeChordTones.length === 0) return anchor;
+    const pc = ((anchor % periodSize) + periodSize) % periodSize;
+    const roundedPc = Math.round(pc * 100) / 100;
+    if (stablePcSet.has(roundedPc)) return anchor;
+    return findClosest(anchor, activeChordTones);
+}
+
+export function planPhraseStructuralSkeleton(phraseStartIndex, macroTargetPlan, validPitchesAtStart, activeChordTones, role, keyRoot, periodSize, globalScalePitches) {
+    const skeleton = [];
+    let lastAnchor = keyRoot + 12;
+    for (let i = 0; i < 4; i++) {
+        const slotIdx = phraseStartIndex + i;
+        const slotRole = (macroTargetPlan && macroTargetPlan[slotIdx]) ? macroTargetPlan[slotIdx].role : 'statement';
+        const target = (macroTargetPlan && macroTargetPlan[slotIdx]) ? macroTargetPlan[slotIdx].targetPitch : null;
+        
+        let targetPitchRaw = target !== null ? target : (keyRoot + 12);
+        let limit = slotRole === 'climax' ? 5 : 3;
+        
+        let skeletonPitch = getConstrainedAnchorGlobal(lastAnchor, targetPitchRaw, limit, globalScalePitches, validPitchesAtStart, activeChordTones);
+        skeleton.push({ pitch: skeletonPitch, role: slotRole });
+        lastAnchor = skeletonPitch;
+    }
+    return skeleton;
+}
+
+export function getConstrainedAnchor(fromPitch, targetRaw, maxOffset, validPitches, chordTones) {
+    const fromIdx = findScaleIndex(fromPitch, validPitches);
+    if (fromIdx === -1) {
+        return chordTones.length > 0 ? findClosest(targetRaw, chordTones) : findClosest(targetRaw, validPitches);
+    }
+    
+    const minIdx = Math.max(0, fromIdx - maxOffset);
+    const maxIdx = Math.min(validPitches.length - 1, fromIdx + maxOffset);
+    const allowedPitches = validPitches.slice(minIdx, maxIdx + 1);
+    
+    if (allowedPitches.length === 0) {
+        return fromPitch;
+    }
+    
+    const allowedChordTones = allowedPitches.filter(p => chordTones.includes(p));
+    if (allowedChordTones.length > 0) {
+        return findClosest(targetRaw, allowedChordTones);
+    }
+    return findClosest(targetRaw, allowedPitches);
+}
+
+export function getConstrainedAnchorGlobal(fromPitch, targetRaw, maxOffset, globalScalePitches, validPitches, chordTones) {
+    const fromIdx = findScaleIndex(fromPitch, globalScalePitches);
+    if (fromIdx === -1) {
+        return chordTones.length > 0 ? findClosest(targetRaw, chordTones) : findClosest(targetRaw, validPitches);
+    }
+    const minIdx = Math.max(0, fromIdx - maxOffset);
+    const maxIdx = Math.min(globalScalePitches.length - 1, fromIdx + maxOffset);
+    const allowedGlobalPitches = globalScalePitches.slice(minIdx, maxIdx + 1);
+    
+    const allowedLocalPitches = validPitches.filter(lp => {
+        return allowedGlobalPitches.some(gp => Math.abs(lp - gp) < 0.01);
+    });
+    
+    const candidatePool = allowedLocalPitches.length > 0 ? allowedLocalPitches : validPitches;
+    const allowedChordTones = candidatePool.filter(p => chordTones.includes(p));
+    if (allowedChordTones.length > 0) {
+        return findClosest(targetRaw, allowedChordTones);
+    }
+    return findClosest(targetRaw, candidatePool);
+}
+
+export function isPassingContext(gridSteps, currentGridIndex, stepPlaysMap, activeChordTones) {
+    for (let j = currentGridIndex + 1; j < gridSteps.length; j++) {
+        if (stepPlaysMap[gridSteps[j].step]) {
+            return activeChordTones.length > 0;
+        }
+    }
+    return false;
+}
+
+export function getPreferredIntervalBias(phraseRole, aestheticMode) {
+    if (phraseRole === 'climax') return 2;
+    if (phraseRole === 'release') return -1;
+    if (phraseRole === 'resolution') return -2;
+    if (aestheticMode === 'sighs') return 2;
+    return 0;
+}
+
+export function deduceChordRootAndQuality(symbol, baseKey, divisions) {
+    if (!symbol || typeof symbol !== 'string') return null;
+    let accidental = 0;
+    let stripped = symbol.replace(/[+-]+$/, '');
+    
+    if (stripped.startsWith('b')) { accidental = -1; stripped = stripped.substring(1); }
+    else if (stripped.startsWith('#')) { accidental = 1; stripped = stripped.substring(1); }
+    
+    const match = stripped.match(/^(IV|III|II|I|VII|VI|V|iv|iii|ii|i|vii|vi|v)/);
+    
+    if (match) {
+        const numeral = match[1];
+        const remainder = stripped.substring(numeral.length);
+        
+        const scaleOffsets = {
+            'i': 0, 'ii': 2, 'iii': 4, 'iv': 5, 'v': 7, 'vi': 9, 'vii': 11,
+            'I': 0, 'II': 2, 'III': 4, 'IV': 5, 'V': 7, 'VI': 9, 'VII': 11
+        };
+        const rootOffset = scaleOffsets[numeral] + accidental;
+        
+        const isMinor = numeral === numeral.toLowerCase();
+        let quality = isMinor ? 'minor' : 'major';
+        
+        if (remainder.includes('dim') || remainder.includes('°')) {
+            quality = 'diminished';
+        } else if (remainder.includes('aug') || remainder.includes('+')) {
+            quality = 'augmented';
+        } else if (remainder.includes('7') || remainder.includes('9') || remainder.includes('11') || remainder.includes('13')) {
+            if (!remainder.includes('maj') && !remainder.includes('M7') && !remainder.includes('j7')) {
+                quality = isMinor ? 'minor7' : 'dominant';
+            }
+        }
+        if (remainder.includes('sus')) {
+            quality = 'suspended';
+        }
+        const rootPitch = baseKey + rootOffset;
+        return { rootPitch, quality };
+    }
+    return null;
+}
+
+export function getLocalScaleMode(quality, settingsGenre) {
+    if (settingsGenre === 'jazz' || settingsGenre === 'blues') {
+        if (quality === 'minor7') return 'dorian';
+        if (quality === 'dominant') return 'mixolydian';
+    }
+    if (quality === 'minor' || quality === 'minor7' || quality === 'diminished') {
+        return 'minor';
+    }
+    return 'major';
+}
+
+export function planMacroMelodyTargets(totalChords, keyRoot, divisions, stateMode, settings) {
+    const plan = [];
+    const scaleIntervals = getScaleIntervals(stateMode, settings.genre);
+    const rootTarget = keyRoot + 12;
+    
+    for (let i = 0; i < totalChords; i++) {
+        const prog = i / Math.max(1, totalChords - 1);
+        let contourValue = 0.5;
+        
+        if (settings.macroContourArchetype === 'arch') {
+            contourValue = Math.sin(prog * Math.PI);
+        } else if (settings.macroContourArchetype === 'valley') {
+            contourValue = 1.0 - Math.sin(prog * Math.PI);
+        } else if (settings.macroContourArchetype === 'staircase') {
+            contourValue = Math.floor(prog * 4) / 4;
+        } else if (settings.macroContourArchetype === 'launch') {
+            contourValue = prog < 0.7 ? 0.25 : 0.95;
+        }
+        
+        const maxOffsetDeg = 4;
+        const degreeOffset = Math.round((contourValue - 0.5) * 2 * maxOffsetDeg);
+        const pitchOffset = degreeOffset * (12 / divisions);
+        const targetPitchRaw = rootTarget + pitchOffset;
+        
+        let role = 'statement';
+        if (totalChords > 1) {
+            if (i === 0) {
+                role = 'statement';
+            } else if (i === totalChords - 1) {
+                role = 'resolution';
+            } else {
+                const stepIdx = i % 4;
+                if (stepIdx === 1) role = 'build';
+                else if (stepIdx === 2) role = 'climax';
+                else role = 'release';
+            }
+        }
+        
+        plan.push({
+            targetPitch: targetPitchRaw,
+            role: role,
+            contourValue: contourValue
+        });
+    }
+    return plan;
+}

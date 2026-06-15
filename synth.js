@@ -289,38 +289,56 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
         else if (destBus === 'chords') engineParams.adsr = state.chordAdsr;
         else if (destBus === 'bass' || destBus === 'bassHarmonic') engineParams.adsr = state.bassAdsr;
     }
+
+    // Apply unified pitch shift and octave drop offsets directly to freq for all engines
+    let finalFreq = freq;
+    let pitchShift = 0;
+    let octaveShift = 0;
+
+    if (destBus === 'chords') {
+        if (type.startsWith('sample-')) {
+            pitchShift = state.chordAdsr ? (state.chordAdsr.pitch || 0) : 0;
+        }
+    } else if (destBus === 'bass' || destBus === 'bassHarmonic') {
+        pitchShift = state.bassAdsr ? (state.bassAdsr.pitch || 0) : 0;
+        octaveShift = state.bassAdsr && state.bassAdsr.octaveDrop ? -24 : 0;
+    } else if (destBus === 'melody') {
+        pitchShift = state.melodyAdsr ? (state.melodyAdsr.pitch || 0) : 0;
+    } else if (destBus === 'countermelody') {
+        pitchShift = state.countermelodyAdsr ? (state.countermelodyAdsr.pitch || 0) : 0;
+    }
+
+    if (pitchShift !== 0 || octaveShift !== 0) {
+        finalFreq = finalFreq * Math.pow(2, (pitchShift + octaveShift) / 12);
+    }
+
     if (type === 'sample-bass') {
         engineParams.buffer = customBassBuffer;
         engineParams.adsr = state.bassAdsr;
         const rootMidi = 48; // C3
         const rootFreq = midiToFreq(rootMidi);
-        const pitchShift = state.bassAdsr ? (state.bassAdsr.pitch || 0) : 0;
-        const octaveShift = state.bassAdsr && state.bassAdsr.octaveDrop ? -24 : 0;
-        engineParams.playbackRate = (freq / rootFreq) * Math.pow(2, (pitchShift + octaveShift) / 12);
+        engineParams.playbackRate = finalFreq / rootFreq;
     }
     if (type === 'sample-chords') {
         engineParams.buffer = customChordBuffer;
         engineParams.adsr = state.chordAdsr;
         const rootMidi = 60; // C4
         const rootFreq = midiToFreq(rootMidi);
-        const pitchShift = state.chordAdsr ? (state.chordAdsr.pitch || 0) : 0;
-        engineParams.playbackRate = (freq / rootFreq) * Math.pow(2, pitchShift / 12);
+        engineParams.playbackRate = finalFreq / rootFreq;
     }
     if (type === 'sample-melody') {
         engineParams.buffer = customMelodyBuffer;
         engineParams.adsr = state.melodyAdsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
         const rootMidi = 60; // C4
         const rootFreq = midiToFreq(rootMidi);
-        const pitchShift = state.melodyAdsr ? (state.melodyAdsr.pitch || 0) : 0;
-        engineParams.playbackRate = (freq / rootFreq) * Math.pow(2, pitchShift / 12);
+        engineParams.playbackRate = finalFreq / rootFreq;
     }
     if (type === 'sample-countermelody') {
         engineParams.buffer = customCountermelodyBuffer;
         engineParams.adsr = state.countermelodyAdsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 };
         const rootMidi = 60; // C4
         const rootFreq = midiToFreq(rootMidi);
-        const pitchShift = state.countermelodyAdsr ? (state.countermelodyAdsr.pitch || 0) : 0;
-        engineParams.playbackRate = (freq / rootFreq) * Math.pow(2, pitchShift / 12);
+        engineParams.playbackRate = finalFreq / rootFreq;
     }
     if (type === 'karplus-strong') {
         engineParams.damping = state.bassKsDamping !== undefined ? state.bassKsDamping : 400;
@@ -342,7 +360,7 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
         }
     }
 
-    const osc = engine(audioCtx, freq, startTime, duration, finalDest, (deadOsc) => {
+    const osc = engine(audioCtx, finalFreq, startTime, duration, finalDest, (deadOsc) => {
         activeOscillators = activeOscillators.filter(o => o !== deadOsc);
         if (panner) panner.disconnect();
     }, engineParams);

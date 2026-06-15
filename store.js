@@ -61,7 +61,7 @@ export const state = {
         midiExtractionMode: 'highest',
         macroPlannerEnabled: false,
         macroContourArchetype: 'auto',
-        shortestNoteLimit: 9
+        shortestNoteLimit: 16
     },
     userMotifs: [
         {
@@ -365,8 +365,8 @@ export function swapChord(index, altSymbol, originalSymbol, targetKey) {
 export function stepInversion(index, direction) {
     saveHistoryState();
     const chordToModify = getActiveProgression()[index];
-    const currentOffset = chordToModify.inversionOffset ?? 0;
-    const newOffset = currentOffset + direction;
+    const currentOffset = Number(chordToModify.inversionOffset ?? 0);
+    const newOffset = currentOffset + Number(direction);
 
     let symbol = chordToModify.symbol;
     const tuning = getEffectiveTuning(symbol, chordToModify.divisions || state.divisions);
@@ -714,7 +714,7 @@ export function resetSession() {
         midiExtractionMode: 'highest',
         macroPlannerEnabled: false,
         macroContourArchetype: 'auto',
-        shortestNoteLimit: 9
+        shortestNoteLimit: 16
     };
     state.userMotifs = [
         {

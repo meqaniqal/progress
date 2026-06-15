@@ -5,7 +5,7 @@ import { initAudio, getAudioCurrentTime, midiToFreq, playTone, stopOscillators, 
 import { resolvePattern } from './patternResolver.js';
 import { state, getActiveProgression } from './store.js';
 import { isSongTrayOpen, getActiveSequenceIndex } from './songController.js';
-import { evaluateVoiceEvents } from './transitionEvaluator.js';
+import { evaluateVoiceEvents, applyInstanceOffsets } from './transitionEvaluator.js';
 import { scheduleMelody, clearMelodyMemory } from './melodyGenerator.js';
 import { getGrooveOffset } from './grooveEngine.js';
 
@@ -579,9 +579,9 @@ function getAuditionNotesForSeq(progression, idx, appState) {
     if (pattern && pattern.instances && pattern.instances.length > 0) {
         const instances = [...pattern.instances].sort((a, b) => a.startTime - b.startTime);
         const firstInstance = instances[0];
-        if (firstInstance && firstInstance.pitchOffsets) {
-            const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || appState.divisions || 12);
-            notesToPlay = notesToPlay.map((n, i) => n + snapToGrid(60 + (firstInstance.pitchOffsets[i] || 0), editorTuning) - 60);
+        if (firstInstance) {
+            const tuning = getEffectiveTuning(chord.symbol, chord.divisions || appState.divisions || 12);
+            notesToPlay = applyInstanceOffsets(notesToPlay, firstInstance, chord, tuning);
         }
     }
     return notesToPlay;

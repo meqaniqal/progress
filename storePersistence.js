@@ -92,7 +92,7 @@ export function loadAndApplyInitialState(explicitState = null) {
                 midiExtractionMode: savedState.melodySettings.midiExtractionMode || 'highest',
                 macroPlannerEnabled: typeof savedState.melodySettings.macroPlannerEnabled !== 'undefined' ? Boolean(savedState.melodySettings.macroPlannerEnabled) : true,
                 macroContourArchetype: savedState.melodySettings.macroContourArchetype || 'auto',
-                shortestNoteLimit: typeof savedState.melodySettings.shortestNoteLimit === 'number' ? savedState.melodySettings.shortestNoteLimit : 9
+                shortestNoteLimit: typeof savedState.melodySettings.shortestNoteLimit === 'number' ? savedState.melodySettings.shortestNoteLimit : 16
             };
         }
         if (savedState.userMotifs) {
@@ -234,6 +234,7 @@ export function loadAndApplyInitialState(explicitState = null) {
 
                 chordObj.key = typeof chordObj.key === 'number' ? Math.max(0, Math.min(127, chordObj.key)) : state.baseKey;
                 chordObj.duration = typeof chordObj.duration !== 'undefined' ? Math.max(1, Math.round(Number(chordObj.duration)) || 2) : 2;
+                chordObj.inversionOffset = typeof item.inversionOffset !== 'undefined' ? Number(item.inversionOffset) : 0;
                 chordObj.voicingType = typeof item.voicingType === 'string' ? item.voicingType : 'global';
                 chordObj.voicing = item.voicing ? { ...item.voicing } : null;
 
@@ -275,7 +276,9 @@ export function loadAndApplyInitialState(explicitState = null) {
                     if (swapObj.symbol.startsWith('Oct')) swapObj.symbol = swapObj.symbol.replace('Oct', 'Dim');
                     if (typeof swapObj.key !== 'number') delete swapObj.key;
                     if (typeof swapObj.duration !== 'undefined' && isNaN(Number(swapObj.duration))) delete swapObj.duration;
-                    if (typeof swapObj.inversionOffset !== 'number') delete swapObj.inversionOffset;
+                    if (typeof swapObj.inversionOffset !== 'undefined') {
+                        swapObj.inversionOffset = Number(swapObj.inversionOffset);
+                    }
                     if (typeof swapObj.voicingType !== 'string') delete swapObj.voicingType;
                     if (typeof swapObj.voicing !== 'object') delete swapObj.voicing;
                     if (Array.isArray(swapObj.customNotes)) {

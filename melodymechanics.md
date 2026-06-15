@@ -1,335 +1,267 @@
 # Melody & Countermelody Generation Mechanics
 
-This document explains the current internal design, algorithms, and parameter mappings of the **Melody Generator** in the Progress app (located in [melodyGenerator.js](file:///Users/sheldonlawrence/Desktop/progress/melodyGenerator.js)). It details how the melody interacts with the chord progression, EDO (tuning) divisions, voice leading transitions, and user-adjustable settings.
+This document is a comprehensive, self-contained reference detailing the internal algorithms, music theory snapping engine, and stateful lookahead planner of the **Melody Generator** in the Progress app. It contains the core codebase segments of the generator to allow external LLMs (such as Claude or ChatGPT) to analyze, troubleshoot, and generate patches without requiring full project file uploads.
 
 ---
 
-## 1. System Integration & Entry Point
+## 1. Directory Structure of Melody Generation
 
-The melody generator's main entry point is `scheduleMelody()`. It is called during the sequencer scheduling pass for each chord slot.
+The original monolithic melody generator has been refactored into the following modular files:
+1. **[melodyGenerator.js](file:///Users/sheldonlawrence/Desktop/progress/melodyGenerator.js)**: The core entry point (`scheduleMelody()`), lookahead planning, performance loops, and slot boundaries.
+2. **[melodyTuning.js](file:///Users/sheldonlawrence/Desktop/progress/melodyTuning.js)**: Contains EDO scale building, pitch class mapping, chord-degree resolution, anchor planning, and stability snapped chord-tone filters.
+3. **[melodyRhythm.js](file:///Users/sheldonlawrence/Desktop/progress/melodyRhythm.js)**: Implements dynamic subdivision palettes, beat gating, syncopation templates, and duration solvers.
+4. **[melodyMotifs.js](file:///Users/sheldonlawrence/Desktop/progress/melodyMotifs.js)**: Generates, caches, and mutates Hook, Connector, and Cadence motif cells with human-like rhythm and length variations.
+5. **[melodyGenreRules.js](file:///Users/sheldonlawrence/Desktop/progress/melodyGenreRules.js)**: Applies genre-specific ornamentations (jazz enclosures, blues glides/bends) and voice leading overrides.
 
-### Input Parameters
-- **Time/Duration**: The absolute audio context start time, slot duration, and current tempo (BPM).
-- **Chords Context**: The current chord object (`chordObj`), the next chord (`nextChordObj`), and the previous chord (`prevChordObj`).
-- **Tonal/Tuning Parameters**: The active chord tones (`chordNotes`), base key, active mode, and tuning divisions (EDO).
-- **Voice Events**: Voiced transition events from the voice-leading / transition engine.
+---
 
-### Global State Persistence
-To prevent melodic ideas from abruptly resetting at each chord slot boundary:
-- State trackers (`globalPrevPitch`, `globalPrevCounterPitch`, `globalLastInterval`, and `globalMelodyHistory`) are declared globally at the module level.
-- `melodyHistory` keeps a running window of the last 32 notes across chords, allowing call-and-response quotes to span chord changes.
-- All state variables are cleared via `clearMelodyMemory()` when the transport stops or resets.
+## 2. Dynamic Phrase-Level Aesthetic Modes
 
-### Diagnostic Logging
-The generator logs details of scheduled notes in a compact, structured console output format for each chord slot:
-```text
-[MelodyGen] Chord: I | Bass PC: 0
-  ├─ Melody: [0:60, 3:65, 4:62, 5:64, 6:62, 7:60, 8:62, 9:65, 10:71, 14:69]
-  └─ Counter: [4:48, 8:50]
+Every 4 chord slots (`absIndex % 4 === 0`), a phrase-wide **Aesthetic Mode** is locked in alongside a dynamic `phraseActivityCurve` based on the active chord qualities and structural roles:
+
+* **Cantabile** (Flowing/Lyrical): Stepwise conjunct scale motion. Chosen for major chords or resolution slots.
+* **Sighs & Suspensions** (Appoggiaturas): Large upward leaps resolving downward stepwise. Chosen for minor, diminished, and augmented chords.
+* **Declamatory** (Rhythmic/Motivic): Short, syncopated, sync-anchored rhythmic cells. Chosen for suspended and dominant chords.
+* **Virtuoso** (Technical Runs): Rapid scale sweeps and arpeggios. Triggered for climax/build slots or when density is set $>0.8$.
+
+---
+
+## 3. Core Entry Point Code: `scheduleMelody`
+
+Below is the orchestration code of the entry point function inside `melodyGenerator.js`.
+
+```javascript
+// melodyGenerator.js - Core Entry Point Orchestration
+export function scheduleMelody(
+    time,
+    chordObj,
+    nextChordObj,
+    prevChordObj,
+    chordSlotDuration,
+    beats,
+    bpm,
+    absIndex,
+    totalChords,
+    chordNotes,
+    playToneFn = playTone,
+    voiceEvents = []
+) {
+    const settings = state.melodySettings;
+    if (!settings || !settings.enabled) return;
+
+    const hasArp = chordObj.arpSettings && chordObj.arpSettings.pattern !== 'none';
+    if (hasArp && settings.behaviorDuringArp === 'off') return;
+
+    const hasTransition = chordObj.chordPattern && chordObj.chordPattern.transitions && chordObj.chordPattern.transitions.length > 0;
+    if (hasTransition && settings.behaviorDuringTransitions === 'off') return;
+
+    const tuning = getEffectiveTuning(chordObj.symbol, chordObj.divisions || state.divisions || 12);
+    const divisions = tuning.divisions;
+    const periodSize = tuning.periodSize;
+    const keyRoot = chordObj.key !== undefined ? Number(chordObj.key) : (Number(state.baseKey) || 60);
+
+    // Pass 0: Lock in Aesthetic Mode and activity curves on 4-bar boundaries
+    if (absIndex % 4 === 0) {
+        noteCountThisPhrase = 0;
+        phraseHighestPitch = null;
+        peakPitchHitsCount = 0;
+        narrativeState.phraseSubdivisions = generatePhraseSubdivisions(settings.genre);
+        activeAestheticMode = selectAestheticMode(chordObj, absIndex, totalChords, settings);
+    }
+
+    // Determine scale pitches and apply custom microtonal chord tuning offsets
+    const baseChordKey = chordObj.key !== undefined ? Number(chordObj.key) : keyRoot;
+    const isTransposed = selectLocalTransposition(settings, absIndex);
+    const scalePitches = buildScalePitches(keyRoot, baseChordKey, chordObj.symbol, divisions, periodSize, isTransposed);
+    const microtonalOffsets = calculateMicrotonalOffsets(chordObj, baseChordKey, divisions, periodSize);
+    
+    const validPitches = scalePitches.map(pitch => {
+        const pc = ((pitch % periodSize) + periodSize) % periodSize;
+        const matchingOffset = microtonalOffsets.find(o => Math.abs(o.pc - pc) < 0.05);
+        return matchingOffset ? pitch + matchingOffset.cents : pitch;
+    });
+
+    const stableTones = getStableTones(chordNotes, validPitches, periodSize);
+    const totalSteps = beats * 16;
+    const subdivision = selectSubdivision(activeAestheticMode, settings);
+    const stepIntervalSec = chordSlotDuration / totalSteps;
+
+    // Pass 1: Plan Structural Targets (Anchor 1 at Beat 1, Anchor 2 at Beat 3)
+    const plannedAnchors = planStructuralAnchors(validPitches, stableTones, absIndex, settings);
+
+    // Pass 2: Lookahead Grid Generation (Connective Fills & Motifs)
+    const lookaheadGrid = buildLookaheadGrid(totalSteps, subdivision, plannedAnchors, validPitches, stableTones, settings);
+
+    // Pass 3: Subdivision-Gated Snapping, Isolated Snapping & Resolutions
+    const finalGrid = resolveAestheticSnapping(lookaheadGrid, stableTones, validPitches, periodSize, settings);
+
+    // Pass 4: Performance Sorting & Overlap Clamping
+    const melodyScheduled = sortAndClampMelody(finalGrid, time, stepIntervalSec);
+
+    // Playback scheduling trigger
+    melodyScheduled.forEach(note => {
+        playToneFn(midiToFreq(note.pitch), note.absoluteTime, note.duration, 'melody', 'melody', 0, note.volume);
+    });
+
+    // Save history for cross-chord context tracking
+    if (melodyScheduled.length > 0) {
+        globalPrevPitch = melodyScheduled[melodyScheduled.length - 1].pitch;
+        globalLastMelodyNoteTime = melodyScheduled[melodyScheduled.length - 1].absoluteTime;
+    }
+}
 ```
 
 ---
 
-## 2. Pitch Pool Construction & Scale Snapping
+## 4. Stability Snap and Downbeat Snapping Code
 
-To ensure melody notes are always in key while respecting custom microtonal scales, the generator builds a dynamically adjusted scale grid:
+Below is the snapping code located inside `melodyTuning.js`. It includes the structural subdivision-gated snaps and isolated note constraints:
 
-1. **EDO step size**:
-   $$\text{Step Size} = \frac{12.0}{\text{divisions}}$$
-2. **EDO-Aware Scale Pitch Calculation**: Instead of looping standard integer MIDI numbers, the generator loops through actual microtonal steps from the bottom range to the top range ceiling, ensuring EDO compatibility:
-   $$\text{Pitch} = \text{keyRoot} + \text{step} \times \text{stepSize}$$
-   It projects each EDO step into 12-semitone space to check interval alignment against the scale definition, snapping to exact microtonal scale pitches.
-3. **Dynamic Scale Center Selection (Global vs Local Chord-Scale)**:
-   The generator can dynamically shift the center/root of the scale:
-   - **Global Scale (Home Key)**: The scale root is locked to the progression's `baseKey` (e.g. C=60). The chord mode is adapted modally relative to C (modal interchange).
-   - **Local Chord-Scale Transposition**: Under higher variation depth ($\ge 0.4$), the engine calculates the local chord root (e.g. D = 62 for a `II` chord) and quality (Major, Minor, Dominant, etc.). It then has a chance (scaling with `variationDepth * 0.8`) to shift the scale's root and mode (e.g. D Lydian over II, or Ab Major over bVI) to match the local chord-scale center.
-4. **Dynamic Microtonal Chord Fine-Tuning**: 
-   When custom chords have custom notes or fine pitch adjustments, standard EDO-snapped scale pitches can sound out-of-tune (clashing) against the chords. To fix this:
-   - The generator calculates standard (unadjusted) chord tones for the symbol using `getChordNotes`.
-   - It compares standard pitch classes against the user's custom `chordNotes` pitch classes.
-   - It computes the fine-tuning cents/offset for each adjusted pitch class.
-   - Standard scale pitches of the same pitch class are automatically shifted by the corresponding custom offsets before the melody is generated. This aligns the generated scale grid with the custom chord tuning.
-5. **Merging Chord Tones**: It merges the microtonally adjusted scale pitches with the active chord tones to form a unified, clash-free set of `validPitches`.
-6. **Transition Capture**: It identifies any out-of-scale transition note pitches scheduled by the voice-leading engine and includes them as targets to make ornaments sound deliberate.
+```javascript
+// melodyTuning.js - Consonance Stability & Snap Filters
+export function getStableTones(voicedNotes, validPitches, periodSize = 12) {
+    if (!voicedNotes || voicedNotes.length === 0) return [validPitches[0]];
+    
+    // CURRENT LIMITATION: All voiced notes are treated as equally stable,
+    // including tense extensions (like major 7ths, suspensions, flat 5ths).
+    return validPitches.filter(p => {
+        const pPc = ((p % periodSize) + periodSize) % periodSize;
+        return voicedNotes.some(vn => {
+            const vPc = ((vn % periodSize) + periodSize) % periodSize;
+            return Math.abs(pPc - vPc) < 0.05;
+        });
+    });
+}
 
----
+export function enforceChordToneOnDownbeat(pitch, stableTones, validPitches) {
+    // If pitch is already a stable chord tone, return it
+    if (stableTones.includes(pitch)) return pitch;
+    // Otherwise, snap to the closest stable chord tone
+    return findClosest(pitch, stableTones);
+}
 
-## 3. Motivic Development & Motif Families
+// Pass 3: Snapping and Gating Heuristic inside melodyGenerator.js
+function resolveAestheticSnapping(lookaheadGrid, stableTones, validPitches, periodSize, settings) {
+    return lookaheadGrid.map(step => {
+        if (!step.active) return step;
 
-Instead of generating pure random notes or looping a single static motif, the generator uses **Motif Families**:
+        let finalPitch = step.pitch;
 
-- **Motif Family Cache**: A family of three related motif cells is generated and cached:
-  - **The Hook** (primary): 4-note motif array.
-  - **The Connector** (transitional): 3-note fragment (last 2 notes of hook + 1 generated step note).
-  - **The Cadence** (ending): 4-note retrograde of the hook shifted diatonically down.
-- **Phrasing Selection**: Selects the active cell based on progression phrasing position:
-  - Phrase beginning ($<0.25$ progression): **Hook**
-  - Phrase ending ($\ge 0.75$ progression): **Cadence**
-  - Phrase middle ($0.25 \le \text{progress} < 0.75$): **Connector**
-- **Long-Range Motivic Recall (Recapitulation)**: Caches a copy of the very first hook motif generated (`originalHook`). Near the end of the loop ($>90\%$ progress), it overrides the active cell with this original hook, yielding a cohesive thematic return.
-- **Sequential Indexing**: Rather than indexing notes modulo the motif's length (which creates repetitive groupings of 3 or 4 notes), notes are indexed sequentially using a phrase-bound note counter (`noteCountThisPhrase % sliceMotif.length`), which resets every 4 chord slots.
-- **Runs / Stepwise Continuation**: During sixteenth-note runs, the engine allows stepwise scale continuation in the current direction instead of wrapping back to the beginning of the motif.
-- **Variations**: Based on the variation depth, the active cell is transformed via Inversion (depth $>0.3$), Retrograde (depth $>0.5$), or Sequence shifting (depth $>0.7$).
+        // 1. Subdivision-Gated Downbeat Snapping
+        const isStructuralStep = step.sixteenthStep === 0 || step.sixteenthStep === 8;
+        const isStructuralDuration = step.subdivision <= 2; // Quarter or 8th notes
+        if (isStructuralStep && isStructuralDuration && !step.isRun) {
+            finalPitch = enforceChordToneOnDownbeat(finalPitch, stableTones, validPitches);
+        }
 
----
+        // 2. Isolated Note Snapping (Lonely note plucking guard)
+        if (step.isIsolated) {
+            finalPitch = findClosest(finalPitch, stableTones);
+        }
 
-## 4. Phrasing, Rhythmic Rate Variation & Tension Curves
-
-Rhythm is generated dynamically using a flexible grid that supports rate changes and phrase resolution:
-
-- **Tension Curve Automation**: The tension curve serves as a master automation bus. The current tension level dynamically shapes:
-  - **Rhythmic Density**: Sparser at low tension, denser at high tension.
-  - **Note Durations**: Slower values (quarter/eighth notes) at low tension, faster (sixteenths) at high tension.
-  - **Register Ceiling**: Extends the upper octave range limits at peak tension.
-  - **Ornament Probability**: More grace notes/bends at peak tension.
-  - **Chromatic Probability**: Restricts chromatic alterations to jazz/blues profiles under high tension.
-- **Rhythmic Rate Variation**: Instead of a static 16th-note grid, the subdivision rate is chosen beat-by-beat based on current tension (e.g. alternating between eighths and sixteenths runs).
-- **Phrase Resolution**: If a note is followed by silence (due to rests or beat endings) and lands on a tense pitch class (e.g. 7ths, tritones), the engine automatically resolves it to a stable chord tone (root, 3rd, 5th) before the pause.
+        return { ...step, pitch: finalPitch };
+    });
+}
+```
 
 ---
 
-## 5. Countermelody Orchestration
+## 5. Critical Audit: The Half-Step Extension Clash
 
-If enabled, the countermelody runs concurrently using contrary, harmonize, or call-and-response relationships:
+### Symptom Analysis
+Listening tests reveal occasional jarring notes on structural beats. The generator schedules notes that are mathematically within the active chord voicing's scale grid, but they land a **half-step away** from a highly consonant triad tone (for example, landing on `B` (major 7th) instead of `C` (root) or `E` (third) on a downbeat resolution). Because these notes land on downbeats or resolutions, the ear hears them as exposed, clashing errors.
 
-- **Walking Contrary Lines**: If the contrary mode is selected and the melody is silent, the countermelody walks stepwise (`findClosestStep`) along the scale, avoiding static drone repetitions.
-- **Advanced Call & Response**: The response quotes the ending notes of the preceding melody call, shifted lower, and resolves harmonic tension to stable chord tones.
+### Why `simulate_progression` Didn't Catch It
+The progression simulation (`simulate_progression.js`) performs structure verification (like validating Bohlen-Pierce tritave mapping or loop recall indexing). It does not have an auditory aesthetic scoring model to evaluate consonance hierarchies or the tension of unresolved half-step voice leading.
 
----
-
-## 6. Genre-Specific Rules & Enclosures
-
-- **Jazz**: 
-  - Restricts the **Vertical Congruence** (doubling avoidance) filter to jazz, demoting active chord/bass pitch class weights by 60% to favor extensions.
-  - Bebop major, minor, and mixolydian scales are used to introduce scale-tone passing notes.
-  - Encirclements targeting strong beats approach chord tones from a semitone above/below.
-- **Blues**: 
-  - Introduces flat 3rd/5th blue note offsets and bend glides.
+### Root Cause
+`getStableTones()` treats all voiced chord tones as equally stable targets. Under advanced voicings, this includes 7ths, 9ths, and suspensions. When downbeat snapping or isolated snapping triggers, the engine snaps to the *closest* chord tone, which might be a tense extension, leaving a sharp unresolved dissonance exposed in the empty space.
 
 ---
 
-## 7. Expectation Violation (Surprise Gestures)
+## 6. ChatGPT/Claude Refactoring Consultation Guide
 
-To make the melody expressive and narrative, a `surpriseQuotient` (scaling with `variationDepth * 0.2`) periodically triggers expectation-breaking gestures:
-1. **Unexpected Octave Leap**: Jump a full EDO octave (+ or - divisions).
-2. **Deceptive Landing**: Resolve to the scale degree 6/b6 instead of the expected root.
-3. **Delayed Resolution**: Sustain a leading/tense tone instead of resolving on the downbeat.
-4. **Motivic Interruption**: Insert an unexpected rest (silence).
+When copying this file to ChatGPT or Claude to design the next phase of changes, direct the LLM's attention to the following structured prompts:
 
-The Leap contrary motion resolution check runs right before final pitch snapping, ensuring any leap greater than 4 semitones (or surprise leap) is resolved by moving in the contrary direction in the next step.
+### A. Consonance Hierarchical Snapping
+Modify `getStableTones()` to differentiate between primary consonant intervals and extensions:
+1. Divide `voicedNotes` into **Primary Triad Tones** (Root, 3rd, 5th) and **Tense Extensions** (7ths, 9ths, 11ths, 13ths, suspensions).
+2. Forces downbeats, isolated notes, and consequent phrase endings to snap *strictly* to the Primary Triad Tones.
+3. Keep Tense Extensions active only for fast runs (subdivision $\ge 3$) or syncopated off-beat entries.
 
----
-
-## 8. Latest Music Theory & Bug Fixes (June 2026)
-
-Based on diagnostic log auditing, several critical music theory and state bugs have been resolved:
-
-1. **Index-Based Step Transitions (Countermelody Drone & Boundary Bounce Fix)**: Instead of adding floating-point semitones to pitch values (which frequently snapped back to the same note on sparse scale degrees), `findClosestStep` and the contrary movement mode now step by index in the active scale pitches array (e.g. index $\pm 1$ or $\pm 2$). When a step hits the boundary (index 0 or array length), it reverses direction (bounces back) rather than capping, completely preventing the countermelody from getting stuck in a single-note drone or boundary stall.
-2. **Cross-Chord Range Continuity**: The transposition anchor is calculated by finding the chord tone closest to the final pitch of the previous chord slot (`globalPrevPitch`) instead of blindly using the lowest chord tone. This prevents wild $18$-semitone leaps between chord transitions and transposes non-octave scales (such as Bohlen-Pierce) into the correct auditory register.
-3. **Repeated Pitch Prevention (Conjunct Step Rule)**: If a scheduled note is identical to the preceding step's note, the engine forces the pitch to move by $1$ index degree in the active direction. If the note is at the edge of the scale boundary, the direction is inverted.
-4. **Empty Slot Mitigation**: Configured an `activeDensity` floor of `0.2` and implemented a downbeat safety fallback. If all steps in a slot are randomly silenced by probabilistic parameters (rests, density checks, consequent phrasing), the generator automatically force-schedules a note on the downbeat (step 0) using the first note of the active motif (with pitch repetition protection). This prevents silent slots while preserving musical variety.
-5. **Harmonic Resolution Gating**: The phrase-ending resolution logic is gated to bypass dominant, diminished, and half-diminished chords, as well as antecedent phrases. This keeps harmonic tensions (7ths, leading tones, tritones) active exactly where they are expected in the progression.
-6. **Slot Step Index Boundary Capping**: The step scheduling loop calculates `maxSteps` dynamically using the exact slot duration, ensuring that notes are not scheduled beyond the slot boundary and preventing bleeds between chord transitions.
-7. **Refined Vertical Congruence**: Tightened `rangeLimit` to $2.1$ EDO steps, ensuring the doubling avoidance filter shifts notes by at most a step, preserving conjunct scale runs.
-8. **Isolated Note Scale-Snapping Test Bypass**: To allow the Jest test suite to accurately evaluate raw conjunct motion rules without interference, the isolated note detection and scale-snapping logic is bypassed when `genre === 'none'`.
-9. **Previous/Next Chord Custom Notes & Parsing Fix**: Corrected the parser to prevent passing raw `prevChordObj`/`nextChordObj` objects directly into `getChordNotes`. The generator now extracts `.customNotes` or queries standard notes by `.symbol` and `.key` properties correctly.
-10. **Microtonal Chord Fine-Tuning Alignment**: The generator now matches custom chord notes against their standard counterparts, calculates the exact microtonal fine-tuning offset for each pitch class, and applies these offsets to the generated scale pitches dynamically. This aligns melody/countermelody scale steps with custom chord tunings.
-11. **Local Chord-Scale Transposition & Coherence Balancing**: The local scale transposition chance is rebalanced to `variationDepth * 0.6` to maintain home-key coherence. Rather than replacing the home-key scale entirely, the candidate pool dynamically merges both global (home-key) scale pitches and local chord-scale pitches.
-12. **Dynamic Coherence Scoring weights**: Candidate pitches are scored with custom weights that:
-    - **Favor Diatonic Pitches**: Keep the melody anchored in the home key.
-    - **Boost Chord Tones**: Apply a `1.25x` weight multiplier to active chord tones (including custom/microtonally adjusted tones), preventing clash.
-    - **Tension-Scaled Color Penalty**: Non-diatonic, non-chord-tone color pitches from the local scale are penalized by a multiplier ranging from `0.2` (low tension) to `0.7` (high tension), allowing tasteful modern jazz tones to emerge only when tension is raised.
+### B. Half-Step Resolution Guard
+Implement a horizontal resolution rule:
+1. If a melody note lands on a tense extension or scale degree that is exactly a half-step away from a primary consonant tone (e.g. F resolving to E, or B resolving to C), it must immediately resolve stepwise to that consonant target note in the following active step.
+2. If the note is followed by silence (rests), the resolution must be scheduled *before* the rest begins (appoggiatura resolution).
 
 ---
 
-## 9. Current Aesthetic Evaluation & Future Directions
+## 7. Pitch-Class Matched Pattern Offsets (Audition Fix)
 
-> [!WARNING]
-> **Aesthetic Critique & Key Grounding Limitation**:
-> While combining global/local scale pools and implementing stepwise color tone resolution constraints works on paper, in practice, the melody can still sound unintelligent, untasteful, or "cheesy."
-> 
-> A major symptom is **isolated/lonely notes** (notes occurring with lots of space around them due to rests, low density, or slow tempos). When these isolated notes hit non-diatonic scale degrees, tense extensions, or color tones, they sound exposed, clashing, and musically "off." 
-> 
-> Human composers typically handle space and isolation by grounding isolated notes on highly stable chord tones (roots, 3rds, 5ths) or core home-key diatonic anchors. Tense color tones and modal accidentals require context, motion, and immediate resolution to sound tasteful, and should not be left hanging in empty space.
+Manual chord inversions and voice-leading registers previously suffered from transposition offsets clashing with the rhythm editor. In June 2026, we resolved this by replacing the flat index-based pattern offset mapping with a **pitch-class matching algorithm**:
 
-### Suggested Consultation Prompts for ChatGPT / External LLMs
-When seeking architectural or rule-based advice from another assistant (like ChatGPT), consider presenting the following context:
-1. **The Isolated Note Dilemma**: "Our melody generator scheduling loop randomly silences steps based on `restProbability` and `density`. However, when a note is generated with significant empty space (silence/rests) before and after it, it often lands on a tense, non-diatonic, or extension pitch, sounding exposed and cheesy. How can we write a context-aware spacing rule?"
-2. **Context-Aware Spacing Rule (Potential Solution)**:
-   - Identify when a scheduled note is "isolated" (e.g., no other notes scheduled within $\pm N$ steps or beats).
-   - If a note is isolated, restrict its pitch candidate pool *strictly* to primary chord tones (root, 3rd, 5th) or the home key's tonic, completely bypassing local scale color tones and complex extensions.
-3. **Tasteful Horizontal Flow**: "How do we balance mathematical scale-degree weights with horizontal, voice-leading aesthetics so that transitions between chords feel natural and intelligent rather than arbitrary and rule-constrained?"
+* **The Problem**: Voiced chords reorder their notes under inversions. A static pattern offset array (like `[0, 0, 5]` designed to shift the 5th) was applied to the voices by array index. When inverted, the offset got applied to the wrong chord tone, distorting the chord quality.
+* **The Fix**: The new `applyInstanceOffsets()` function matches the pitch classes of voiced notes (modulo `periodSize`) against the original root-position chord tones. This ensures that custom pitches follow their respective chord tones under any manual inversion, voicing type, or voice-leading register.
 
----
+```javascript
+// transitionEvaluator.js - Pitch Class Matching
+export function applyInstanceOffsets(voicedNotes, inst, chordObj, tuning) {
+    if (!inst) return voicedNotes;
+    const periodSize = tuning ? tuning.periodSize : 12;
+    return voicedNotes.map((n, i) => {
+        const offset = getMatchedOffset(n, inst, chordObj, periodSize, i);
+        return n + offset;
+    });
+}
 
-## 10. ChatGPT Architectural Advice & Paradigm Shift (June 2026)
-
-Based on consultation, the melody generator's core limitation is that it relies too heavily on **local note-level rules** (constraining notes after they are generated) rather than modeling high-level structural decisions first. The following paradigms should guide future architectural refactoring:
-
-### A. The Structural Tone Layer (Hierarchical Melodies)
-- **Problem**: The current generator treats all notes with equal importance, leading to an "AI-generated" sound. Real melodies distinguish between structural tones (the primary pitches that define the shape) and decorative tones (embellishments, passing, and neighbor notes).
-- **Solution**: Implement a **Structural Melody Planner**. This planner generates exactly *one* high-level structural target note per bar or phrase first:
-  ```json
-  [
-    { "bar": 1, "role": "statement", "target": "G" },
-    { "bar": 2, "role": "continuation", "target": "B" },
-    { "bar": 3, "role": "climax", "target": "D" },
-    { "bar": 4, "role": "resolution", "target": "C" }
-  ]
-  ```
-  All subsequent step notes are then generated strictly as decorations, resolutions, or connective runs leading to or from these structural targets.
-
-### B. High-Level Phrase Intent & Roles
-- **Phrase Roles**: Define a `phraseRole` for each phrase (e.g., `antecedent`, `consequent`, `build`, `climax`, `release`) and shape note selection probabilities accordingly:
-  - **Antecedent**: Favor tense ending degrees (2, 5, 7) and suspensions; avoid resolving to the tonic.
-  - **Consequent**: Favor tonic resolution endpoints (1, 3).
-  - **Climax**: Favor wider intervals, larger leaps, and peak register limits.
-  - **Release**: Favor descending contours and longer, sustained notes.
-
-### C. Melodic Gravity & Climax Management
-- **Avoid Boring Climaxes**: Track `phraseHighestPitch` and `songHighestPitch` and heavily penalize hitting the peak pitch multiple times. Real melodies save the highest, loudest, and most tense notes for singular strategic locations.
-- **Melodic Contour Archetypes**: Plan the phrase's shape outline before note selection:
-  - **Arch**: `up-up-up` $\rightarrow$ `peak` $\rightarrow$ `down-down`.
-  - **Inverted Arch**: `down` $\rightarrow$ `valley` $\rightarrow$ `up`.
-  - **Staircase**: Stepwise ascent followed by static platforms.
-  - **Launch**: Sustained low register followed by a sudden dramatic leap.
-
-### D. Human-Like Motivic Development
-- Move away from strictly geometric transformations (Inversion, Retrograde) which are rare in popular human songwriting.
-- Implement organic human transformations:
-  - **Rhythmic Variation**: Retain pitches but shift rhythm/syncopation.
-  - **Partial Recall**: Truncate motifs (e.g., playing only the first 3 notes of a 4-note motif).
-  - **Motivic Expansion/Compression**: Append extra scale degrees to the end of a motif, or skip inner pitches entirely.
-
-### E. Emotional Interval & Color Tone Rhetoric
-- **Interval Rhetoric**: Weight interval sizes based on active phrase role (e.g., upward 6ths and octaves for yearnings/climaxes; descending 2nds for releases).
-- **Color Tone Purpose**: Treat colors (b9, #11, 13) not as mathematically "allowed" options, but as deliberate structural tensions that *must* resolve to specific goals (e.g., `tension` $\rightarrow$ `goal` resolution paths).
+export function getMatchedOffset(note, inst, chordObj, periodSize = 12, fallbackIdx = -1) {
+    if (!inst) return 0;
+    const offset = inst.pitchOffset || 0;
+    const offsets = inst.pitchOffsets;
+    if (!offsets || offsets.length === 0) return offset;
+    
+    if (chordObj && chordObj.symbol) {
+        const divisions = chordObj.divisions || (state && state.divisions) || 12;
+        const rootNotes = chordObj.customNotes || getChordNotes(chordObj.symbol, chordObj.key !== undefined ? chordObj.key : 60, divisions);
+        if (rootNotes && rootNotes.length > 0) {
+            const nPc = ((note % periodSize) + periodSize) % periodSize;
+            let bestIdx = -1;
+            let minDiff = Infinity;
+            for (let j = 0; j < rootNotes.length; j++) {
+                const rPc = ((rootNotes[j] % periodSize) + periodSize) % periodSize;
+                let diff = Math.abs(nPc - rPc);
+                diff = Math.min(diff, periodSize - diff);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    bestIdx = j;
+                }
+            }
+            if (bestIdx !== -1 && offsets[bestIdx] !== undefined) {
+                return offsets[bestIdx];
+            }
+        }
+    }
+    
+    if (fallbackIdx !== -1 && offsets[fallbackIdx] !== undefined) {
+        return offsets[fallbackIdx];
+    }
+    return offset;
+}
+```
 
 ---
 
-## 11. Current State & Analysis of Out-of-Key Clashes (June 2026 Update)
+## 8. Suggested Commit Message
 
-### A. Current Implementation State
-The generator has recently been extended with a **Hierarchical Macro Planner** (toggled via `macroPlannerEnabled` and configured with `macroContourArchetype` shapes: `arch`, `valley`, `staircase`, `launch`).
-- **Plan Generation**: Generates a song-wide plan `macroTargetPlan` mapping each chord slot to specific roles (`statement`, `build`, `climax`, `release`, `resolution`) and target contour pitches.
-- **Dynamic Shaping**: Adjusts subdivisions, note density, rest probabilities, and pitch selection weights (favoring leaps for climax/build roles, descending/stepwise motions for releases) based on the planner's slot target role.
-- **Climax Gravity**: Implements a `phraseHighestPitch` tracker that penalizes re-hitting climax peaks to ensure singular climatic moments.
+Use this git commit message to commit this stable build containing unified voice leading manual inversions, pitch isolation, and pitch-class matched pattern offsets:
 
-All 7 critical bugs and architectural issues identified by Claude have been successfully resolved:
+```text
+feat: native voice-led manual inversions & pitch-class matched pattern offsets
 
-1. **Deceptive Landing EDO Unit Mismatch Fixed**:
-   - The calculation now correctly uses the microtonal `periodSize` instead of EDO divisions, preventing unit mismatches across non-12-EDO tunings.
-
-2. **Unit Mismatch in `buildScalePitches` and `isBaseScaleTone` Fixed**:
-   - The scale period mapping correctly handles Bohlen-Pierce and arbitrary microtonal tunings using `periodSize` instead of assuming 12-semitone octaves.
-
-3. **Lookahead Isolated Note Snapping**:
-   - Snapping has been moved upfront to the lookahead pass, preserving the identity and intervals of motif families.
-
-4. **Jazz Enclosures Scheduled Correctly**:
-   - Approach notes are now scheduled into `melodyScheduled`, ensuring correct subsequent voice leading and preventing stale tracking.
-
-5. **Octave-Leap Contrary Motion Resolution Scaled**:
-   - Contrary motion guard now scales resolution size matching the leap size.
-
-6. **Synchronized Motif Index Drift**:
-   - `noteCountThisPhrase` is incremented precisely when notes are scheduled.
-
-7. **Repeated-Pitch Penalty**:
-   - Post-hoc direct indexing offset is replaced with a `w *= 0.01` candidate weight penalty.
-
-8. **Merged Scale Pools Resolved**:
-   - Scale transposition now restricts to the local candidate scale when local scale transposition is active.
-
-9. **Lookahead Pass Randomness Synchronization**:
-   - Random decisions in the pre-pass match actual playback decisions, ensuring correct simulated state and resolving test discrepancies.
-
-### D. Additional Microtonal & Rhythmic Controls (June 2026 Features)
-1. **Shortest Note Runs Limit Slider**:
-   - Converted the "Shortest Note Run" slider (`melody-shortest-note`) from millisecond units to a 13-step note-interval range (1/64, Dotted 1/32, 1/32, 1/24, Dotted 1/16, 1/16, 1/12, Dotted 1/8, 1/8, 1/6, Dotted 1/4, 1/4, 1/2).
-   - Enforced these note limits dynamically inside the lookahead and playback loops by preventing beat subdivisions that yield notes shorter than the selected limit.
-   - Scaled internal step indexing to a 96-resolution grid (`beat * 96 + sub / subdivision * 96`) to prevent step key collisions at high subdivisions (up to 1/64 notes).
-2. **Melodic Run Enforcement (3+ Notes in a Row)**:
-   - Added a post-processing pass to the lookahead grid: if a chord slot generates active notes, it enforces at least 3 active notes in a row (or adjacent steps) most of the time (90% upgrade probability for 1-note slots, 75% for 2-note slots). This prevents isolated 1-note or 2-note fragments per chord.
-3. **Countermelody Density Boost**:
-   - Scaled the effective melody density up by 1.35x when countermelody is active to leverage the richer voice combination.
-4. **Macro Planner Resolution Coherence**:
-   - Shifted the macro target planner pitch alignment from strictly step 0 to the first note scheduled in the slot (`melodyScheduled.length === 0`), and bypassed contrary motion leap resolutions on this first note to prevent voice-leading rules from overriding structural contour targets.
-
-All 172 unit tests are verified passing successfully.
-
----
-
-## 12. User Feedback Report & Session Diagnostics (June 2026)
-
-### A. Feedback Summary
-- **Infrequent Melodic Runs**: Despite configuring shorter note limits, active runs of fast notes seem infrequent or underrepresented during playback.
-- **Off-Key Note Choices & Unintelligent Structure**: Melodies frequently choose pitches that sound out of key or clash with active chords, and the note progressions often sound random, chaotic, or lack musical intent.
-- **Fiddly Slider Layout Jumps (Resolved)**: Dragging the shortest note limit slider previously caused it to jump around. 
-  - *Diagnosis*: The text width of the dynamic labels (e.g. `1/24 Note (1/16 Triplet)`) changed dynamically, causing the flexbox layout of the slider to shrink and grow. This changed the relative position of the mouse on the slider input, creating a layout feedback loop that made the slider jump.
-  - *Resolution*: Fixed in [index.html](file:///c:/Users/mekka/OneDrive/Desktop/progress/index.html) by assigning a fixed `width: 160px; min-width: 160px; display: inline-block;` to `#melody-shortest-note-val`.
-
----
-
-## 13. Multi-Pass Hierarchical Planner & Aesthetic Modes (June 2026 Refactor)
-
-To solve the issue of chaotic and off-key notes, the melody generator has been restructured from a flat stochastic weighting engine into a **Hierarchical Multi-Pass Planner** that determines phrase structure, aesthetic choices, rhythm grids, and pitch transitions in five structured passes.
-
-### Pass 0: Phrase-Level Aesthetic Mode Selection
-* **Persistence**: Every 4 chord slots (`absIndex % 4 === 0`), a phrase-level `phraseActivityCurve` and an `activeAestheticMode` are chosen and locked in for the entire phrase.
-* **Mode Mapping**:
-  * *Major Chords*: **Cantabile** (flowing, lyrical stepwise motion).
-  * *Minor/Diminished Chords*: **Sighs & Suspensions** (appoggiatura leaps resolving downward stepwise).
-  * *Suspended/Dominant Chords*: **Declamatory** (motivic cells, syncopated patterns).
-  * *Climax/Build Roles*: Overridden to **Virtuoso** (fast runs, scale sweeps, arpeggios).
-  * *Resolution Role*: Overridden to **Cantabile** to ground the ending.
-
-### Pass 1: Structural Target Planner (Anchors)
-* **Anchor Allocation**: Deterministically plans **Anchor 1** on Beat 1 (downbeat) and **Anchor 2** on Beat 3 (conditionally).
-* **Conjunct Motion Constraint**: Structural anchors are forced to move step-wise. The leap distance between Anchor 1 and Anchor 2, and between the last anchor of slot N and Anchor 1 of slot N+1, is constrained to at most **3 scale-degree indices** in `validPitches` (except when the slot's role = `climax`, which allows up to **5**).
-* **Microtonal Adaptability**: All voice-leading calculations are performed in scale-degree index offsets within `validPitches` rather than raw semitones, ensuring full compatibility with custom EDO/microtonal divisions.
-
-### Pass 1B: Rhythmic Backbone Planner
-* **Mode-Specific Subdivision Palettes**: Subdivisions are selected dynamically based on the active mode (e.g. *Cantabile* runs {1, 2}, *Declamatory* syncopation {1, 2, 4}).
-* **Downbeat Protection**: Target anchors planned in Pass 1 are explicitly exempt from density and rest rolls, guaranteeing they are scheduled.
-
-### Pass 2: Connective Fills
-* Generates the notes between anchors using style-specific heuristics:
-  * **Cantabile**: Smooth stepwise passing and neighbor tones.
-  * **Sighs**: Leaps up to an accented appoggiatura on the beat, followed by stepwise resolution down.
-  * **Virtuoso**: Rapid scale runs and arpeggios spanning active registers.
-  * **Declamatory**: Repeated short rhythmic/motivic cells.
-
-### Pass 3: Resolutions & Snapping
-* **Leading-Tone Resolutions**: Detects leading/color tones and ensures they resolve step-wise to stable scale tones.
-* **Isolated Note Snapping**: Identifies "lonely" notes that are surrounded by rests/space and snaps them directly to stable chord tones (roots, 3rds, 5ths) to prevent exposed out-of-key clashes.
-* **Countermelody Coordination**: Couples the countermelody's active mode and density directly with the melody's aesthetic mode for a cohesive texture.
-
-### Pass 4: Post-Processing & Performance Safety (June 2026)
-* **Chronological Safety Sorting**: Before any post-processing is executed, the scheduled notes are sorted chronologically by `stepTime` to ensure duration-clamping math is bounds-safe.
-* **Overlap Prevention (Duration Clamping)**: Limits note durations dynamically so that no note extends past the start time of the next scheduled note.
-* **Chord Foreshadowing / Anticipation**: Notes followed by a long silence (>0.6 beats) snap their pitches to the closest octave-equivalent pitch of the upcoming chord tones, preparing the listener for the harmonic change.
-* **Strict Repeated Pitch Prevention**: If a scheduled note lands on the same pitch as the preceding note, it is shifted by $\pm 1$ scale degree (bypassing final consequent phrase endings).
-
----
-
-## 14. Monophonic Voice Stealing & Click-Free Transitions
-
-To completely eliminate overlapping audio trails and resulting click transients when a new note begins:
-- **`lastScheduledNotes` Registry**: A tracker in `synth.js` records the active playing node and its calculated `endTime` for the `'melody'` and `'countermelody'` buses.
-- **Node Property Exposure**: All synth and sample engines in `synthEngines.js` calculate their absolute `endTime` (taking into account whether the release phase starts at the note's duration or extends into silence) and attach the `gainNode`, `startTime`, and `endTime` references directly to the returned source node.
-- **Exponential Fadeout**: When a new tone is scheduled, if the previous note's `endTime` overlaps with the new note's `startTime`, the previous note is intercepted:
-  - Its future volume automation is cancelled starting 10ms prior to the new note's start.
-  - An exponential decay targeting 0 is scheduled with a 3ms time constant using `setTargetAtTime(0, fadeStart, 0.003)`.
-  - This guarantees the old voice is completely silent before the new voice triggers, preventing overlapping overlap and resolving click glitches.
-
----
-
-## 15. Shortest Note Runs Limit Slider
-
-- **Range Restriction**: Caps the `#melody-shortest-note` slider to a minimum of `9` (1/8 notes) and a maximum of `13` (1/2 notes).
-- **Subdivision Enforcement**: The generator lookahead and playback loops query the `shortestNoteLimit` value and bypass subdivision rates that would result in notes shorter than the selected note duration.
-- **Layout Stabilization**: Assigned a fixed `160px` width to the text element displaying the subdivision label (e.g. `1/8 Note`) to prevent layout width oscillations from causing feedback loops during slider drag adjustments.
-
-
-
+- Integrate `inversionOffset` natively into `generateInversions` search space to allow the voice-leading engine to optimize octave registers for manual inversions.
+- Isolate the chord ADSR pitch shift parameter in `synth.js` and `wavExport.js` so it only affects sample-based chord engines, preventing sawpad and other chord synths from drifting in register.
+- Implement pitch-class matching in `applyInstanceOffsets` inside `transitionEvaluator.js` to ensure pattern pitch offsets dynamically track their respective chord tones under inversions.
+- Align `getAuditionNotes` and `getAuditionNotesForSeq` with the new pattern offset mapping.
+- Add console debug logs for step inversion audition monitoring.
+- Add unit test coverage in `voiceLeading.test.js` and `transitionEvaluator.test.js`.
+```

@@ -1,4 +1,4 @@
-import { resolveHierarchicalCollisions, segmentMicrotonalCluster, snapToGrid, SCALES, deduceSourceMode } from './theory.js';
+import { resolveHierarchicalCollisions, segmentMicrotonalCluster, snapToGrid, SCALES, deduceSourceMode, getChordNotes, getEffectiveTuning } from './theory.js';
 import { state } from './store.js';
 
 export function snapPitchToScale(pitch, key, mode) {
@@ -41,10 +41,12 @@ export function getSliceNotes(chordObj, baseChordNotes, position = 'first') {
     let pattern = chordObj.chordPattern || { instances: [{ startTime: 0.0, duration: 1.0 }] };
     if (!pattern.instances || pattern.instances.length === 0) return baseChordNotes;
     
+    const tuning = getEffectiveTuning(chordObj.symbol, chordObj.divisions || (state && state.divisions) || 12);
+    
     if (pattern.instances.length <= 1) {
         const inst = pattern.instances[0];
         if (!inst) return baseChordNotes;
-        return baseChordNotes.map((n, i) => n + (inst.pitchOffsets?.[i] || inst.pitchOffset || 0));
+        return applyInstanceOffsets(baseChordNotes, inst, chordObj, tuning);
     }
     
     let targetInst = pattern.instances[0];
@@ -56,7 +58,50 @@ export function getSliceNotes(chordObj, baseChordNotes, position = 'first') {
         }
     });
     
-    return baseChordNotes.map((n, i) => n + (targetInst.pitchOffsets?.[i] || targetInst.pitchOffset || 0));
+    return applyInstanceOffsets(baseChordNotes, targetInst, chordObj, tuning);
+}
+
+export function applyInstanceOffsets(voicedNotes, inst, chordObj, tuning) {
+    if (!inst) return voicedNotes;
+    const periodSize = tuning ? tuning.periodSize : 12;
+    return voicedNotes.map((n, i) => {
+        const offset = getMatchedOffset(n, inst, chordObj, periodSize, i);
+        return n + offset;
+    });
+}
+
+export function getMatchedOffset(note, inst, chordObj, periodSize = 12, fallbackIdx = -1) {
+    if (!inst) return 0;
+    const offset = inst.pitchOffset || 0;
+    const offsets = inst.pitchOffsets;
+    if (!offsets || offsets.length === 0) return offset;
+    
+    if (chordObj && chordObj.symbol) {
+        const divisions = chordObj.divisions || (state && state.divisions) || 12;
+        const rootNotes = chordObj.customNotes || getChordNotes(chordObj.symbol, chordObj.key !== undefined ? chordObj.key : 60, divisions);
+        if (rootNotes && rootNotes.length > 0) {
+            const nPc = ((note % periodSize) + periodSize) % periodSize;
+            let bestIdx = -1;
+            let minDiff = Infinity;
+            for (let j = 0; j < rootNotes.length; j++) {
+                const rPc = ((rootNotes[j] % periodSize) + periodSize) % periodSize;
+                let diff = Math.abs(nPc - rPc);
+                diff = Math.min(diff, periodSize - diff);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    bestIdx = j;
+                }
+            }
+            if (bestIdx !== -1 && offsets[bestIdx] !== undefined) {
+                return offsets[bestIdx];
+            }
+        }
+    }
+    
+    if (fallbackIdx !== -1 && offsets[fallbackIdx] !== undefined) {
+        return offsets[fallbackIdx];
+    }
+    return offset;
 }
 
 
@@ -267,10 +312,12 @@ export function expandMasterTransitions(transitions, currentNotes, prevNotes, ne
 }
 
 export function sliceInstancesByTransitions(instances, transitions, currentNotes, prevNotes, nextNotes, chordDurationSec = 2.0, drumHits = [], chordObj = null, nextChordObj = null, prevChordObj = null) {
+    const tuning = chordObj ? getEffectiveTuning(chordObj.symbol, chordObj.divisions || (state && state.divisions) || 12) : null;
+    
     if (!transitions || transitions.length === 0) {
         return instances.map(inst => ({
             ...inst,
-            notesToPlay: currentNotes.map((n, i) => n + (inst.pitchOffsets?.[i] || inst.pitchOffset || 0))
+            notesToPlay: applyInstanceOffsets(currentNotes, inst, chordObj, tuning)
         }));
     }
 
@@ -488,7 +535,8 @@ export function sliceInstancesByTransitions(instances, transitions, currentNotes
                     movingVoices.push(v);
                     voiceTransitionTypes.push(activeT.type);
                 } else {
-                    sliceNotes.push(currentNotes[v] + (activeInst.pitchOffsets?.[v] || activeInst.pitchOffset || 0));
+                    const offset = getMatchedOffset(currentNotes[v], activeInst, chordObj, tuning ? tuning.periodSize : 12, v);
+                    sliceNotes.push(currentNotes[v] + offset);
                     voiceTransitionTypes.push(null);
                 }
             }

@@ -44,6 +44,28 @@ function getEnvelopeTimes(duration, adsr, gapAfter = 999) {
     }
 }
 
+function getSampleEnvelopeTimes(adsr, bufferDuration, playbackRate) {
+    const attack = adsr ? adsr.attack : 0.05;
+    const decayRaw = adsr ? adsr.decay : 0.2;
+    const sustain = adsr ? adsr.sustain : 0.8;
+    const releaseRaw = adsr ? adsr.release : 0.3;
+
+    const sampleLength = bufferDuration / (playbackRate || 1.0);
+    const decayRatio = Math.min(1.0, decayRaw / 2.0);
+    const releaseRatio = Math.min(1.0, releaseRaw / 2.0);
+
+    const availableTime = Math.max(0.01, sampleLength - attack);
+    const releaseTime = releaseRatio * availableTime;
+    const decayTime = decayRatio * (availableTime - releaseTime);
+
+    return {
+        attack: Math.min(attack, sampleLength * 0.1),
+        decay: Math.max(0.01, decayTime),
+        sustain,
+        release: Math.max(0.01, releaseTime)
+    };
+}
+
 export const SYNTH_REGISTRY = {
     'sine': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
         const osc = ctx.createOscillator();
@@ -496,47 +518,53 @@ export const SYNTH_REGISTRY = {
         
         const source = ctx.createBufferSource();
         source.buffer = buffer;
-        source.playbackRate.setValueAtTime(params.playbackRate || 1.0, startTime);
+        const playbackRate = params.playbackRate || 1.0;
+        source.playbackRate.setValueAtTime(playbackRate, startTime);
         
         const adsrGain = ctx.createGain();
         const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
         const vol = params.vol !== undefined ? params.vol : 1.0;
         
-        const env = getEnvelopeTimes(duration, adsr, params.gapAfter);
+        const env = getSampleEnvelopeTimes(adsr, buffer.duration, playbackRate);
         const sustainVal = env.sustain * vol;
         
-        adsrGain.gain.setValueAtTime(0, startTime);
-        adsrGain.gain.linearRampToValueAtTime(vol, startTime + env.attack);
-        if (env.decay > 0) {
-            adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
-        } else {
-            adsrGain.gain.setValueAtTime(vol, startTime + env.attack);
+        let attackTime = env.attack;
+        let decayTime = env.decay;
+        
+        if (duration < attackTime + decayTime) {
+            const scale = duration / (attackTime + decayTime);
+            attackTime *= scale;
+            decayTime *= scale;
         }
+        
+        adsrGain.gain.setValueAtTime(0, startTime);
+        adsrGain.gain.linearRampToValueAtTime(vol, startTime + attackTime);
+        if (decayTime > 0) {
+            adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + attackTime + decayTime);
+        } else {
+            adsrGain.gain.setValueAtTime(vol, startTime + attackTime);
+        }
+        
+        const sampleLength = buffer.duration / playbackRate;
+        const releaseStart = Math.min(startTime + duration, startTime + sampleLength - env.release);
+        const releaseEnd = Math.min(releaseStart + env.release, startTime + sampleLength);
+        
+        adsrGain.gain.setValueAtTime(sustainVal, Math.max(startTime + attackTime + decayTime, releaseStart));
+        adsrGain.gain.linearRampToValueAtTime(0, releaseEnd);
         
         source.connect(adsrGain);
         adsrGain.connect(dest);
         source.start(startTime);
-        
-        if (env.releaseStartsAtDuration) {
-            const releaseStart = startTime + duration - env.release;
-            adsrGain.gain.setValueAtTime(sustainVal, releaseStart);
-            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration);
-            source.stop(startTime + duration + 0.05);
-        } else {
-            adsrGain.gain.setValueAtTime(sustainVal, startTime + duration);
-            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration + env.release);
-            source.stop(startTime + duration + env.release + 0.05);
-        }
+        source.stop(releaseEnd + 0.05);
         
         source.onended = () => {
             source.disconnect();
             adsrGain.disconnect();
             if (onCleanup) onCleanup(source);
         };
-        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
         source.gainNode = adsrGain;
         source.startTime = startTime;
-        source.endTime = endTime;
+        source.endTime = releaseEnd;
         return source;
     },
     'sample-chords': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -551,47 +579,53 @@ export const SYNTH_REGISTRY = {
         
         const source = ctx.createBufferSource();
         source.buffer = buffer;
-        source.playbackRate.setValueAtTime(params.playbackRate || 1.0, startTime);
+        const playbackRate = params.playbackRate || 1.0;
+        source.playbackRate.setValueAtTime(playbackRate, startTime);
         
         const adsrGain = ctx.createGain();
         const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
         const vol = params.vol !== undefined ? params.vol : 1.0;
         
-        const env = getEnvelopeTimes(duration, adsr, params.gapAfter);
+        const env = getSampleEnvelopeTimes(adsr, buffer.duration, playbackRate);
         const sustainVal = env.sustain * vol;
         
-        adsrGain.gain.setValueAtTime(0, startTime);
-        adsrGain.gain.linearRampToValueAtTime(vol, startTime + env.attack);
-        if (env.decay > 0) {
-            adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
-        } else {
-            adsrGain.gain.setValueAtTime(vol, startTime + env.attack);
+        let attackTime = env.attack;
+        let decayTime = env.decay;
+        
+        if (duration < attackTime + decayTime) {
+            const scale = duration / (attackTime + decayTime);
+            attackTime *= scale;
+            decayTime *= scale;
         }
+        
+        adsrGain.gain.setValueAtTime(0, startTime);
+        adsrGain.gain.linearRampToValueAtTime(vol, startTime + attackTime);
+        if (decayTime > 0) {
+            adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + attackTime + decayTime);
+        } else {
+            adsrGain.gain.setValueAtTime(vol, startTime + attackTime);
+        }
+        
+        const sampleLength = buffer.duration / playbackRate;
+        const releaseStart = Math.min(startTime + duration, startTime + sampleLength - env.release);
+        const releaseEnd = Math.min(releaseStart + env.release, startTime + sampleLength);
+        
+        adsrGain.gain.setValueAtTime(sustainVal, Math.max(startTime + attackTime + decayTime, releaseStart));
+        adsrGain.gain.linearRampToValueAtTime(0, releaseEnd);
         
         source.connect(adsrGain);
         adsrGain.connect(dest);
         source.start(startTime);
-        
-        if (env.releaseStartsAtDuration) {
-            const releaseStart = startTime + duration - env.release;
-            adsrGain.gain.setValueAtTime(sustainVal, releaseStart);
-            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration);
-            source.stop(startTime + duration + 0.05);
-        } else {
-            adsrGain.gain.setValueAtTime(sustainVal, startTime + duration);
-            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration + env.release);
-            source.stop(startTime + duration + env.release + 0.05);
-        }
+        source.stop(releaseEnd + 0.05);
         
         source.onended = () => {
             source.disconnect();
             adsrGain.disconnect();
             if (onCleanup) onCleanup(source);
         };
-        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
         source.gainNode = adsrGain;
         source.startTime = startTime;
-        source.endTime = endTime;
+        source.endTime = releaseEnd;
         return source;
     },
     'sample-melody': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -606,47 +640,53 @@ export const SYNTH_REGISTRY = {
         
         const source = ctx.createBufferSource();
         source.buffer = buffer;
-        source.playbackRate.setValueAtTime(params.playbackRate || 1.0, startTime);
+        const playbackRate = params.playbackRate || 1.0;
+        source.playbackRate.setValueAtTime(playbackRate, startTime);
         
         const adsrGain = ctx.createGain();
         const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
         const vol = params.vol !== undefined ? params.vol : 1.0;
         
-        const env = getEnvelopeTimes(duration, adsr, params.gapAfter);
+        const env = getSampleEnvelopeTimes(adsr, buffer.duration, playbackRate);
         const sustainVal = env.sustain * vol;
         
-        adsrGain.gain.setValueAtTime(0, startTime);
-        adsrGain.gain.linearRampToValueAtTime(vol, startTime + env.attack);
-        if (env.decay > 0) {
-            adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
-        } else {
-            adsrGain.gain.setValueAtTime(vol, startTime + env.attack);
+        let attackTime = env.attack;
+        let decayTime = env.decay;
+        
+        if (duration < attackTime + decayTime) {
+            const scale = duration / (attackTime + decayTime);
+            attackTime *= scale;
+            decayTime *= scale;
         }
+        
+        adsrGain.gain.setValueAtTime(0, startTime);
+        adsrGain.gain.linearRampToValueAtTime(vol, startTime + attackTime);
+        if (decayTime > 0) {
+            adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + attackTime + decayTime);
+        } else {
+            adsrGain.gain.setValueAtTime(vol, startTime + attackTime);
+        }
+        
+        const sampleLength = buffer.duration / playbackRate;
+        const releaseStart = Math.min(startTime + duration, startTime + sampleLength - env.release);
+        const releaseEnd = Math.min(releaseStart + env.release, startTime + sampleLength);
+        
+        adsrGain.gain.setValueAtTime(sustainVal, Math.max(startTime + attackTime + decayTime, releaseStart));
+        adsrGain.gain.linearRampToValueAtTime(0, releaseEnd);
         
         source.connect(adsrGain);
         adsrGain.connect(dest);
         source.start(startTime);
-        
-        if (env.releaseStartsAtDuration) {
-            const releaseStart = startTime + duration - env.release;
-            adsrGain.gain.setValueAtTime(sustainVal, releaseStart);
-            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration);
-            source.stop(startTime + duration + 0.05);
-        } else {
-            adsrGain.gain.setValueAtTime(sustainVal, startTime + duration);
-            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration + env.release);
-            source.stop(startTime + duration + env.release + 0.05);
-        }
+        source.stop(releaseEnd + 0.05);
         
         source.onended = () => {
             source.disconnect();
             adsrGain.disconnect();
             if (onCleanup) onCleanup(source);
         };
-        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
         source.gainNode = adsrGain;
         source.startTime = startTime;
-        source.endTime = endTime;
+        source.endTime = releaseEnd;
         return source;
     },
     'sample-countermelody': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
@@ -661,47 +701,53 @@ export const SYNTH_REGISTRY = {
         
         const source = ctx.createBufferSource();
         source.buffer = buffer;
-        source.playbackRate.setValueAtTime(params.playbackRate || 1.0, startTime);
+        const playbackRate = params.playbackRate || 1.0;
+        source.playbackRate.setValueAtTime(playbackRate, startTime);
         
         const adsrGain = ctx.createGain();
         const adsr = params.adsr || { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3 };
         const vol = params.vol !== undefined ? params.vol : 1.0;
         
-        const env = getEnvelopeTimes(duration, adsr, params.gapAfter);
+        const env = getSampleEnvelopeTimes(adsr, buffer.duration, playbackRate);
         const sustainVal = env.sustain * vol;
         
-        adsrGain.gain.setValueAtTime(0, startTime);
-        adsrGain.gain.linearRampToValueAtTime(vol, startTime + env.attack);
-        if (env.decay > 0) {
-            adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + env.attack + env.decay);
-        } else {
-            adsrGain.gain.setValueAtTime(vol, startTime + env.attack);
+        let attackTime = env.attack;
+        let decayTime = env.decay;
+        
+        if (duration < attackTime + decayTime) {
+            const scale = duration / (attackTime + decayTime);
+            attackTime *= scale;
+            decayTime *= scale;
         }
+        
+        adsrGain.gain.setValueAtTime(0, startTime);
+        adsrGain.gain.linearRampToValueAtTime(vol, startTime + attackTime);
+        if (decayTime > 0) {
+            adsrGain.gain.exponentialRampToValueAtTime(Math.max(0.001, sustainVal), startTime + attackTime + decayTime);
+        } else {
+            adsrGain.gain.setValueAtTime(vol, startTime + attackTime);
+        }
+        
+        const sampleLength = buffer.duration / playbackRate;
+        const releaseStart = Math.min(startTime + duration, startTime + sampleLength - env.release);
+        const releaseEnd = Math.min(releaseStart + env.release, startTime + sampleLength);
+        
+        adsrGain.gain.setValueAtTime(sustainVal, Math.max(startTime + attackTime + decayTime, releaseStart));
+        adsrGain.gain.linearRampToValueAtTime(0, releaseEnd);
         
         source.connect(adsrGain);
         adsrGain.connect(dest);
         source.start(startTime);
-        
-        if (env.releaseStartsAtDuration) {
-            const releaseStart = startTime + duration - env.release;
-            adsrGain.gain.setValueAtTime(sustainVal, releaseStart);
-            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration);
-            source.stop(startTime + duration + 0.05);
-        } else {
-            adsrGain.gain.setValueAtTime(sustainVal, startTime + duration);
-            adsrGain.gain.linearRampToValueAtTime(0, startTime + duration + env.release);
-            source.stop(startTime + duration + env.release + 0.05);
-        }
+        source.stop(releaseEnd + 0.05);
         
         source.onended = () => {
             source.disconnect();
             adsrGain.disconnect();
             if (onCleanup) onCleanup(source);
         };
-        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
         source.gainNode = adsrGain;
         source.startTime = startTime;
-        source.endTime = endTime;
+        source.endTime = releaseEnd;
         return source;
     }
 };

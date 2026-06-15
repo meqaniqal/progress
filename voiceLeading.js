@@ -52,7 +52,7 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
         const opts = getOptions(chord);
         const tuning = getEffectiveTuning(chord.symbol, getDivisions(chord));
         const targetNotes = optimizeVoicing(chordNotes);
-        const inversions = generateInversions(targetNotes, opts.voicingType, tuning.periodSize);
+        const inversions = generateInversions(targetNotes, opts.voicingType, tuning.periodSize, chord.inversionOffset || 0);
 
         let bestInversion = inversions[0];
         let smallestCost = Infinity;
@@ -132,7 +132,7 @@ export function getPlayableNotes(progression, globalOptions = {}) {
 
         let finalNotes = notes;
 
-        if (typeof offset === 'number' && offset !== 0) {
+        if (globalOptions.useVoiceLeading === false && typeof offset === 'number' && offset !== 0) {
             finalNotes = applyInversion(notes, offset, tuning.periodSize);
         }
         
@@ -173,7 +173,7 @@ export function applyInversion(notes, offset = 0, periodSize = CONFIG.VL_OCTAVE_
     return inverted.map(n => n + (octaveShift * periodSize)).sort((a, b) => a - b);
 }
 
-export function generateInversions(chord, voicingType = 'auto', periodSize = CONFIG.VL_OCTAVE_SHIFT) {
+export function generateInversions(chord, voicingType = 'auto', periodSize = CONFIG.VL_OCTAVE_SHIFT, inversionOffset = 0) {
     const inversions = [];
     const isMacrotonal = periodSize > 14;
     
@@ -182,69 +182,118 @@ export function generateInversions(chord, voicingType = 'auto', periodSize = CON
     const safeVoicingType = isMacrotonal ? 'close' : voicingType;
     const shiftPeriod = isMacrotonal ? CONFIG.VL_OCTAVE_SHIFT : periodSize;
 
+    const numNotes = chord.length;
+    const hasOffset = typeof inversionOffset === 'number' && inversionOffset !== 0;
+    const effectiveOffset = numNotes ? (((inversionOffset % numNotes) + numNotes) % numNotes) : 0;
+    const extraOctaveShift = numNotes ? Math.floor(inversionOffset / numNotes) : 0;
+
     for (let oct of [-3, -2, -1, 0, 1, 2]) { // Expanded search space to prevent boundary trapping
-        const shift = oct * shiftPeriod;
+        const shift = (oct + (hasOffset ? extraOctaveShift : 0)) * shiftPeriod;
         const base = chord.map(n => n + shift);
         
         if (safeVoicingType === 'quartal') {
-            inversions.push(_buildQuartalVoicing(base, periodSize));
+            const qVoicing = _buildQuartalVoicing(base, periodSize);
+            if (hasOffset) {
+                inversions.push(applyInversion(qVoicing, effectiveOffset, periodSize));
+            } else {
+                inversions.push(qVoicing);
+            }
             continue; // Quartal is a strict mathematical layout, skip standard inversions
         }
 
-        if (safeVoicingType === 'close' || safeVoicingType === 'auto') {
-            inversions.push([...base]); // Root Position Close
-        }
-        
-        // For macrotonal scales (BP), generate in-between inversions using octave shifts (12)
-        if (isMacrotonal) {
-            for (let i = 1; i < chord.length; i++) {
+        if (hasOffset) {
+            // Generate ONLY the requested inversion offset candidate
+            // 1. Close/Auto
+            if (safeVoicingType === 'close' || safeVoicingType === 'auto') {
                 const inv = [...base];
-                for (let j = 0; j < i; j++) {
-                    inv[j] += CONFIG.VL_OCTAVE_SHIFT;
+                for (let j = 0; j < effectiveOffset; j++) {
+                    inv[j] += shiftPeriod;
                 }
                 inversions.push(inv.sort((a, b) => a - b));
             }
-            continue;
-        }
-        
-        // Generate Drop 2 for root position (Spread voicings)
-        if (base.length >= 4 && (safeVoicingType === 'spread' || safeVoicingType === 'auto')) {
-            const drop2 = [...base];
-            const secondFromTop = drop2.splice(drop2.length - 2, 1)[0];
-            drop2.unshift(secondFromTop - periodSize);
-            inversions.push(drop2);
-        }
-        
-        // Dynamically generate inversions for N-length chords (7ths, 9ths, etc.)
-        for (let i = 1; i < chord.length; i++) {
-            const inv = [...base];
-            for (let j = 0; j < i; j++) {
-                inv[j] += periodSize; // Shift bottom notes up a period
-            }
-            const sortedInv = inv.sort((a, b) => a - b);
-            
-            if (safeVoicingType === 'close' || safeVoicingType === 'auto') {
-                inversions.push([...sortedInv]);
-            }
-            
-            if (sortedInv.length >= 4 && (safeVoicingType === 'spread' || safeVoicingType === 'auto')) {
+
+            // 2. Spread (length >= 4)
+            if (base.length >= 4 && (safeVoicingType === 'spread' || safeVoicingType === 'auto')) {
+                const inv = [...base];
+                for (let j = 0; j < effectiveOffset; j++) {
+                    inv[j] += shiftPeriod;
+                }
+                const sortedInv = inv.sort((a, b) => a - b);
                 const drop2 = [...sortedInv];
                 const secondFromTop = drop2.splice(drop2.length - 2, 1)[0];
-                drop2.unshift(secondFromTop - periodSize); // Drop the 2nd highest note a period
+                drop2.unshift(secondFromTop - periodSize);
                 inversions.push(drop2);
             }
-        }
 
-        if (base.length === 3 && safeVoicingType === 'spread') {
-            // Open triad (Drop 1) for massive spread 3-note chords
-            for (let i = 0; i < 3; i++) {
+            // 3. Spread (length === 3)
+            if (base.length === 3 && safeVoicingType === 'spread') {
                 const inv = [...base];
-                for (let j = 0; j < i; j++) inv[j] += periodSize;
-                const sortedInv = inv.sort((a,b)=>a-b);
+                for (let j = 0; j < effectiveOffset; j++) {
+                    inv[j] += shiftPeriod;
+                }
+                const sortedInv = inv.sort((a, b) => a - b);
                 const openTriad = [...sortedInv];
                 const mid = openTriad.splice(1, 1)[0];
                 openTriad.unshift(mid - periodSize);
                 inversions.push(openTriad);
+            }
+        } else {
+            // Original logic for all candidates
+            if (safeVoicingType === 'close' || safeVoicingType === 'auto') {
+                inversions.push([...base]); // Root Position Close
+            }
+            
+            // For macrotonal scales (BP), generate in-between inversions using octave shifts (12)
+            if (isMacrotonal) {
+                for (let i = 1; i < chord.length; i++) {
+                    const inv = [...base];
+                    for (let j = 0; j < i; j++) {
+                        inv[j] += CONFIG.VL_OCTAVE_SHIFT;
+                    }
+                    inversions.push(inv.sort((a, b) => a - b));
+                }
+                continue;
+            }
+            
+            // Generate Drop 2 for root position (Spread voicings)
+            if (base.length >= 4 && (safeVoicingType === 'spread' || safeVoicingType === 'auto')) {
+                const drop2 = [...base];
+                const secondFromTop = drop2.splice(drop2.length - 2, 1)[0];
+                drop2.unshift(secondFromTop - periodSize);
+                inversions.push(drop2);
+            }
+            
+            // Dynamically generate inversions for N-length chords (7ths, 9ths, etc.)
+            for (let i = 1; i < chord.length; i++) {
+                const inv = [...base];
+                for (let j = 0; j < i; j++) {
+                    inv[j] += periodSize; // Shift bottom notes up a period
+                }
+                const sortedInv = inv.sort((a, b) => a - b);
+                
+                if (safeVoicingType === 'close' || safeVoicingType === 'auto') {
+                    inversions.push([...sortedInv]);
+                }
+                
+                if (sortedInv.length >= 4 && (safeVoicingType === 'spread' || safeVoicingType === 'auto')) {
+                    const drop2 = [...sortedInv];
+                    const secondFromTop = drop2.splice(drop2.length - 2, 1)[0];
+                    drop2.unshift(secondFromTop - periodSize); // Drop the 2nd highest note a period
+                    inversions.push(drop2);
+                }
+            }
+
+            if (base.length === 3 && safeVoicingType === 'spread') {
+                // Open triad (Drop 1) for massive spread 3-note chords
+                for (let i = 0; i < 3; i++) {
+                    const inv = [...base];
+                    for (let j = 0; j < i; j++) inv[j] += periodSize;
+                    const sortedInv = inv.sort((a,b)=>a-b);
+                    const openTriad = [...sortedInv];
+                    const mid = openTriad.splice(1, 1)[0];
+                    openTriad.unshift(mid - periodSize);
+                    inversions.push(openTriad);
+                }
             }
         }
     }

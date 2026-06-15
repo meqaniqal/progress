@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { getChordNotes, getPlayableNotes, getPitchEditorTuning, snapToGrid, HAND_CURATED_CATEGORIES } from './theory.js';
+import { getChordNotes, getPlayableNotes, getPitchEditorTuning, snapToGrid, HAND_CURATED_CATEGORIES, getEffectiveTuning } from './theory.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, loadPersistedDrumSamples } from './synth.js';
 import { auditionChord, playProgression, stopAllAudio, auditionThreeChordSequence } from './sequencer.js';
 import { initDragAndDrop } from './dragdrop.js';
@@ -7,6 +7,7 @@ import { exportToMidi } from './midi.js';
 import { initRhythmEditor, openRhythmEditor, closeRhythmEditor, highlightDrumHit } from './rhythmEditor.js';
 import { KEY_NAMES, highlightChordInUI, updateKeyAndModeDisplay, renderProgression as renderProgressionUI, initBuilderTabs } from './ui.js';
 import { state, getActiveProgression, saveHistoryState, undoState, persistAppState, loadAndApplyInitialState, updateEditorState, updatePattern, pushPatternToGlobal, resetPatternToGlobal, addChord, removeChord, clearProgression, swapChord, stepInversion, changeVoicing, changeVoicingType, setGlobalVoicing, changeChordKey, transposeChord, changeDuration, addTurnaround, reorderProgression, addChordFromSource, setProgressionBrackets, setGlobalMode, setGlobalKeyAndMode, insertLoopedSequence } from './store.js';
+import { applyInstanceOffsets } from './transitionEvaluator.js';
 import { getExportState } from './exportStateBuilder.js';
 import { initExportUI } from './exportController.js';
 import { initModals } from './modalController.js';
@@ -28,9 +29,9 @@ function getAuditionNotes(progression, index, appState) {
     if (pattern && pattern.instances && pattern.instances.length > 0) {
         const instances = [...pattern.instances].sort((a, b) => a.startTime - b.startTime);
         const firstInstance = instances[0];
-        if (firstInstance && firstInstance.pitchOffsets) {
-            const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || appState.divisions || 12);
-            notesToPlay = notesToPlay.map((n, i) => n + snapToGrid(60 + (firstInstance.pitchOffsets[i] || 0), editorTuning) - 60);
+        if (firstInstance) {
+            const tuning = getEffectiveTuning(chord.symbol, chord.divisions || appState.divisions || 12);
+            notesToPlay = applyInstanceOffsets(notesToPlay, firstInstance, chord, tuning);
         }
     }
     return notesToPlay;
@@ -74,6 +75,9 @@ const uiCallbacks = {
         stepInversion(index, direction);
         const newlyActiveProg = getActiveProgression();
         const notesToPlay = getAuditionNotes(newlyActiveProg, index, state);
+        console.log(`[DEBUG INVERSION] Clicked inversion direction: ${direction} for index: ${index}`);
+        console.log(`[DEBUG INVERSION] Chord: ${newlyActiveProg[index].symbol}, Key: ${newlyActiveProg[index].key}, InversionOffset: ${newlyActiveProg[index].inversionOffset}`);
+        console.log(`[DEBUG INVERSION] Final Audition Notes:`, notesToPlay);
         auditionChord(newlyActiveProg[index].symbol, newlyActiveProg[index].key, notesToPlay, newlyActiveProg[index].divisions);
         renderProgression();
     },

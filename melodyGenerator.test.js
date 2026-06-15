@@ -31,7 +31,7 @@ describe('Melody Generator Composition Rules', () => {
             behaviorDuringArp: 'simplify',
             behaviorDuringTransitions: 'simplify',
             tensionCurve: 'flat',
-            shortestNoteLimit: 6
+            shortestNoteLimit: 16
         };
     });
 
@@ -238,6 +238,57 @@ describe('Melody Generator Composition Rules', () => {
                 expect(diff <= 2 || isCurrentDiatonicOrChordTone).toBe(true);
             }
         }
+    });
+
+    test('Isolated notes are snapped strictly to stable chord tones', () => {
+        state.melodySettings.genre = 'generic';
+        state.melodySettings.density = 0.25; // Lower density to create isolated notes
+        state.melodySettings.restProbability = 0.5;
+
+        // Clear memory to reset note timings
+        clearMelodyMemory();
+
+        const chordObj = { symbol: 'I', duration: 4, key: 60 };
+        // Pass chord tones: C (60), E (64), G (67)
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 0, 1, [60, 64, 67], mockPlayTone);
+
+        const melodyNotes = playedNotes.filter(n => n.bus === 'melody');
+        expect(melodyNotes.length).toBeGreaterThan(0);
+
+        // Find notes that are isolated (no notes within ~0.95 beat, which is 0.475 seconds at 120bpm)
+        const gapThreshold = 0.475;
+        melodyNotes.forEach((n, idx) => {
+            const prev = idx > 0 ? melodyNotes[idx - 1] : null;
+            const next = idx < melodyNotes.length - 1 ? melodyNotes[idx + 1] : null;
+            const spaceBefore = prev ? (n.startTime - prev.startTime) : 999;
+            const spaceAfter = next ? (next.startTime - n.startTime) : 999;
+
+            if (spaceBefore >= gapThreshold && spaceAfter >= gapThreshold) {
+                const pc = (n.midi % 12 + 12) % 12;
+                // Isolated notes must be snapped strictly to stable C major chord tones: C(0), E(4), G(7)
+                expect([0, 4, 7]).toContain(pc);
+            }
+        });
+    });
+
+    test('Foreshadowing does not hijack early/downbeat notes', () => {
+        state.melodySettings.genre = 'generic';
+        state.melodySettings.density = 0.25; // low density to trigger silence and foreshadowing
+        state.melodySettings.restProbability = 0.5;
+
+        clearMelodyMemory();
+
+        const chordObj = { symbol: 'I', duration: 4, key: 60 };
+        const nextChordObj = { symbol: 'ii', duration: 4, key: 62 }; // next chord is Dm
+        scheduleMelody(0, chordObj, nextChordObj, null, 2.0, 4, 120, 0, 2, [60, 64, 67], mockPlayTone);
+
+        const melodyNotes = playedNotes.filter(n => n.bus === 'melody');
+        expect(melodyNotes.length).toBeGreaterThan(0);
+
+        // Note 1 (Step 0) should remain a C major chord tone, not be hijacked to Dm
+        const note1 = melodyNotes[0];
+        const pc = (note1.midi % 12 + 12) % 12;
+        expect([0, 4, 7]).toContain(pc);
     });
 });
 

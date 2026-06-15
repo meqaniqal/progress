@@ -924,6 +924,15 @@
                                                 <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Release</span>
                                                 <input type="range" id="melody-release" min="0" max="1.0" step="0.01" value="0.4" class="mixer-slider">
                                             </div>
+                                            <div class="mixer-row" id="melody-pitch-row" style="display: none; align-items: center; justify-content: space-between; gap: 8px;">
+                                                <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Pitch (Shift)</span>
+                                                <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                                                    <button class="octave-btn" data-target="melody-pitch" data-dir="down" style="background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: bold; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Octave Down">◀</button>
+                                                    <input type="range" id="melody-pitch" min="-24" max="24" step="1" value="0" style="flex: 1;" class="mixer-slider">
+                                                    <button class="octave-btn" data-target="melody-pitch" data-dir="up" style="background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: bold; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Octave Up">▶</button>
+                                                </div>
+                                                <span id="melody-pitch-val" style="font-size: 11px; font-family: monospace; min-width: 35px; text-align: right;">+0st</span>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -959,11 +968,14 @@
                                     <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Shortest Note Run</span>
                                         <select id="melody-shortest-note" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
-                                            <option value="9">1/8 Note</option>
-                                            <option value="10">1/6 Note (1/4 Triplet)</option>
-                                            <option value="11">Dotted 1/4</option>
-                                            <option value="12">1/4 Note</option>
-                                            <option value="13">1/2 Note</option>
+                                            <option value="64">1/64 Note</option>
+                                            <option value="32">1/32 Note</option>
+                                            <option value="16">1/16 Note</option>
+                                            <option value="12">1/12 Note (1/8 Triplet)</option>
+                                            <option value="8">1/8 Note</option>
+                                            <option value="6">1/6 Note (1/4 Triplet)</option>
+                                            <option value="4">1/4 Note</option>
+                                            <option value="2">1/2 Note</option>
                                         </select>
                                     </div>
                                     <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
@@ -1167,6 +1179,15 @@
                                         <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                             <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Release</span>
                                             <input type="range" id="countermelody-release" min="0" max="1.0" step="0.01" value="0.4" class="mixer-slider">
+                                        </div>
+                                        <div class="mixer-row" id="countermelody-pitch-row" style="display: none; align-items: center; justify-content: space-between; gap: 8px;">
+                                            <span class="settings-label-sm" style="width: 80px; font-size: 11px;">Pitch (Shift)</span>
+                                            <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                                                <button class="octave-btn" data-target="countermelody-pitch" data-dir="down" style="background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: bold; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Octave Down">◀</button>
+                                                <input type="range" id="countermelody-pitch" min="-24" max="24" step="1" value="0" style="flex: 1;" class="mixer-slider">
+                                                <button class="octave-btn" data-target="countermelody-pitch" data-dir="up" style="background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 10px; font-weight: bold; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Octave Up">▶</button>
+                                            </div>
+                                            <span id="countermelody-pitch-val" style="font-size: 11px; font-family: monospace; min-width: 35px; text-align: right;">+0st</span>
                                         </div>
                                     </div>
                                 </div>

@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { getTransitionPitch, expandMasterTransitions, sliceInstancesByTransitions } from './transitionEvaluator.js';
+import { getTransitionPitch, expandMasterTransitions, sliceInstancesByTransitions, applyInstanceOffsets } from './transitionEvaluator.js';
 import { state } from './store.js';
 
 describe('transitionEvaluator', () => {
@@ -434,6 +434,27 @@ describe('transitionEvaluator', () => {
             const trans = { type: 'suspend', startTime: 0.1 };
             const pitch = getTransitionPitch(trans, 0, [60], [60.5], [60], 0.1, currentChord, null);
             expect(pitch).toBe(60.5); // Microtonal quarter-tone is preserved!
+        });
+    });
+
+    describe('getMatchedOffset & applyInstanceOffsets', () => {
+        it('matches pitch classes to follow correct chord tones under inversion', () => {
+            const chordObj = { symbol: 'ii', key: 60, divisions: 12 }; // D minor triad (D F A)
+            // Pattern has an offset of +5 on the 3rd chord tone (A)
+            const inst = { pitchOffsets: [0, 0, 5], pitchOffset: 0 };
+            
+            // 1. Root Position: [50, 53, 57] (D, F, A)
+            const rootNotes = [50, 53, 57];
+            const resultRoot = applyInstanceOffsets(rootNotes, inst, chordObj, { periodSize: 12 });
+            expect(resultRoot).toEqual([50, 53, 62]); // A (57) gets +5 -> 62 (D). Correct!
+
+            // 2. 1st Inversion: [53, 57, 62] (F, A, D)
+            const firstInvNotes = [53, 57, 62];
+            const resultInv1 = applyInstanceOffsets(firstInvNotes, inst, chordObj, { periodSize: 12 });
+            // F (53) -> pc 5 -> matches 53 -> offset 0 -> 53
+            // A (57) -> pc 9 -> matches 57 -> offset +5 -> 62
+            // D (62) -> pc 2 -> matches 50 -> offset 0 -> 62
+            expect(resultInv1).toEqual([53, 62, 62]); // F (53), D (62), D (62). Correct!
         });
     });
 });
