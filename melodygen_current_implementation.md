@@ -4,6 +4,52 @@ This document is a comprehensive, self-contained reference detailing the interna
 
 ---
 
+## Architectural Overview
+
+The Melody Generator is evolving from a stochastic note-selection system into a hierarchical compositional architecture.
+
+Current implementation components roughly correspond to the following architectural responsibilities:
+
+CompositionOrchestrator
+- coordinates generation passes
+- manages phrase-level planning
+
+PhraseEngine
+- macro contour planning
+- phrase role assignment
+- structural anchor generation
+
+MotifEngine
+- motif family generation
+- transformation
+- recall
+
+ExpectationEngine
+- anchor targeting
+- tension/release management
+- cadence planning
+
+VoiceLeadingEngine
+- interval constraints
+- directional motion
+- leap compensation
+
+StyleEngine
+- rhythmic templates
+- aesthetic modes
+- genre rules
+- ornamentation
+
+MicrotonalEngine
+- scale construction
+- tuning abstraction
+- pitch selection
+
+Future versions may replace individual algorithms while preserving these architectural responsibilities.
+
+
+
+
 ## 1. Relevance of the Chord Inversion Mangling Bug
 
 ### How Chord Voicings Feed the Melody Generator

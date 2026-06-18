@@ -13,6 +13,7 @@ import {
     selectWeightedPitch,
     getStableTones,
     enforceChordToneOnDownbeat,
+    isChordTonePC,
     planPhraseStructuralSkeleton,
     getConstrainedAnchorGlobal,
     isPassingContext,
@@ -728,16 +729,16 @@ export function scheduleMelody(
             // difference in index.
             const refPitch = keyRoot;
             const shiftedPitch = keyRoot + pitchDelta;
-            const refIdx = findScaleIndex(findClosest(refPitch, globalScalePitches), globalScalePitches);
-            const shiftedIdx = findScaleIndex(findClosest(shiftedPitch, globalScalePitches), globalScalePitches);
+            const refIdx = findScaleIndex(findClosest(refPitch, globalScalePitches), globalScalePitches, divisions);
+            const shiftedIdx = findScaleIndex(findClosest(shiftedPitch, globalScalePitches), globalScalePitches, divisions);
             if (refIdx === -1 || shiftedIdx === -1) return 0;
             return shiftedIdx - refIdx;
         })();
 
         // Transpose each motif cell by the computed scale-step shift.
-        const recallHook = applySequence(sectionAMotifFamily.hook, validPitches, referenceShiftSteps);
-        const recallConnector = applySequence(sectionAMotifFamily.connector, validPitches, referenceShiftSteps);
-        const recallCadence = applySequence(sectionAMotifFamily.cadence, validPitches, referenceShiftSteps);
+        const recallHook = applySequence(sectionAMotifFamily.hook, validPitches, referenceShiftSteps, divisions);
+        const recallConnector = applySequence(sectionAMotifFamily.connector, validPitches, referenceShiftSteps, divisions);
+        const recallCadence = applySequence(sectionAMotifFamily.cadence, validPitches, referenceShiftSteps, divisions);
 
         // Override the active motif family for this phrase with the recalled material.
         motifFamily = {
@@ -801,7 +802,7 @@ export function scheduleMelody(
         lastAnchor = keyRoot + 12;
     }
 
-    plannedAnchor1 = getConstrainedAnchorGlobal(lastAnchor, target1Raw, anchor1Limit, globalScalePitches, validPitches, activeChordTones);
+    plannedAnchor1 = getConstrainedAnchorGlobal(lastAnchor, target1Raw, anchor1Limit, globalScalePitches, validPitches, activeChordTones, divisions);
     globalPrevAnchor = plannedAnchor1;
 
     let target2Raw = targetPitch;
@@ -815,24 +816,16 @@ export function scheduleMelody(
 
     if (beats >= 2 && ['build', 'climax', 'statement'].includes(activeRole)) {
         let anchor2Limit = activeRole === 'climax' ? 5 : 3;
-        plannedAnchor2 = getConstrainedAnchorGlobal(plannedAnchor1, target2Raw, anchor2Limit, globalScalePitches, validPitches, activeChordTones);
+        plannedAnchor2 = getConstrainedAnchorGlobal(plannedAnchor1, target2Raw, anchor2Limit, globalScalePitches, validPitches, activeChordTones, divisions);
     }
-
-    // Trust all user-provided chord tones as stable downbeat targets.
-    // 12-EDO interval filtering is removed: it was silently discarding
-    // user-adjusted microtonal pitches and non-root/3rd/5th chord extensions.
-    const stablePcSet = new Set(
-        activeChordTones
-            .map(ct => Math.round(((ct % periodSize + periodSize) % periodSize) * 100) / 100)
-    );
 
     if (!justLooped && prevSlotEndedWithRun && settings.genre !== 'none' && prevSlotLastPitch !== null) {
         plannedAnchor1 = findClosest(prevSlotLastPitch, validPitches);
     } else {
-        plannedAnchor1 = enforceChordToneOnDownbeat(plannedAnchor1, activeChordTones, validPitches, stablePcSet, periodSize);
+        plannedAnchor1 = enforceChordToneOnDownbeat(plannedAnchor1, activeChordTones, validPitches, periodSize, divisions);
     }
     if (plannedAnchor2 !== null) {
-        plannedAnchor2 = enforceChordToneOnDownbeat(plannedAnchor2, activeChordTones, validPitches, stablePcSet, periodSize);
+        plannedAnchor2 = enforceChordToneOnDownbeat(plannedAnchor2, activeChordTones, validPitches, periodSize, divisions);
     }
 
     // Phase B: Rhythmic Motif Variation (Bar-by-bar mutation)
@@ -907,7 +900,7 @@ export function scheduleMelody(
             else phraseRhythmicMotif = applyMotivicExtension(phraseRhythmicMotif, globalLastInterval);
         }
         if (phraseRhythmicMotif) {
-            sliceMotif = realizeMotifinContext(phraseRhythmicMotif, plannedAnchor1, validPitches);
+            sliceMotif = realizeMotifinContext(phraseRhythmicMotif, plannedAnchor1, validPitches, divisions);
         }
     } else {
         sliceMotif = currentCell.map(note => {
@@ -1567,12 +1560,12 @@ export function scheduleMelody(
                     }).filter(n => n >= melodyRangeStart && n <= melodyRangeEnd);
                     const resolutionTarget = nextChordTones.length > 0 ? findClosest(prevPitch, nextChordTones) : prevPitch;
 
-                    const nextScaleIntervals = nextChordObj ? getScaleIntervals(deduceSourceMode(nextChordObj.symbol, state.mode || 'major') || state.mode || 'major', settings.genre) : globalScaleIntervals;
+                    const nextScaleIntervals = nextChordObj ? getScaleIntervals(deduceSourceMode(nextChordObj.symbol, state.mode || 'major') || state.mode || 'major', settings.genre, divisions) : globalScaleIntervals;
                     const nextScalePitchesRaw = buildScalePitches(nextChordObj && nextChordObj.key !== undefined ? Number(nextChordObj.key) : keyRoot, nextScaleIntervals, divisions, melodyRangeStart, melodyRangeEnd, periodSize);
                     const nextScalePitches = adjustScalePitches(nextScalePitchesRaw);
 
                     const stepDir = resolutionTarget > prevPitch ? 1 : (resolutionTarget < prevPitch ? -1 : (Math.random() > 0.5 ? 1 : -1));
-                    const prevIdxInNextScale = findScaleIndex(findClosest(prevPitch, nextScalePitches), nextScalePitches);
+                    const prevIdxInNextScale = findScaleIndex(findClosest(prevPitch, nextScalePitches), nextScalePitches, divisions);
                     let gluePitch = prevPitch;
                     if (prevIdxInNextScale !== -1) {
                         const glueIdx = Math.max(0, Math.min(nextScalePitches.length - 1, prevIdxInNextScale + stepDir));
@@ -1591,7 +1584,7 @@ export function scheduleMelody(
                 } else {
                     // Connective Fill
                     let connectivePitch = prevPitch;
-                    const prevIdx = findScaleIndex(prevPitch, effectiveValidPitches);
+                    const prevIdx = findScaleIndex(prevPitch, effectiveValidPitches, divisions);
 
                     if (settings.genre === 'none') {
                         let motifNote;
@@ -1604,7 +1597,7 @@ export function scheduleMelody(
                         connectivePitch = motifNote;
                     } else {
                         const nextAnchor = (g.beat < 2 && plannedAnchor2 !== null) ? plannedAnchor2 : plannedAnchor1;
-                        const nextAnchorIdx = findScaleIndex(nextAnchor, effectiveValidPitches);
+                        const nextAnchorIdx = findScaleIndex(nextAnchor, effectiveValidPitches, divisions);
 
                         if (slotAestheticMode === 'cantabile') {
                             if (prevIdx !== -1 && nextAnchorIdx !== -1) {
@@ -1646,7 +1639,7 @@ export function scheduleMelody(
                             const cellStep = g.sixteenthStep % cellOffsets.length;
                             const cellOffset = cellOffsets[cellStep];
 
-                            const anchor1Idx = findScaleIndex(plannedAnchor1, effectiveValidPitches);
+                            const anchor1Idx = findScaleIndex(plannedAnchor1, effectiveValidPitches, divisions);
                             if (anchor1Idx !== -1) {
                                 let targetIdx = Math.max(0, Math.min(effectiveValidPitches.length - 1, anchor1Idx + cellOffset));
                                 connectivePitch = effectiveValidPitches[targetIdx];
@@ -1694,7 +1687,7 @@ export function scheduleMelody(
 
                 // Prevent repeated identical pitches for melody by forcing stepwise movement
                 if (!g.isAnchor1Step && !g.isAnchor2Step && Math.abs(pitch - prevPitch) < 0.01 && effectiveValidPitches.length > 1 && settings.genre !== 'none') {
-                    const idx = findScaleIndex(pitch, effectiveValidPitches);
+                    const idx = findScaleIndex(pitch, effectiveValidPitches, divisions);
                     if (idx !== -1) {
                         const dir = lastInterval >= 0 ? 1 : -1;
                         let newIdx = idx + dir;
@@ -1715,7 +1708,7 @@ export function scheduleMelody(
                     if (phraseHighestPitch !== null && pitch === phraseHighestPitch) {
                         peakPitchHitsCount++;
                         if (peakPitchHitsCount > 2) {
-                            const idx = findScaleIndex(pitch, validPitches);
+                            const idx = findScaleIndex(pitch, validPitches, divisions);
                             if (idx !== -1 && idx > 0) {
                                 pitch = validPitches[idx - 1];
                             }
@@ -1810,7 +1803,7 @@ export function scheduleMelody(
                             const targetHarm = activeTransition.pitch + (Math.random() > 0.5 ? 4 : 3);
                             counterPitch = findClosest(targetHarm - periodSize, counterValidPitches);
                         } else if (mode === 'harmonize' && melodyPlays) {
-                            const index = findScaleIndex(pitch, validPitches);
+                            const index = findScaleIndex(pitch, validPitches, divisions);
                             if (index !== -1) {
                                 const shift = Math.random() > 0.5 ? 2 : 4;
                                 let targetIndex = index - shift;
@@ -1823,15 +1816,15 @@ export function scheduleMelody(
                             if (counterActiveChordTones.length > 0 && Math.random() < 0.6) {
                                 counterPitch = findClosest(prevCounterPitch, counterActiveChordTones);
                             } else {
-                                counterPitch = findDirectedStep(prevCounterPitch, counterValidPitches, counterPhraseDirectionBias, counterLastPitch);
+                                counterPitch = findDirectedStep(prevCounterPitch, counterValidPitches, counterPhraseDirectionBias, counterLastPitch, divisions);
                             }
                         } else {
                             const melodyMoved = lastInterval !== 0;
                             if (melodyMoved && Math.random() < 0.8) {
                                 const contraryDirection = lastInterval > 0 ? -1 : 1;
-                                let idx = findScaleIndex(prevCounterPitch, counterValidPitches);
+                                let idx = findScaleIndex(prevCounterPitch, counterValidPitches, divisions);
                                 if (idx === -1) {
-                                    idx = findScaleIndex(findClosest(prevCounterPitch, counterValidPitches), counterValidPitches);
+                                    idx = findScaleIndex(findClosest(prevCounterPitch, counterValidPitches), counterValidPitches, divisions);
                                 }
                                 const stepShift = Math.random() > 0.5 ? 2 : 1;
                                 let newIdx = idx + contraryDirection * stepShift;
@@ -1840,7 +1833,7 @@ export function scheduleMelody(
                                 }
                                 counterPitch = counterValidPitches[Math.max(0, Math.min(counterValidPitches.length - 1, newIdx))];
                             } else {
-                                counterPitch = findDirectedStep(prevCounterPitch, counterValidPitches, counterPhraseDirectionBias, counterLastPitch);
+                                counterPitch = findDirectedStep(prevCounterPitch, counterValidPitches, counterPhraseDirectionBias, counterLastPitch, divisions);
                             }
                         }
                     } else {
@@ -1848,12 +1841,12 @@ export function scheduleMelody(
                             const melodyMoved = lastInterval !== 0;
                             if (melodyMoved) {
                                 const contraryDirection = lastInterval > 0 ? -1 : 1;
-                                let idx = findScaleIndex(prevCounterPitch, counterValidPitches);
-                                if (idx === -1) idx = findScaleIndex(findClosest(prevCounterPitch, counterValidPitches), counterValidPitches);
+                                let idx = findScaleIndex(prevCounterPitch, counterValidPitches, divisions);
+                                if (idx === -1) idx = findScaleIndex(findClosest(prevCounterPitch, counterValidPitches), counterValidPitches, divisions);
                                 let newIdx = idx + contraryDirection * (Math.random() > 0.5 ? 2 : 1);
                                 counterPitch = counterValidPitches[Math.max(0, Math.min(counterValidPitches.length - 1, newIdx))];
                             } else {
-                                counterPitch = findDirectedStep(prevCounterPitch, counterValidPitches, counterPhraseDirectionBias, counterLastPitch);
+                                counterPitch = findDirectedStep(prevCounterPitch, counterValidPitches, counterPhraseDirectionBias, counterLastPitch, divisions);
                             }
                         } else if (slotAestheticMode === 'sighs') {
                             if (counterActiveChordTones.length > 0) {
@@ -1865,10 +1858,10 @@ export function scheduleMelody(
                             if (counterActiveChordTones.length > 0 && Math.random() < 0.6) {
                                 counterPitch = findClosest(prevCounterPitch, counterActiveChordTones);
                             } else {
-                                counterPitch = findDirectedStep(prevCounterPitch, counterValidPitches, counterPhraseDirectionBias, counterLastPitch);
+                                counterPitch = findDirectedStep(prevCounterPitch, counterValidPitches, counterPhraseDirectionBias, counterLastPitch, divisions);
                             }
                         } else if (slotAestheticMode === 'virtuoso') {
-                            counterPitch = findDirectedStep(prevCounterPitch, counterValidPitches, counterPhraseDirectionBias, counterLastPitch);
+                            counterPitch = findDirectedStep(prevCounterPitch, counterValidPitches, counterPhraseDirectionBias, counterLastPitch, divisions);
                         }
                     }
 
@@ -1883,7 +1876,7 @@ export function scheduleMelody(
                     counterPitch = findClosest(counterPitch, counterValidPitches);
 
                     if (Math.abs(counterPitch - prevCounterPitch) < 0.01 && counterValidPitches.length > 1) {
-                        const idx = findScaleIndex(counterPitch, counterValidPitches);
+                        const idx = findScaleIndex(counterPitch, counterValidPitches, divisions);
                         if (idx !== -1) {
                             const dir = counterPhraseDirectionBias !== 0 ? counterPhraseDirectionBias : (Math.random() > 0.5 ? 1 : -1);
                             let newIdx = idx + dir;
@@ -1939,9 +1932,9 @@ export function scheduleMelody(
                         // Direction commitment expired: check if we should reverse.
                         // Reverse if we've traveled more than 5 scale steps from phrase start
                         // in the committed direction (prevents runaway drift to register extremes).
-                        const counterIdx = findScaleIndex(counterPitch, counterValidPitches);
-                        const counterBottom = findScaleIndex(counterValidPitches[0], counterValidPitches);
-                        const counterTop = findScaleIndex(counterValidPitches[counterValidPitches.length - 1], counterValidPitches);
+                        const counterIdx = findScaleIndex(counterPitch, counterValidPitches, divisions);
+                        const counterBottom = findScaleIndex(counterValidPitches[0], counterValidPitches, divisions);
+                        const counterTop = findScaleIndex(counterValidPitches[counterValidPitches.length - 1], counterValidPitches, divisions);
                         if (counterIdx <= counterBottom + 1 || counterIdx >= counterTop - 1) {
                             counterPhraseDirectionBias = -counterPhraseDirectionBias;
                             counterPhraseStepsRemaining = 4; // brief re-commitment after reversal
@@ -1988,7 +1981,7 @@ export function scheduleMelody(
         const targetStep = 8;
         const stepTime = time + (targetStep * (chordSlotDuration / totalSteps));
         const noteDuration = (chordSlotDuration / beats) * 0.9;
-        const counterPitch = findDirectedStep(prevCounterPitch, counterValidPitches, counterPhraseDirectionBias, counterLastPitch);
+        const counterPitch = findDirectedStep(prevCounterPitch, counterValidPitches, counterPhraseDirectionBias, counterLastPitch, divisions);
 
         counterScheduled.push({
             pitch: counterPitch,
@@ -2066,7 +2059,7 @@ export function scheduleMelody(
             if (i > 0 && !isConsequentFinal) {
                 const prev = melodyScheduled[i - 1].pitch;
                 if (prev !== null && Math.abs(n.pitch - prev) < 0.01 && validPitches.length > 1) {
-                    const idx = findScaleIndex(n.pitch, validPitches);
+                    const idx = findScaleIndex(n.pitch, validPitches, divisions);
                     if (idx !== -1) {
                         let dir = (n.pitch - prev >= 0) ? 1 : -1;
                         if (dir === 0) dir = 1;

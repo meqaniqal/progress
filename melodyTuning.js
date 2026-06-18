@@ -1,6 +1,15 @@
 import { state } from './store.js';
 
-export function getScaleIntervals(mode, genre = 'none') {
+const MICROTONAL_SCALE_OVERRIDES = {
+    19: { major: [0, 3, 6, 8, 11, 14, 17], minor: [0, 3, 5, 8, 11, 13, 16] },
+    22: { major: [0, 4, 7, 9, 13, 17, 20], minor: [0, 4, 6, 9, 13, 15, 18] },
+    31: { major: [0, 5, 10, 13, 18, 23, 28], minor: [0, 5, 8, 13, 18, 21, 26] }
+};
+
+export function getScaleIntervals(mode, genre = 'none', divisions = 12) {
+    if (MICROTONAL_SCALE_OVERRIDES[divisions] && MICROTONAL_SCALE_OVERRIDES[divisions][mode]) {
+        return MICROTONAL_SCALE_OVERRIDES[divisions][mode];
+    }
     if (genre === 'jazz') {
         const BEBOP_SCALES = {
             major: [0, 2, 4, 5, 7, 8, 9, 11],
@@ -22,7 +31,14 @@ export function getScaleIntervals(mode, genre = 'none') {
         mixolydian: [0, 2, 4, 5, 7, 9, 10],
         wholeTone: [0, 2, 4, 6, 8, 10],
         diminishedWH: [0, 2, 3, 5, 6, 8, 9, 11],
-        altered: [0, 1, 3, 4, 6, 8, 10]
+        altered: [0, 1, 3, 4, 6, 8, 10],
+        harmonicMajor:    [0, 2, 4, 5, 7, 8, 11],
+        doubleHarmonic:   [0, 1, 4, 5, 7, 8, 11],  // Byzantine/Arabic
+        hungarianMinor:   [0, 2, 3, 6, 7, 8, 11],
+        phrygianDominant: [0, 1, 4, 5, 7, 8, 10],
+        enigmaticScale:   [0, 1, 4, 6, 8, 10, 11],
+        ultraLocrian:     [0, 1, 3, 4, 6, 8, 9],
+        octatonic:        [0, 2, 3, 5, 6, 8, 9, 11],
     };
     return SCALES[mode] || SCALES.major;
 }
@@ -44,20 +60,23 @@ export function buildScalePitches(keyRoot, intervals, divisions, start, end, per
     return Array.from(new Set(scalePitches)).sort((a, b) => a - b);
 }
 
-export function findScaleIndex(pitch, scalePitches) {
+export function findScaleIndex(pitch, scalePitches, divisions = 12) {
+    const tolerance = (12.0 / divisions) * 0.45; // 45% of one step
     for (let i = 0; i < scalePitches.length; i++) {
-        if (Math.abs(scalePitches[i] - pitch) < 0.01) {
+        if (Math.abs(scalePitches[i] - pitch) < tolerance) {
             return i;
         }
     }
     return -1;
 }
 
-export function isLeadingTone(pitch, keyRoot, periodSize) {
+export function isLeadingTone(pitch, keyRoot, periodSize, divisions = 12) {
+    const stepSize = 12.0 / divisions;
     const pc = (pitch % periodSize + periodSize) % periodSize;
     const keyPc = (keyRoot % periodSize + periodSize) % periodSize;
     const diff = (pc - keyPc + periodSize) % periodSize;
-    return Math.abs(diff - 11.0) < 0.1 || Math.abs(diff - 11.5) < 0.1;
+    const leadingToneDiff = periodSize - stepSize;
+    return Math.abs(diff - leadingToneDiff) < stepSize * 0.4;
 }
 
 export function findClosest(val, array) {
@@ -65,26 +84,20 @@ export function findClosest(val, array) {
     return array.reduce((prev, curr) => Math.abs(curr - val) < Math.abs(prev - val) ? curr : prev);
 }
 
-export function findClosestStep(prev, scalePitches, divisions) {
+export function findClosestStep(prev, scalePitches, divisions, directionBias = 0) {
     if (scalePitches.length === 0) return prev;
-    const idx = findScaleIndex(prev, scalePitches);
-    const stepSize = 12.0 / divisions;
-    
+    const idx = findScaleIndex(prev, scalePitches, divisions);
     if (idx !== -1) {
-        const dir = Math.random() > 0.5 ? 1 : -1;
+        const dir = directionBias !== 0
+            ? Math.sign(directionBias)
+            : (Math.random() > 0.5 ? 1 : -1);
         let nextIdx = idx + dir;
         if (nextIdx < 0 || nextIdx >= scalePitches.length) {
             nextIdx = idx - dir;
         }
         return scalePitches[Math.max(0, Math.min(scalePitches.length - 1, nextIdx))];
     }
-    
-    const closest = findClosest(prev, scalePitches);
-    const closestIdx = findScaleIndex(closest, scalePitches);
-    if (closestIdx !== -1) {
-        return scalePitches[closestIdx];
-    }
-    return prev;
+    return findClosest(prev, scalePitches);
 }
 
 /**
@@ -95,15 +108,16 @@ export function findClosestStep(prev, scalePitches, divisions) {
  * @param {number}  directionBias - +1 (ascending), -1 (descending), 0 (free).
  * @param {number|null} lastPitch - The pitch before `prev`; prevents
  *                                  immediately reversing to it.
+ * @param {number}  divisions     - The EDO divisions.
  * @returns {number} The next pitch.
  */
-export function findDirectedStep(prev, scalePitches, directionBias, lastPitch = null) {
+export function findDirectedStep(prev, scalePitches, directionBias, lastPitch = null, divisions = 12) {
     if (scalePitches.length === 0) return prev;
 
-    const idx = findScaleIndex(prev, scalePitches);
+    const idx = findScaleIndex(prev, scalePitches, divisions);
     const anchorIdx = idx !== -1 ? idx : (() => {
         const closest = findClosest(prev, scalePitches);
-        return findScaleIndex(closest, scalePitches);
+        return findScaleIndex(closest, scalePitches, divisions);
     })();
 
     if (anchorIdx === -1) return findClosest(prev, scalePitches);
@@ -133,7 +147,6 @@ export function findDirectedStep(prev, scalePitches, directionBias, lastPitch = 
 
     return scalePitches[Math.max(0, Math.min(scalePitches.length - 1, nextIdx))];
 }
-
 
 export function isDominantChord(chordObj) {
     if (!chordObj || !chordObj.symbol) return false;
@@ -173,11 +186,18 @@ export function getStableTones(activeChordTones, chordKey, keyRoot, periodSize, 
     return stable.length > 0 ? stable.sort((a, b) => a - b) : validPitches;
 }
 
-export function enforceChordToneOnDownbeat(anchor, activeChordTones, validPitches, stablePcSet, periodSize) {
+export function isChordTonePC(pitch, stableTones, periodSize, divisions = 12) {
+    const tolerance = (12.0 / divisions) * 0.45;
+    const pc = ((pitch % periodSize) + periodSize) % periodSize;
+    return stableTones.some(t => {
+        const tpc = ((t % periodSize) + periodSize) % periodSize;
+        return Math.abs(pc - tpc) < tolerance;
+    });
+}
+
+export function enforceChordToneOnDownbeat(anchor, activeChordTones, validPitches, periodSize, divisions = 12) {
     if (activeChordTones.length === 0) return anchor;
-    const pc = ((anchor % periodSize) + periodSize) % periodSize;
-    const roundedPc = Math.round(pc * 100) / 100;
-    if (stablePcSet.has(roundedPc)) return anchor;
+    if (isChordTonePC(anchor, activeChordTones, periodSize, divisions)) return anchor;
     return findClosest(anchor, activeChordTones);
 }
 
@@ -199,8 +219,8 @@ export function planPhraseStructuralSkeleton(phraseStartIndex, macroTargetPlan, 
     return skeleton;
 }
 
-export function getConstrainedAnchor(fromPitch, targetRaw, maxOffset, validPitches, chordTones) {
-    const fromIdx = findScaleIndex(fromPitch, validPitches);
+export function getConstrainedAnchor(fromPitch, targetRaw, maxOffset, validPitches, chordTones, divisions = 12) {
+    const fromIdx = findScaleIndex(fromPitch, validPitches, divisions);
     if (fromIdx === -1) {
         return chordTones.length > 0 ? findClosest(targetRaw, chordTones) : findClosest(targetRaw, validPitches);
     }
@@ -220,8 +240,8 @@ export function getConstrainedAnchor(fromPitch, targetRaw, maxOffset, validPitch
     return findClosest(targetRaw, allowedPitches);
 }
 
-export function getConstrainedAnchorGlobal(fromPitch, targetRaw, maxOffset, globalScalePitches, validPitches, chordTones) {
-    const fromIdx = findScaleIndex(fromPitch, globalScalePitches);
+export function getConstrainedAnchorGlobal(fromPitch, targetRaw, maxOffset, globalScalePitches, validPitches, chordTones, divisions = 12) {
+    const fromIdx = findScaleIndex(fromPitch, globalScalePitches, divisions);
     if (fromIdx === -1) {
         return chordTones.length > 0 ? findClosest(targetRaw, chordTones) : findClosest(targetRaw, validPitches);
     }
@@ -272,11 +292,14 @@ export function deduceChordRootAndQuality(symbol, baseKey, divisions) {
         const numeral = match[1];
         const remainder = stripped.substring(numeral.length);
         
-        const scaleOffsets = {
-            'i': 0, 'ii': 2, 'iii': 4, 'iv': 5, 'v': 7, 'vi': 9, 'vii': 11,
-            'I': 0, 'II': 2, 'III': 4, 'IV': 5, 'V': 7, 'VI': 9, 'VII': 11
+        const DEGREE_INDICES = {
+            'i': 0, 'ii': 1, 'iii': 2, 'iv': 3, 'v': 4, 'vi': 5, 'vii': 6,
+            'I': 0, 'II': 1, 'III': 2, 'IV': 3, 'V': 4, 'VI': 5, 'VII': 6
         };
-        const rootOffset = scaleOffsets[numeral] + accidental;
+        const scaleIntervals = getScaleIntervals(state.mode || 'major', 'none', divisions);
+        const degreeIndex = DEGREE_INDICES[numeral];
+        const rootOffset = (degreeIndex !== undefined && degreeIndex < scaleIntervals.length
+            ? scaleIntervals[degreeIndex] * (12.0 / divisions) : 0) + accidental;
         
         const isMinor = numeral === numeral.toLowerCase();
         let quality = isMinor ? 'minor' : 'major';
@@ -303,16 +326,24 @@ export function getLocalScaleMode(quality, settingsGenre) {
     if (settingsGenre === 'jazz' || settingsGenre === 'blues') {
         if (quality === 'minor7') return 'dorian';
         if (quality === 'dominant') return 'mixolydian';
+        if (quality === 'diminished') return 'diminishedWH';
+        if (quality === 'augmented') return 'wholeTone';
     }
-    if (quality === 'minor' || quality === 'minor7' || quality === 'diminished') {
-        return 'minor';
-    }
-    return 'major';
+    const map = {
+        'minor':      'minor',
+        'minor7':     'dorian',
+        'dominant':   'mixolydian',
+        'diminished': 'diminishedWH',
+        'augmented':  'wholeTone',
+        'suspended':  'mixolydian',
+        'major':      'major',
+    };
+    return map[quality] || 'major';
 }
 
 export function planMacroMelodyTargets(totalChords, keyRoot, divisions, stateMode, settings) {
     const plan = [];
-    const scaleIntervals = getScaleIntervals(stateMode, settings.genre);
+    const scaleIntervals = getScaleIntervals(stateMode, settings.genre, divisions);
     const rootTarget = keyRoot + 12;
     
     for (let i = 0; i < totalChords; i++) {

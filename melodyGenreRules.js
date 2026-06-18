@@ -5,7 +5,7 @@ export function applyGenreRules(pitch, genre, step, scalePitches, divisions, chr
     if (genre === 'jazz') {
         const prob = 0.15 + chromaticProb;
         if (step % 8 === 4 && Math.random() < prob) {
-            const idx = findScaleIndex(pitch, scalePitches);
+            const idx = findScaleIndex(pitch, scalePitches, divisions);
             if (idx !== -1 && idx < scalePitches.length - 1) {
                 return scalePitches[idx + 1];
             }

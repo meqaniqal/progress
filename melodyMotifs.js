@@ -60,7 +60,7 @@ export function mutateMotifFamily(motifFamily, pool, tuning) {
     if (mutated.hook.length > 0 && pool.length > 0) {
         const idx = Math.floor(Math.random() * mutated.hook.length);
         const pitch = mutated.hook[idx];
-        const scaleIdx = findScaleIndex(pitch, pool);
+        const scaleIdx = findScaleIndex(pitch, pool, tuning.divisions);
         if (scaleIdx !== -1) {
             const shift = Math.random() > 0.5 ? 1 : -1;
             const targetIdx = Math.max(0, Math.min(pool.length - 1, scaleIdx + shift));
@@ -104,7 +104,7 @@ export function generateSeedMotif(pool, size, chordTones, scalePitches, tuning) 
     if (pool.length === 0) return motif;
 
     const keyRoot = Number(state.baseKey) || 60;
-    const baseScaleIntervals = getScaleIntervals(state.mode || 'major', 'none');
+    const baseScaleIntervals = getScaleIntervals(state.mode || 'major', 'none', divisions);
     const isBaseScaleTone = (pitch) => {
         const pc = (pitch % periodSize + periodSize) % periodSize;
         const diff = (pc - (keyRoot % periodSize) + periodSize) % periodSize;
@@ -124,8 +124,13 @@ export function generateSeedMotif(pool, size, chordTones, scalePitches, tuning) 
     }
     motif.push(note1);
 
-    const candidates2 = scalePitches.filter(p => Math.abs(p - note1) <= 4.01);
-    const stepCandidates2 = candidates2.filter(p => Math.abs(p - note1) <= 2.01);
+    const stepSize = 12.0 / divisions;
+    const wholeStep = stepSize * 2;
+    const thirdLeap = stepSize * (divisions >= 19 ? 5 : 4);
+    const fourthLeap = stepSize * (divisions >= 19 ? 8 : 5);
+
+    const candidates2 = scalePitches.filter(p => Math.abs(p - note1) <= thirdLeap + 0.01);
+    const stepCandidates2 = candidates2.filter(p => Math.abs(p - note1) <= wholeStep + 0.01);
     let note2 = note1;
     if (isTest) {
         note2 = stepCandidates2.length > 0 ? stepCandidates2[0] : (candidates2.length > 0 ? candidates2[0] : note1);
@@ -137,8 +142,8 @@ export function generateSeedMotif(pool, size, chordTones, scalePitches, tuning) 
     }
     motif.push(note2);
 
-    const candidates3 = scalePitches.filter(p => Math.abs(p - note2) <= 5.01);
-    const stepCandidates3 = candidates3.filter(p => Math.abs(p - note2) <= 2.01);
+    const candidates3 = scalePitches.filter(p => Math.abs(p - note2) <= fourthLeap + 0.01);
+    const stepCandidates3 = candidates3.filter(p => Math.abs(p - note2) <= wholeStep + 0.01);
     let note3 = note2;
     if (isTest) {
         note3 = stepCandidates3.length > 0 ? stepCandidates3[0] : (candidates3.length > 0 ? candidates3[0] : note2);
@@ -147,7 +152,7 @@ export function generateSeedMotif(pool, size, chordTones, scalePitches, tuning) 
         if (stepCandidates3.length > 0 && Math.random() < 0.7) {
             note3 = stepCandidates3[Math.floor(Math.random() * stepCandidates3.length)];
         }
-        const isLeap = Math.abs(note3 - note2) > 2.01;
+        const isLeap = Math.abs(note3 - note2) > wholeStep + 0.01;
         if (isLeap) {
             const closerCandidates = candidates3.filter(p => Math.abs(p - note1) < Math.abs(note2 - note1));
             if (closerCandidates.length > 0) {
@@ -160,14 +165,14 @@ export function generateSeedMotif(pool, size, chordTones, scalePitches, tuning) 
     const overallDirection = note3 - note1;
     let note4 = note3;
     if (overallDirection > 0) {
-        const downCandidates = scalePitches.filter(p => p < note3 && p >= note3 - 2.01);
+        const downCandidates = scalePitches.filter(p => p < note3 && p >= note3 - (wholeStep + 0.01));
         if (downCandidates.length > 0) note4 = downCandidates[0];
     } else if (overallDirection < 0) {
-        const upCandidates = scalePitches.filter(p => p > note3 && p <= note3 + 2.01);
+        const upCandidates = scalePitches.filter(p => p > note3 && p <= note3 + (wholeStep + 0.01));
         if (upCandidates.length > 0) note4 = upCandidates[0];
     } else {
         if (isTest) {
-            const idx = findScaleIndex(note3, scalePitches);
+            const idx = findScaleIndex(note3, scalePitches, divisions);
             note4 = idx !== -1 && idx > 0 ? scalePitches[idx - 1] : note3;
         } else {
             note4 = findClosestStep(note3, scalePitches, divisions);
@@ -225,9 +230,9 @@ export function applyRetrograde(motif) {
     return [...motif].reverse();
 }
 
-export function applySequence(motif, pool, shiftSteps) {
+export function applySequence(motif, pool, shiftSteps, divisions = 12) {
     return motif.map(p => {
-        const idx = findScaleIndex(p, pool);
+        const idx = findScaleIndex(p, pool, divisions);
         if (idx !== -1) {
             const nextIdx = Math.max(0, Math.min(pool.length - 1, idx + shiftSteps));
             return pool[nextIdx];
@@ -256,8 +261,8 @@ export function generateRhythmicMotif(aestheticMode) {
     return pool[Math.floor(Math.random() * pool.length)];
 }
 
-export function realizeMotifinContext(rhythmicMotif, anchorPitch, validPitches) {
-    const anchorIdx = findScaleIndex(anchorPitch, validPitches);
+export function realizeMotifinContext(rhythmicMotif, anchorPitch, validPitches, divisions = 12) {
+    const anchorIdx = findScaleIndex(anchorPitch, validPitches, divisions);
     if (anchorIdx === -1) return rhythmicMotif.steps.map(() => anchorPitch);
     return rhythmicMotif.directions.map(delta => {
         const idx = Math.max(0, Math.min(validPitches.length - 1, anchorIdx + delta));
