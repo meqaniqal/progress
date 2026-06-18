@@ -398,7 +398,7 @@ export function loadAndApplyInitialState(explicitState = null) {
         }
     }
     
-    if (savedState.editorState) {
+    if (savedState && savedState.editorState) {
         if (typeof savedState.editorState.chordChooserCategoryPage === 'number') {
             state.editorState.chordChooserCategoryPage = savedState.editorState.chordChooserCategoryPage;
         }
