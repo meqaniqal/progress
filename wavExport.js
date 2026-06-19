@@ -183,7 +183,7 @@ export function calculateAudioTimeline(progression, bpm, useVoiceLeading, export
             
             // Add Bass Note
             const tuning = getEffectiveTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
-            const rootChordNotes = chord.customNotes || getChordNotes(chord, chord.key, tuning.divisions);
+            const rootChordNotes = getChordNotes(chord, chord.key, tuning.divisions);
             if (rootChordNotes) {
                 const bassNote = getBassNote(rootChordNotes, tuning);
                 

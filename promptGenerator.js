@@ -16,7 +16,8 @@ export function generateAIPrompt(progression, bpm, keyName, mode = 'major') {
     const NOTE_CLASSES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     const getPitchNames = (midiNotes) => {
         if (!midiNotes || midiNotes.length === 0) return '';
-        return midiNotes.map(n => {
+        const pitches = midiNotes.map(n => typeof n === 'number' ? n : n.pitch);
+        return pitches.map(n => {
             const pc = Math.round(n) % 12;
             return NOTE_CLASSES[pc];
         }).join('-');

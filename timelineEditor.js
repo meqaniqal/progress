@@ -580,9 +580,38 @@ export function initTimelineInteractions(timeline) {
                     }
                 }
             } else if (editorState.activeTab === 'chordPattern' && editorState.draggedNoteIndex !== null) {
-                if (inst && Math.abs(clampedPitch - (inst.pitchOffsets?.[editorState.draggedNoteIndex] || 0)) > 0.01) {
+                let finalClampedPitch = clampedPitch;
+                if (editorState.activeIndex !== null) {
+                    const activeProg = app.state.currentProgression.map((c, i) => {
+                        const swap = app.state.temporarySwaps ? app.state.temporarySwaps[i] : null;
+                        return swap ? { ...c, ...swap } : c;
+                    });
+                    const playable = getPlayableNotes(activeProg, app.state);
+                    const chordNotes = playable[editorState.activeIndex];
+                    if (chordNotes && chordNotes.length > 0) {
+                        const draggedNoteBase = chordNotes[editorState.draggedNoteIndex];
+                        let minPitch = -Infinity;
+                        let maxPitch = Infinity;
+                        
+                        if (editorState.draggedNoteIndex > 0) {
+                            const prevNoteBase = chordNotes[editorState.draggedNoteIndex - 1];
+                            const prevOffset = inst.pitchOffsets?.[editorState.draggedNoteIndex - 1] || 0;
+                            minPitch = prevNoteBase + prevOffset + 0.02;
+                        }
+                        if (editorState.draggedNoteIndex < chordNotes.length - 1) {
+                            const nextNoteBase = chordNotes[editorState.draggedNoteIndex + 1];
+                            const nextOffset = inst.pitchOffsets?.[editorState.draggedNoteIndex + 1] || 0;
+                            maxPitch = nextNoteBase + nextOffset - 0.02;
+                        }
+                        
+                        const currentPitch = draggedNoteBase + finalClampedPitch;
+                        const clampedCurrentPitch = Math.max(minPitch, Math.min(maxPitch, currentPitch));
+                        finalClampedPitch = clampedCurrentPitch - draggedNoteBase;
+                    }
+                }
+                if (inst && Math.abs(finalClampedPitch - (inst.pitchOffsets?.[editorState.draggedNoteIndex] || 0)) > 0.01) {
                     const newOffsets = [...dragStartPitchOffsets];
-                    newOffsets[editorState.draggedNoteIndex] = clampedPitch;
+                    newOffsets[editorState.draggedNoteIndex] = finalClampedPitch;
                     setCurrentPattern(updateInstance(pattern, editorState.draggedInstanceId, { pitchOffsets: newOffsets }));
                     renderRhythmTimeline();
                     

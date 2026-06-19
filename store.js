@@ -293,12 +293,24 @@ export function addChord(numeral, targetKey = state.baseKey) {
         state.currentProgression.push({
             symbol: customChord.symbol,
             key: targetKey,
-            customNotes: [...customChord.customNotes],
+            customNotes: customChord.customNotes.map(n => ({ ...n })),
+            divisions: customChord.divisions || state.divisions,
             ...initPatternSet(),
             duration: 2
         });
     } else {
-        state.currentProgression.push({ symbol: numeral, key: targetKey, ...initPatternSet(), duration: 2 });
+        const chordObj = { symbol: numeral, key: targetKey, ...initPatternSet(), duration: 2 };
+        if (state.divisions !== 12) {
+            const tuning = getEffectiveTuning(numeral, state.divisions);
+            if (tuning && Math.abs(tuning.periodSize - 12.0) > 0.01) {
+                const computedNotes = getChordNotes(numeral, targetKey, state.divisions);
+                if (computedNotes) {
+                    chordObj.customNotes = computedNotes.map(p => ({ pitch: p, isMicrotonal: true }));
+                    chordObj.divisions = state.divisions;
+                }
+            }
+        }
+        state.currentProgression.push(chordObj);
     }
     
     if (isAtEnd) state.loopEnd = state.currentProgression.length;
@@ -355,7 +367,10 @@ export function swapChord(index, altSymbol, originalSymbol, targetKey) {
         }
         const customChord = state.customChords.find(c => c.symbol === altSymbol);
         if (customChord) {
-            swapData.customNotes = [...customChord.customNotes];
+            swapData.customNotes = customChord.customNotes.map(n => ({ ...n }));
+            swapData.divisions = customChord.divisions;
+        } else {
+            swapData.customNotes = null;
         }
         state.temporarySwaps[index] = swapData;
     }
@@ -451,7 +466,18 @@ export function addTurnaround(index, altSymbol, key) {
     saveHistoryState();
     const insertIndex = index + 1;
     state.temporarySwaps = calculateSwapsOnInsert(state.temporarySwaps, insertIndex);
-    state.currentProgression.splice(insertIndex, 0, { symbol: altSymbol, key: key, ...initPatternSet(), duration: 2 });
+    const chordObj = { symbol: altSymbol, key: key, ...initPatternSet(), duration: 2 };
+    if (state.divisions !== 12) {
+        const tuning = getEffectiveTuning(altSymbol, state.divisions);
+        if (tuning && Math.abs(tuning.periodSize - 12.0) > 0.01) {
+            const computedNotes = getChordNotes(altSymbol, key, state.divisions);
+            if (computedNotes) {
+                chordObj.customNotes = computedNotes.map(p => ({ pitch: p, isMicrotonal: true }));
+                chordObj.divisions = state.divisions;
+            }
+        }
+    }
+    state.currentProgression.splice(insertIndex, 0, chordObj);
     if (insertIndex <= state.loopEnd) state.loopEnd++;
     state.selectedChordIndex = insertIndex;
     applyLoopBounds();
@@ -500,12 +526,24 @@ export function addChordFromSource(sourceChord, sourceKey, insertIndex, newLoopS
         state.currentProgression.splice(insertIndex, 0, {
             symbol: customChord.symbol,
             key: sourceKey,
-            customNotes: [...customChord.customNotes],
+            customNotes: customChord.customNotes.map(n => ({ ...n })),
+            divisions: customChord.divisions || state.divisions,
             ...initPatternSet(),
             duration: 2
         });
     } else {
-        state.currentProgression.splice(insertIndex, 0, { symbol: sourceChord, key: sourceKey, ...initPatternSet(), duration: 2 });
+        const chordObj = { symbol: sourceChord, key: sourceKey, ...initPatternSet(), duration: 2 };
+        if (state.divisions !== 12) {
+            const tuning = getEffectiveTuning(sourceChord, state.divisions);
+            if (tuning && Math.abs(tuning.periodSize - 12.0) > 0.01) {
+                const computedNotes = getChordNotes(sourceChord, sourceKey, state.divisions);
+                if (computedNotes) {
+                    chordObj.customNotes = computedNotes.map(p => ({ pitch: p, isMicrotonal: true }));
+                    chordObj.divisions = state.divisions;
+                }
+            }
+        }
+        state.currentProgression.splice(insertIndex, 0, chordObj);
     }
     
     if (newLoopStart !== null && newLoopEnd !== null) {

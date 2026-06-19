@@ -67,7 +67,27 @@ export function getChordSignature(chordNotes, periodSize = 12.0) {
 
 export function getChordNotes(symbolOrChord, baseKey, divisions = 12, customTuning = null) {
     if (symbolOrChord && typeof symbolOrChord === 'object') {
-        if (symbolOrChord.customNotes) return symbolOrChord.customNotes;
+        if (symbolOrChord.customNotes && symbolOrChord.customNotes.length > 0) {
+            const customNotes = symbolOrChord.customNotes;
+            const isLegacy = typeof customNotes[0] === 'number';
+            if (isLegacy) {
+                return customNotes;
+            }
+            const chordDivisions = symbolOrChord.divisions || divisions;
+            const tuning = getEffectiveTuning(symbolOrChord.symbol, chordDivisions, customTuning);
+            const isNativelyMicrotonal = symbolOrChord.divisions !== undefined && tuning && Math.abs(tuning.periodSize - 12.0) > 0.01;
+            if (isNativelyMicrotonal) {
+                return customNotes.map(n => n.pitch);
+            }
+            const chordKey = symbolOrChord.key !== undefined ? symbolOrChord.key : baseKey;
+            const computedNotes = getChordNotes(symbolOrChord.symbol, chordKey, chordDivisions, customTuning);
+            return customNotes.map((noteObj, i) => {
+                if (noteObj.isMicrotonal) {
+                    return noteObj.pitch;
+                }
+                return computedNotes && computedNotes[i] !== undefined ? computedNotes[i] : noteObj.pitch;
+            });
+        }
         return getChordNotes(symbolOrChord.symbol, symbolOrChord.key !== undefined ? symbolOrChord.key : baseKey, symbolOrChord.divisions || divisions, customTuning);
     }
     let symbol = symbolOrChord;
@@ -76,7 +96,7 @@ export function getChordNotes(symbolOrChord, baseKey, divisions = 12, customTuni
 
     if (typeof window !== 'undefined' && window.__customChords) {
         const found = window.__customChords.find(c => c.symbol === symbol);
-        if (found && found.customNotes) return found.customNotes;
+        if (found) return getChordNotes(found, baseKey, divisions, customTuning);
     }
 
     const tuning = getEffectiveTuning(symbol, divisions, customTuning);
@@ -659,7 +679,13 @@ export function snapToGrid(floatPitch, tuningObjOrDivisions = 12) {
         return 60 + octave * 12.0 + bestOffset;
     }
         
-    if (tuning.divisions === 12) return Math.round(floatPitch); // Enforce rigid integer snapping for standard 12-TET
+    if (tuning.divisions === 12) {
+        const dev = Math.abs(floatPitch - Math.round(floatPitch));
+        if (dev > 0.01) {
+            return floatPitch;
+        }
+        return Math.round(floatPitch);
+    }
     
     const edoStep = Math.round((floatPitch - 60) * (tuning.divisions / tuning.periodSize));
     return 60 + (edoStep * (tuning.periodSize / tuning.divisions));

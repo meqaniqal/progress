@@ -193,6 +193,16 @@ export function scheduleMelody(
     const periodSize = tuning.periodSize;
     const keyRoot = chordObj.key !== undefined ? Number(chordObj.key) : (Number(state.baseKey) || 60);
 
+    if (divisions === 12 && chordNotes) {
+        chordNotes = chordNotes.map((n, i) => {
+            if (chordObj.customNotes && chordObj.customNotes[i]) {
+                const customNote = chordObj.customNotes[i];
+                if (customNote && customNote.isMicrotonal) return n;
+            }
+            return Math.round(n);
+        });
+    }
+
     // Initialize macro Target Plan if enabled
     if (settings.macroPlannerEnabled) {
         if (!macroTargetPlan || macroTargetPlan.length !== totalChords) {
@@ -610,8 +620,8 @@ export function scheduleMelody(
     const chordTonePcSet = new Set((chordNotes || []).map(n => Math.round(((n % periodSize + periodSize) % periodSize) * 100) / 100));
 
     // Retrieve previous/next chord notes
-    const prevChordNotes = prevChordObj ? (prevChordObj.notes || prevChordObj.customNotes || getChordNotes(prevChordObj.symbol, prevChordObj.key !== undefined ? Number(prevChordObj.key) : state.baseKey, divisions)) : [];
-    const nextChordNotes = nextChordObj ? (nextChordObj.notes || nextChordObj.customNotes || getChordNotes(nextChordObj.symbol, nextChordObj.key !== undefined ? Number(nextChordObj.key) : state.baseKey, divisions)) : [];
+    const prevChordNotes = prevChordObj ? getChordNotes(prevChordObj, prevChordObj.key !== undefined ? Number(prevChordObj.key) : state.baseKey, divisions) : [];
+    const nextChordNotes = nextChordObj ? getChordNotes(nextChordObj, nextChordObj.key !== undefined ? Number(nextChordObj.key) : state.baseKey, divisions) : [];
 
     const getDistinctiveNextTone = () => {
         if (!nextChordNotes || nextChordNotes.length === 0) return null;
@@ -2015,7 +2025,7 @@ export function scheduleMelody(
     // --- Post-Processing: Foreshadowing & Repeated Pitch Prevention ---
     if (melodyScheduled.length > 0) {
         const beatLen = 60 / bpm;
-        const nextChordNotes = nextChordObj ? (nextChordObj.notes || nextChordObj.customNotes || getChordNotes(nextChordObj.symbol, nextChordObj.key !== undefined ? Number(nextChordObj.key) : state.baseKey, divisions)) : [];
+        const nextChordNotes = nextChordObj ? getChordNotes(nextChordObj, nextChordObj.key !== undefined ? Number(nextChordObj.key) : state.baseKey, divisions) : [];
 
         // Helper to find closest octave equivalent in EDO system
         const getClosestOctaveEquivalent = (pitch, targetPitch, periodSize) => {

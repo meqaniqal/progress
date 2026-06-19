@@ -856,10 +856,17 @@ function _setupCustomChordBuilder() {
             if (notes.length === 0) return;
 
             const numeral = identifyChord(notes, state.baseKey, true);
+            const expectedNotes = getChordNotes(numeral, state.baseKey, state.divisions);
+            const customNotes = notes.map((pitch, i) => {
+                const expected = expectedNotes && expectedNotes[i] !== undefined ? expectedNotes[i] : pitch;
+                const deviates = Math.abs(pitch - expected) > 0.01;
+                return { pitch, isMicrotonal: deviates };
+            });
             const newCustomChord = {
                 symbol: numeral,
-                customNotes: notes,
-                key: state.baseKey
+                customNotes: customNotes,
+                key: state.baseKey,
+                divisions: state.divisions
             };
 
             state.customChords = state.customChords.filter(c => c.symbol !== numeral);

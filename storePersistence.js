@@ -1,6 +1,6 @@
 import { loadState } from './storage.js';
 import { initChordPattern, initDrumPattern, initPatternSet } from './patternUtils.js';
-import { getChordNotes } from './theory.js';
+import { getChordNotes, getEffectiveTuning } from './theory.js';
 import { identifyChord } from './chordAnalyzer.js';
 import { state, applyLoopBounds, applyMacroLoopBounds, analyseChordsOnLoad } from './store.js';
 
@@ -206,7 +206,13 @@ export function loadAndApplyInitialState(explicitState = null) {
                     id: cc.id || Math.random().toString(36).substring(2, 10),
                     symbol: typeof cc.symbol === 'string' ? cc.symbol.replace(/[<>"]/g, '').substring(0, 20) : 'Custom',
                     key: typeof cc.key === 'number' ? Math.max(0, Math.min(127, cc.key)) : state.baseKey,
-                    customNotes: Array.isArray(cc.customNotes) ? cc.customNotes.map(Number) : [],
+                    customNotes: Array.isArray(cc.customNotes) ? cc.customNotes.map(n => {
+                        if (n && typeof n === 'object' && typeof n.pitch === 'number') {
+                            return { pitch: n.pitch, isMicrotonal: !!n.isMicrotonal };
+                        }
+                        const pNum = Number(n);
+                        return { pitch: pNum, isMicrotonal: pNum % 1 !== 0 };
+                    }) : [],
                     duration: typeof cc.duration === 'number' ? cc.duration : 2,
                     voicingType: cc.voicingType || 'global',
                     voicing: cc.voicing || null,
@@ -239,7 +245,20 @@ export function loadAndApplyInitialState(explicitState = null) {
                 chordObj.voicing = item.voicing ? { ...item.voicing } : null;
 
                 if (Array.isArray(item.customNotes)) {
-                    chordObj.customNotes = item.customNotes.map(Number);
+                    const isCustom = (savedState.customChords || []).some(cc => cc.symbol === item.symbol) || (item.symbol && item.symbol.startsWith('Custom'));
+                    const itemDivisions = item.divisions || savedState.divisions || 12;
+                    const tuning = getEffectiveTuning(item.symbol, itemDivisions);
+                    const isNativelyMicrotonal = tuning && Math.abs(tuning.periodSize - 12.0) > 0.01;
+                    
+                    if (isCustom || isNativelyMicrotonal) {
+                        chordObj.customNotes = item.customNotes.map(p => {
+                            if (p && typeof p === 'object' && typeof p.pitch === 'number') {
+                                return { pitch: p.pitch, isMicrotonal: !!p.isMicrotonal };
+                            }
+                            const pNum = Number(p);
+                            return { pitch: pNum, isMicrotonal: pNum % 1 !== 0 };
+                        });
+                    }
                 }
 
                 // Migrate legacy pattern if it exists
@@ -282,7 +301,20 @@ export function loadAndApplyInitialState(explicitState = null) {
                     if (typeof swapObj.voicingType !== 'string') delete swapObj.voicingType;
                     if (typeof swapObj.voicing !== 'object') delete swapObj.voicing;
                     if (Array.isArray(swapObj.customNotes)) {
-                        swapObj.customNotes = swapObj.customNotes.map(Number);
+                        const isCustom = (savedState.customChords || []).some(cc => cc.symbol === swapObj.symbol) || (swapObj.symbol && swapObj.symbol.startsWith('Custom'));
+                        const itemDivisions = swapObj.divisions || savedState.divisions || 12;
+                        const tuning = getEffectiveTuning(swapObj.symbol, itemDivisions);
+                        const isNativelyMicrotonal = tuning && Math.abs(tuning.periodSize - 12.0) > 0.01;
+                        
+                        if (isCustom || isNativelyMicrotonal) {
+                            swapObj.customNotes = swapObj.customNotes.map(p => {
+                                 if (p && typeof p === 'object' && typeof p.pitch === 'number') {
+                                     return { pitch: p.pitch, isMicrotonal: !!p.isMicrotonal };
+                                 }
+                                 const pNum = Number(p);
+                                 return { pitch: pNum, isMicrotonal: pNum % 1 !== 0 };
+                             });
+                        }
                     }
                     if (typeof swapObj.divisions === 'number') cleanSwaps[idx].divisions = swapObj.divisions;
                     cleanSwaps[idx] = swapObj;

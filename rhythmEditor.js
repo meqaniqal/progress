@@ -98,7 +98,7 @@ export function auditionSlicePitch(pitchOffset = 0, pitchOffsets = [], activeNot
     segmented.frictionLeft.forEach(n => playTone(midiToFreq(n), now, duration, chordInst, 'chords', panL, getVol(n)));
     segmented.frictionRight.forEach(n => playTone(midiToFreq(n), now, duration, chordInst, 'chords', panR, getVol(n)));
 
-    const rootChordNotes = getChordNotes(chord.symbol, chord.key, tuning.divisions);
+    const rootChordNotes = getChordNotes(chord, chord.key, tuning.divisions);
     if (rootChordNotes) {
         const rootBassNote = getBassNote(rootChordNotes, tuning);
         let finalBassNote = rootBassNote;

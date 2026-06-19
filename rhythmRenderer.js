@@ -367,7 +367,7 @@ export function renderRhythmTimeline() {
                 if (chord && activeIndex !== null) {
                     const baseKey = chord.key !== undefined ? chord.key : (app.state.baseKey !== undefined ? app.state.baseKey : 60);
                     const divisions = chord.divisions || app.state.divisions || 12;
-                    const originalNotes = getChordNotes(chord.symbol, baseKey, divisions);
+                    const originalNotes = getChordNotes(chord, baseKey, divisions);
                     if (originalNotes) {
                         const uniqueChordSymbols = new Set();
                         pattern.instances.forEach(inst => {

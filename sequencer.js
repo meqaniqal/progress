@@ -26,12 +26,7 @@ export function auditionChord(chordSymbol, baseKey, specificNotes = null, divisi
     const tuning = getEffectiveTuning(chordSymbol, divisions || state.divisions || 12);
     let chordNotes = specificNotes;
     if (!chordNotes) {
-        const customChord = state.customChords.find(c => c.symbol === chordSymbol);
-        if (customChord) {
-            chordNotes = customChord.customNotes;
-        } else {
-            chordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
-        }
+        chordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
     }
     if (!chordNotes) return;
 
@@ -286,7 +281,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         const rootSymbol = chordObj.symbol;
         const rootKey = chordObj.key;
         const tuning = getEffectiveTuning(rootSymbol, chordObj.divisions || state.divisions || 12);
-        const rootChordNotes = chordObj.customNotes || getChordNotes(rootSymbol, rootKey, tuning.divisions);
+        const rootChordNotes = getChordNotes(chordObj, rootKey, tuning.divisions);
         if (rootChordNotes) {
             const rootNoteMidi = getBassNote(rootChordNotes, tuning);
             
@@ -539,12 +534,7 @@ function scheduleChordAudition(chordSymbol, baseKey, specificNotes, divisions, s
     const tuning = getEffectiveTuning(chordSymbol, divisions || state.divisions || 12);
     let chordNotes = specificNotes;
     if (!chordNotes) {
-        const customChord = state.customChords.find(c => c.symbol === chordSymbol);
-        if (customChord) {
-            chordNotes = customChord.customNotes;
-        } else {
-            chordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
-        }
+        chordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
     }
     if (!chordNotes) return;
 

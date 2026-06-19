@@ -78,7 +78,7 @@ export function getMatchedOffset(note, inst, chordObj, periodSize = 12, fallback
     
     if (chordObj && chordObj.symbol) {
         const divisions = chordObj.divisions || (state && state.divisions) || 12;
-        const rootNotes = chordObj.customNotes || getChordNotes(chordObj.symbol, chordObj.key !== undefined ? chordObj.key : 60, divisions);
+        const rootNotes = getChordNotes(chordObj, chordObj.key !== undefined ? chordObj.key : 60, divisions);
         if (rootNotes && rootNotes.length > 0) {
             const nPc = ((note % periodSize) + periodSize) % periodSize;
             let bestIdx = -1;

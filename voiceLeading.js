@@ -42,7 +42,7 @@ export function applyVoiceLeading(progression, globalOptions = {}) {
 
     for (let i = 0; i < progression.length; i++) {
         const chord = progression[i];
-        const chordNotes = chord.customNotes || getChordNotes(chord.symbol, chord.key, getDivisions(chord));
+        const chordNotes = getChordNotes(chord, chord.key, getDivisions(chord));
 
         if (!chordNotes || chordNotes.length === 0) {
             processed.push([]);
@@ -118,7 +118,7 @@ export function getPlayableNotes(progression, globalOptions = {}) {
         // 1b. Just use root position (dropped one period for warmth)
         baseProgression = progression.map(chord => {
             const tuning = getEffectiveTuning(chord.symbol, chord.divisions || globalOptions.divisions || 12);
-            const notes = chord.customNotes || getChordNotes(chord.symbol, chord.key, tuning.divisions);
+            const notes = getChordNotes(chord, chord.key, tuning.divisions);
             const dropSize = tuning.periodSize > 14 ? CONFIG.VL_OCTAVE_SHIFT : tuning.periodSize;
             return notes ? notes.map(n => n - dropSize) : [];
         });
