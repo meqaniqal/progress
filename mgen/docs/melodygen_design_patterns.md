@@ -1235,3 +1235,78 @@ MVP: Phase 1 (done) + Five-Pass Pipeline + PhraseArcPlanner +
      ListenerExpectation (basic) + 6 Climax Archetypes
 This alone would transform the output quality. The rest (IDyOM, Schenkerian, Music Transformer, micro-timing) are polish on top of a fundamentally different architecture.
 Bottom line: The plan is excellent as a vision document. For implementation, I'd suggest: (a) reordering priorities to build the pipeline container first, (b) adding explicit integration points for each module, (c) adding a quality assessment framework, and (d) defining a minimum viable upgrade path before tackling the research frontiers.
+
+---
+
+## Phase 10 — Implementation Notes (2026-06-19)
+
+This section documents what was actually implemented, how it diverged from the original plan, and why. The original plan (Phases 1-9 above) remains the authoritative vision. This section is a record of the implementation decisions made when building the code.
+
+### What Was Built
+
+Three engines were implemented: **PhraseEngine (rewritten)**, **ExpectationEngine (new)**, and **VoiceLeadingEngine (new)**. Additionally, Pass E, StyleEngine, and RhythmEngine received fixes.
+
+### Key Divergences from Original Plan
+
+| Original Plan | Implementation | Reason |
+|---|---|---|
+| PhraseEngine = abstract phrase structure output | PhraseEngine = PhraseArcPlanner + PhraseGrammar (rewritten, ~600 lines) | The abstract description was insufficient for implementation. The PhraseArcPlanner (climax archetypes, tension/register curves) and PhraseGrammar (structural relationships) are so tightly coupled to phrase structure that separating them would create more coupling, not less. |
+| ExpectationEngine = Pass 5 (after Pass D) | ExpectationEngine = post-processing engine (runs after all 5 passes + Pass E) | Expectation analysis requires the *complete* melody context. Running it as Pass 5 would mean analyzing an incomplete melody. As a post-processing engine, it reviews the full set of structural/cadence/connector/ornament/expectation notes and makes global adjustments. |
+| VoiceLeadingEngine = Phase 5 (separate, later priority) | VoiceLeadingEngine = post-processing engine (runs after all passes) | Same reasoning as ExpectationEngine. Voice-leading analysis requires the complete melody. Also, VoiceLeadingEngine fixes StyleEngine's `_findPreviousNote()` bug, making it a natural partner to the existing StyleEngine. |
+| 6 climax archetypes = Phase 6 (separate file) | Climax archetypes = integrated into PhraseEngine | Climax position determines phrase roles, which determine register constraints, which constrain pitch selection. These are all part of the same data flow. Separating them would require passing data between files, creating more coupling. |
+| Pass E = "changed notes only" | Pass E = returns all notes (modified ones marked) | Pipeline integrity. The orchestrator's deduplication step needs to see all notes to resolve conflicts correctly. Returning only changed notes breaks downstream passes. |
+| ListenerExpectation (Phase 3.5) + TRAJECTORY_RULES (Phase 5) = separate | ExpectationEngine + VoiceLeadingEngine = separate but integrated via context | The design docs noted these are "tightly coupled" (point 9 in the evaluation). They are separate engines but communicate via the orchestrator's context object. ExpectationEngine sets `expectedPitch`/`expectedRegister` in context; VoiceLeadingEngine reads them to relax rules at climax. |
+| MelodicMemory (Phase 3) = not built | Not built in this round | Out of scope. The design docs list this as Phase 3 (Medium effort). It would track motif family, rhythmic motif, transform chain, phrase count, and motif inventory across the session. This is a future addition. |
+
+### Implementation Priority Used
+
+The implementation followed this priority, which differs from the original plan's priority table:
+
+| Priority | What | Why |
+|---|---|---|
+| 1 | PhraseEngine rewrite | Drives register constraints for ALL other passes. Without it, no other engine has meaningful context. |
+| 2 | VoiceLeadingEngine | Fixes the most obvious quality issue (uncompensated leaps). Also fixes StyleEngine bug. |
+| 3 | ExpectationEngine | Most sophisticated but also most abstract. Needs PhraseEngine and VoiceLeadingEngine to be solid first. |
+| 4 | Pass E fix + StyleEngine fix + RhythmEngine fix | Small fixes that enable the new engines to work correctly. |
+| 5 | Pipeline wiring | Register new engines in app.js. |
+| 6 | Tests | ~800 tests across ~8 test files. |
+
+### Why This Order Works
+
+1. **PhraseEngine first** — It computes the phrase arc (climax position, tension curve, register curve) that constrains ALL subsequent passes. Without it, the structural pass has no register constraints, the cadence pass has no phrase role context, and the connector pass has no tension-driven bias.
+
+2. **VoiceLeadingEngine second** — It fixes the most visible quality issue: melodies with uncompensated leaps. It also fixes StyleEngine's `_findPreviousNote()` bug, which means StyleEngine's interval constraints finally work. This is a quick win that improves output quality immediately.
+
+3. **ExpectationEngine third** — It's the most abstract and hardest to verify. It needs PhraseEngine's register constraints and VoiceLeadingEngine's leap compensation to be solid first, otherwise expectation analysis operates on noisy data.
+
+4. **Fixes fourth** — Pass E returning all notes, StyleEngine finding previous notes, RhythmEngine caching profiles. These are small but critical for pipeline integrity.
+
+### What the Original Plan Got Right
+
+- The six climax archetypes are correct and genre-appropriate.
+- The four expectation operations (confirmation, delay, deflection, payoff) are the right conceptual framework.
+- The trajectory rules (leap → counter-directional step) are perceptually grounded.
+- The hierarchy (pitch → motif → phrase → form → style expectations) is the right mental model.
+- The composable task architecture (inputs, parameters, outputs, evaluation metrics) is the right pattern.
+
+### What the Original Plan Got Wrong (or Incomplete)
+
+- **Placement of ExpectationEngine and VoiceLeadingEngine as "Pass 5" and "Phase 5"** — These require complete melody context, not partial pass context. Post-processing engines are the right placement.
+- **Separation of PhraseArcPlanner and PhraseGrammar** — They are so tightly coupled to phrase structure that merging them reduces coupling, not increases it.
+- **Climax archetypes as a separate phase** — They are fundamental to phrase structure, not a separate concern.
+- **Pass E returning only changed notes** — This breaks pipeline integrity. All passes should return all notes.
+
+### Future Work (Not Built)
+
+The following items from the original plan were NOT built in this round:
+
+- **Phase 3: MelodicMemory + MotifRecaller** — Tracks motif family, rhythmic motif, transform chain, phrase count, motif inventory across the session. Eliminates "motif amnesia" (each chord slot regenerates independently). Medium effort.
+- **Phase 7: Jazz guide-tone lines** — Trace 3rds and 7ths through chord progression as mandatory anchor points. Medium effort.
+- **Phase 7: Blues call-and-response planner** — Tag first half of 4-bar phrase as call, second half as response. Medium effort.
+- **Phase 7: Expanded motif library (20 entries)** — Current library has 5 entries. Minimum viable: 5 per mode (20 total). Small effort.
+- **Phase 7: Idiomatic phrase vocabulary** — Genre-specific surface character. Medium effort.
+- **Phase 8: Microtonal ornaments + glides** — Grace notes at proportional offsets. Small effort.
+- **Phase 9: IDyOM-style statistical expectation** — Learned melodic intuition from corpus. Large effort.
+- **Phase 9: Schenkerian background structure** — Long-range coherence. Large effort.
+
+These are documented in the original plan and can be built when the current foundation is proven.

@@ -116,6 +116,28 @@ describe('OrnamentPlanner (Pass D)', () => {
       expect(result.notes).toEqual([]);
       expect(result.success).toBe(true);
     });
+
+    it('should skip ornament after 3 consecutive same-pitch ornaments', async () => {
+      const highDensityPlanner = new OrnamentPlanner({ ornamentDensity: 1.0 });
+      const structuralNotes = [
+        new MelodyNote(60, 0, 2, 'structural'),
+        new MelodyNote(60, 4, 2, 'structural'),
+        new MelodyNote(60, 8, 2, 'structural'),
+        new MelodyNote(60, 12, 2, 'structural'),
+      ];
+
+      const chords = [new Chord('C', 'maj', 0, 4)];
+      const phraseContext = new PhraseContext('statement', false);
+      const config = new GenerationConfig(chords, phraseContext);
+
+      const result = await highDensityPlanner.execute(config, structuralNotes);
+      const ornamentedNotes = result.notes.filter(n => n.role === 'ornament');
+
+      // With 4 structural notes all at pitch 60, the 4th should be skipped
+      // (3 ornaments generated, 4th structural note skipped)
+      // Each ornament adds ~4 notes (trill=4, turn=4, grace=2), so 3 ornaments = ~12 notes
+      expect(ornamentedNotes.length).toBeLessThan(15);
+    });
   });
 
   describe('_generateGraceNote()', () => {

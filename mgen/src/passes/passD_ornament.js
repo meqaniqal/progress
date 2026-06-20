@@ -40,10 +40,25 @@ export class OrnamentPlanner {
     // Sort notes by time
     const sortedNotes = [...previousNotes].sort((a, b) => a.startTime - b.startTime);
 
+    // Track consecutive same-pitch ornaments to break repetition
+    let consecutiveSamePitchCount = 0;
+    let lastOrnamentedPitch = null;
+
     // Attempt to ornament each structural note (not connectors)
     for (const note of sortedNotes) {
       if (note.role === 'connector') {
         continue; // Don't ornament connectors
+      }
+
+      // Skip ornament if 3+ consecutive ornaments target the same pitch
+      if (note.pitch === lastOrnamentedPitch) {
+        consecutiveSamePitchCount++;
+        if (consecutiveSamePitchCount >= 3) {
+          continue; // Skip to break repetition
+        }
+      } else {
+        consecutiveSamePitchCount = 0;
+        lastOrnamentedPitch = note.pitch;
       }
 
       const ornamentedNotes = this._attemptOrnament(note, config.chords);

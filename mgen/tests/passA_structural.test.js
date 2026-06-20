@@ -167,4 +167,56 @@ describe('StructuralPlanner (Pass A)', () => {
       expect(midi).toBe(66);
     });
   });
+
+  describe('pitchDiversityMode: cycle', () => {
+    it('should produce different pitches for consecutive notes from the same chord when pitchDiversityMode is cycle', async () => {
+      const chords = [
+        new Chord('C', 'maj7', 0, 4),
+        new Chord('C', 'maj7', 4, 4),
+        new Chord('C', 'maj7', 8, 4),
+        new Chord('C', 'maj7', 12, 4),
+      ];
+      for (let i = 0; i < chords.length; i++) {
+        chords[i].sliceIndex = i;
+      }
+
+      const phraseContext = new PhraseContext('statement', 0.5);
+      const config = new GenerationConfig(chords, phraseContext, {
+        pitchDiversityMode: 'cycle',
+        pitchDiversityWeight: 1.0,
+      });
+
+      const result = await planner.execute(config);
+      const pitches = result.notes.map(n => n.pitch);
+
+      // Cmaj7 has 4 tones: C(60), E(64), G(67), B(71)
+      // With 4 slices cycling through 4 tones, we should see at least 3 distinct pitches
+      const distinctPitches = new Set(pitches);
+      expect(distinctPitches.size).toBeGreaterThanOrEqual(3);
+    });
+
+    it('should avoid previous pitch when pitchDiversityMode is avoid-previous', async () => {
+      const chords = [
+        new Chord('C', 'maj', 0, 4),
+        new Chord('C', 'maj', 4, 4),
+        new Chord('C', 'maj', 8, 4),
+      ];
+      for (let i = 0; i < chords.length; i++) {
+        chords[i].sliceIndex = i;
+      }
+
+      const phraseContext = new PhraseContext('statement', 0.5);
+      const config = new GenerationConfig(chords, phraseContext, {
+        pitchDiversityMode: 'avoid-previous',
+        pitchDiversityWeight: 1.0,
+      });
+
+      const result = await planner.execute(config);
+      const pitches = result.notes.map(n => n.pitch);
+
+      // With avoid-previous mode, some notes should differ from the root (60)
+      const nonRootNotes = pitches.filter(p => p !== 60);
+      expect(nonRootNotes.length).toBeGreaterThan(0);
+    });
+  });
 });

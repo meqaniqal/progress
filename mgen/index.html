@@ -607,6 +607,10 @@
             <option value="pythagorean">Pythagorean Tuning</option>
           </select>
         </div>
+        <div class="form-group">
+          <label for="pitch-diversity-weight">Pitch Diversity: 0%</label>
+          <input type="range" id="pitch-diversity-weight" value="0" min="0" max="100" step="1" oninput="document.getElementById('pitch-diversity-label').textContent='Pitch Diversity: '+this.value+'%'">
+        </div>
       </div>
 
       <div class="chord-list" id="chord-list"></div>

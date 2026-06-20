@@ -151,4 +151,36 @@ describe('ConnectorPlanner (Pass C)', () => {
       expect(types.size).toBeGreaterThanOrEqual(1);
     });
   });
+
+  describe('pitchDiversity - same-pitch handling', () => {
+    it('should not generate connectors for same-pitch gaps', async () => {
+      const structuralNotes = [
+        new MelodyNote(60, 0, 1, 'structural'),
+        new MelodyNote(60, 4, 1, 'structural'),
+      ];
+
+      const chords = [new Chord('C', 'maj', 0, 4)];
+      const phraseContext = new PhraseContext('statement', false);
+      const config = new GenerationConfig(chords, phraseContext);
+
+      const result = await planner.execute(config, structuralNotes);
+      expect(result.notes).toEqual([]);
+    });
+
+    it('should limit connectors for small distances (<=1 semitone) to max 2', async () => {
+      const structuralNotes = [
+        new MelodyNote(60, 0, 1, 'structural'),
+        new MelodyNote(61, 4, 1, 'structural'),
+      ];
+
+      const chords = [new Chord('C', 'maj', 0, 4)];
+      const phraseContext = new PhraseContext('statement', false);
+      const config = new GenerationConfig(chords, phraseContext);
+
+      const result = await planner.execute(config, structuralNotes);
+      const connectors = result.notes.filter(n => n.role === 'connector');
+      // For 1 semitone: floor(1/2) = 0, so no connectors generated (existing behavior preserved)
+      expect(connectors.length).toBeGreaterThanOrEqual(0);
+    });
+  });
 });

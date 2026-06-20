@@ -47,6 +47,25 @@ MicrotonalEngine
 
 Future versions may replace individual algorithms while preserving these architectural responsibilities.
 
+---
+
+## Implementation Status (2026-06-19)
+
+The following engines have been implemented as of 2026-06-19:
+
+| Engine | Status | Notes |
+|--------|--------|-------|
+| PhraseEngine | **Rewritten** (~600 lines) | Integrated PhraseArcPlanner (6 climax archetypes, tension/register curves) + PhraseGrammar (call/response, question/answer, developing variation). Fixed antecedent-consequent. Added register envelope constraints. |
+| ExpectationEngine | **New** (~350 lines) | Post-processing engine. ListenerExpectation state tracking (pitch, rhythm, register, resolution). 4 operations: confirmation, delay, deflection, payoff. Unresolved leap detection, payoff enforcement. |
+| VoiceLeadingEngine | **New** (~300 lines) | Post-processing engine. Interval classification (step/skip/leap). Trajectory rules (leap → counter-directional step). Momentum tracking (4 same-direction steps → force turn). Leap compensation. |
+| MotifEngine | Existing (476 lines) | Unchanged. 6 transformation types. |
+| RhythmEngine | Existing (528 lines) | Fixed `_regenerateProfileForGenre()` for deterministic output (cached per genre). |
+| StyleEngine | Existing (427 lines) | Fixed `_findPreviousNote()` to actually find previous note from sorted context. |
+| MicrotonalEngine | Existing (373 lines) | Unchanged. 4 tuning systems (12-TET, quartertone, just, pythagorean). |
+| Pass A-E | Existing (5 passes) | Pass E fixed to return all notes (not just changed ones). |
+
+See `melodygen_architecture.md` Phase 10 and `melodygen_design_patterns.md` Phase 10 for detailed divergence notes.
+
 
 
 

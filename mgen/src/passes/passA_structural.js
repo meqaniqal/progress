@@ -39,12 +39,17 @@ export class StructuralPlanner {
   async execute(config, previousNotes = [], context = {}) {
     const { chords, phraseContext } = config;
     const notes = [];
+    const options = config.options || {};
+    const pitchDiversityMode = options.pitchDiversityMode || 'avoid-previous';
+    const pitchDiversityWeight = parseFloat(options.pitchDiversityWeight) || 0.0;
+    let previousStructuralPitch = null;
 
     // Select structural targets for each chord
     for (let i = 0; i < chords.length; i++) {
       const chord = chords[i];
-      const structuralNote = this._selectStructuralTarget(chord, phraseContext, i, chords);
+      const structuralNote = this._selectStructuralTarget(chord, phraseContext, i, chords, previousStructuralPitch, pitchDiversityMode, pitchDiversityWeight);
       if (structuralNote) {
+        previousStructuralPitch = structuralNote.pitch;
         notes.push(structuralNote);
       }
     }
@@ -74,39 +79,60 @@ export class StructuralPlanner {
    * @returns {MelodyNote} Structural target note
    * @private
    */
-  _selectStructuralTarget(chord, phraseContext, chordIndex, allChords) {
-    const chordTones = this._getChordTones(chord);
-    const phraseRole = phraseContext.role;
+   _selectStructuralTarget(chord, phraseContext, chordIndex, allChords, previousStructuralPitch, pitchDiversityMode, pitchDiversityWeight) {
+     const chordTones = this._getChordTones(chord);
+     const phraseRole = phraseContext.role;
 
-    // Select chord tone based on phrase role
-    let targetPitch;
+     // Select chord tone based on phrase role
+     let targetPitch;
 
-    switch (phraseRole) {
-      case 'statement':
-        // Statement phrases tend to use root or third
-        targetPitch = chordTones[0] || this._fallbackRegister(chord, 0);
-        break;
-      case 'build':
-        // Build phrases may use fifth or seventh for tension
-        targetPitch = chordTones[2] || chordTones[0] || this._fallbackRegister(chord, 0);
-        break;
-      case 'climax':
-        // Climax phrases target higher register
-        targetPitch = this._selectHighestChordTone(chordTones);
-        break;
-      case 'release':
-        // Release phrases move toward tonic
-        targetPitch = this._findTonicApproach(chord, chordTones, allChords);
-        break;
-      case 'resolution':
-        // Resolution phrases land on tonic
-        targetPitch = this._findTonicNote(chord, chordTones);
-        break;
-      default:
-        targetPitch = chordTones[0] || this._fallbackRegister(chord, 0);
-    }
+     switch (phraseRole) {
+       case 'statement':
+         // Statement phrases tend to use root or third
+         targetPitch = chordTones[0] || this._fallbackRegister(chord, 0);
+         break;
+       case 'build':
+         // Build phrases may use fifth or seventh for tension
+         targetPitch = chordTones[2] || chordTones[0] || this._fallbackRegister(chord, 0);
+         break;
+       case 'climax':
+         // Climax phrases target higher register
+         targetPitch = this._selectHighestChordTone(chordTones);
+         break;
+       case 'release':
+         // Release phrases move toward tonic
+         targetPitch = this._findTonicApproach(chord, chordTones, allChords);
+         break;
+       case 'resolution':
+         // Resolution phrases land on tonic
+         targetPitch = this._findTonicNote(chord, chordTones);
+         break;
+       default:
+         targetPitch = chordTones[0] || this._fallbackRegister(chord, 0);
+     }
 
-    // Apply register constraints from phrase context
+     // Pitch diversity override: vary structural notes within the same chord
+     if (pitchDiversityWeight > 0 && chordTones.length > 1) {
+       const shouldApply = Math.random() < pitchDiversityWeight;
+       if (shouldApply) {
+         const sliceIndex = chord.sliceIndex || 0;
+         if (pitchDiversityMode === 'cycle') {
+           // Cycle through chord tones based on slice index
+           const cycleIndex = (sliceIndex + 1) % chordTones.length;
+           targetPitch = chordTones[cycleIndex];
+         } else {
+           // Avoid-previous: pick a different chord tone if current matches previous
+           if (targetPitch === previousStructuralPitch) {
+             const alternatives = chordTones.filter(t => t !== previousStructuralPitch);
+             if (alternatives.length > 0) {
+               targetPitch = alternatives[sliceIndex % alternatives.length];
+             }
+           }
+         }
+       }
+     }
+
+     // Apply register constraints from phrase context
     if (phraseContext.registerTarget !== null) {
       targetPitch = this._adjustToRegister(targetPitch, phraseContext.registerTarget);
     }

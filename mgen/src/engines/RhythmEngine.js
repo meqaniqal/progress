@@ -86,15 +86,16 @@ export class RhythmEngine {
    * @param {number} [options.stepsPerMeasure=16] - Sixteenth steps per measure (default 16)
    * @param {number} [options.chordSlotDuration=4] - Duration of each chord in beats
    */
-  constructor(options = {}) {
-    this.aestheticMode = options.aestheticMode || 'cantabile';
-    this.genre = options.genre || 'none';
-    this.density = options.density ?? 0.5;
-    this.stepsPerMeasure = options.stepsPerMeasure || 16;
-    this.chordSlotDuration = options.chordSlotDuration || 4;
-    this.templates = this._createDefaultTemplates();
-    this.subdivisionProfiles = this._createDefaultSubdivisionProfiles();
-  }
+   constructor(options = {}) {
+     this.aestheticMode = options.aestheticMode || 'cantabile';
+     this.genre = options.genre || 'none';
+     this.density = options.density ?? 0.5;
+     this.stepsPerMeasure = options.stepsPerMeasure || 16;
+     this.chordSlotDuration = options.chordSlotDuration || 4;
+     this.templates = this._createDefaultTemplates();
+     this.subdivisionProfiles = this._createDefaultSubdivisionProfiles();
+     this._cachedProfiles = {}; // Cache subdivision profiles per genre for determinism
+   }
 
   /**
    * Create default rhythm templates per aesthetic mode.
@@ -396,18 +397,32 @@ export class RhythmEngine {
    * @private
    */
   _regenerateProfileForGenre(genre) {
+    // Fixed 2026-06-19: Cache profiles per genre for deterministic output.
+    // Previously called on every execution, producing different subdivision
+    // profiles each time for the same genre.
+    if (this._cachedProfiles[genre]) {
+      return this._cachedProfiles[genre];
+    }
+    let profile;
     switch (genre) {
       case 'acceleration':
-        return this._genAcceleration();
+        profile = this._genAcceleration();
+        break;
       case 'deceleration':
-        return this._genDeceleration();
+        profile = this._genDeceleration();
+        break;
       case 'syncopatedAlternation':
-        return this._genSyncopatedAlternation();
+        profile = this._genSyncopatedAlternation();
+        break;
       case 'tripletSwing':
-        return this._genTripletSwing();
+        profile = this._genTripletSwing();
+        break;
       default:
-        return Array(16).fill(4);
+        profile = Array(16).fill(4);
+        break;
     }
+    this._cachedProfiles[genre] = profile;
+    return profile;
   }
 
   /**

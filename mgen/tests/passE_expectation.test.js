@@ -79,10 +79,12 @@ describe('ExpectationRefiner (Pass E)', () => {
 
       const refinedNotes = result.notes;
 
-      // Large interval (48 semitones) should trigger refinement of the response note
-      // Only the changed note is returned (the response note pitch was adjusted)
-      expect(refinedNotes.length).toBe(1);
-      expect(refinedNotes[0].pitch).toBe(60); // Adjusted from 96 to 60 (one octave above call)
+      // Fixed 2026-06-19: Pass E now returns ALL notes (not just changed ones).
+      // Modified notes are marked with metadata.passEAdjusted = true.
+      expect(refinedNotes.length).toBe(2);
+      // The second note (96) should have been adjusted
+      const adjustedNote = refinedNotes.find(n => n.metadata?.passEAdjusted);
+      expect(adjustedNote).toBeDefined();
     });
 
     it('should return proper PassResult with evaluation metrics', async () => {
@@ -134,8 +136,9 @@ describe('ExpectationRefiner (Pass E)', () => {
 
       const result = await refiner.execute(config, allNotes);
 
-      // Single note: no call-response pairs, so no refinements needed
-      expect(result.notes.length).toBe(0);
+      // Fixed 2026-06-19: Pass E now returns all notes (not just changed ones).
+      // Single note: no call-response pairs, so no refinements needed, but note is still returned.
+      expect(result.notes.length).toBe(1);
       expect(result.metadata.callResponsePairs).toBe(0);
     });
   });
@@ -159,13 +162,55 @@ describe('ExpectationRefiner (Pass E)', () => {
 
       const notes = [
         new MelodyNote(60, 0, 1, 'structural'),
-        new MelodyNote(65, 10, 1, 'structural'), // 10 time units apart
+        new MelodyNote(65, 10, 1, 'structural'),
       ];
 
       const pairs = smallWindowRefiner._analyzeCallAndResponse(notes);
 
       // Should not identify pair if distance exceeds window
       expect(pairs.length).toBe(0);
+    });
+  });
+
+  describe('pitchDiversity scoring', () => {
+    it('should include pitchDiversityScore in metrics', async () => {
+      const allNotes = [
+        new MelodyNote(60, 0, 1, 'structural'),
+        new MelodyNote(64, 4, 1, 'structural'),
+        new MelodyNote(67, 8, 1, 'structural'),
+      ];
+
+      const chords = [new Chord('C', 'maj', 0, 4)];
+      const phraseContext = new PhraseContext('statement', false);
+      const config = new GenerationConfig(chords, phraseContext);
+
+      const result = await refiner.execute(config, allNotes);
+
+      expect(result.metadata.pitchDiversityScore).toBeDefined();
+      expect(typeof result.metadata.pitchDiversityScore).toBe('number');
+      expect(result.metadata.pitchDiversityScore).toBeGreaterThanOrEqual(0);
+      expect(result.metadata.pitchDiversityScore).toBeLessThanOrEqual(1);
+    });
+
+    it('should flag melodies where any pitch exceeds 30% of structural notes', async () => {
+      const allNotes = [
+        new MelodyNote(60, 0, 1, 'structural'),
+        new MelodyNote(60, 2, 1, 'structural'),
+        new MelodyNote(60, 4, 1, 'structural'),
+        new MelodyNote(60, 6, 1, 'structural'),
+        new MelodyNote(64, 8, 1, 'structural'),
+        new MelodyNote(67, 10, 1, 'structural'),
+      ];
+
+      const chords = [new Chord('C', 'maj', 0, 4)];
+      const phraseContext = new PhraseContext('statement', false);
+      const config = new GenerationConfig(chords, phraseContext);
+
+      const result = await refiner.execute(config, allNotes);
+
+      // 4/6 = 0.67, so pitchDiversityScore = 1.0 - 0.67 = 0.33
+      expect(result.metadata.pitchDiversityScore).toBeLessThan(0.5);
+      expect(result.metadata.highestPitchFrequency).toBeGreaterThan(0.3);
     });
   });
 });

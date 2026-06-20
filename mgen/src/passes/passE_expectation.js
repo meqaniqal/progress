@@ -44,25 +44,55 @@ export class ExpectationRefiner {
     // Refine notes based on call-response patterns
     const allRefined = this._applyRefinements(refinedNotes, callResponsePairs, config);
 
-    // Only return notes that were actually modified (pitch changed)
-    const changedNotes = [];
-    for (let i = 0; i < previousNotes.length; i++) {
+    // Return ALL notes (not just changed ones) — critical for pipeline integrity.
+    // The orchestrator's deduplication step needs to see all notes to resolve
+    // conflicts correctly. Modified notes are marked with metadata.
+    const finalNotes = allRefined.map((refined, i) => {
       const original = previousNotes[i];
-      const refined = allRefined[i];
-      if (refined && refined.pitch !== original.pitch) {
-        changedNotes.push(refined);
+      if (refined.pitch !== original.pitch) {
+        return new MelodyNote(
+          refined.pitch,
+          refined.startTime,
+          refined.duration,
+          refined.role,
+          {
+            ...refined.metadata,
+            passEAdjusted: true,
+            originalPitch: original.pitch,
+          }
+        );
       }
-    }
+      return refined;
+    });
+
+    const changedCount = finalNotes.filter((n, i) => n.metadata?.passEAdjusted).length;
+
+    // Pitch diversity scoring: flag melodies where any single pitch dominates
+    const structuralNotes = finalNotes.filter(n => n.role === 'structural' || n.role === 'cadence');
+    const pitchCounts = {};
+    structuralNotes.forEach(n => {
+      pitchCounts[n.pitch] = (pitchCounts[n.pitch] || 0) + 1;
+    });
+    const maxPitchCount = structuralNotes.length > 0 ? Math.max(...Object.values(pitchCounts)) : 0;
+    const pitchDiversityScore = structuralNotes.length > 0
+      ? 1.0 - (maxPitchCount / structuralNotes.length)
+      : 1.0;
+    const highestPitchFrequency = structuralNotes.length > 0
+      ? maxPitchCount / structuralNotes.length
+      : 0;
 
     return new PassResult(
       'PassE_Expectation',
-      changedNotes,
+      finalNotes,
       new EvaluationMetrics('PassE_Expectation', 1.0, [], true),
       {
         callResponsePairs: callResponsePairs.length,
         originalNoteCount: previousNotes.length,
-        finalNoteCount: changedNotes.length,
-        noteCount: changedNotes.length,
+        finalNoteCount: finalNotes.length,
+        noteCount: finalNotes.length,
+        changedCount,
+        pitchDiversityScore,
+        highestPitchFrequency,
       }
     );
   }

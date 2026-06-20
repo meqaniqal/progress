@@ -133,8 +133,9 @@ export class StyleEngine {
       throw new Error(`Unknown style: ${this.activeStyle}`);
     }
 
-    const styledNotes = this._applyStyleRules(previousNotes, style);
-    const score = this._calculateStyleComplianceScore(styledNotes, style);
+    const sortedNotes = [...previousNotes].sort((a, b) => a.startTime - b.startTime);
+    const styledNotes = this._applyStyleRules(previousNotes, style, sortedNotes);
+    const score = this._calculateStyleComplianceScore(styledNotes, style, sortedNotes);
 
     return new PassResult(
       'StyleEngine',
@@ -160,11 +161,11 @@ export class StyleEngine {
    * @returns {MelodyNote[]} Styled notes
    * @private
    */
-  _applyStyleRules(notes, style) {
+  _applyStyleRules(notes, style, sortedNotes) {
     const styled = [];
 
     for (const note of notes) {
-      const styledNote = this._applyIntervalConstraints(note, style);
+      const styledNote = this._applyIntervalConstraints(note, style, sortedNotes);
       const durationAdjusted = this._applyDurationConstraints(styledNote, style);
       const ornamented = this._applyOrnamentationRules(durationAdjusted, style);
 
@@ -181,11 +182,11 @@ export class StyleEngine {
    * @returns {MelodyNote} Constrained note
    * @private
    */
-  _applyIntervalConstraints(note, style) {
+  _applyIntervalConstraints(note, style, sortedNotes) {
     const maxInterval = style.rules.maxInterval;
 
     // Check interval with previous note
-    const prevNote = this._findPreviousNote(note);
+    const prevNote = this._findPreviousNote(note, sortedNotes);
     if (prevNote) {
       const interval = Math.abs(note.pitch - prevNote.pitch);
       if (interval > maxInterval) {
@@ -366,14 +367,19 @@ export class StyleEngine {
 
   /**
    * Find the previous note in the sequence.
+   * Fixed 2026-06-19: Previously always returned null, meaning StyleEngine's
+   * interval constraints were never applied. Now looks up the previous note
+   * from the sorted notes array passed via context.
    * @param {MelodyNote} note - Current note
+   * @param {MelodyNote[]} [sortedNotes] - Sorted notes array (from context)
    * @returns {MelodyNote|null} Previous note or null
    * @private
    */
-  _findPreviousNote(note) {
-    // This would be called within context of a sorted notes array
-    // For now, return null (no previous note found)
-    return null;
+  _findPreviousNote(note, sortedNotes) {
+    if (!sortedNotes || sortedNotes.length === 0) return null;
+    const idx = sortedNotes.findIndex(n => n.startTime === note.startTime);
+    if (idx <= 0) return null;
+    return sortedNotes[idx - 1];
   }
 
   /**
@@ -383,12 +389,12 @@ export class StyleEngine {
    * @returns {number} Compliance score (0.0-1.0)
    * @private
    */
-  _calculateStyleComplianceScore(notes, style) {
+  _calculateStyleComplianceScore(notes, style, sortedNotes) {
     if (notes.length === 0) return 0.5;
 
     const maxInterval = style.rules.maxInterval;
     const compliantNotes = notes.filter((note) => {
-      const prevNote = this._findPreviousNote(note);
+      const prevNote = this._findPreviousNote(note, sortedNotes);
       if (!prevNote) return true;
       return Math.abs(note.pitch - prevNote.pitch) <= maxInterval;
     });

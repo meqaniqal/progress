@@ -9,6 +9,9 @@ import { MicrotonalEngine } from './src/engines/MicrotonalEngine.js';
 import { MotifEngine, MotifFamily, MotifTransformation } from './src/engines/MotifEngine.js';
 import { StyleEngine, StyleProfile } from './src/engines/StyleEngine.js';
 import { RhythmEngine, RhythmTemplate, SubdivisionProfile } from './src/engines/RhythmEngine.js';
+import { PhraseEngine, CLIMAX_ARCHETYPES, TENSION_TO_ARCHETYPE, PHRASE_GRAMMAR } from './src/engines/PhraseEngine.js';
+import { ExpectationEngine } from './src/engines/ExpectationEngine.js';
+import { VoiceLeadingEngine, classifyInterval, getVoiceLeadingBias } from './src/engines/VoiceLeadingEngine.js';
 import {
   generateProgressionWithTracks,
   generateRandomPhraseContext,
@@ -115,7 +118,7 @@ async function runPipeline() {
 
   const orchestrator = new CompositionOrchestrator();
 
-  // Register all passes
+  // Register all passes (structural passes 1-5)
   const rhythmConfig = deriveRhythmEngineConfig(chords, phraseRole, tensionLevel);
   const rhythmEngine = new RhythmEngine({
     aestheticMode: rhythmConfig.aestheticMode,
@@ -128,6 +131,19 @@ async function runPipeline() {
   orchestrator.registerPass(new OrnamentPlanner());
   orchestrator.registerPass(new ExpectationRefiner());
   orchestrator.registerPass(rhythmEngine);
+
+  // Register post-processing engines (run after all structural passes)
+  const phraseEngine = new PhraseEngine({
+    archetype: TENSION_TO_ARCHETYPE[tensionCurve] || 'classical',
+    divisions: 12,
+  });
+  orchestrator.registerPass(phraseEngine);
+
+  const expectationEngine = new ExpectationEngine();
+  orchestrator.registerPass(expectationEngine);
+
+  const voiceLeadingEngine = new VoiceLeadingEngine();
+  orchestrator.registerPass(voiceLeadingEngine);
 
   // Build chord progression from user input
   const chordProgression = chords.map(chord => ({
@@ -147,11 +163,15 @@ async function runPipeline() {
   const config = new GenerationConfig(chordProgression, phraseContext, {
     density: parseFloat(document.getElementById('density-level')?.value) || 0.5,
     genre: document.getElementById('genre-select')?.value || 'none',
+    pitchDiversityWeight: (parseFloat(document.getElementById('pitch-diversity-weight')?.value) || 0) / 100,
   });
 
   // Update RhythmEngine from config options (density/genre from Progress app settings)
   rhythmEngine.setDensity(config.options.density || 0.5);
   rhythmEngine.setGenre(config.options.genre || 'none');
+
+  // Stop any ongoing playback before starting new pipeline
+  stopPlayback();
 
   // Show pipeline status panel
   document.getElementById('pipeline-status').style.display = 'block';
@@ -880,6 +900,14 @@ async function runAllTests() {
       });
       orchestrator.registerPass(testRhythmEngine);
 
+      // Post-processing engines
+      const testPhraseEngine = new PhraseEngine({ divisions: 12 });
+      orchestrator.registerPass(testPhraseEngine);
+      const testExpectationEngine = new ExpectationEngine();
+      orchestrator.registerPass(testExpectationEngine);
+      const testVoiceLeadingEngine = new VoiceLeadingEngine();
+      orchestrator.registerPass(testVoiceLeadingEngine);
+
       const phraseContext = new PhraseContext(
         test.phraseRole,
         test.tensionLevel,
@@ -1437,6 +1465,9 @@ let fixtureWithBass = false;
 let fixtureWithDrums = false;
 
 function generateRandomProgressionUI() {
+  // Stop any ongoing playback before starting new pipeline
+  stopPlayback();
+
   const count = parseInt(document.getElementById('fixture-count').value) || 4;
   const beatIncrement = parseInt(document.getElementById('fixture-beat-increment').value) || 2;
   const fixtureDensity = parseFloat(document.getElementById('fixture-density').value) || 0.5;
@@ -1446,74 +1477,240 @@ function generateRandomProgressionUI() {
   const complexPatterns = document.getElementById('fixture-complex').checked;
 
   console.log('\n' + '='.repeat(80));
-  console.log('  RANDOM PROGRESSION GENERATOR - FLOW: FixtureGen → Bridge → MGen');
+  console.log('  RANDOM PROGRESSION GENERATOR');
   console.log('  ' + '='.repeat(80));
   console.log(`  Parameters: ${count} chords, ${beatIncrement} beat increment`);
-  console.log(`  Bass track: ${fixtureWithBass ? 'YES' : 'NO'} | Drum track: ${fixtureWithDrums ? 'YES' : 'NO'}`);
-  console.log(`  Complex patterns: ${complexPatterns ? 'YES (arps, transitions, pitch offsets)' : 'NO (simple)'}`);
+  console.log(`  Bass: ${fixtureWithBass ? 'YES' : 'NO'} | Drums: ${fixtureWithDrums ? 'YES' : 'NO'} | Complex: ${complexPatterns ? 'YES' : 'NO'}`);
 
-  // Step 1: FixtureGen - Generate random progression with optional bass/drum
-  console.log('\n  [Step 1] FixtureGen: Generating random chord progression...');
+  // Step 1: Generate chords
   const { chords: processedChords, progressData, rawChords } = generateProgressionWithTracks({
-    count,
-    beatIncrement,
-    withBass: fixtureWithBass,
-    withDrums: fixtureWithDrums,
-    complexPatterns,
+    count, beatIncrement, withBass: fixtureWithBass, withDrums: fixtureWithDrums, complexPatterns,
   });
 
-  console.log(`  [FixtureGen Output] Generated ${rawChords.length} raw chords`);
-  console.log('  Raw chords:');
+  // Output raw chords
+  console.log(`\n  [Raw Chords - ${rawChords.length}]:`);
   rawChords.forEach((c, i) => {
     console.log(`    ${i + 1}. ${c.root}${c.quality} @ beat ${c.beatStart} [scaleDegrees: ${c.scaleDegrees.join(',')}]`);
   });
 
-  console.log(`  [Bridge Output] After preprocessing: ${processedChords.length} sliced chords`);
-  console.log('  Processed chords:');
+  // Output sliced/processed chords with diagnostic info
+  console.log(`\n  [Sliced Chords - ${processedChords.length}]:`);
+  console.log(`  Slicing factor: ${processedChords.length / count}x (original ${count} → ${processedChords.length} slices)`);
   processedChords.forEach((c, i) => {
     const tags = [];
     if (c.effectiveRoot) tags.push(`effectiveRoot:${c.effectiveRoot}`);
     if (c.bassPitchOffset !== undefined) tags.push(`bassOffset:${c.bassPitchOffset}`);
     if (c.hasDrumHits) tags.push('hasDrumHits');
     if (c.isContinuation) tags.push('continuation');
+    if (c.sliceIndex !== undefined) tags.push(`sliceIndex:${c.sliceIndex}`);
+    if (c._parentChord) tags.push(`parent:${c._parentChord.root}${c._parentChord.quality}`);
     const tagStr = tags.length > 0 ? ` [${tags.join(', ')}]` : '';
     console.log(`    ${i + 1}. ${c.root}${c.quality} @ beat ${c.beatStart}${tagStr}`);
   });
 
-  // Log progressData structure for verification
-  console.log('\n  [Bridge Input - Progress Data Format]:');
-  progressData.chords.forEach((pc, i) => {
-    const cp = pc.chordPattern;
-    const cpInfo = cp
-      ? `instances:${cp.instances.length} arps:${cp.instances.filter(x => x.arpSettings).length} transitions:${cp.transitions.length} pitchOffsets:${cp.instances.reduce((s, x) => s + x.pitchOffsets.length, 0)}`
-      : 'noPattern';
-    const hasBass = pc.bassPattern ? `bassInstances:${pc.bassPattern.instances.length}` : 'noBass';
-    const hasDrums = pc.drumPattern ? `drumHits:${pc.drumPattern.hits.length}` : 'noDrums';
-    console.log(`    chord ${i + 1}: symbol=${pc.symbol} key=${pc.key} divisions=${pc.divisions} duration=${pc.duration} ${cpInfo} ${hasBass} ${hasDrums}`);
+  // Chord frequency analysis
+  const chordFreq = {};
+  processedChords.forEach(c => {
+    const key = `${c.root}${c.quality}`;
+    chordFreq[key] = (chordFreq[key] || 0) + 1;
+  });
+  console.log(`\n  [Chord Frequency Analysis]:`);
+  Object.entries(chordFreq).forEach(([chord, freq]) => {
+    const pct = ((freq / processedChords.length) * 100).toFixed(1);
+    console.log(`    ${chord}: ${freq} slices (${pct}%)`);
   });
 
-  // Step 2: Build PhraseContext
-  console.log('\n  [Step 2] Building PhraseContext for melody generation...');
-  const phraseContext = generateRandomPhraseContext();
-  console.log(`  PhraseContext: role=${phraseContext.role} tension=${phraseContext.tensionLevel} antecedent=${phraseContext.isAntecedent}`);
-
-  // Step 3: Build GenerationConfig
-  console.log('\n  [Step 3] Building GenerationConfig...');
-  const config = buildGenerationConfig(processedChords, phraseContext);
-  console.log(`  GenerationConfig: ${config.chords.length} chords, role=${config.phraseContext.role}`);
-
-  // Step 4: Run through orchestrator (mgen pipeline)
-  console.log('\n  [Step 4] Running 6-Pass MelodyGen Pipeline...');
-  console.log('  ' + '-'.repeat(80));
-
-  // Clear manual chord list and replace with fixture (raw) chords
-  chords.length = 0;
-  rawChords.forEach(c => {
-    chords.push(c);
+  // Pitch frequency analysis (pre-pipeline)
+  const pitchFreq = {};
+  processedChords.forEach(c => {
+    const rootMidi = NOTE_TO_MIDI[c.root] !== undefined ? NOTE_TO_MIDI[c.root] + 60 : 60;
+    pitchFreq[rootMidi] = (pitchFreq[rootMidi] || 0) + 1;
   });
-  const manualChordCount = chords.length;
+  console.log(`\n  [Pre-Pipeline Pitch Distribution]:`);
+  const maxPrePitch = Math.max(...Object.values(pitchFreq), 0);
+  Object.entries(pitchFreq).forEach(([pitch, freq]) => {
+    const pct = ((freq / processedChords.length) * 100).toFixed(1);
+    const bar = '█'.repeat(Math.floor(freq / processedChords.length * 20));
+    const warning = freq === maxPrePitch && freq / processedChords.length > 0.2 ? ' ⚠️ HIGH' : '';
+    console.log(`    MIDI ${pitch} (${midiToNoteName(Number(pitch))}): ${freq} (${pct}%) ${bar}${warning}`);
+  });
 
-  // Show data flow indicator
+  // Step 2: Run pipeline
+  console.log(`\n  [Running 6-Pass Pipeline]`);
+
+  // Clear UI
+  const log = document.getElementById('execution-log');
+  log.innerHTML = '';
+  document.getElementById('pipeline-status').style.display = 'block';
+  document.getElementById('visualization').style.display = 'block';
+  renderPassStages(['A', 'B', 'C', 'D', 'E', 'F']);
+
+  const fixturePhraseRole = document.getElementById('phrase-role')?.value || 'statement';
+  const fixtureTensionLevel = parseFloat(document.getElementById('tension-level')?.value) || 0.5;
+  const fixtureIsAntecedent = document.getElementById('is-antecedent')?.value === 'true';
+
+  const phraseContext = new PhraseContext(
+    fixturePhraseRole,
+    fixtureTensionLevel,
+    undefined,
+    fixtureIsAntecedent
+  );
+
+  const tuningSystemId = document.getElementById('tuning-system').value;
+  const microtonalEngine = new MicrotonalEngine({ tuningSystem: tuningSystemId });
+  const orchestrator = new CompositionOrchestrator();
+  orchestrator.registerPass(new StructuralPlanner());
+  orchestrator.registerPass(new CadencePlanner());
+  orchestrator.registerPass(new ConnectorPlanner());
+  orchestrator.registerPass(new OrnamentPlanner());
+  orchestrator.registerPass(new ExpectationRefiner());
+  const fixtureRhythmConfig = deriveRhythmEngineConfig(
+    chords.map(c => ({ root: c.root, quality: c.quality })),
+    phraseContext.role, phraseContext.tensionLevel
+  );
+  const fixtureRhythmEngine = new RhythmEngine({
+    aestheticMode: fixtureRhythmConfig.aestheticMode,
+    genre: fixtureRhythmConfig.genre,
+    density: fixtureRhythmConfig.density,
+  });
+  orchestrator.registerPass(fixtureRhythmEngine);
+  const fixturePhraseEngine = new PhraseEngine({ divisions: 12 });
+  orchestrator.registerPass(fixturePhraseEngine);
+  const fixtureExpectationEngine = new ExpectationEngine();
+  orchestrator.registerPass(fixtureExpectationEngine);
+  const fixtureVoiceLeadingEngine = new VoiceLeadingEngine();
+  orchestrator.registerPass(fixtureVoiceLeadingEngine);
+
+  const chordProgression = processedChords.map(chord => ({
+    root: chord.root, quality: chord.quality, beatStart: chord.beatStart, scaleDegrees: chord.scaleDegrees,
+  }));
+  const phraseCtx = new PhraseContext(phraseContext.role, phraseContext.tensionLevel, undefined, phraseContext.isAntecedent);
+  const mgenConfig = new GenerationConfig(chordProgression, phraseCtx, {
+    density: fixtureDensity, genre: fixtureGenre,
+    pitchDiversityWeight: (parseFloat(document.getElementById('pitch-diversity-weight')?.value) || 0) / 100,
+  });
+  fixtureRhythmEngine.setDensity(mgenConfig.options.density || 0.5);
+  fixtureRhythmEngine.setGenre(mgenConfig.options.genre || 'none');
+
+  orchestrator.execute(mgenConfig).then(async (result) => {
+    const rhythmPassResult = result.metadata?.passResults?.find(p => p.passName === 'RhythmEngine');
+    const rhythmAdjustedNotes = result.allNotes.filter(n => n.metadata && n.metadata.rhythmAdjusted);
+
+    // Apply microtonal tuning to final result
+    const microtonalResult = await microtonalEngine.execute(mgenConfig, result.allNotes, {});
+
+    // Per-pass output
+    console.log(`\n  [Per-Pass Output]:`);
+    const allPassOutputs = orchestrator.getAllPassOutputs();
+    allPassOutputs.forEach(pass => {
+      console.log(`    ${pass.passName}: ${pass.noteCount} notes`);
+    });
+
+    // Final melody notes with full diagnostic info
+    const finalNotes = result.allNotes;
+    console.log(`\n  [Final Melody - ${finalNotes.length} notes]:`);
+    console.log(`  Format: # | MIDI | Note | Time | Duration | Role | Color | Metadata`);
+
+    // Color mapping for notes
+    const roleColors = {
+      'structural': '🔴 RED (structural)',
+      'cadence': '🟠 ORANGE (cadence)',
+      'connector': '🟡 YELLOW (connector)',
+      'ornament': '🟢 GREEN (ornament)',
+      'expectation': '🔵 BLUE (expectation)',
+    };
+
+    // Pitch frequency analysis (post-pipeline)
+    const postPitchFreq = {};
+    finalNotes.forEach(n => {
+      postPitchFreq[n.pitch] = (postPitchFreq[n.pitch] || 0) + 1;
+    });
+    const maxPostPitch = Math.max(...Object.values(postPitchFreq), 0);
+    const uniquePitches = Object.keys(postPitchFreq).length;
+    const totalNotes = finalNotes.length;
+
+    console.log(`\n  [Melody Statistics]:`);
+    console.log(`    Total notes: ${totalNotes}`);
+    console.log(`    Unique pitches: ${uniquePitches}`);
+    console.log(`    Pitch diversity: ${(uniquePitches / totalNotes * 100).toFixed(1)}%`);
+    if (maxPostPitch > 0) {
+      const maxPct = ((maxPostPitch / totalNotes) * 100).toFixed(1);
+      console.log(`    Most frequent pitch: MIDI ${maxPostPitch} (${midiToNoteName(maxPostPitch)}) — ${maxPostPitch} notes (${maxPct}%)`);
+      if (maxPostPitch / totalNotes > 0.3) {
+        console.log(`    ⚠️  WARNING: Most frequent pitch appears ${maxPct}% of the time (>30% threshold)`);
+      }
+    }
+
+    // Role distribution
+    const roleDist = {};
+    finalNotes.forEach(n => { roleDist[n.role] = (roleDist[n.role] || 0) + 1; });
+    console.log(`\n  [Role Distribution]:`);
+    Object.entries(roleDist).forEach(([role, freq]) => {
+      const pct = ((freq / totalNotes) * 100).toFixed(1);
+      console.log(`    ${role}: ${freq} (${pct}%)`);
+    });
+
+    // Pitch diversity score from Pass E
+    const passE = result.metadata?.passResults?.find(p => p.passName === 'PassE_Expectation');
+    if (passE && passE.metadata) {
+      console.log(`\n  [Pass E - Pitch Diversity Score]:`);
+      console.log(`    Score: ${passE.metadata.pitchDiversityScore?.toFixed(4) || 'N/A'} (1.0 = max diversity, 0.0 = all same pitch)`);
+      console.log(`    Highest pitch frequency: ${(passE.metadata.highestPitchFrequency * 100).toFixed(1) || '0.0'}%`);
+    }
+
+    // Output each note with full diagnostic info
+    finalNotes.forEach((n, i) => {
+      const pitchName = midiToNoteName(n.pitch);
+      const color = roleColors[n.role] || n.role;
+      const meta = n.metadata || {};
+      const metaStr = Object.keys(meta).filter(k => k !== 'passEAdjusted' && k !== 'originalPitch').map(k => `${k}:${meta[k]}`).join(', ');
+      const isMostFrequent = postPitchFreq[n.pitch] === maxPostPitch && maxPostPitch / totalNotes > 0.3;
+      const warning = isMostFrequent ? ' ⚠️' : '';
+      console.log(`    ${String(i + 1).padStart(3)}. MIDI:${String(n.pitch).padStart(3)} ${pitchName.padEnd(5)} t:${n.startTime.toFixed(2)} dur:${n.duration.toFixed(2)} ${color.padEnd(35)}${metaStr ? '[' + metaStr + ']' : ''}${warning}`);
+    });
+
+    // Summary: list the most problematic pitches
+    const problematicPitches = Object.entries(postPitchFreq)
+      .map(([pitch, freq]) => ({ pitch: Number(pitch), freq, pct: freq / totalNotes }))
+      .filter(p => p.pct > 0.15)
+      .sort((a, b) => b.pct - a.pct);
+
+    if (problematicPitches.length > 0) {
+      console.log(`\n  [Pitch Repetition Warnings]:`);
+      problematicPitches.forEach(p => {
+        console.log(`    ⚠️  MIDI ${p.pitch} (${midiToNoteName(p.pitch)}): ${p.freq} notes (${(p.pct * 100).toFixed(1)}%) — consider increasing pitch diversity weight`);
+      });
+    } else {
+      console.log(`\n  [Pitch Repetition]: No warnings — pitch distribution looks healthy.`);
+    }
+
+    console.log('\n  ' + '='.repeat(80));
+    console.log('  ' + '='.repeat(80) + '\n');
+
+    pipelineResults = {
+      ...result,
+      allNotes: microtonalResult?.notes || result.allNotes,
+      metadata: {
+        ...result.metadata,
+        microtonalTuning: tuningSystemId,
+        fixtureGenerated: true,
+        fixtureChordCount: count,
+        fixtureWithBass,
+        fixtureWithDrums,
+        rhythmEngineResult: rhythmPassResult,
+        rhythmAdjustedNoteCount: rhythmAdjustedNotes.length,
+      },
+    };
+
+    updatePassCards(result);
+    renderVisualization(result);
+    addLogEntry(`Fixture-generated ${count} chords → ${microtonalResult.notes.length} melody notes.`, 'success');
+  }).catch((error) => {
+    addLogEntry(`Pipeline failed: ${error.message}`, 'error');
+    console.error(error);
+  });
+
+  // Update UI flow indicator
   const flowEl = document.getElementById('fixture-flow');
   flowEl.style.display = 'block';
   const trackTags = [];
@@ -1530,123 +1727,6 @@ function generateRandomProgressionUI() {
     const drumTag = fixtureWithDrums ? ' drum' : '';
     return `<span class="fixture-chord-chip${bassTag}${drumTag}">${c.root}${c.quality} @ beat ${c.beatStart}</span>`;
   }).join('');
-
-  // Now run the pipeline with these chords
-  // Clear the execution log
-  const log = document.getElementById('execution-log');
-  log.innerHTML = '';
-
-  // Show panels
-  document.getElementById('pipeline-status').style.display = 'block';
-  document.getElementById('visualization').style.display = 'block';
-  renderPassStages(['A', 'B', 'C', 'D', 'E', 'F']);
-
-  const tuningSystemId = document.getElementById('tuning-system').value;
-  const microtonalEngine = new MicrotonalEngine({ tuningSystem: tuningSystemId });
-
-  const orchestrator = new CompositionOrchestrator();
-  orchestrator.registerPass(new StructuralPlanner());
-  orchestrator.registerPass(new CadencePlanner());
-  orchestrator.registerPass(new ConnectorPlanner());
-  orchestrator.registerPass(new OrnamentPlanner());
-  orchestrator.registerPass(new ExpectationRefiner());
-  const fixtureRhythmConfig = deriveRhythmEngineConfig(
-    chords.map(c => ({ root: c.root, quality: c.quality })),
-    phraseContext.role,
-    phraseContext.tensionLevel
-  );
-  const fixtureRhythmEngine = new RhythmEngine({
-    aestheticMode: fixtureRhythmConfig.aestheticMode,
-    genre: fixtureRhythmConfig.genre,
-    density: fixtureRhythmConfig.density,
-  });
-  orchestrator.registerPass(fixtureRhythmEngine);
-
-  const chordProgression = chords.map(chord => ({
-    root: chord.root,
-    quality: chord.quality,
-    beatStart: chord.beatStart,
-    scaleDegrees: chord.scaleDegrees,
-  }));
-
-  const phraseCtx = new PhraseContext(
-    phraseContext.role,
-    phraseContext.tensionLevel,
-    undefined,
-    phraseContext.isAntecedent,
-  );
-
-  const mgenConfig = new GenerationConfig(chordProgression, phraseCtx, {
-    density: fixtureDensity,
-    genre: fixtureGenre,
-  });
-
-  // Update RhythmEngine from config options
-  fixtureRhythmEngine.setDensity(mgenConfig.options.density || 0.5);
-  fixtureRhythmEngine.setGenre(mgenConfig.options.genre || 'none');
-
-  // Log the config that will be sent to the orchestrator
-  console.log('\n  [Config sent to orchestrator]:');
-  console.log(`    chords: ${JSON.stringify(chordProgression)}`);
-  console.log(`    phraseContext: ${JSON.stringify({ role: phraseCtx.role, tensionLevel: phraseCtx.tensionLevel, isAntecedent: phraseCtx.isAntecedent })}`);
-  console.log(`    density: ${fixtureDensity}, genre: ${fixtureGenre}`);
-
-  // Clear the manual chords array - we're using fixture chords now
-  // (chords was already replaced above with rawChords)
-
-  orchestrator.execute(mgenConfig).then(async (result) => {
-    // Extract RhythmEngine output (6th pass) for metadata verification
-    const rhythmPassResult = result.metadata?.passResults?.find(p => p.passName === 'RhythmEngine');
-    const rhythmAdjustedNotes = result.allNotes.filter(n => n.metadata && n.metadata.rhythmAdjusted);
-    if (rhythmPassResult) {
-      console.log('\n  [RhythmEngine Output]');
-      console.log(`    Template: ${rhythmPassResult.metadata?.activeTemplate?.id || 'N/A'}`);
-      console.log(`    Subdivision: ${rhythmPassResult.metadata?.subdivisionProfile?.id || 'N/A'}`);
-      console.log(`    Notes with rhythmAdjusted: ${rhythmAdjustedNotes.length}/${result.allNotes.length}`);
-    }
-
-    // Apply microtonal tuning
-    const microtonalResult = await microtonalEngine.execute(mgenConfig, result.allNotes, {});
-    pipelineResults = {
-      ...result,
-      allNotes: microtonalResult.notes,
-      metadata: {
-        ...result.metadata,
-        microtonalTuning: tuningSystemId,
-        microtonalResult,
-        fixtureGenerated: true,
-        fixtureChordCount: count,
-        fixtureWithBass,
-        fixtureWithDrums,
-        rhythmEngineResult: rhythmPassResult,
-        rhythmAdjustedNoteCount: rhythmAdjustedNotes.length,
-      },
-    };
-
-    // Log per-pass output
-    console.log('\n  [MGen Output - Per-Pass Results]:');
-    const allPassOutputs = orchestrator.getAllPassOutputs();
-    allPassOutputs.forEach(pass => {
-      console.log(`    ${pass.passName}: ${pass.noteCount} notes`);
-      pass.notes.forEach((n, i) => {
-        console.log(`      ${i + 1}. pitch:${n.pitch} start:${n.startTime} dur:${n.duration} role:${n.role}`);
-      });
-    });
-
-    console.log(`\n  [Final Melody] ${microtonalResult.notes.length} notes total`);
-    microtonalResult.notes.forEach((n, i) => {
-      console.log(`    ${i + 1}. MIDI:${n.pitch} start:${n.startTime.toFixed(2)} dur:${n.duration.toFixed(2)} role:${n.role}`);
-    });
-
-    console.log('  ' + '='.repeat(80) + '\n');
-
-    updatePassCards(result);
-    renderVisualization(result);
-    addLogEntry(`Fixture-generated ${count} chords → ${microtonalResult.notes.length} melody notes.`, 'success');
-  }).catch((error) => {
-    addLogEntry(`Pipeline failed: ${error.message}`, 'error');
-    console.error(error);
-  });
 }
 
 function clearFixtureProgression() {

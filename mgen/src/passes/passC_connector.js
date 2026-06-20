@@ -82,8 +82,13 @@ export class ConnectorPlanner {
     const direction = Math.sign(distance);
     const absDistance = Math.abs(distance);
 
+    // Skip connectors for same-pitch gaps (no point connecting to yourself)
+    if (absDistance === 0) {
+      return connectors;
+    }
+
     // Determine number of connector notes based on distance
-    const numConnectors = Math.min(Math.floor(absDistance / 2), 4);
+    const numConnectors = Math.min(Math.floor(absDistance / 2), absDistance <= 1 ? 2 : 4);
 
     if (numConnectors === 0) {
       return connectors;
