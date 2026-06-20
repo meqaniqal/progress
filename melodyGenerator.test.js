@@ -290,6 +290,87 @@ describe('Melody Generator Composition Rules', () => {
         const pc = (note1.midi % 12 + 12) % 12;
         expect([0, 4, 7]).toContain(pc);
     });
+
+    test('Voice-leading microtonal collision prevention nudges consecutive notes', () => {
+        const preciseNotes = [];
+        const mockPlayTonePrecise = (freq, startTime, duration, inst, bus) => {
+            const midi = 12 * Math.log2(freq / 440) + 69;
+            preciseNotes.push({ midi, startTime, duration, inst, bus });
+        };
+
+        state.divisions = 24; // Quarter-tones (edoStep = 0.5)
+        state.melodySettings.genre = 'generic';
+        state.melodySettings.density = 1.0;
+        state.melodySettings.restProbability = 0.0;
+        state.melodySettings.variationDepth = 0.0;
+
+        clearMelodyMemory();
+
+        // 72.2 and 72.4 are only 0.2 semitones apart, which is < 1 EDO step (0.5 semitones)
+        const chordObj = {
+            symbol: 'I',
+            duration: 4,
+            divisions: 24,
+            key: 60,
+            customNotes: [
+                { pitch: 72.2, isMicrotonal: true },
+                { pitch: 72.4, isMicrotonal: true }
+            ]
+        };
+
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 0, 1, [72.2, 72.4], mockPlayTonePrecise);
+
+        const melodyNotes = preciseNotes.filter(n => n.bus === 'melody');
+        expect(melodyNotes.length).toBeGreaterThan(1);
+
+        // Verify that no two consecutive melody notes are within 0.01 and 0.49 semitones of each other
+        for (let i = 1; i < melodyNotes.length; i++) {
+            const diff = Math.abs(melodyNotes[i].midi - melodyNotes[i - 1].midi);
+            if (diff > 0.01) {
+                expect(diff).toBeGreaterThanOrEqual(0.49);
+            }
+        }
+    });
+
+    test('Scale Degree Anchoring prefers microtonal customNotes for anchors', () => {
+        const preciseNotes = [];
+        const mockPlayTonePrecise = (freq, startTime, duration, inst, bus) => {
+            const midi = 12 * Math.log2(freq / 440) + 69;
+            preciseNotes.push({ midi, startTime, duration, inst, bus });
+        };
+
+        state.divisions = 12;
+        state.melodySettings.genre = 'generic';
+        state.melodySettings.density = 0.1;
+        state.melodySettings.restProbability = 0.8;
+        state.melodySettings.variationDepth = 0.0;
+
+        clearMelodyMemory();
+
+        const chordObj = {
+            symbol: 'I',
+            duration: 4,
+            key: 60,
+            customNotes: [
+                { pitch: 60, isMicrotonal: false },
+                { pitch: 64.3, isMicrotonal: true }, // microtonally adjusted E
+                { pitch: 67, isMicrotonal: false }
+            ]
+        };
+
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 0, 1, [60, 64.3, 67], mockPlayTonePrecise);
+
+        const melodyNotes = preciseNotes.filter(n => n.bus === 'melody');
+        expect(melodyNotes.length).toBeGreaterThan(0);
+
+        melodyNotes.forEach(n => {
+            const pc = (n.midi % 12 + 12) % 12;
+            if (Math.abs(pc - 4) < 0.6) {
+                // If it is near E, it should be closer to 64.3 (pc 4.3) than 64.0 (pc 4.0)
+                expect(Math.abs(pc - 4.3)).toBeLessThan(0.15);
+            }
+        });
+    });
 });
 
 

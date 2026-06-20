@@ -1,22 +1,23 @@
 import { state } from './store.js';
 import { getScaleIntervals, findScaleIndex, findClosest, findClosestStep } from './melodyTuning.js';
 
-export function generateMotifFamily(pool, chordTones, scalePitches, tuning) {
+export function generateMotifFamily(pool, chordTones, scalePitches, tuning, rng = null) {
+    const randVal = () => (rng ? rng.next() : Math.random());
     const divisions = tuning.divisions;
     const periodSize = tuning.periodSize;
-    const hook = generateSeedMotif(pool, 4, chordTones, scalePitches, tuning);
+    const hook = generateSeedMotif(pool, 4, chordTones, scalePitches, tuning, rng);
     
     // Generate hook rhythmic skeleton
-    const hookRhythm = [Math.random() < 0.75 ? 1 : 0, 0, 0, 0];
+    const hookRhythm = [randVal() < 0.75 ? 1 : 0, 0, 0, 0];
     let onesCount = hookRhythm[0];
     for (let i = 1; i < 4; i++) {
-        if (Math.random() > 0.5 && onesCount < 3) {
+        if (randVal() > 0.5 && onesCount < 3) {
             hookRhythm[i] = 1;
             onesCount++;
         }
     }
     if (onesCount === 0) {
-        hookRhythm[Math.floor(Math.random() * 4)] = 1;
+        hookRhythm[Math.floor(randVal() * 4)] = 1;
     }
     if (state.melodySettings && state.melodySettings.genre === 'none') {
         hookRhythm.fill(1);
@@ -27,10 +28,10 @@ export function generateMotifFamily(pool, chordTones, scalePitches, tuning) {
         connector.push(hook[2], hook[3]);
         const dir = hook[3] - hook[2];
         const stepSize = 12.0 / divisions;
-        const target = hook[3] + (dir >= 0 ? 1 : -1) * stepSize * (Math.random() > 0.5 ? 2 : 1);
+        const target = hook[3] + (dir >= 0 ? 1 : -1) * stepSize * (randVal() > 0.5 ? 2 : 1);
         connector.push(findClosest(target, scalePitches));
     } else {
-        connector.push(...generateSeedMotif(pool, 3, chordTones, scalePitches, tuning));
+        connector.push(...generateSeedMotif(pool, 3, chordTones, scalePitches, tuning, rng));
     }
 
     const cadence = [];
@@ -43,13 +44,14 @@ export function generateMotifFamily(pool, chordTones, scalePitches, tuning) {
             cadence.push(findClosest(halvedTarget, scalePitches));
         }
     } else {
-        cadence.push(...generateSeedMotif(pool, 4, chordTones, scalePitches, tuning));
+        cadence.push(...generateSeedMotif(pool, 4, chordTones, scalePitches, tuning, rng));
     }
 
     return { hook, connector, cadence, hookRhythm };
 }
 
-export function mutateMotifFamily(motifFamily, pool, tuning) {
+export function mutateMotifFamily(motifFamily, pool, tuning, rng = null) {
+    const randVal = () => (rng ? rng.next() : Math.random());
     const mutated = {
         hook: [...motifFamily.hook],
         connector: [...motifFamily.connector],
@@ -58,11 +60,11 @@ export function mutateMotifFamily(motifFamily, pool, tuning) {
     };
     
     if (mutated.hook.length > 0 && pool.length > 0) {
-        const idx = Math.floor(Math.random() * mutated.hook.length);
+        const idx = Math.floor(randVal() * mutated.hook.length);
         const pitch = mutated.hook[idx];
         const scaleIdx = findScaleIndex(pitch, pool, tuning.divisions);
         if (scaleIdx !== -1) {
-            const shift = Math.random() > 0.5 ? 1 : -1;
+            const shift = randVal() > 0.5 ? 1 : -1;
             const targetIdx = Math.max(0, Math.min(pool.length - 1, scaleIdx + shift));
             mutated.hook[idx] = pool[targetIdx];
         }
@@ -75,7 +77,7 @@ export function mutateMotifFamily(motifFamily, pool, tuning) {
         mutated.connector.push(mutated.hook[2], mutated.hook[3]);
         const dir = mutated.hook[3] - mutated.hook[2];
         const stepSize = 12.0 / divisions;
-        const target = mutated.hook[3] + (dir >= 0 ? 1 : -1) * stepSize * (Math.random() > 0.5 ? 2 : 1);
+        const target = mutated.hook[3] + (dir >= 0 ? 1 : -1) * stepSize * (randVal() > 0.5 ? 2 : 1);
         mutated.connector.push(findClosest(target, pool));
     } else {
         mutated.connector.push(...mutated.hook);
@@ -97,7 +99,8 @@ export function mutateMotifFamily(motifFamily, pool, tuning) {
     return mutated;
 }
 
-export function generateSeedMotif(pool, size, chordTones, scalePitches, tuning) {
+export function generateSeedMotif(pool, size, chordTones, scalePitches, tuning, rng = null) {
+    const randVal = () => (rng ? rng.next() : Math.random());
     const divisions = tuning.divisions;
     const periodSize = tuning.periodSize;
     const motif = [];
@@ -116,11 +119,11 @@ export function generateSeedMotif(pool, size, chordTones, scalePitches, tuning) 
 
     let note1;
     if (chromaticChordTones.length > 0) {
-        note1 = isTest ? chromaticChordTones[0] : chromaticChordTones[Math.floor(Math.random() * chromaticChordTones.length)];
+        note1 = isTest ? chromaticChordTones[0] : chromaticChordTones[Math.floor(randVal() * chromaticChordTones.length)];
     } else {
         note1 = chordTones && chordTones.length > 0 ? 
-            (isTest ? chordTones[0] : chordTones[Math.floor(Math.random() * chordTones.length)]) : 
-            (isTest ? pool[0] : pool[Math.floor(Math.random() * pool.length)]);
+            (isTest ? chordTones[0] : chordTones[Math.floor(randVal() * chordTones.length)]) : 
+            (isTest ? pool[0] : pool[Math.floor(randVal() * pool.length)]);
     }
     motif.push(note1);
 
@@ -135,9 +138,9 @@ export function generateSeedMotif(pool, size, chordTones, scalePitches, tuning) 
     if (isTest) {
         note2 = stepCandidates2.length > 0 ? stepCandidates2[0] : (candidates2.length > 0 ? candidates2[0] : note1);
     } else {
-        note2 = candidates2.length > 0 ? candidates2[Math.floor(Math.random() * candidates2.length)] : note1;
-        if (stepCandidates2.length > 0 && Math.random() < 0.7) {
-            note2 = stepCandidates2[Math.floor(Math.random() * stepCandidates2.length)];
+        note2 = candidates2.length > 0 ? candidates2[Math.floor(randVal() * candidates2.length)] : note1;
+        if (stepCandidates2.length > 0 && randVal() < 0.7) {
+            note2 = stepCandidates2[Math.floor(randVal() * stepCandidates2.length)];
         }
     }
     motif.push(note2);
@@ -148,15 +151,15 @@ export function generateSeedMotif(pool, size, chordTones, scalePitches, tuning) 
     if (isTest) {
         note3 = stepCandidates3.length > 0 ? stepCandidates3[0] : (candidates3.length > 0 ? candidates3[0] : note2);
     } else {
-        note3 = candidates3.length > 0 ? candidates3[Math.floor(Math.random() * candidates3.length)] : note2;
-        if (stepCandidates3.length > 0 && Math.random() < 0.7) {
-            note3 = stepCandidates3[Math.floor(Math.random() * stepCandidates3.length)];
+        note3 = candidates3.length > 0 ? candidates3[Math.floor(randVal() * candidates3.length)] : note2;
+        if (stepCandidates3.length > 0 && randVal() < 0.7) {
+            note3 = stepCandidates3[Math.floor(randVal() * stepCandidates3.length)];
         }
         const isLeap = Math.abs(note3 - note2) > wholeStep + 0.01;
         if (isLeap) {
             const closerCandidates = candidates3.filter(p => Math.abs(p - note1) < Math.abs(note2 - note1));
             if (closerCandidates.length > 0) {
-                note3 = closerCandidates[Math.floor(Math.random() * closerCandidates.length)];
+                note3 = closerCandidates[Math.floor(randVal() * closerCandidates.length)];
             }
         }
     }
@@ -175,7 +178,7 @@ export function generateSeedMotif(pool, size, chordTones, scalePitches, tuning) 
             const idx = findScaleIndex(note3, scalePitches, divisions);
             note4 = idx !== -1 && idx > 0 ? scalePitches[idx - 1] : note3;
         } else {
-            note4 = findClosestStep(note3, scalePitches, divisions);
+            note4 = findClosestStep(note3, scalePitches, divisions, 0, rng);
         }
     }
     motif.push(note4);
@@ -241,7 +244,8 @@ export function applySequence(motif, pool, shiftSteps, divisions = 12) {
     });
 }
 
-export function generateRhythmicMotif(aestheticMode) {
+export function generateRhythmicMotif(aestheticMode, rng = null) {
+    const randVal = () => (rng ? rng.next() : Math.random());
     const MOTIF_LIBRARY = {
         cantabile: [
             { steps: [0, 4, 6, 8], directions: [0, 1, 2, 1] },
@@ -258,7 +262,7 @@ export function generateRhythmicMotif(aestheticMode) {
         ],
     };
     const pool = MOTIF_LIBRARY[aestheticMode] || MOTIF_LIBRARY.cantabile;
-    return pool[Math.floor(Math.random() * pool.length)];
+    return pool[Math.floor(randVal() * pool.length)];
 }
 
 export function realizeMotifinContext(rhythmicMotif, anchorPitch, validPitches, divisions = 12) {

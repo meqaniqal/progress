@@ -84,13 +84,13 @@ export function findClosest(val, array) {
     return array.reduce((prev, curr) => Math.abs(curr - val) < Math.abs(prev - val) ? curr : prev);
 }
 
-export function findClosestStep(prev, scalePitches, divisions, directionBias = 0) {
+export function findClosestStep(prev, scalePitches, divisions, directionBias = 0, rng = null) {
     if (scalePitches.length === 0) return prev;
     const idx = findScaleIndex(prev, scalePitches, divisions);
     if (idx !== -1) {
         const dir = directionBias !== 0
             ? Math.sign(directionBias)
-            : (Math.random() > 0.5 ? 1 : -1);
+            : ((rng ? rng.next() : Math.random()) > 0.5 ? 1 : -1);
         let nextIdx = idx + dir;
         if (nextIdx < 0 || nextIdx >= scalePitches.length) {
             nextIdx = idx - dir;
@@ -109,9 +109,10 @@ export function findClosestStep(prev, scalePitches, divisions, directionBias = 0
  * @param {number|null} lastPitch - The pitch before `prev`; prevents
  *                                  immediately reversing to it.
  * @param {number}  divisions     - The EDO divisions.
+ * @param {object|null} rng       - Optional seeded random number generator.
  * @returns {number} The next pitch.
  */
-export function findDirectedStep(prev, scalePitches, directionBias, lastPitch = null, divisions = 12) {
+export function findDirectedStep(prev, scalePitches, directionBias, lastPitch = null, divisions = 12, rng = null) {
     if (scalePitches.length === 0) return prev;
 
     const idx = findScaleIndex(prev, scalePitches, divisions);
@@ -123,7 +124,7 @@ export function findDirectedStep(prev, scalePitches, directionBias, lastPitch = 
     if (anchorIdx === -1) return findClosest(prev, scalePitches);
 
     // Resolve direction: use bias if provided, else choose randomly.
-    let dir = directionBias !== 0 ? directionBias : (Math.random() > 0.5 ? 1 : -1);
+    let dir = directionBias !== 0 ? directionBias : ((rng ? rng.next() : Math.random()) > 0.5 ? 1 : -1);
 
     // Attempt primary step in chosen direction.
     let nextIdx = anchorIdx + dir;
@@ -154,13 +155,13 @@ export function isDominantChord(chordObj) {
     return sym.includes('7') || sym.includes('9') || sym.includes('11') || sym.includes('13') || sym.includes('alt');
 }
 
-export function selectWeightedPitch(candidates, weights) {
+export function selectWeightedPitch(candidates, weights, rng = null) {
     if (candidates.length === 0) return 0;
     let sum = weights.reduce((a, b) => a + b, 0);
     if (sum === 0) {
-        return candidates[Math.floor(Math.random() * candidates.length)];
+        return candidates[Math.floor((rng ? rng.next() : Math.random()) * candidates.length)];
     }
-    let r = Math.random() * sum;
+    let r = (rng ? rng.next() : Math.random()) * sum;
     for (let i = 0; i < candidates.length; i++) {
         r -= weights[i];
         if (r <= 0) return candidates[i];
@@ -195,10 +196,26 @@ export function isChordTonePC(pitch, stableTones, periodSize, divisions = 12) {
     });
 }
 
-export function enforceChordToneOnDownbeat(anchor, activeChordTones, validPitches, periodSize, divisions = 12) {
+export function enforceChordToneOnDownbeat(anchor, activeChordTones, validPitches, periodSize, divisions = 12, chordObj = null) {
     if (activeChordTones.length === 0) return anchor;
-    if (isChordTonePC(anchor, activeChordTones, periodSize, divisions)) return anchor;
-    return findClosest(anchor, activeChordTones);
+    let targetTones = activeChordTones;
+    if (chordObj && chordObj.customNotes) {
+        const microtonalTones = activeChordTones.filter(ct => {
+            const pc = (ct % periodSize + periodSize) % periodSize;
+            return chordObj.customNotes.some(cn => {
+                const isMicro = typeof cn === 'number' ? cn % 1 !== 0 : (cn && cn.isMicrotonal);
+                if (!isMicro) return false;
+                const cnPitch = typeof cn === 'number' ? cn : cn.pitch;
+                const cnPc = (cnPitch % periodSize + periodSize) % periodSize;
+                return Math.abs(pc - cnPc) < 0.05;
+            });
+        });
+        if (microtonalTones.length > 0) {
+            targetTones = microtonalTones;
+        }
+    }
+    if (isChordTonePC(anchor, targetTones, periodSize, divisions)) return anchor;
+    return findClosest(anchor, targetTones);
 }
 
 export function planPhraseStructuralSkeleton(phraseStartIndex, macroTargetPlan, validPitchesAtStart, activeChordTones, role, keyRoot, periodSize, globalScalePitches) {
@@ -212,7 +229,7 @@ export function planPhraseStructuralSkeleton(phraseStartIndex, macroTargetPlan, 
         let targetPitchRaw = target !== null ? target : (keyRoot + 12);
         let limit = slotRole === 'climax' ? 5 : 3;
         
-        let skeletonPitch = getConstrainedAnchorGlobal(lastAnchor, targetPitchRaw, limit, globalScalePitches, validPitchesAtStart, activeChordTones);
+        let skeletonPitch = getConstrainedAnchorGlobal(lastAnchor, targetPitchRaw, limit, globalScalePitches, validPitchesAtStart, activeChordTones, 12, null, periodSize);
         skeleton.push({ pitch: skeletonPitch, role: slotRole });
         lastAnchor = skeletonPitch;
     }
@@ -240,10 +257,28 @@ export function getConstrainedAnchor(fromPitch, targetRaw, maxOffset, validPitch
     return findClosest(targetRaw, allowedPitches);
 }
 
-export function getConstrainedAnchorGlobal(fromPitch, targetRaw, maxOffset, globalScalePitches, validPitches, chordTones, divisions = 12) {
+export function getConstrainedAnchorGlobal(fromPitch, targetRaw, maxOffset, globalScalePitches, validPitches, chordTones, divisions = 12, chordObj = null, periodSize = 12) {
     const fromIdx = findScaleIndex(fromPitch, globalScalePitches, divisions);
+    
+    let targetTones = chordTones;
+    if (chordObj && chordObj.customNotes) {
+        const microtonalTones = chordTones.filter(ct => {
+            const pc = (ct % periodSize + periodSize) % periodSize;
+            return chordObj.customNotes.some(cn => {
+                const isMicro = typeof cn === 'number' ? cn % 1 !== 0 : (cn && cn.isMicrotonal);
+                if (!isMicro) return false;
+                const cnPitch = typeof cn === 'number' ? cn : cn.pitch;
+                const cnPc = (cnPitch % periodSize + periodSize) % periodSize;
+                return Math.abs(pc - cnPc) < 0.05;
+            });
+        });
+        if (microtonalTones.length > 0) {
+            targetTones = microtonalTones;
+        }
+    }
+
     if (fromIdx === -1) {
-        return chordTones.length > 0 ? findClosest(targetRaw, chordTones) : findClosest(targetRaw, validPitches);
+        return targetTones.length > 0 ? findClosest(targetRaw, targetTones) : findClosest(targetRaw, validPitches);
     }
     const minIdx = Math.max(0, fromIdx - maxOffset);
     const maxIdx = Math.min(globalScalePitches.length - 1, fromIdx + maxOffset);
@@ -254,7 +289,7 @@ export function getConstrainedAnchorGlobal(fromPitch, targetRaw, maxOffset, glob
     });
     
     const candidatePool = allowedLocalPitches.length > 0 ? allowedLocalPitches : validPitches;
-    const allowedChordTones = candidatePool.filter(p => chordTones.includes(p));
+    const allowedChordTones = candidatePool.filter(p => targetTones.includes(p));
     if (allowedChordTones.length > 0) {
         return findClosest(targetRaw, allowedChordTones);
     }
