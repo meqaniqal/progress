@@ -27,15 +27,26 @@ export class OrnamentPlanner {
     this.allowedOrnaments = options.allowedOrnaments || ['graceNote', 'trill', 'turn', 'appoggiatura'];
   }
 
-  /**
-   * Execute Pass D: Generate ornament layer.
-   * @param {GenerationConfig} config - Generation configuration
-   * @param {MelodyNote[]} previousNotes - Notes from previous passes (Pass A + B + C)
-   * @param {Object} [context] - Execution context
-   * @returns {PassResult} Ornament layer result
-   */
   async execute(config, previousNotes, context = {}) {
     const ornaments = [];
+    const options = config.options || {};
+
+    if (options.density !== undefined) {
+      this.ornamentDensity = options.density;
+    }
+
+    if (options.safeMode) {
+      // Under Safe Mode, skip generating ornaments entirely
+      return new PassResult(
+        'PassD_Ornament',
+        [],
+        new EvaluationMetrics('PassD_Ornament', 1.0, [], true),
+        {
+          ornamentCount: 0,
+          structuralNoteCount: previousNotes.length,
+        }
+      );
+    }
 
     // Sort notes by time
     const sortedNotes = [...previousNotes].sort((a, b) => a.startTime - b.startTime);

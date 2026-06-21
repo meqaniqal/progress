@@ -46,6 +46,10 @@ export const state = {
     melodySettings: {
         enabled: false,
         genre: 'none',
+        engine: 'progress',
+        pitchDiversityWeight: 0.0,
+        tensionLevel: 0.5,
+        isAntecedent: false,
         motifRecurrence: 0.5,
         variationDepth: 0.5,
         density: 0.5,
@@ -737,6 +741,10 @@ export function resetSession() {
     state.melodySettings = {
         enabled: false,
         genre: 'none',
+        engine: 'progress',
+        pitchDiversityWeight: 0.0,
+        tensionLevel: 0.5,
+        isAntecedent: false,
         motifRecurrence: 0.5,
         variationDepth: 0.5,
         density: 0.5,

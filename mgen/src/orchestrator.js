@@ -21,10 +21,12 @@ export class CompositionOrchestrator {
    * @param {Object} options - Orchestrator options
    * @param {number} [options.maxRegenerations=3] - Maximum regeneration attempts per pass
    * @param {number} [options.minScoreThreshold=0.5] - Minimum score to pass a pass
+   * @param {number} [options.timeBudget=Infinity] - Execution time budget in ms
    */
   constructor(options = {}) {
     this.maxRegenerations = options.maxRegenerations || 3;
     this.minScoreThreshold = options.minScoreThreshold || 0.5;
+    this.timeBudget = options.timeBudget || Infinity;
     this.passes = [];
     this.executionLog = [];
   }
@@ -53,33 +55,113 @@ export class CompositionOrchestrator {
    * @returns {MelodyResult} Complete melody result
    */
   async execute(config) {
-    const allNotes = [];
+    this._startTime = performance.now();
+    this.safeModeTriggered = false;
+    this.backtrackCount = 0;
+    this.maxBacktracks = 2;
+    this.executionLog = [];
+
     const passResults = [];
     this._passNotes = new Map();
 
-    for (const task of this.passes) {
-      const result = await this._executePassWithRegeneration(task, config, allNotes);
-      passResults.push(result);
-      allNotes.push(...result.notes);
-      this._passNotes.set(result.passName, [...result.notes]);
+    if (!config.options) {
+      config.options = {};
+    }
+    // Initialize/Reset dynamic properties
+    config.options.safeMode = false;
+    config.options.backtrackFeedback = null;
+
+    let i = 0;
+    while (i < this.passes.length) {
+      const task = this.passes[i];
+
+      // Check if time budget is running low (over 70% elapsed)
+      if (this.timeBudget && this.timeBudget !== Infinity && !config.options.safeMode) {
+        const elapsed = performance.now() - this._startTime;
+        if (elapsed > this.timeBudget * 0.7) {
+          config.options.safeMode = true;
+          this.safeModeTriggered = true;
+          console.warn(`[Orchestrator] Time budget running low (${elapsed.toFixed(1)}ms / ${this.timeBudget}ms). Switching remaining passes to SAFE mode.`);
+        }
+      }
+
+      // Gather notes from completed preceding passes using additive/refining accumulation rules
+      const accumulatedNotes = this._accumulateNotes(passResults.slice(0, i));
+
+      const result = await this._executePassWithRegeneration(task, config, accumulatedNotes);
+
+      // Backtrack if failed, and we have backtracking budget, and we are not in safeMode
+      if (!result.metrics.passesThreshold && i > 0 && this.backtrackCount < this.maxBacktracks && !config.options.safeMode) {
+        this.backtrackCount++;
+        i--; // Step back to preceding pass
+        passResults.length = i; // Discard trailing results
+        this.executionLog.length = i; // Discard trailing logs
+        console.warn(`[Orchestrator] Pass [${task.name || task.constructor.name}] failed threshold (score: ${result.metrics.score}). Backtracking to preceding pass.`);
+        config.options.backtrackFeedback = {
+          failedPass: task.name || task.constructor.name,
+          issues: result.metrics.issues
+        };
+        continue;
+      }
+
+      // Successful step or hit max backtracks: clear temporary feedback and record notes
+      config.options.backtrackFeedback = null;
+      const passName = result.passName;
+      this._passNotes.set(passName, [...result.notes]);
+
+      // If we backtracked and re-ran, overwrite the index, otherwise push
+      const existingIdx = passResults.findIndex(r => r.passName === passName);
+      if (existingIdx !== -1) {
+        passResults[existingIdx] = result;
+      } else {
+        passResults.push(result);
+      }
+
       this.executionLog.push({
         passName: result.passName,
         score: result.metrics.score,
         issues: result.metrics.issues,
         noteCount: result.notes.length,
       });
+
+      i++;
     }
 
-    // Deduplicate overlapping notes (same start time) keeping higher-priority roles
-    const deduplicated = this._deduplicateOverlappingNotes(allNotes);
+    // Accumulate final notes across all successful passes using additive/refining accumulation rules
+    const finalAccumulatedNotes = this._accumulateNotes(passResults);
 
-    return new MelodyResult(deduplicated, {
+    // Deduplicate overlapping notes (same start time) keeping higher-priority roles
+    const deduplicated = this._deduplicateOverlappingNotes(finalAccumulatedNotes);
+
+    // Filter out silent notes/rests (duration <= 0) from the final output
+    const soundingNotes = deduplicated.filter(n => n.duration > 0);
+
+    // Snap note pitches to chord/scale tones of the active chord at each note's start time
+    const snappedNotes = this._snapPitchesToHarmonicContext(soundingNotes, config.chords, config.options);
+
+    // Sort sounding notes chronologically
+    snappedNotes.sort((a, b) => a.startTime - b.startTime);
+
+    // Clamp durations to ensure strict monophonic cutoff (no overlapping notes)
+    for (let i = 0; i < snappedNotes.length - 1; i++) {
+      const currentNote = snappedNotes[i];
+      const nextNote = snappedNotes[i + 1];
+      const timeToNext = nextNote.startTime - currentNote.startTime;
+      if (currentNote.duration > timeToNext) {
+        currentNote.duration = timeToNext;
+      }
+    }
+
+    return new MelodyResult(snappedNotes, {
       passResults,
       executionLog: this.executionLog,
       phraseContext: config.phraseContext,
       chords: config.chords,
-      originalNoteCount: allNotes.length,
-      finalNoteCount: deduplicated.length,
+      originalNoteCount: finalAccumulatedNotes.length,
+      finalNoteCount: soundingNotes.length,
+      safeModeTriggered: this.safeModeTriggered,
+      backtrackCount: this.backtrackCount,
+      executionTimeMs: performance.now() - this._startTime
     });
   }
 
@@ -94,8 +176,9 @@ export class CompositionOrchestrator {
   async _executePassWithRegeneration(task, config, accumulatedNotes) {
     let attempts = 0;
     let lastResult = null;
+    const maxAttempts = config.options?.safeMode ? 1 : this.maxRegenerations;
 
-    while (attempts < this.maxRegenerations) {
+    while (attempts < maxAttempts) {
       attempts++;
 
       try {
@@ -108,7 +191,7 @@ export class CompositionOrchestrator {
         lastResult.metrics = this._evaluatePass(lastResult, accumulatedNotes);
 
         // Check if pass meets threshold
-        if (lastResult.metrics.passesThreshold) {
+        if (lastResult.metrics.passesThreshold || config.options?.safeMode) {
           return lastResult;
         }
 
@@ -280,8 +363,154 @@ export class CompositionOrchestrator {
   }
 
   /**
-    * Reset orchestrator state.
-    */
+   * Accumulates notes from executed passes, handling both additive and refining/complete passes.
+   * Refining passes (Rhythm, Style, Phrase, Expectation, VoiceLeading) replace preceding notes
+   * with the complete modified set of notes. Additive passes append new notes.
+   * @param {Object[]} results - Pass results
+   * @returns {MelodyNote[]} Accumulated notes
+   * @private
+   */
+  _accumulateNotes(results) {
+    let accumulated = [];
+    const refiningPasses = ['PassE_Expectation', 'RhythmEngine', 'StyleEngine', 'PhraseEngine', 'ExpectationEngine', 'VoiceLeadingEngine'];
+    
+    for (const res of results) {
+      if (res && res.notes) {
+        if (refiningPasses.includes(res.passName)) {
+          // A refining pass returns the complete set of notes, replacing what was accumulated so far
+          accumulated = [...res.notes];
+        } else {
+          // An additive pass returns only its new notes, so we append them
+          accumulated.push(...res.notes);
+        }
+      }
+    }
+    return accumulated;
+  }
+
+  /**
+   * Snaps all notes' pitches to the chord tones (for structural/cadence roles)
+   * or scale tones (for connector/ornament/expectation roles) of the active chord.
+   * @param {MelodyNote[]} notes - Notes to snap
+   * @param {Chord[]} chords - Chord progression
+   * @param {Object} [configOptions] - Generation options
+   * @returns {MelodyNote[]} Snapped notes
+   * @private
+   */
+  _snapPitchesToHarmonicContext(notes, chords, configOptions = {}) {
+    if (!chords || chords.length === 0) return notes;
+
+    const noteValues = {
+      C: 0,
+      'C#': 1, Csh: 1,
+      Db: 1, Dbb: 0,
+      D: 2,
+      'D#': 3, Dsh: 3,
+      Eb: 3, Ebb: 1,
+      E: 4, Esh: 5,
+      F: 5, Fb: 3, Fbb: 3,
+      'F#': 6, Fsh: 6, Gb: 6,
+      G: 7, Gbb: 4,
+      'G#': 8, Gsh: 8, Ab: 8, Abb: 7,
+      A: 9,
+      'A#': 10, Ash: 10, Bb: 10, Bbb: 8,
+      B: 11, Bsh: 12,
+    };
+
+    const getRootPc = (rootName) => {
+      const cleanRoot = rootName.replace(/\d+$/, '');
+      return noteValues[cleanRoot] !== undefined ? noteValues[cleanRoot] : 0;
+    };
+
+    const registerRange = configOptions.registerRange;
+    const minRegister = registerRange ? (registerRange.min || 0) : 0;
+    const maxRegister = registerRange ? (registerRange.max || 127) : 127;
+
+    return notes.map(note => {
+      // 1. Find active chord at note.startTime
+      let activeChord = chords[0];
+      for (let i = 0; i < chords.length; i++) {
+        const c = chords[i];
+        const nextC = chords[i + 1];
+        const chordDuration = c.duration || 2;
+        const nextStart = nextC ? nextC.beatStart : c.beatStart + chordDuration;
+        
+        if (note.startTime >= c.beatStart && note.startTime < nextStart) {
+          activeChord = c;
+          break;
+        }
+      }
+
+      // 2. Get scale/chord intervals
+      const rootPc = getRootPc(activeChord.root);
+      const quality = activeChord.quality || 'maj';
+
+      let chordIntervals = [0, 4, 7]; // default major
+      let scaleIntervals = [0, 2, 4, 5, 7, 9, 11];
+
+      if (quality === 'min' || quality === 'min7') {
+        chordIntervals = [0, 3, 7];
+        scaleIntervals = [0, 2, 3, 5, 7, 8, 10];
+      } else if (quality === 'dim') {
+        chordIntervals = [0, 3, 6];
+        scaleIntervals = [0, 2, 3, 5, 6, 8, 10];
+      } else if (quality === 'aug') {
+        chordIntervals = [0, 4, 8];
+        scaleIntervals = [0, 2, 4, 6, 8, 10];
+      } else if (quality === '7') {
+        chordIntervals = [0, 4, 7, 10];
+        scaleIntervals = [0, 2, 4, 5, 7, 9, 10];
+      } else if (quality === 'maj7') {
+        chordIntervals = [0, 4, 7, 11];
+        scaleIntervals = [0, 2, 4, 5, 7, 9, 11];
+      }
+
+      const isChordToneRole = note.role === 'structural' || note.role === 'cadence';
+      const targetIntervals = isChordToneRole ? chordIntervals : scaleIntervals;
+
+      const currentOctave = Math.floor(note.pitch / 12);
+      
+      let bestPitch = note.pitch;
+      let minDiff = Infinity;
+
+      for (let oct = currentOctave - 1; oct <= currentOctave + 1; oct++) {
+        for (const interval of targetIntervals) {
+          const candidate = oct * 12 + ((rootPc + interval) % 12);
+          if (candidate >= 0 && candidate <= 127) {
+            if (registerRange && (candidate < minRegister || candidate > maxRegister)) {
+              continue;
+            }
+            const diff = Math.abs(note.pitch - candidate);
+            if (diff < minDiff) {
+              minDiff = diff;
+              bestPitch = candidate;
+            }
+          }
+        }
+      }
+
+      if (bestPitch !== note.pitch) {
+        return new MelodyNote(
+          bestPitch,
+          note.startTime,
+          note.duration,
+          note.role,
+          {
+            ...note.metadata,
+            snappedToChord: true,
+            originalPitch: note.pitch,
+            activeChordSymbol: `${activeChord.root}${activeChord.quality}`,
+          }
+        );
+      }
+
+      return note;
+    });
+  }
+
+  /**
+   * Reset orchestrator state.
+   */
   reset() {
     this.executionLog = [];
     this._passNotes = new Map();

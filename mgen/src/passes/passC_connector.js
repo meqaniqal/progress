@@ -38,6 +38,8 @@ export class ConnectorPlanner {
    */
   async execute(config, previousNotes, context = {}) {
     const notes = [];
+    const options = config.options || {};
+    const safeMode = options.safeMode || false;
 
     // Sort previous notes by time
     const sortedNotes = [...previousNotes].sort((a, b) => a.startTime - b.startTime);
@@ -47,7 +49,7 @@ export class ConnectorPlanner {
       const currentNote = sortedNotes[i];
       const nextNote = sortedNotes[i + 1];
 
-      const connectors = this._generateConnectors(currentNote, nextNote);
+      const connectors = this._generateConnectors(currentNote, nextNote, safeMode, options);
       notes.push(...connectors);
     }
 
@@ -67,10 +69,12 @@ export class ConnectorPlanner {
    * Uses stepwise motion primarily, with occasional skips.
    * @param {MelodyNote} startNote - Starting structural/cadence note
    * @param {MelodyNote} endNote - Ending structural/cadence note
+   * @param {boolean} safeMode - Whether to execute under Safe Mode
+   * @param {Object} options - Generation options
    * @returns {MelodyNote[]} Connective notes
    * @private
    */
-  _generateConnectors(startNote, endNote) {
+  _generateConnectors(startNote, endNote, safeMode = false, options = {}) {
     const connectors = [];
     const startPitch = startNote.pitch;
     const endPitch = endNote.pitch;
@@ -87,8 +91,19 @@ export class ConnectorPlanner {
       return connectors;
     }
 
-    // Determine number of connector notes based on distance
-    const numConnectors = Math.min(Math.floor(absDistance / 2), absDistance <= 1 ? 2 : 4);
+    const density = options.density !== undefined ? options.density : 0.5;
+
+    // Determine number of connector notes based on distance and density (cap to 1 in safeMode)
+    let numConnectors;
+    if (safeMode) {
+      numConnectors = Math.min(Math.max(1, Math.floor(absDistance / 2)), 1);
+    } else if (density > 0.7) {
+      numConnectors = Math.min(Math.floor(absDistance), absDistance <= 1 ? 2 : 6);
+    } else if (density < 0.3) {
+      numConnectors = Math.min(Math.floor(absDistance / 3), 1);
+    } else {
+      numConnectors = Math.min(Math.floor(absDistance / 2), absDistance <= 1 ? 2 : 4);
+    }
 
     if (numConnectors === 0) {
       return connectors;
@@ -101,22 +116,23 @@ export class ConnectorPlanner {
     for (let i = 0; i < numConnectors; i++) {
       const timePosition = startTime + timeStep * (i + 1);
 
-      // Determine motion type
-      const motionType = this._selectMotionType();
+      // Determine motion type (always stepwise in safeMode)
+      const motionType = safeMode ? 'step' : this._selectMotionType();
 
       let stepSize;
-      switch (motionType) {
-        case 'step':
-          stepSize = direction * 1;
-          break;
-        case 'skip':
-          stepSize = direction * (2 + Math.floor(Math.random() * 2));
-          break;
-        case 'leap':
-          stepSize = direction * (3 + Math.floor(Math.random() * 4));
-          break;
-        default:
-          stepSize = direction * 1;
+      if (safeMode || motionType === 'step') {
+        stepSize = direction * 1;
+      } else {
+        switch (motionType) {
+          case 'skip':
+            stepSize = direction * (2 + Math.floor(Math.random() * 2));
+            break;
+          case 'leap':
+            stepSize = direction * (3 + Math.floor(Math.random() * 4));
+            break;
+          default:
+            stepSize = direction * 1;
+        }
       }
 
       // Ensure we don't overshoot the target

@@ -9,6 +9,7 @@ import { evaluateVoiceEvents } from './transitionEvaluator.js';
 import { state as appState, getActiveProgression } from './store.js';
 import { isSongTrayOpen } from './songController.js';
 import { scheduleMelody, clearMelodyMemory } from './melodyGenerator.js';
+import { pregenerateMgenMelody } from './mgenEngine.js';
 
 function makeSoftClipCurve(drive) {
     const n_samples = 44100;
@@ -302,6 +303,9 @@ export async function exportToWav(state, buttonElement) {
 
     try {
         initAudio(); // Ensures the global noise buffer exists for snare/hi-hats
+        if (state.melodySettings && state.melodySettings.enabled && state.melodySettings.engine === 'mgen') {
+            await pregenerateMgenMelody(state);
+        }
         const timeline = calculateAudioTimeline(state.currentProgression, state.bpm, state.useVoiceLeading, state.exportPasses, state);
         if (timeline.length === 0) return;
 

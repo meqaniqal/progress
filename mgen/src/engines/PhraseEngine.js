@@ -168,7 +168,21 @@ export class PhraseEngine {
       );
     }
 
-    const sortedNotes = [...previousNotes].sort((a, b) => a.startTime - b.startTime);
+    let sortedNotes = [...previousNotes].sort((a, b) => a.startTime - b.startTime);
+
+    // If antecedentConsequent is enabled and we have a chord progression, filter notes to keep only the first half.
+    // The second half will be filled by the generated consequent phrase.
+    if (this.antecedentConsequent && config && config.chords && config.chords.length > 0) {
+      const lastChord = config.chords[config.chords.length - 1];
+      const progressionDuration = lastChord.beatStart + (lastChord.duration || 2);
+      const midpoint = progressionDuration / 2;
+      const filtered = sortedNotes.filter(n => n.startTime < midpoint);
+      // Ensure we don't end up with completely empty notes if filtering was too aggressive
+      if (filtered.length > 0) {
+        sortedNotes = filtered;
+      }
+    }
+
     const arc = this._computePhraseArc(sortedNotes, config);
     const grammar = this._selectPhraseGrammar(config);
     const phrases = this._groupIntoPhrases(sortedNotes, config, arc);
@@ -427,7 +441,7 @@ export class PhraseEngine {
     }
 
     // Antecedent phrases don't resolve to tonic
-    const isAntecedent = dominantRole === 'statement' || dominantRole === 'build';
+    const isAntecedent = this.antecedentConsequent || dominantRole === 'statement' || dominantRole === 'build';
 
     return new PhraseContext(dominantRole, tensionLevel, registerTarget, isAntecedent);
   }
@@ -521,7 +535,7 @@ export class PhraseEngine {
 
     // If antecedent-consequent mode is enabled, create consequent phrases
     if (this.antecedentConsequent && phrases.length >= 1) {
-      return this._applyAntecedentConsequentPattern(constrainedNotes, phrases, arc);
+      return this._applyAntecedentConsequentPattern(constrainedNotes, phrases, arc, config);
     }
 
     return constrainedNotes;
@@ -588,12 +602,12 @@ export class PhraseEngine {
    * @returns {MelodyNote[]} Transformed notes
    * @private
    */
-  _applyAntecedentConsequentPattern(notes, phrases, arc) {
+  _applyAntecedentConsequentPattern(notes, phrases, arc, config) {
     const consequentNotes = [];
     const antecedentPhrases = phrases.filter((p) => p.phraseContext.isAntecedent);
 
     for (const antecedentPhrase of antecedentPhrases) {
-      const consequentPhrase = this._createConsequentPhrase(antecedentPhrase, phrases.length, arc);
+      const consequentPhrase = this._createConsequentPhrase(antecedentPhrase, phrases.length, arc, config);
       consequentNotes.push(...consequentPhrase.notes);
     }
 
@@ -609,7 +623,7 @@ export class PhraseEngine {
    * @returns {Phrase} Created consequent phrase
    * @private
    */
-  _createConsequentPhrase(antecedentPhrase, totalPhrases, arc) {
+  _createConsequentPhrase(antecedentPhrase, totalPhrases, arc, config) {
     const antecedentNotes = antecedentPhrase.notes;
     const consequentNotes = [];
 
@@ -629,6 +643,18 @@ export class PhraseEngine {
     const minRegister = Math.min(...(arc.registers || [0.5]));
     const baseRegister = (arc.options && arc.options.baseRegister) || 60;
     const tonic = baseRegister;
+
+    // Calculate musically correct shift offset based on the actual chord progression duration (half of total progression duration)
+    let shiftOffset = 8;
+    if (config && config.chords && config.chords.length > 0) {
+      const lastChord = config.chords[config.chords.length - 1];
+      const progressionDuration = lastChord.beatStart + (lastChord.duration || 2);
+      shiftOffset = progressionDuration / 2;
+    } else if (antecedentNotes.length > 0) {
+      const phraseStart = Math.min(...antecedentNotes.map(n => n.startTime));
+      const phraseEnd = Math.max(...antecedentNotes.map(n => n.startTime + n.duration));
+      shiftOffset = Math.max(4, phraseEnd - phraseStart);
+    }
 
     for (const note of antecedentNotes) {
       let newPitch = note.pitch;
@@ -661,7 +687,7 @@ export class PhraseEngine {
 
       const consequentNote = new MelodyNote(
         newPitch,
-        note.startTime + totalPhrases * this.notesPerPhrase,
+        note.startTime + shiftOffset,
         note.duration,
         note.role,
         {

@@ -316,6 +316,61 @@ export function syncSettingsUI() {
             optionsContainer.style.display = state.melodySettings.enabled ? 'flex' : 'none';
         }
 
+        const engineEl = document.getElementById('melody-engine');
+        if (engineEl) engineEl.value = state.melodySettings.engine || 'progress';
+
+        const warningNotice = document.getElementById('mgen-warning-notice');
+        if (warningNotice) {
+            warningNotice.style.display = (state.melodySettings.engine === 'mgen') ? 'block' : 'none';
+        }
+
+        const isMgen = (state.melodySettings.engine === 'mgen');
+        const progressRowIds = [
+            'row-melody-motif-recurrence',
+            'row-melody-variation-depth',
+            'row-melody-rests',
+            'row-melody-shortest-note',
+            'row-melody-ornaments',
+            'row-melody-macro-planner',
+            'row-melody-macro-contour',
+            'row-melody-countermelody-toggle',
+            'row-melody-countermelody-mode'
+        ];
+        progressRowIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = isMgen ? 'none' : 'flex';
+        });
+
+        const mgenRowIds = [
+            'row-mgen-tension-level',
+            'row-mgen-pitch-diversity',
+            'row-mgen-is-antecedent'
+        ];
+        mgenRowIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = isMgen ? 'flex' : 'none';
+        });
+
+        // Sync mgen-specific inputs
+        const tensionLevelEl = document.getElementById('melody-tension-level');
+        if (tensionLevelEl) {
+            const val = state.melodySettings.tensionLevel !== undefined ? state.melodySettings.tensionLevel : 0.5;
+            tensionLevelEl.value = val;
+            const labelEl = document.getElementById('melody-tension-level-val');
+            if (labelEl) labelEl.textContent = val.toFixed(2);
+        }
+
+        const pitchDiversityEl = document.getElementById('melody-pitch-diversity');
+        if (pitchDiversityEl) {
+            const val = state.melodySettings.pitchDiversityWeight !== undefined ? state.melodySettings.pitchDiversityWeight : 0.0;
+            pitchDiversityEl.value = val;
+            const labelEl = document.getElementById('melody-pitch-diversity-val');
+            if (labelEl) labelEl.textContent = `${Math.round(val * 100)}%`;
+        }
+
+        const isAntecedentEl = document.getElementById('melody-is-antecedent');
+        if (isAntecedentEl) isAntecedentEl.checked = !!state.melodySettings.isAntecedent;
+
         const genreEl = document.getElementById('melody-genre');
         if (genreEl) genreEl.value = state.melodySettings.genre || 'none';
 
@@ -896,11 +951,60 @@ export function initSettingsUI({ onRenderProgression }) {
         });
     }
 
+    const melodyEngineEl = document.getElementById('melody-engine');
+    if (melodyEngineEl) {
+        melodyEngineEl.addEventListener('change', (e) => {
+            state.melodySettings.engine = e.target.value;
+            const notice = document.getElementById('mgen-warning-notice');
+            if (notice) {
+                notice.style.display = (e.target.value === 'mgen') ? 'block' : 'none';
+            }
+
+            const isMgen = (e.target.value === 'mgen');
+            const progressRowIds = [
+                'row-melody-motif-recurrence',
+                'row-melody-variation-depth',
+                'row-melody-rests',
+                'row-melody-shortest-note',
+                'row-melody-ornaments',
+                'row-melody-macro-planner',
+                'row-melody-macro-contour',
+                'row-melody-countermelody-toggle',
+                'row-melody-countermelody-mode'
+            ];
+            progressRowIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = isMgen ? 'none' : 'flex';
+            });
+
+            const mgenRowIds = [
+                'row-mgen-tension-level',
+                'row-mgen-pitch-diversity',
+                'row-mgen-is-antecedent'
+            ];
+            mgenRowIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = isMgen ? 'flex' : 'none';
+            });
+
+            persistAppState();
+            
+            if (isPlaybackActive() && e.target.value === 'mgen') {
+                import('./mgenEngine.js').then(engineMod => {
+                    engineMod.pregenerateMgenMelody(state);
+                });
+            }
+        });
+    }
+
     const melodyGenreEl = document.getElementById('melody-genre');
     if (melodyGenreEl) {
         melodyGenreEl.addEventListener('change', (e) => {
             state.melodySettings.genre = e.target.value;
             persistAppState();
+            if (isPlaybackActive() && state.melodySettings.engine === 'mgen') {
+                import('./mgenEngine.js').then(m => m.pregenerateMgenMelody(state));
+            }
         });
     }
 
@@ -909,6 +1013,9 @@ export function initSettingsUI({ onRenderProgression }) {
         melodyDensityEl.addEventListener('input', (e) => {
             state.melodySettings.density = parseFloat(e.target.value);
             persistAppState();
+            if (isPlaybackActive() && state.melodySettings.engine === 'mgen') {
+                import('./mgenEngine.js').then(m => m.pregenerateMgenMelody(state));
+            }
         });
     }
 
@@ -972,6 +1079,48 @@ export function initSettingsUI({ onRenderProgression }) {
         melodyCurveEl.addEventListener('change', (e) => {
             state.melodySettings.tensionCurve = e.target.value;
             persistAppState();
+            if (isPlaybackActive() && state.melodySettings.engine === 'mgen') {
+                import('./mgenEngine.js').then(m => m.pregenerateMgenMelody(state));
+            }
+        });
+    }
+
+    const melodyTensionLevelEl = document.getElementById('melody-tension-level');
+    if (melodyTensionLevelEl) {
+        melodyTensionLevelEl.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            state.melodySettings.tensionLevel = val;
+            const valEl = document.getElementById('melody-tension-level-val');
+            if (valEl) valEl.textContent = val.toFixed(2);
+            persistAppState();
+            if (isPlaybackActive() && state.melodySettings.engine === 'mgen') {
+                import('./mgenEngine.js').then(m => m.pregenerateMgenMelody(state));
+            }
+        });
+    }
+
+    const melodyPitchDiversityEl = document.getElementById('melody-pitch-diversity');
+    if (melodyPitchDiversityEl) {
+        melodyPitchDiversityEl.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            state.melodySettings.pitchDiversityWeight = val;
+            const valEl = document.getElementById('melody-pitch-diversity-val');
+            if (valEl) valEl.textContent = `${Math.round(val * 100)}%`;
+            persistAppState();
+            if (isPlaybackActive() && state.melodySettings.engine === 'mgen') {
+                import('./mgenEngine.js').then(m => m.pregenerateMgenMelody(state));
+            }
+        });
+    }
+
+    const melodyIsAntecedentEl = document.getElementById('melody-is-antecedent');
+    if (melodyIsAntecedentEl) {
+        melodyIsAntecedentEl.addEventListener('change', (e) => {
+            state.melodySettings.isAntecedent = e.target.checked;
+            persistAppState();
+            if (isPlaybackActive() && state.melodySettings.engine === 'mgen') {
+                import('./mgenEngine.js').then(m => m.pregenerateMgenMelody(state));
+            }
         });
     }
 

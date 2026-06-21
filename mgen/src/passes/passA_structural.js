@@ -41,21 +41,36 @@ export class StructuralPlanner {
     const notes = [];
     const options = config.options || {};
     const pitchDiversityMode = options.pitchDiversityMode || 'avoid-previous';
-    const pitchDiversityWeight = parseFloat(options.pitchDiversityWeight) || 0.0;
+    let pitchDiversityWeight = parseFloat(options.pitchDiversityWeight) || 0.0;
+
+    // If backtracking feedback was provided, boost pitch diversity to find alternative shapes
+    if (options.backtrackFeedback) {
+      pitchDiversityWeight = Math.min(1.0, pitchDiversityWeight + 0.4);
+    }
+
     let previousStructuralPitch = null;
 
     // Select structural targets for each chord
     for (let i = 0; i < chords.length; i++) {
       const chord = chords[i];
-      const structuralNote = this._selectStructuralTarget(chord, phraseContext, i, chords, previousStructuralPitch, pitchDiversityMode, pitchDiversityWeight);
+      let structuralNote = this._selectStructuralTarget(chord, phraseContext, i, chords, previousStructuralPitch, pitchDiversityMode, pitchDiversityWeight);
+      
+      // Apply feed-forward register ranges if specified
+      if (structuralNote && options.registerRange) {
+        const minPitch = options.registerRange.min || 48;
+        const maxPitch = options.registerRange.max || 72;
+        const boundedPitch = Math.max(minPitch, Math.min(maxPitch, structuralNote.pitch));
+        structuralNote = new MelodyNote(boundedPitch, structuralNote.startTime, structuralNote.duration, structuralNote.role, structuralNote.metadata);
+      }
+
       if (structuralNote) {
         previousStructuralPitch = structuralNote.pitch;
         notes.push(structuralNote);
       }
     }
 
-    // Ensure voice-leading coherence between structural notes
-    const refinedNotes = this._applyVoiceLeadingConstraints(notes);
+    // Bypass expensive voice-leading optimization in safeMode for speed
+    const refinedNotes = options.safeMode ? notes : this._applyVoiceLeadingConstraints(notes);
 
     return new PassResult(
       'PassA_Structural',

@@ -100,7 +100,8 @@ async function runPipeline() {
   const tensionLevel = parseFloat(document.getElementById('tension-level').value) || 0.5;
   const isAntecedent = document.getElementById('is-antecedent').value === 'true';
 
-  // Validate chord instances before passing to orchestrator
+  // Validate chord instances before passing to orchestrator (disabled console logging)
+  /*
   console.log('\n=== CHORD VALIDATION ===');
   chords.forEach((chord, i) => {
     console.log(`Chord ${i + 1}:`, {
@@ -112,6 +113,7 @@ async function runPipeline() {
       constructorName: chord.constructor.name
     });
   });
+  */
 
   const tuningSystemId = document.getElementById('tuning-system').value;
   const microtonalEngine = new MicrotonalEngine({ tuningSystem: tuningSystemId });
@@ -189,6 +191,7 @@ async function runPipeline() {
     // Extract RhythmEngine output (6th pass) for metadata verification
     const rhythmPassResult = result.metadata?.passResults?.find(p => p.passName === 'RhythmEngine');
     const rhythmAdjustedNotes = result.allNotes.filter(n => n.metadata && n.metadata.rhythmAdjusted);
+    /*
     if (rhythmPassResult) {
       console.log('\n=== RhythmEngine Output ===');
       console.log(`  Template: ${rhythmPassResult.metadata?.activeTemplate?.id || 'N/A'}`);
@@ -199,6 +202,7 @@ async function runPipeline() {
         console.log(`    ${i + 1}. pitch:${note.pitch} start:${note.startTime} dur:${note.duration} rhythmAdjusted:${meta.rhythmAdjusted} templateId:${meta.templateId || 'N/A'} subdivisionId:${meta.subdivisionId || 'N/A'}`);
       });
     }
+    */
     
     // Apply microtonal tuning to final result
     const microtonalResult = await microtonalEngine.execute(config, result.allNotes, {});
@@ -214,12 +218,14 @@ async function runPipeline() {
       }
     };
 
-    // Log per-pass output for debugging
+    // Log per-pass output for debugging (disabled console logging)
+    /*
     console.log('\n=== PER-PASS OUTPUT ===');
     const allPassOutputs = orchestrator.getAllPassOutputs();
     allPassOutputs.forEach(pass => {
       console.log(`${pass.passName}: ${pass.noteCount} notes`, pass.notes);
     });
+    */
 
     // Update pass cards with results
     updatePassCards(result);
@@ -358,9 +364,6 @@ function showStage(index) {
     return;
   }
 
-  // Log 30 notes to console for quick reference
-  logNotesToConsole(passData.data.notes);
-
   const notes = passData.data.notes;
 
   // Show note chips
@@ -400,34 +403,26 @@ function showStage(index) {
       ).map(([role, count]) => `${role}: ${count}`).join(', ')
     : 'N/A';
 
-  const chords = pipelineResults?.metadata?.chords || [];
-  const chordInfo = chords.length > 0
-    ? chords.map(c => `${c.root}${c.quality} @ beat ${c.beatStart}`).join('  |  ')
-    : 'No chords';
+  content.innerHTML = '';
 
-  content.innerHTML = `
-    <div class="note-list">${noteHtml}</div>
-    <div class="chord-bar">${chordInfo}</div>
-    <div class="data-summary">
-      <div class="summary-stat"><span class="label">Total Notes:</span> <span class="value">${notes.length}</span></div>
-      <div class="summary-stat"><span class="label">Duration:</span> <span class="value">${totalDuration}s</span></div>
-      <div class="summary-stat"><span class="label">Pitch Range:</span> <span class="value">${pitchRange}</span></div>
-      <div class="summary-stat"><span class="label">Roles:</span> <span class="value">${roleCounts}</span></div>
-    </div>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Note</th>
-          <th>MIDI</th>
-          <th>Start (s)</th>
-          <th>Duration (s)</th>
-          <th>Role</th>
-        </tr>
-      </thead>
-      <tbody>${tableRows}</tbody>
-    </table>
-  `;
+  const tableContainer = document.getElementById('table-content');
+  if (tableContainer) {
+    tableContainer.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Note</th>
+            <th>MIDI</th>
+            <th>Start (s)</th>
+            <th>Duration (s)</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    `;
+  }
 
   // Draw piano roll for final melody
   if (index === passes.length - 1) {
@@ -1468,81 +1463,28 @@ function generateRandomProgressionUI() {
   // Stop any ongoing playback before starting new pipeline
   stopPlayback();
 
-  const count = parseInt(document.getElementById('fixture-count').value) || 4;
-  const beatIncrement = parseInt(document.getElementById('fixture-beat-increment').value) || 2;
-  const fixtureDensity = parseFloat(document.getElementById('fixture-density').value) || 0.5;
-  const fixtureGenre = document.getElementById('fixture-genre').value || 'none';
-  fixtureWithBass = document.getElementById('fixture-with-bass').checked;
-  fixtureWithDrums = document.getElementById('fixture-with-drums').checked;
-  const complexPatterns = document.getElementById('fixture-complex').checked;
-
-  console.log('\n' + '='.repeat(80));
-  console.log('  RANDOM PROGRESSION GENERATOR');
-  console.log('  ' + '='.repeat(80));
-  console.log(`  Parameters: ${count} chords, ${beatIncrement} beat increment`);
-  console.log(`  Bass: ${fixtureWithBass ? 'YES' : 'NO'} | Drums: ${fixtureWithDrums ? 'YES' : 'NO'} | Complex: ${complexPatterns ? 'YES' : 'NO'}`);
+  const count = parseInt(document.getElementById('fixture-count')?.value) || 6;
+  const beatIncrement = parseInt(document.getElementById('fixture-beat-increment')?.value) || 2;
+  const fixtureDensity = parseFloat(document.getElementById('fixture-density')?.value) || 0.5;
+  const fixtureGenre = document.getElementById('fixture-genre')?.value || 'none';
+  fixtureWithBass = document.getElementById('fixture-with-bass')?.checked || false;
+  fixtureWithDrums = document.getElementById('fixture-with-drums')?.checked || false;
+  const complexPatterns = document.getElementById('fixture-complex')?.checked || false;
 
   // Step 1: Generate chords
   const { chords: processedChords, progressData, rawChords } = generateProgressionWithTracks({
     count, beatIncrement, withBass: fixtureWithBass, withDrums: fixtureWithDrums, complexPatterns,
   });
 
-  // Output raw chords
-  console.log(`\n  [Raw Chords - ${rawChords.length}]:`);
-  rawChords.forEach((c, i) => {
-    console.log(`    ${i + 1}. ${c.root}${c.quality} @ beat ${c.beatStart} [scaleDegrees: ${c.scaleDegrees.join(',')}]`);
-  });
-
-  // Output sliced/processed chords with diagnostic info
-  console.log(`\n  [Sliced Chords - ${processedChords.length}]:`);
-  console.log(`  Slicing factor: ${processedChords.length / count}x (original ${count} → ${processedChords.length} slices)`);
-  processedChords.forEach((c, i) => {
-    const tags = [];
-    if (c.effectiveRoot) tags.push(`effectiveRoot:${c.effectiveRoot}`);
-    if (c.bassPitchOffset !== undefined) tags.push(`bassOffset:${c.bassPitchOffset}`);
-    if (c.hasDrumHits) tags.push('hasDrumHits');
-    if (c.isContinuation) tags.push('continuation');
-    if (c.sliceIndex !== undefined) tags.push(`sliceIndex:${c.sliceIndex}`);
-    if (c._parentChord) tags.push(`parent:${c._parentChord.root}${c._parentChord.quality}`);
-    const tagStr = tags.length > 0 ? ` [${tags.join(', ')}]` : '';
-    console.log(`    ${i + 1}. ${c.root}${c.quality} @ beat ${c.beatStart}${tagStr}`);
-  });
-
-  // Chord frequency analysis
-  const chordFreq = {};
-  processedChords.forEach(c => {
-    const key = `${c.root}${c.quality}`;
-    chordFreq[key] = (chordFreq[key] || 0) + 1;
-  });
-  console.log(`\n  [Chord Frequency Analysis]:`);
-  Object.entries(chordFreq).forEach(([chord, freq]) => {
-    const pct = ((freq / processedChords.length) * 100).toFixed(1);
-    console.log(`    ${chord}: ${freq} slices (${pct}%)`);
-  });
-
-  // Pitch frequency analysis (pre-pipeline)
-  const pitchFreq = {};
-  processedChords.forEach(c => {
-    const rootMidi = NOTE_TO_MIDI[c.root] !== undefined ? NOTE_TO_MIDI[c.root] + 60 : 60;
-    pitchFreq[rootMidi] = (pitchFreq[rootMidi] || 0) + 1;
-  });
-  console.log(`\n  [Pre-Pipeline Pitch Distribution]:`);
-  const maxPrePitch = Math.max(...Object.values(pitchFreq), 0);
-  Object.entries(pitchFreq).forEach(([pitch, freq]) => {
-    const pct = ((freq / processedChords.length) * 100).toFixed(1);
-    const bar = '█'.repeat(Math.floor(freq / processedChords.length * 20));
-    const warning = freq === maxPrePitch && freq / processedChords.length > 0.2 ? ' ⚠️ HIGH' : '';
-    console.log(`    MIDI ${pitch} (${midiToNoteName(Number(pitch))}): ${freq} (${pct}%) ${bar}${warning}`);
-  });
-
   // Step 2: Run pipeline
-  console.log(`\n  [Running 6-Pass Pipeline]`);
 
   // Clear UI
   const log = document.getElementById('execution-log');
-  log.innerHTML = '';
-  document.getElementById('pipeline-status').style.display = 'block';
-  document.getElementById('visualization').style.display = 'block';
+  if (log) log.innerHTML = '';
+  const statusEl = document.getElementById('pipeline-status');
+  if (statusEl) statusEl.style.display = 'block';
+  const visEl = document.getElementById('visualization');
+  if (visEl) visEl.style.display = 'block';
   renderPassStages(['A', 'B', 'C', 'D', 'E', 'F']);
 
   const fixturePhraseRole = document.getElementById('phrase-role')?.value || 'statement';
@@ -1556,7 +1498,7 @@ function generateRandomProgressionUI() {
     fixtureIsAntecedent
   );
 
-  const tuningSystemId = document.getElementById('tuning-system').value;
+  const tuningSystemId = document.getElementById('tuning-system')?.value || '12tet';
   const microtonalEngine = new MicrotonalEngine({ tuningSystem: tuningSystemId });
   const orchestrator = new CompositionOrchestrator();
   orchestrator.registerPass(new StructuralPlanner());
@@ -1565,7 +1507,7 @@ function generateRandomProgressionUI() {
   orchestrator.registerPass(new OrnamentPlanner());
   orchestrator.registerPass(new ExpectationRefiner());
   const fixtureRhythmConfig = deriveRhythmEngineConfig(
-    chords.map(c => ({ root: c.root, quality: c.quality })),
+    rawChords.map(c => ({ root: c.root, quality: c.quality })),
     phraseContext.role, phraseContext.tensionLevel
   );
   const fixtureRhythmEngine = new RhythmEngine({
@@ -1581,8 +1523,8 @@ function generateRandomProgressionUI() {
   const fixtureVoiceLeadingEngine = new VoiceLeadingEngine();
   orchestrator.registerPass(fixtureVoiceLeadingEngine);
 
-  const chordProgression = processedChords.map(chord => ({
-    root: chord.root, quality: chord.quality, beatStart: chord.beatStart, scaleDegrees: chord.scaleDegrees,
+  const chordProgression = rawChords.map(chord => ({
+    root: chord.root, quality: chord.quality, beatStart: chord.beatStart, scaleDegrees: chord.scaleDegrees, duration: chord.duration || beatIncrement,
   }));
   const phraseCtx = new PhraseContext(phraseContext.role, phraseContext.tensionLevel, undefined, phraseContext.isAntecedent);
   const mgenConfig = new GenerationConfig(chordProgression, phraseCtx, {
@@ -1599,93 +1541,7 @@ function generateRandomProgressionUI() {
     // Apply microtonal tuning to final result
     const microtonalResult = await microtonalEngine.execute(mgenConfig, result.allNotes, {});
 
-    // Per-pass output
-    console.log(`\n  [Per-Pass Output]:`);
-    const allPassOutputs = orchestrator.getAllPassOutputs();
-    allPassOutputs.forEach(pass => {
-      console.log(`    ${pass.passName}: ${pass.noteCount} notes`);
-    });
-
-    // Final melody notes with full diagnostic info
     const finalNotes = result.allNotes;
-    console.log(`\n  [Final Melody - ${finalNotes.length} notes]:`);
-    console.log(`  Format: # | MIDI | Note | Time | Duration | Role | Color | Metadata`);
-
-    // Color mapping for notes
-    const roleColors = {
-      'structural': '🔴 RED (structural)',
-      'cadence': '🟠 ORANGE (cadence)',
-      'connector': '🟡 YELLOW (connector)',
-      'ornament': '🟢 GREEN (ornament)',
-      'expectation': '🔵 BLUE (expectation)',
-    };
-
-    // Pitch frequency analysis (post-pipeline)
-    const postPitchFreq = {};
-    finalNotes.forEach(n => {
-      postPitchFreq[n.pitch] = (postPitchFreq[n.pitch] || 0) + 1;
-    });
-    const maxPostPitch = Math.max(...Object.values(postPitchFreq), 0);
-    const uniquePitches = Object.keys(postPitchFreq).length;
-    const totalNotes = finalNotes.length;
-
-    console.log(`\n  [Melody Statistics]:`);
-    console.log(`    Total notes: ${totalNotes}`);
-    console.log(`    Unique pitches: ${uniquePitches}`);
-    console.log(`    Pitch diversity: ${(uniquePitches / totalNotes * 100).toFixed(1)}%`);
-    if (maxPostPitch > 0) {
-      const maxPct = ((maxPostPitch / totalNotes) * 100).toFixed(1);
-      console.log(`    Most frequent pitch: MIDI ${maxPostPitch} (${midiToNoteName(maxPostPitch)}) — ${maxPostPitch} notes (${maxPct}%)`);
-      if (maxPostPitch / totalNotes > 0.3) {
-        console.log(`    ⚠️  WARNING: Most frequent pitch appears ${maxPct}% of the time (>30% threshold)`);
-      }
-    }
-
-    // Role distribution
-    const roleDist = {};
-    finalNotes.forEach(n => { roleDist[n.role] = (roleDist[n.role] || 0) + 1; });
-    console.log(`\n  [Role Distribution]:`);
-    Object.entries(roleDist).forEach(([role, freq]) => {
-      const pct = ((freq / totalNotes) * 100).toFixed(1);
-      console.log(`    ${role}: ${freq} (${pct}%)`);
-    });
-
-    // Pitch diversity score from Pass E
-    const passE = result.metadata?.passResults?.find(p => p.passName === 'PassE_Expectation');
-    if (passE && passE.metadata) {
-      console.log(`\n  [Pass E - Pitch Diversity Score]:`);
-      console.log(`    Score: ${passE.metadata.pitchDiversityScore?.toFixed(4) || 'N/A'} (1.0 = max diversity, 0.0 = all same pitch)`);
-      console.log(`    Highest pitch frequency: ${(passE.metadata.highestPitchFrequency * 100).toFixed(1) || '0.0'}%`);
-    }
-
-    // Output each note with full diagnostic info
-    finalNotes.forEach((n, i) => {
-      const pitchName = midiToNoteName(n.pitch);
-      const color = roleColors[n.role] || n.role;
-      const meta = n.metadata || {};
-      const metaStr = Object.keys(meta).filter(k => k !== 'passEAdjusted' && k !== 'originalPitch').map(k => `${k}:${meta[k]}`).join(', ');
-      const isMostFrequent = postPitchFreq[n.pitch] === maxPostPitch && maxPostPitch / totalNotes > 0.3;
-      const warning = isMostFrequent ? ' ⚠️' : '';
-      console.log(`    ${String(i + 1).padStart(3)}. MIDI:${String(n.pitch).padStart(3)} ${pitchName.padEnd(5)} t:${n.startTime.toFixed(2)} dur:${n.duration.toFixed(2)} ${color.padEnd(35)}${metaStr ? '[' + metaStr + ']' : ''}${warning}`);
-    });
-
-    // Summary: list the most problematic pitches
-    const problematicPitches = Object.entries(postPitchFreq)
-      .map(([pitch, freq]) => ({ pitch: Number(pitch), freq, pct: freq / totalNotes }))
-      .filter(p => p.pct > 0.15)
-      .sort((a, b) => b.pct - a.pct);
-
-    if (problematicPitches.length > 0) {
-      console.log(`\n  [Pitch Repetition Warnings]:`);
-      problematicPitches.forEach(p => {
-        console.log(`    ⚠️  MIDI ${p.pitch} (${midiToNoteName(p.pitch)}): ${p.freq} notes (${(p.pct * 100).toFixed(1)}%) — consider increasing pitch diversity weight`);
-      });
-    } else {
-      console.log(`\n  [Pitch Repetition]: No warnings — pitch distribution looks healthy.`);
-    }
-
-    console.log('\n  ' + '='.repeat(80));
-    console.log('  ' + '='.repeat(80) + '\n');
 
     pipelineResults = {
       ...result,
@@ -1704,6 +1560,14 @@ function generateRandomProgressionUI() {
 
     updatePassCards(result);
     renderVisualization(result);
+    // Make play, stop, copy buttons visible
+    const playBtn = document.getElementById('play-btn');
+    if (playBtn) playBtn.style.display = 'inline-block';
+    const stopBtn = document.getElementById('stop-btn');
+    if (stopBtn) stopBtn.style.display = 'inline-block';
+    const copyBtn = document.getElementById('copy-btn');
+    if (copyBtn) copyBtn.style.display = 'inline-block';
+
     addLogEntry(`Fixture-generated ${count} chords → ${microtonalResult.notes.length} melody notes.`, 'success');
   }).catch((error) => {
     addLogEntry(`Pipeline failed: ${error.message}`, 'error');
@@ -1712,21 +1576,25 @@ function generateRandomProgressionUI() {
 
   // Update UI flow indicator
   const flowEl = document.getElementById('fixture-flow');
-  flowEl.style.display = 'block';
-  const trackTags = [];
-  if (fixtureWithBass) trackTags.push('🎸 Bass');
-  if (fixtureWithDrums) trackTags.push('🥁 Drums');
-  flowEl.innerHTML = `
-    <div><span class="flow-step">FixtureGen</span> <span class="flow-arrow">→</span> <span class="flow-data">${count} random chords${trackTags.length > 0 ? ' (' + trackTags.join(' + ') + ')' : ''}</span> <span class="flow-arrow">→</span> <span class="flow-step">Bridge</span> <span class="flow-arrow">→</span> <span class="flow-data">${chords.length} processed Chord[]</span> <span class="flow-arrow">→</span> <span class="flow-step">MGen Pipeline</span> <span class="flow-arrow">→</span> <span class="flow-data">Melody</span></div>
-  `;
+  if (flowEl) {
+    flowEl.style.display = 'block';
+    const trackTags = [];
+    if (fixtureWithBass) trackTags.push('🎸 Bass');
+    if (fixtureWithDrums) trackTags.push('🥁 Drums');
+    flowEl.innerHTML = `
+      <div><span class="flow-step">FixtureGen</span> <span class="flow-arrow">→</span> <span class="flow-data">${count} random chords${trackTags.length > 0 ? ' (' + trackTags.join(' + ') + ')' : ''}</span> <span class="flow-arrow">→</span> <span class="flow-step">Bridge</span> <span class="flow-arrow">→</span> <span class="flow-data">${chords.length} processed Chord[]</span> <span class="flow-arrow">→</span> <span class="flow-step">MGen Pipeline</span> <span class="flow-arrow">→</span> <span class="flow-data">Melody</span></div>
+    `;
+  }
 
   // Render fixture chord chips
   const fixtureListEl = document.getElementById('fixture-chord-list');
-  fixtureListEl.innerHTML = rawChords.map((c, i) => {
-    const bassTag = fixtureWithBass ? ' bass' : '';
-    const drumTag = fixtureWithDrums ? ' drum' : '';
-    return `<span class="fixture-chord-chip${bassTag}${drumTag}">${c.root}${c.quality} @ beat ${c.beatStart}</span>`;
-  }).join('');
+  if (fixtureListEl) {
+    fixtureListEl.innerHTML = rawChords.map((c, i) => {
+      const bassTag = fixtureWithBass ? ' bass' : '';
+      const drumTag = fixtureWithDrums ? ' drum' : '';
+      return `<span class="fixture-chord-chip${bassTag}${drumTag}">${c.root}${c.quality} @ beat ${c.beatStart}</span>`;
+    }).join('');
+  }
 }
 
 function clearFixtureProgression() {
@@ -1734,25 +1602,97 @@ function clearFixtureProgression() {
   fixtureWithBass = false;
   fixtureWithDrums = false;
 
-  document.getElementById('fixture-chord-list').innerHTML = '';
-  document.getElementById('fixture-flow').style.display = 'none';
-  document.getElementById('fixture-with-bass').checked = false;
-  document.getElementById('fixture-with-drums').checked = false;
+  const fixtureChordList = document.getElementById('fixture-chord-list');
+  if (fixtureChordList) fixtureChordList.innerHTML = '';
+  const fixtureFlow = document.getElementById('fixture-flow');
+  if (fixtureFlow) fixtureFlow.style.display = 'none';
+  const fixtureBassCheck = document.getElementById('fixture-with-bass');
+  if (fixtureBassCheck) fixtureBassCheck.checked = false;
+  const fixtureDrumsCheck = document.getElementById('fixture-with-drums');
+  if (fixtureDrumsCheck) fixtureDrumsCheck.checked = false;
 
   // Reset the manual chord list too
   chords = [];
   renderChordList();
 
-  document.getElementById('pipeline-status').style.display = 'none';
-  document.getElementById('visualization').style.display = 'none';
-  document.getElementById('execution-log').innerHTML = '';
-  document.getElementById('pass-stages').innerHTML = '';
-  document.getElementById('stage-tabs').innerHTML = '';
-  document.getElementById('stage-content').innerHTML =
-    '<div class="empty-state">Run the pipeline to see results</div>';
-  document.getElementById('piano-roll').style.display = 'none';
+  const playBtn = document.getElementById('play-btn');
+  if (playBtn) playBtn.style.display = 'none';
+  const stopBtn = document.getElementById('stop-btn');
+  if (stopBtn) stopBtn.style.display = 'none';
+  const copyBtn = document.getElementById('copy-btn');
+  if (copyBtn) copyBtn.style.display = 'none';
+
+  const pipelineStatus = document.getElementById('pipeline-status');
+  if (pipelineStatus) pipelineStatus.style.display = 'none';
+  const visualization = document.getElementById('visualization');
+  if (visualization) visualization.style.display = 'none';
+  const log = document.getElementById('execution-log');
+  if (log) log.innerHTML = '';
+  const passStages = document.getElementById('pass-stages');
+  if (passStages) passStages.innerHTML = '';
+  const stageTabs = document.getElementById('stage-tabs');
+  if (stageTabs) stageTabs.innerHTML = '';
+  const stageContent = document.getElementById('stage-content');
+  if (stageContent) stageContent.innerHTML = '<div class="empty-state">Run the pipeline to see results</div>';
+  const tableContent = document.getElementById('table-content');
+  if (tableContent) tableContent.innerHTML = '';
+  const pianoRoll = document.getElementById('piano-roll');
+  if (pianoRoll) pianoRoll.style.display = 'none';
 
   stopPlayback();
+}
+
+function copyResultsToClipboard() {
+  if (!pipelineResults || !pipelineResults.allNotes) return;
+  const chords = pipelineResults.metadata?.chords || [];
+  const notes = pipelineResults.allNotes;
+
+  const chordStr = chords.map(c => `${c.root}${c.quality} @ beat ${c.beatStart}`).join(' | ');
+  
+  const noteLines = notes.map((n, i) => {
+    const pitchName = midiToNoteName(n.pitch);
+    return `${String(i + 1).padStart(3)}. Pitch: ${String(n.pitch).padStart(3)} (${pitchName.padEnd(4)}) | Start: ${n.startTime.toFixed(2)} | Duration: ${n.duration.toFixed(2)} | Role: ${n.role}`;
+  }).join('\n');
+
+  const settings = `
+SETTINGS:
+- Phrase Role: ${document.getElementById('phrase-role')?.value || 'N/A'}
+- Tuning System: ${document.getElementById('tuning-system')?.value || 'N/A'}
+- Tension Level: ${document.getElementById('tension-level')?.value || 'N/A'}
+- Phrase Closure: ${document.getElementById('is-antecedent')?.value === 'true' ? 'Antecedent' : 'Consequent'}
+- Pitch Diversity Weight: ${document.getElementById('pitch-diversity-weight')?.value || '0'}%
+- Chords Count: ${document.getElementById('fixture-count')?.value || 'N/A'}
+- Beats Per Chord: ${document.getElementById('fixture-beat-increment')?.value || 'N/A'}
+- Density: ${document.getElementById('fixture-density')?.value || 'N/A'}
+- Genre Style Profile: ${document.getElementById('fixture-genre')?.value || 'N/A'}
+- Bass Accompaniment: ${document.getElementById('fixture-with-bass')?.checked ? 'Yes' : 'No'}
+- Drum Track: ${document.getElementById('fixture-with-drums')?.checked ? 'Yes' : 'No'}
+- Complex Patterns: ${document.getElementById('fixture-complex')?.checked ? 'Yes' : 'No'}
+  `.trim();
+
+  const stats = `
+DIAGNOSTICS:
+- Execution Time: ${pipelineResults.metadata?.executionTimeMs?.toFixed(1) || 'N/A'}ms
+- Safe Mode: ${pipelineResults.metadata?.safeModeTriggered ? 'Yes' : 'No'}
+- Backtracks: ${pipelineResults.metadata?.backtrackCount || 0}
+- Note Count: ${notes.length}
+- Pitch Diversity: ${(new Set(notes.map(n => n.pitch)).size / notes.length * 100).toFixed(1)}%
+  `.trim();
+
+  const textToCopy = `CHORD PROGRESSION:\n${chordStr}\n\n${settings}\n\n${stats}\n\nFINAL MELODY NOTES:\n${noteLines}`;
+
+  navigator.clipboard.writeText(textToCopy).then(() => {
+    const btn = document.getElementById('copy-btn');
+    if (btn) {
+      const originalText = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => {
+        btn.textContent = originalText;
+      }, 2000);
+    }
+  }).catch(err => {
+    console.error('Failed to copy results:', err);
+  });
 }
 
 // Expose functions to window for onclick handlers
@@ -1771,3 +1711,4 @@ window.testStyleEngine = testStyleEngine;
 window.testRhythmEngine = testRhythmEngine;
 window.generateRandomProgressionUI = generateRandomProgressionUI;
 window.clearFixtureProgression = clearFixtureProgression;
+window.copyResultsToClipboard = copyResultsToClipboard;

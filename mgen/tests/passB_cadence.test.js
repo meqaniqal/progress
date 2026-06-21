@@ -136,5 +136,15 @@ describe('CadencePlanner (Pass B)', () => {
       const midi = planner._noteNameToMidi('G4');
       expect(midi).toBe(67);
     });
+
+    it('should convert C#4 to MIDI 61', () => {
+      const midi = planner._noteNameToMidi('C#4');
+      expect(midi).toBe(61);
+    });
+
+    it('should convert F#4 to MIDI 66', () => {
+      const midi = planner._noteNameToMidi('F#4');
+      expect(midi).toBe(66);
+    });
   });
 });

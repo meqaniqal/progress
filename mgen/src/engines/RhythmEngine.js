@@ -367,11 +367,21 @@ export class RhythmEngine {
    * @private
    */
   _getActiveSubdivisionProfile() {
-    if (this.genre === 'none') {
+    const genreMap = {
+      'none': 'none',
+      'blues': 'tripletSwing',
+      'jazz': 'tripletSwing',
+      'classical': 'deceleration',
+      'minimal': 'none',
+      'african': 'syncopatedAlternation'
+    };
+
+    const targetGenre = genreMap[this.genre] || this.genre;
+    if (targetGenre === 'none') {
       return this.subdivisionProfiles.none[0];
     }
 
-    const profiles = this.subdivisionProfiles[this.genre];
+    const profiles = this.subdivisionProfiles[targetGenre];
     if (!profiles) {
       return this.subdivisionProfiles.acceleration;
     }
@@ -382,7 +392,7 @@ export class RhythmEngine {
       return new SubdivisionProfile(
         profiles.id,
         profiles.name,
-        this._regenerateProfileForGenre(this.genre)
+        this._regenerateProfileForGenre(targetGenre)
       );
     }
 

@@ -125,7 +125,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
 
     // Immediately stop any currently playing audio from this module
     // This ensures only one progression plays at a time from this module's API.
-    stopAllAudio(onHighlight);
+    stopAllAudio(onHighlight, true);
 
     const initialState = getState();
     
@@ -147,7 +147,8 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
     }
 
     currentChordIndexRel = 0; // Start from the beginning of the slice
-    nextNoteTime = getAudioCurrentTime() + 0.05; // Buffer 50ms ahead for clean start
+    const isMgen = initialState.melodySettings && initialState.melodySettings.enabled && initialState.melodySettings.engine === 'mgen';
+    nextNoteTime = getAudioCurrentTime() + (isMgen ? 0.15 : 0.05); // Buffer 150ms ahead for clean start in mgen, 50ms otherwise
 
     function scheduleNote(chordIndexRel, time) {
         const state = getState(); // Always get the latest state
@@ -444,6 +445,11 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         if (currentChordIndexRel >= sliceLength || sliceLength === 0) {
             currentChordIndexRel = 0; // Wrap around for looping
             
+            // Regenerate mgen melody on loop wrap-around
+            if (state.melodySettings && state.melodySettings.enabled && state.melodySettings.engine === 'mgen') {
+                import('./mgenEngine.js').then(m => m.pregenerateMgenMelody(state)).catch(err => console.error('Error regenerating mgen melody on loop:', err));
+            }
+            
             if (state.editorState?.isSolo) {
                 // If in solo mode, keep looping the active chord within the active section
                 return true;
@@ -519,14 +525,16 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
 }
 
 // Export a general stop function that can be called if no specific playback instance is available
-export function stopAllAudio(onHighlightCallback) {
+export function stopAllAudio(onHighlightCallback, keepMelodyCache = false) {
     uiTimeouts.forEach(clearTimeout);
     uiTimeouts = [];
     clearSequenceHighlights();
     if (onHighlightCallback) onHighlightCallback(-1);
 
     stopOscillators();
-    clearMelodyMemory();
+    if (!keepMelodyCache) {
+        clearMelodyMemory();
+    }
 }
 
 function scheduleChordAudition(chordSymbol, baseKey, specificNotes, divisions, startTime, duration) {

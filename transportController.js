@@ -1,5 +1,6 @@
 import { state, getActiveProgression, persistAppState, switchActiveSection } from './store.js';
 import { playProgression, stopAllAudio } from './sequencer.js';
+import { pregenerateMgenMelody } from './mgenEngine.js';
 import { highlightChordInUI } from './ui.js';
 import { highlightDrumHit, highlightSlice } from './rhythmEditor.js';
 import { setTrackVolume } from './synth.js';
@@ -13,7 +14,7 @@ export function isPlaybackActive() {
     return isPlaying;
 }
 
-export function restartTransport() {
+export async function restartTransport() {
     if (isPlaying) {
         resetTransport();
         const playToggleBtn = document.getElementById('btn-play-toggle');
@@ -25,6 +26,10 @@ export function restartTransport() {
             if (settingsToggle) settingsToggle.checked = false;
             persistAppState();
             import('./inspectorController.js').then(m => m.renderChordInspector(state, state.selectedChordIndex));
+
+            if (state.melodySettings && state.melodySettings.enabled && state.melodySettings.engine === 'mgen') {
+                await pregenerateMgenMelody(state);
+            }
 
             currentPlaybackStopFunction = playProgression(
                 () => state,
@@ -148,7 +153,7 @@ export function initTransport(callbacks) {
     playToggleBtn.addEventListener('pointerup', handlePlayPointerUp);
     playToggleBtn.addEventListener('pointercancel', handlePlayPointerUp);
 
-    playToggleBtn.addEventListener('click', (e) => {
+    playToggleBtn.addEventListener('click', async (e) => {
         if (wasDragging) {
             wasDragging = false;
             return;
@@ -163,6 +168,10 @@ export function initTransport(callbacks) {
             if (settingsToggle) settingsToggle.checked = false;
             persistAppState();
             import('./inspectorController.js').then(m => m.renderChordInspector(state, state.selectedChordIndex));
+
+            if (state.melodySettings && state.melodySettings.enabled && state.melodySettings.engine === 'mgen') {
+                await pregenerateMgenMelody(state);
+            }
 
             currentPlaybackStopFunction = playProgression(
                 () => state, // Pass raw state, the new macro engine handles active swaps dynamically

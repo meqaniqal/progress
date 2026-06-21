@@ -830,6 +830,17 @@
                                 </div>
                                 
                                 <div id="melody-options-container" style="display: none; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 6px; border: 1px solid var(--border-main);">
+                                    <!-- Melody Engine Selector -->
+                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                        <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Melody Engine</span>
+                                        <select id="melody-engine" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
+                                            <option value="progress">Progress Engine (Default)</option>
+                                            <option value="mgen">mgen Engine (Experimental)</option>
+                                        </select>
+                                    </div>
+                                    <div id="mgen-warning-notice" style="display: none; font-size: 10px; color: var(--borrowed-text); background: rgba(245, 158, 11, 0.1); border: 1px solid var(--borrowed-border); padding: 6px; border-radius: 4px; line-height: 1.3;">
+                                        ⚠️ <strong>mgen Engine notice:</strong> uses a compositional pipeline. Countermelody and song-form coordination are currently bypassed.
+                                    </div>
                                     <!-- Synths selectors -->
                                     <div class="mixer-row" style="display: flex; align-items: center; justify-content: flex-start; gap: 8px;">
                                         <div class="synth-dropdown-group" style="width: 154px;">
@@ -949,23 +960,23 @@
                                             <option value="african">West African Poly</option>
                                         </select>
                                     </div>
-                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <div class="mixer-row" id="row-melody-density" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Rhythmic Density</span>
                                         <input type="range" id="melody-density" min="0.1" max="1.0" step="0.05" value="0.5" class="mixer-slider" style="flex: 1;">
                                     </div>
-                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <div class="mixer-row" id="row-melody-motif-recurrence" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Motif Recurrence</span>
                                         <input type="range" id="melody-motif-recurrence" min="0.1" max="1.0" step="0.05" value="0.5" class="mixer-slider" style="flex: 1;">
                                     </div>
-                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <div class="mixer-row" id="row-melody-variation-depth" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Variation Depth</span>
                                         <input type="range" id="melody-variation-depth" min="0.0" max="1.0" step="0.05" value="0.5" class="mixer-slider" style="flex: 1;">
                                     </div>
-                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <div class="mixer-row" id="row-melody-rests" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Rest Frequency</span>
                                         <input type="range" id="melody-rests" min="0.0" max="0.9" step="0.05" value="0.3" class="mixer-slider" style="flex: 1;">
                                     </div>
-                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <div class="mixer-row" id="row-melody-shortest-note" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Shortest Note Run</span>
                                         <select id="melody-shortest-note" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
                                             <option value="64">1/64 Note</option>
@@ -978,22 +989,43 @@
                                             <option value="2">1/2 Note</option>
                                         </select>
                                     </div>
-                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <div class="mixer-row" id="row-melody-ornaments" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Ornamentation</span>
                                         <input type="range" id="melody-ornaments" min="0.0" max="1.0" step="0.05" value="0.5" class="mixer-slider" style="flex: 1;">
                                     </div>
-                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <div class="mixer-row" id="row-melody-tension-curve" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Tension Curve</span>
                                         <select id="melody-tension-curve" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
                                             <option value="flat">Flat Constant</option>
                                             <option value="arch">Arch (Rise & Fall)</option>
                                         </select>
                                     </div>
-                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <!-- mgen specific parameter: Tension Level -->
+                                    <div class="mixer-row" id="row-mgen-tension-level" style="display: none; align-items: center; justify-content: space-between; gap: 8px;">
+                                        <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Tension Level</span>
+                                        <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                                            <input type="range" id="melody-tension-level" min="0.0" max="1.0" step="0.05" value="0.5" class="mixer-slider" style="flex: 1;">
+                                            <span id="melody-tension-level-val" style="font-size: 11px; font-family: monospace; min-width: 30px; text-align: right;">0.5</span>
+                                        </div>
+                                    </div>
+                                    <!-- mgen specific parameter: Pitch Diversity -->
+                                    <div class="mixer-row" id="row-mgen-pitch-diversity" style="display: none; align-items: center; justify-content: space-between; gap: 8px;">
+                                        <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Pitch Diversity</span>
+                                        <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                                            <input type="range" id="melody-pitch-diversity" min="0.0" max="1.0" step="0.05" value="0.0" class="mixer-slider" style="flex: 1;">
+                                            <span id="melody-pitch-diversity-val" style="font-size: 11px; font-family: monospace; min-width: 30px; text-align: right;">0%</span>
+                                        </div>
+                                    </div>
+                                    <!-- mgen specific parameter: Antecedent -->
+                                    <div class="mixer-row" id="row-mgen-is-antecedent" style="display: none; align-items: center; justify-content: space-between; gap: 8px;">
+                                        <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Antecedent (No Tonic)</span>
+                                        <input type="checkbox" id="melody-is-antecedent" style="width: 16px; height: 16px; cursor: pointer;">
+                                    </div>
+                                    <div class="mixer-row" id="row-melody-macro-planner" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Macro Planner</span>
                                         <input type="checkbox" id="melody-macro-planner" style="width: 16px; height: 16px; cursor: pointer;">
                                     </div>
-                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <div class="mixer-row" id="row-melody-macro-contour" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Contour Shape</span>
                                         <select id="melody-macro-contour" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
                                             <option value="auto">Auto (Progressive)</option>
@@ -1003,11 +1035,11 @@
                                             <option value="launch">Launch</option>
                                         </select>
                                     </div>
-                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <div class="mixer-row" id="row-melody-countermelody-toggle" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Countermelody Toggle</span>
                                         <input type="checkbox" id="melody-countermelody-toggle" style="width: 16px; height: 16px; cursor: pointer;">
                                     </div>
-                                    <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <div class="mixer-row" id="row-melody-countermelody-mode" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Countermelody Mode</span>
                                         <select id="melody-countermelody-mode" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
                                             <option value="contrary">Contrary Motion</option>

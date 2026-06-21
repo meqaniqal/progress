@@ -147,6 +147,11 @@ function renderProgression() {
         closeRhythmEditor();
         renderProgressionUI(state, state.selectedChordIndex, uiCallbacks);
     }
+
+    // Trigger background regeneration of mgen melody on live edits if playing back
+    if (isPlaybackActive() && state.melodySettings && state.melodySettings.enabled && state.melodySettings.engine === 'mgen') {
+        import('./mgenEngine.js').then(m => m.pregenerateMgenMelody(state)).catch(err => console.error('Error pregenerating mgen melody:', err));
+    }
 }
 
 // --- Initialization Helpers ---

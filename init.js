@@ -26,7 +26,7 @@ const version = new Date().getTime();
 const jsFiles = [
     'arp', 'arpControls', 'bassControls', 'bassGenerator', 'chordAnalyzer', 'chordDictionary', 'clipboardUtils',
     'config', 'db', 'dragdrop', 'drumEditor', 'drumEngines', 'drumRenderer', 'exportController', 'exportStateBuilder',
-    'inspectorController', 'melodyGenerator', 'microtonalDictionary', 'microtonalSuggestions', 'midi', 'modalController',
+    'inspectorController', 'melodyGenerator', 'mgenEngine', 'microtonalDictionary', 'microtonalSuggestions', 'midi', 'modalController',
     'patternDrawMath', 'patternResolver', 'patternUtils', 'progressionSuggestions', 'progressmain', 'promptGenerator',
     'rhythmConfig', 'rhythmControls', 'rhythmEditor', 'rhythmRenderer', 'sequencer', 'settingsController', 'songController',
     'stateUtils', 'storage', 'store', 'storePersistence', 'synth', 'synthEngines', 'theory', 'timelineEditor',

@@ -155,9 +155,10 @@ export function progressChordToMelodyGenChord(progressChord, globalBeatOffset) {
   const parsed = deduceChordRootAndQuality(progressChord.symbol, progressChord.key, progressChord.divisions);
 
   const rootNoteName = midiToNoteName(parsed.rootPitch);
-  const scaleDegrees = (progressChord.notes || []).map(n => n % 12);
+  const rawNotes = progressChord.notes || (progressChord.customNotes || []).map(n => typeof n === 'object' ? n.pitch : n);
+  const scaleDegrees = rawNotes.map(n => n % 12);
 
-  return new Chord(rootNoteName, parsed.quality, globalBeatOffset, scaleDegrees);
+  return new Chord(rootNoteName, parsed.quality, globalBeatOffset, scaleDegrees, progressChord.duration || 2);
 }
 
 /**
@@ -185,9 +186,9 @@ export function progressStateToGenerationConfig(state) {
 
   const phraseContext = new PhraseContext(
     tensionCurveMap[state.melodySettings.tensionCurve] || 'statement',
-    0.5,
+    state.melodySettings.tensionLevel !== undefined ? state.melodySettings.tensionLevel : 0.5,
     state.baseKey + 12,
-    false
+    state.melodySettings.isAntecedent !== undefined ? state.melodySettings.isAntecedent : false
   );
 
   // Derive aesthetic mode from the first chord's quality and tension curve
@@ -224,9 +225,11 @@ export function progressStateToGenerationConfig(state) {
   return new GenerationConfig(chords, phraseContext, {
     genre: state.melodySettings.genre,
     density: state.melodySettings.density,
+    pitchDiversityWeight: state.melodySettings.pitchDiversityWeight !== undefined ? state.melodySettings.pitchDiversityWeight : 0.0,
     maxLeap: 12,
     baseRegister: state.baseKey,
     aestheticMode: aestheticMode,
+    tensionCurve: state.melodySettings.tensionCurve,
   });
 }
 

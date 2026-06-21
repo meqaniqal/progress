@@ -64,17 +64,23 @@ describe('Macro-Level Melody Generation Strategy', () => {
     });
 
     test('Climax Management: Penalize hitting climax peak multiple times', () => {
-        state.melodySettings.macroContourArchetype = 'arch';
-        const chordObj = { symbol: 'I', duration: 4 };
-        
-        // Generate notes for a climax role slot (absIndex = 2 of 4)
-        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 2, 4, [60, 64, 67], mockPlayTone);
-        
-        const midiNotes = playedNotes.map(n => n.midi);
-        const maxPitch = Math.max(...midiNotes);
-        const maxPitchOccurrences = midiNotes.filter(p => p === maxPitch).length;
-        
-        // Hitting the peak climax pitch should be kept singular (at most 2 times, ideally 1)
-        expect(maxPitchOccurrences).toBeLessThanOrEqual(2);
+        const originalRandom = Math.random;
+        Math.random = () => 0.5; // Return a fixed value to ensure deterministic runs
+        try {
+            state.melodySettings.macroContourArchetype = 'arch';
+            const chordObj = { symbol: 'I', duration: 4 };
+            
+            // Generate notes for a climax role slot (absIndex = 2 of 4)
+            scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 2, 4, [60, 64, 67], mockPlayTone);
+            
+            const midiNotes = playedNotes.map(n => n.midi);
+            const maxPitch = Math.max(...midiNotes);
+            const maxPitchOccurrences = midiNotes.filter(p => p === maxPitch).length;
+            
+            // Hitting the peak climax pitch should be kept singular (at most 2 times, ideally 1)
+            expect(maxPitchOccurrences).toBeLessThanOrEqual(2);
+        } finally {
+            Math.random = originalRandom;
+        }
     });
 });

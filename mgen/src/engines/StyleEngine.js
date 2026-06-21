@@ -169,7 +169,11 @@ export class StyleEngine {
       const durationAdjusted = this._applyDurationConstraints(styledNote, style);
       const ornamented = this._applyOrnamentationRules(durationAdjusted, style);
 
-      styled.push(ornamented);
+      if (Array.isArray(ornamented)) {
+        styled.push(...ornamented);
+      } else {
+        styled.push(ornamented);
+      }
     }
 
     return styled;
@@ -239,34 +243,15 @@ export class StyleEngine {
     );
   }
 
-  /**
-   * Apply ornamentation rules based on style.
-   * @param {MelodyNote} note - Note to ornament
-   * @param {StyleProfile} style - Style profile
-   * @returns {MelodyNote} Ornamented note
-   * @private
-   */
   _applyOrnamentationRules(note, style) {
     const ornamentDensity = style.rules.ornamentDensity;
 
     if (Math.random() < ornamentDensity) {
       const ornamentType = this._selectOrnamentType(style);
-      const ornamentedNote = this._applyOrnament(note, ornamentType);
-      return new MelodyNote(
-        ornamentedNote.pitch,
-        ornamentedNote.startTime,
-        ornamentedNote.duration,
-        note.role,
-        {
-          ...note.metadata,
-          styleAdjusted: true,
-          styleId: style.id,
-          ornamentType,
-        }
-      );
+      return this._applyOrnament(note, ornamentType, style);
     }
 
-    return note;
+    return [note];
   }
 
   /**
@@ -290,78 +275,97 @@ export class StyleEngine {
     }
   }
 
-  /**
-   * Apply ornament to a note.
-   * @param {MelodyNote} note - Base note
-   * @param {string} ornamentType - Ornament type
-   * @returns {MelodyNote} Ornamented note
-   * @private
-   */
-  _applyOrnament(note, ornamentType) {
+  _applyOrnament(note, ornamentType, style) {
     switch (ornamentType) {
       case 'grace note':
-        return new MelodyNote(
+        const grace = new MelodyNote(
           note.pitch - 1,
           note.startTime - 0.1,
           0.1,
           'ornament',
           {
             styleAdjusted: true,
-            styleId: note.metadata?.styleId || 'unknown',
+            styleId: style.id,
             ornamentType,
+            ornamentsNote: note.pitch,
           }
         );
+        return [grace, note];
       case 'trill':
-        return new MelodyNote(
+        const trill1 = new MelodyNote(
           note.pitch + 2,
           note.startTime,
           note.duration * 0.5,
           'ornament',
           {
             styleAdjusted: true,
-            styleId: note.metadata?.styleId || 'unknown',
+            styleId: style.id,
             ornamentType,
+            ornamentsNote: note.pitch,
           }
         );
+        const trill2 = new MelodyNote(
+          note.pitch,
+          note.startTime + note.duration * 0.5,
+          note.duration * 0.5,
+          note.role,
+          note.metadata
+        );
+        return [trill1, trill2];
       case 'turn':
-        return new MelodyNote(
+        const baseHalf = new MelodyNote(
+          note.pitch,
+          note.startTime,
+          note.duration * 0.5,
+          note.role,
+          note.metadata
+        );
+        const turnHalf = new MelodyNote(
           note.pitch + 1,
           note.startTime + note.duration * 0.5,
           note.duration * 0.5,
           'ornament',
           {
             styleAdjusted: true,
-            styleId: note.metadata?.styleId || 'unknown',
+            styleId: style.id,
             ornamentType,
+            ornamentsNote: note.pitch,
           }
         );
+        return [baseHalf, turnHalf];
       case 'blue note':
-        return new MelodyNote(
-          note.pitch - 1,
-          note.startTime,
-          note.duration,
-          note.role,
-          {
-            styleAdjusted: true,
-            styleId: note.metadata?.styleId || 'unknown',
-            ornamentType,
-          }
-        );
+        return [
+          new MelodyNote(
+            note.pitch - 1,
+            note.startTime,
+            note.duration,
+            note.role,
+            {
+              styleAdjusted: true,
+              styleId: style.id,
+              ornamentType,
+              ornamentsNote: note.pitch,
+            }
+          )
+        ];
       case 'slide':
       case 'glissando':
-        return new MelodyNote(
-          note.pitch + 2,
-          note.startTime,
-          note.duration,
-          note.role,
-          {
-            styleAdjusted: true,
-            styleId: note.metadata?.styleId || 'unknown',
-            ornamentType,
-          }
-        );
+        return [
+          new MelodyNote(
+            note.pitch + 2,
+            note.startTime,
+            note.duration,
+            note.role,
+            {
+              styleAdjusted: true,
+              styleId: style.id,
+              ornamentType,
+              ornamentsNote: note.pitch,
+            }
+          )
+        ];
       default:
-        return note;
+        return [note];
     }
   }
 
