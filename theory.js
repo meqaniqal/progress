@@ -65,7 +65,7 @@ export function getChordSignature(chordNotes, periodSize = 12.0) {
     }).sort((a, b) => a - b).join(',');
 }
 
-export function getChordNotes(symbolOrChord, baseKey, divisions = 12, customTuning = null) {
+export function getChordNotes(symbolOrChord, baseKey, divisions = 12, customTuning = null, skipCustomLookup = false) {
     if (symbolOrChord && typeof symbolOrChord === 'object') {
         if (symbolOrChord.customNotes && symbolOrChord.customNotes.length > 0) {
             const customNotes = symbolOrChord.customNotes;
@@ -80,7 +80,7 @@ export function getChordNotes(symbolOrChord, baseKey, divisions = 12, customTuni
                 return customNotes.map(n => n.pitch);
             }
             const chordKey = symbolOrChord.key !== undefined ? symbolOrChord.key : baseKey;
-            const computedNotes = getChordNotes(symbolOrChord.symbol, chordKey, chordDivisions, customTuning);
+            const computedNotes = getChordNotes(symbolOrChord.symbol, chordKey, chordDivisions, customTuning, true);
             return customNotes.map((noteObj, i) => {
                 if (noteObj.isMicrotonal) {
                     return noteObj.pitch;
@@ -88,15 +88,15 @@ export function getChordNotes(symbolOrChord, baseKey, divisions = 12, customTuni
                 return computedNotes && computedNotes[i] !== undefined ? computedNotes[i] : noteObj.pitch;
             });
         }
-        return getChordNotes(symbolOrChord.symbol, symbolOrChord.key !== undefined ? symbolOrChord.key : baseKey, symbolOrChord.divisions || divisions, customTuning);
+        return getChordNotes(symbolOrChord.symbol, symbolOrChord.key !== undefined ? symbolOrChord.key : baseKey, symbolOrChord.divisions || divisions, customTuning, skipCustomLookup);
     }
     let symbol = symbolOrChord;
     if (!symbol || typeof symbol !== 'string') return null;
     symbol = symbol.replace(/[+-]+$/, '');
 
-    if (typeof window !== 'undefined' && window.__customChords) {
+    if (!skipCustomLookup && typeof window !== 'undefined' && window.__customChords) {
         const found = window.__customChords.find(c => c.symbol === symbol);
-        if (found) return getChordNotes(found, baseKey, divisions, customTuning);
+        if (found) return getChordNotes(found, baseKey, divisions, customTuning, true);
     }
 
     const tuning = getEffectiveTuning(symbol, divisions, customTuning);
