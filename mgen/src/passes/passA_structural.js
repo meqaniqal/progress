@@ -40,6 +40,7 @@ export class StructuralPlanner {
     const { chords, phraseContext } = config;
     const notes = [];
     const options = config.options || {};
+    this.baseRegister = options.baseRegister !== undefined ? options.baseRegister : this.baseRegister;
     const pitchDiversityMode = options.pitchDiversityMode || 'avoid-previous';
     let pitchDiversityWeight = parseFloat(options.pitchDiversityWeight) || 0.0;
 
@@ -170,6 +171,10 @@ export class StructuralPlanner {
    * @private
    */
   _getChordTones(chord) {
+    if (chord.notes && chord.notes.length > 0) {
+      const pitchClasses = new Set(chord.notes.map(n => ((n % 12) + 12) % 12));
+      return [...pitchClasses].map(pc => this.baseRegister + pc);
+    }
     const rootMidi = this._noteNameToMidi(chord.root);
     const intervals = this._getChordIntervals(chord.quality);
 
@@ -345,20 +350,15 @@ export class StructuralPlanner {
     * @private
     */
    _selectStrongBeat(chordIndex, totalChords, chord) {
-     // Place structural notes at multiple positions within each chord
-     // to ensure coverage across the full chord duration, not just beats 1 and 3
+     // Place structural notes on strong, standard beats (0.0 or mid-beat)
+     // rather than syncopated divisions to prevent "fluttering" melodies
      const chordDuration = chord?.duration || 2;
-     const beatPattern = chordIndex % 3;
+     const beatPattern = chordIndex % 2;
      
      if (beatPattern === 0) {
-       // First chord in cycle: place at start of chord
-       return chord.beatStart + 0.5;
-     } else if (beatPattern === 1) {
-       // Second chord: place at middle
-       return chord.beatStart + chordDuration * 0.5;
+       return chord.beatStart;
      } else {
-       // Third chord: place near end
-       return chord.beatStart + chordDuration * 0.8;
+       return chord.beatStart + chordDuration * 0.5;
      }
    }
 

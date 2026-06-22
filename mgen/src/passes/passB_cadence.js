@@ -22,6 +22,7 @@ export class CadencePlanner {
    */
   constructor(options = {}) {
     this.options = options;
+    this.baseRegister = options.baseRegister || 60;
   }
 
   /**
@@ -34,6 +35,8 @@ export class CadencePlanner {
   async execute(config, previousNotes, context = {}) {
     const { chords, phraseContext } = config;
     const notes = [];
+    const options = config.options || {};
+    this.baseRegister = options.baseRegister !== undefined ? options.baseRegister : this.baseRegister;
 
     // Identify cadence points (typically phrase endings)
     const cadencePoints = this._identifyCadencePoints(chords, phraseContext);
@@ -167,6 +170,10 @@ export class CadencePlanner {
    * @private
    */
   _getChordTones(chord) {
+    if (chord.notes && chord.notes.length > 0) {
+      const pitchClasses = new Set(chord.notes.map(n => ((n % 12) + 12) % 12));
+      return [...pitchClasses].map(pc => this.baseRegister + pc);
+    }
     const rootMidi = this._noteNameToMidi(chord.root);
     const intervals = this._getChordIntervals(chord.quality);
     return intervals.map((interval) => rootMidi + interval);

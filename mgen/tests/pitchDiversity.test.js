@@ -504,8 +504,8 @@ describe('Pitch Diversity Feature', () => {
       const ornamentedNotes = result.notes.filter(n => n.role === 'ornament');
 
       // 2 notes at 60 (both ornamented), 4 notes at 64 (3 ornamented, 4th skipped)
-      // Each ornament adds ~3 notes (trill=4, turn=4, grace=2), so 6 ornaments = ~18 notes
-      expect(ornamentedNotes.length).toBeLessThan(18);
+      // Each ornament adds ~3 notes (trill=4, turn=4, grace=2), so 5 ornaments can add up to 20 notes
+      expect(ornamentedNotes.length).toBeLessThan(21);
     });
   });
 

@@ -61,107 +61,266 @@ export class CompositionOrchestrator {
     this.maxBacktracks = 2;
     this.executionLog = [];
 
-    const passResults = [];
-    this._passNotes = new Map();
-
     if (!config.options) {
       config.options = {};
     }
     // Initialize/Reset dynamic properties
     config.options.safeMode = false;
     config.options.backtrackFeedback = null;
+    config.options.feedbackAdjustments = null;
 
-    let i = 0;
-    while (i < this.passes.length) {
-      const task = this.passes[i];
+    const maxFeedbackIterations = config.options.maxFeedbackIterations !== undefined 
+      ? config.options.maxFeedbackIterations 
+      : 5;
 
-      // Check if time budget is running low (over 70% elapsed)
-      if (this.timeBudget && this.timeBudget !== Infinity && !config.options.safeMode) {
-        const elapsed = performance.now() - this._startTime;
-        if (elapsed > this.timeBudget * 0.7) {
-          config.options.safeMode = true;
-          this.safeModeTriggered = true;
-          console.warn(`[Orchestrator] Time budget running low (${elapsed.toFixed(1)}ms / ${this.timeBudget}ms). Switching remaining passes to SAFE mode.`);
+    let bestNotes = null;
+    let bestScore = -1;
+    let bestPassResults = [];
+    let bestExecutionLog = [];
+
+    let feedbackIteration = 0;
+
+    while (feedbackIteration < maxFeedbackIterations) {
+      feedbackIteration++;
+      
+      const passResults = [];
+      this._passNotes = new Map();
+      this.executionLog = [];
+      let i = 0;
+
+      // On iterations > 1, dynamically adjust parameters based on feedback
+      if (feedbackIteration > 1 && config.options.feedbackAdjustments) {
+        this._applyFeedbackAdjustments(config, config.options.feedbackAdjustments);
+      }
+
+      while (i < this.passes.length) {
+        const task = this.passes[i];
+
+        // Check if time budget is running low (over 70% elapsed) to preserve real-time play
+        if (this.timeBudget && this.timeBudget !== Infinity) {
+          const elapsed = performance.now() - this._startTime;
+          if (elapsed > this.timeBudget * 0.7) {
+            config.options.safeMode = true;
+            this.safeModeTriggered = true;
+            if (feedbackIteration > 1) {
+              console.warn(`[Orchestrator] Time budget running low (${elapsed.toFixed(1)}ms). Exiting feedback loop early.`);
+              break;
+            }
+            console.warn(`[Orchestrator] Time budget running low (${elapsed.toFixed(1)}ms / ${this.timeBudget}ms). Switching remaining passes to SAFE mode.`);
+          }
+        }
+
+        const accumulatedNotes = this._accumulateNotes(passResults.slice(0, i));
+        const result = await this._executePassWithRegeneration(task, config, accumulatedNotes);
+
+        if (!result.metrics.passesThreshold && i > 0 && this.backtrackCount < this.maxBacktracks && !config.options.safeMode) {
+          this.backtrackCount++;
+          i--; // Backtrack
+          passResults.length = i;
+          this.executionLog.length = i;
+          config.options.backtrackFeedback = {
+            failedPass: task.name || task.constructor.name,
+            issues: result.metrics.issues
+          };
+          continue;
+        }
+
+        config.options.backtrackFeedback = null;
+        const passName = result.passName;
+        this._passNotes.set(passName, [...result.notes]);
+
+        const existingIdx = passResults.findIndex(r => r.passName === passName);
+        if (existingIdx !== -1) {
+          passResults[existingIdx] = result;
+        } else {
+          passResults.push(result);
+        }
+
+        this.executionLog.push({
+          passName: result.passName,
+          score: result.metrics.score,
+          issues: result.metrics.issues,
+          noteCount: result.notes.length,
+        });
+
+        i++;
+      }
+
+      // If we exited early due to time budget, exit the feedback loop
+      if (passResults.length < this.passes.length) {
+        break;
+      }
+
+      // Assemble candidate melody
+      const finalAccumulatedNotes = this._accumulateNotes(passResults);
+      const deduplicated = this._deduplicateOverlappingNotes(finalAccumulatedNotes);
+      const soundingNotes = deduplicated.filter(n => n.duration > 0);
+      const snappedNotes = this._snapPitchesToHarmonicContext(soundingNotes, config.chords, config.options);
+      snappedNotes.sort((a, b) => a.startTime - b.startTime);
+
+      // Clamp durations
+      for (let j = 0; j < snappedNotes.length - 1; j++) {
+        const currentNote = snappedNotes[j];
+        const nextNote = snappedNotes[j + 1];
+        const timeToNext = nextNote.startTime - currentNote.startTime;
+        if (currentNote.duration > timeToNext) {
+          currentNote.duration = timeToNext;
         }
       }
 
-      // Gather notes from completed preceding passes using additive/refining accumulation rules
-      const accumulatedNotes = this._accumulateNotes(passResults.slice(0, i));
+      // Evaluate globally
+      const globalEvaluation = this._evaluateMelodyGlobally(snappedNotes, config);
 
-      const result = await this._executePassWithRegeneration(task, config, accumulatedNotes);
-
-      // Backtrack if failed, and we have backtracking budget, and we are not in safeMode
-      if (!result.metrics.passesThreshold && i > 0 && this.backtrackCount < this.maxBacktracks && !config.options.safeMode) {
-        this.backtrackCount++;
-        i--; // Step back to preceding pass
-        passResults.length = i; // Discard trailing results
-        this.executionLog.length = i; // Discard trailing logs
-        console.warn(`[Orchestrator] Pass [${task.name || task.constructor.name}] failed threshold (score: ${result.metrics.score}). Backtracking to preceding pass.`);
-        config.options.backtrackFeedback = {
-          failedPass: task.name || task.constructor.name,
-          issues: result.metrics.issues
-        };
-        continue;
+      if (globalEvaluation.score > bestScore) {
+        bestScore = globalEvaluation.score;
+        bestNotes = snappedNotes;
+        bestPassResults = [...passResults];
+        bestExecutionLog = [...this.executionLog];
       }
 
-      // Successful step or hit max backtracks: clear temporary feedback and record notes
-      config.options.backtrackFeedback = null;
-      const passName = result.passName;
-      this._passNotes.set(passName, [...result.notes]);
-
-      // If we backtracked and re-ran, overwrite the index, otherwise push
-      const existingIdx = passResults.findIndex(r => r.passName === passName);
-      if (existingIdx !== -1) {
-        passResults[existingIdx] = result;
-      } else {
-        passResults.push(result);
+      // If score passes threshold (>= 0.75), or we are in safeMode, stop iterating
+      if (globalEvaluation.passesThreshold || config.options.safeMode) {
+        break;
       }
 
-      this.executionLog.push({
-        passName: result.passName,
-        score: result.metrics.score,
-        issues: result.metrics.issues,
-        noteCount: result.notes.length,
-      });
-
-      i++;
+      config.options.feedbackAdjustments = globalEvaluation.issues;
     }
 
-    // Accumulate final notes across all successful passes using additive/refining accumulation rules
-    const finalAccumulatedNotes = this._accumulateNotes(passResults);
-
-    // Deduplicate overlapping notes (same start time) keeping higher-priority roles
-    const deduplicated = this._deduplicateOverlappingNotes(finalAccumulatedNotes);
-
-    // Filter out silent notes/rests (duration <= 0) from the final output
-    const soundingNotes = deduplicated.filter(n => n.duration > 0);
-
-    // Snap note pitches to chord/scale tones of the active chord at each note's start time
-    const snappedNotes = this._snapPitchesToHarmonicContext(soundingNotes, config.chords, config.options);
-
-    // Sort sounding notes chronologically
-    snappedNotes.sort((a, b) => a.startTime - b.startTime);
-
-    // Clamp durations to ensure strict monophonic cutoff (no overlapping notes)
-    for (let i = 0; i < snappedNotes.length - 1; i++) {
-      const currentNote = snappedNotes[i];
-      const nextNote = snappedNotes[i + 1];
-      const timeToNext = nextNote.startTime - currentNote.startTime;
-      if (currentNote.duration > timeToNext) {
-        currentNote.duration = timeToNext;
-      }
-    }
-
-    return new MelodyResult(snappedNotes, {
-      passResults,
-      executionLog: this.executionLog,
+    return new MelodyResult(bestNotes || [], {
+      passResults: bestPassResults,
+      executionLog: bestExecutionLog,
       phraseContext: config.phraseContext,
       chords: config.chords,
-      originalNoteCount: finalAccumulatedNotes.length,
-      finalNoteCount: soundingNotes.length,
+      originalNoteCount: bestNotes ? bestNotes.length : 0,
+      finalNoteCount: bestNotes ? bestNotes.length : 0,
       safeModeTriggered: this.safeModeTriggered,
       backtrackCount: this.backtrackCount,
+      feedbackIterations: feedbackIteration,
+      globalScore: bestScore,
       executionTimeMs: performance.now() - this._startTime
+    });
+  }
+
+  /**
+   * Evaluate a generated melody globally against composition guidelines.
+   * @param {MelodyNote[]} notes - Melody notes
+   * @param {GenerationConfig} config - Config context
+   * @returns {Object} Evaluation metrics including score and issues
+   * @private
+   */
+  _evaluateMelodyGlobally(notes, config) {
+    const issues = [];
+    let score = 1.0;
+
+    if (!notes || notes.length === 0) {
+      return { score: 0.0, passesThreshold: false, issues: ['no-notes'] };
+    }
+
+    // 1. Pitch Diversity
+    const pitchCounts = {};
+    notes.forEach(n => {
+      pitchCounts[n.pitch] = (pitchCounts[n.pitch] || 0) + 1;
+    });
+    const uniqueRatio = Object.keys(pitchCounts).length / notes.length;
+    if (uniqueRatio < 0.25) {
+      issues.push('low-pitch-diversity');
+      score -= 0.2;
+    }
+
+    // 2. Voice-leading: large leap compensation
+    let uncompensatedLeaps = 0;
+    for (let i = 1; i < notes.length - 1; i++) {
+      const prev = notes[i - 1].pitch;
+      const curr = notes[i].pitch;
+      const next = notes[i + 1].pitch;
+      const interval1 = curr - prev;
+      const interval2 = next - curr;
+      if (Math.abs(interval1) > 7) {
+        if (Math.sign(interval1) === Math.sign(interval2)) {
+          uncompensatedLeaps++;
+        }
+      }
+    }
+    if (uncompensatedLeaps > 2) {
+      issues.push('excessive-uncompensated-leaps');
+      score -= 0.15;
+    }
+
+    // 3. Harmonic responsiveness
+    let nonChordStructuralCount = 0;
+    let structuralCount = 0;
+    notes.forEach(note => {
+      if (note.role === 'structural') {
+        structuralCount++;
+        const activeChord = config.chords.find(c => note.startTime >= c.beatStart && note.startTime < c.beatStart + c.duration) || config.chords[0];
+        if (activeChord && activeChord.notes && activeChord.notes.length > 0) {
+          const isChordTone = activeChord.notes.some(n => Math.abs((n % 12) - (note.pitch % 12)) < 0.1);
+          if (!isChordTone) {
+            nonChordStructuralCount++;
+          }
+        }
+      }
+    });
+    if (structuralCount > 0 && (nonChordStructuralCount / structuralCount) > 0.4) {
+      issues.push('weak-harmonic-responsiveness');
+      score -= 0.2;
+    }
+
+    // 4. Motivic coherence (interval repetition checking)
+    const intervals = [];
+    for (let i = 1; i < notes.length; i++) {
+      intervals.push(notes[i].pitch - notes[i - 1].pitch);
+    }
+    let repetitionCount = 0;
+    for (let i = 0; i < intervals.length - 3; i++) {
+      for (let j = i + 2; j < intervals.length - 1; j++) {
+        if (intervals[i] === intervals[j] && intervals[i+1] === intervals[j+1]) {
+          repetitionCount++;
+        }
+      }
+    }
+    if (repetitionCount > notes.length * 0.5) {
+      issues.push('excessive-repetition');
+      score -= 0.15;
+    } else if (repetitionCount === 0 && notes.length > 8) {
+      issues.push('low-motivic-coherence');
+      score -= 0.1;
+    }
+
+    score = Math.max(0.0, Math.min(1.0, score));
+    return {
+      score,
+      passesThreshold: score >= 0.75,
+      issues
+    };
+  }
+
+  /**
+   * Adjust parameters in GenerationConfig based on feedback issues.
+   * @param {GenerationConfig} config - Target configuration
+   * @param {string[]} issues - List of issues detected in evaluation
+   * @private
+   */
+  _applyFeedbackAdjustments(config, issues) {
+    if (!config.options) config.options = {};
+    issues.forEach(issue => {
+      switch (issue) {
+        case 'low-pitch-diversity':
+          config.options.pitchDiversityWeight = Math.min(1.0, (config.options.pitchDiversityWeight || 0.0) + 0.3);
+          break;
+        case 'excessive-uncompensated-leaps':
+          config.options.maxLeap = Math.max(4, (config.options.maxLeap || 12) - 2);
+          break;
+        case 'weak-harmonic-responsiveness':
+          config.options.strictChordTones = true;
+          break;
+        case 'excessive-repetition':
+          config.options.density = Math.max(0.2, (config.options.density || 0.5) - 0.15);
+          break;
+        case 'low-motivic-coherence':
+          config.options.pitchDiversityWeight = Math.max(0.1, (config.options.pitchDiversityWeight || 0.0) - 0.2);
+          break;
+      }
     });
   }
 
@@ -400,6 +559,10 @@ export class CompositionOrchestrator {
   _snapPitchesToHarmonicContext(notes, chords, configOptions = {}) {
     if (!chords || chords.length === 0) return notes;
 
+    if (configOptions.snapToHarmonicContext === false) {
+      return notes;
+    }
+
     const noteValues = {
       C: 0,
       'C#': 1, Csh: 1,
@@ -441,7 +604,7 @@ export class CompositionOrchestrator {
         }
       }
 
-      // 2. Get scale/chord intervals
+      // 2. Get scale/chord pitch classes
       const rootPc = getRootPc(activeChord.root);
       const quality = activeChord.quality || 'maj';
 
@@ -466,7 +629,23 @@ export class CompositionOrchestrator {
       }
 
       const isChordToneRole = note.role === 'structural' || note.role === 'cadence';
-      const targetIntervals = isChordToneRole ? chordIntervals : scaleIntervals;
+      let targetPitchClasses = [];
+
+      if (isChordToneRole) {
+        if (activeChord.notes && activeChord.notes.length > 0) {
+          targetPitchClasses = activeChord.notes.map(n => n % 12);
+        } else {
+          targetPitchClasses = chordIntervals.map(i => (rootPc + i) % 12);
+        }
+      } else {
+        if (activeChord.notes && activeChord.notes.length > 0) {
+          const chordPcs = activeChord.notes.map(n => n % 12);
+          const scalePcs = scaleIntervals.map(i => (rootPc + i) % 12);
+          targetPitchClasses = [...new Set([...chordPcs, ...scalePcs])];
+        } else {
+          targetPitchClasses = scaleIntervals.map(i => (rootPc + i) % 12);
+        }
+      }
 
       const currentOctave = Math.floor(note.pitch / 12);
       
@@ -474,8 +653,8 @@ export class CompositionOrchestrator {
       let minDiff = Infinity;
 
       for (let oct = currentOctave - 1; oct <= currentOctave + 1; oct++) {
-        for (const interval of targetIntervals) {
-          const candidate = oct * 12 + ((rootPc + interval) % 12);
+        for (const pc of targetPitchClasses) {
+          const candidate = oct * 12 + pc;
           if (candidate >= 0 && candidate <= 127) {
             if (registerRange && (candidate < minRegister || candidate > maxRegister)) {
               continue;

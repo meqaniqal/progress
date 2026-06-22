@@ -158,7 +158,7 @@ export function progressChordToMelodyGenChord(progressChord, globalBeatOffset) {
   const rawNotes = progressChord.notes || (progressChord.customNotes || []).map(n => typeof n === 'object' ? n.pitch : n);
   const scaleDegrees = rawNotes.map(n => n % 12);
 
-  return new Chord(rootNoteName, parsed.quality, globalBeatOffset, scaleDegrees, progressChord.duration || 2);
+  return new Chord(rootNoteName, parsed.quality, globalBeatOffset, scaleDegrees, progressChord.duration || 2, rawNotes);
 }
 
 /**
@@ -230,6 +230,8 @@ export function progressStateToGenerationConfig(state) {
     baseRegister: state.baseKey,
     aestheticMode: aestheticMode,
     tensionCurve: state.melodySettings.tensionCurve,
+    snapToHarmonicContext: state.melodySettings.snapToHarmonicContext !== undefined ? state.melodySettings.snapToHarmonicContext : true,
+    maxFeedbackIterations: state.melodySettings.maxFeedbackIterations !== undefined ? state.melodySettings.maxFeedbackIterations : 5,
   });
 }
 
@@ -299,7 +301,7 @@ export function deriveRhythmEngineConfig(chordList, phraseRole, tensionLevel) {
  * @param {Object} [progressData.drumTrack] - Optional drum track
  * @returns {Chord[]} Flat array of Chord objects with correct beatStart values
  */
-export function preprocessProgressData(progressData) {
+export function preprocessProgressData(progressData, options = {}) {
   const { chords, bassTrack, drumTrack } = progressData;
 
   if (!chords || chords.length === 0) {
@@ -307,7 +309,7 @@ export function preprocessProgressData(progressData) {
   }
 
   // Step 1: Collect all event boundaries
-  const boundaries = collectEventBoundaries(chords, bassTrack, drumTrack);
+  const boundaries = collectEventBoundaries(chords, bassTrack, drumTrack, options);
 
   // Step 2: Sort and deduplicate boundaries
   const sortedBoundaries = [...new Set(boundaries)].sort((a, b) => a - b);
@@ -329,10 +331,12 @@ export function preprocessProgressData(progressData) {
  * @param {Object[]} chords - Chord progression
  * @param {Object} [bassTrack] - Optional bass track
  * @param {Object} [drumTrack] - Optional drum track
+ * @param {Object} [options] - Optional configurations
  * @returns {number[]} Array of beat positions where events occur
  */
-function collectEventBoundaries(chords, bassTrack, drumTrack) {
+function collectEventBoundaries(chords, bassTrack, drumTrack, options = {}) {
   const boundaries = new Set();
+  const minimal = options.minimalSlicing || false;
 
   // Chord transitions
   let cumulativeBeat = 0;
@@ -341,7 +345,7 @@ function collectEventBoundaries(chords, bassTrack, drumTrack) {
     boundaries.add(cumulativeBeat);
   }
 
-  // Bass pattern instances
+  // Bass pattern instances (can change the root / harmony)
   if (bassTrack) {
     for (const chord of chords) {
       if (chord.bassPattern && chord.bassPattern.instances) {
@@ -353,6 +357,11 @@ function collectEventBoundaries(chords, bassTrack, drumTrack) {
         }
       }
     }
+  }
+
+  // If minimal slicing is enabled, skip arpeggios and drum hits
+  if (minimal) {
+    return [...boundaries];
   }
 
   // Chord pattern instances

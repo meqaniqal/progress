@@ -257,7 +257,13 @@ export class RhythmEngine {
     const subdivisionProfile = this._getActiveSubdivisionProfile();
 
     for (const note of notes) {
-      const transformedNote = this._adjustNoteRhythm(note, template, subdivisionProfile, config);
+      const activeChord = config.chords?.find(c => {
+        const duration = c.duration || 2;
+        return note.startTime >= c.beatStart && note.startTime < c.beatStart + duration;
+      }) || config.chords?.[0];
+      const chordDuration = activeChord ? (activeChord.duration || 2) : (this.chordSlotDuration || 4);
+
+      const transformedNote = this._adjustNoteRhythm(note, template, subdivisionProfile, config, chordDuration);
       transformed.push(transformedNote);
     }
 
@@ -270,16 +276,19 @@ export class RhythmEngine {
    * @param {RhythmTemplate} template - Active rhythm template
    * @param {SubdivisionProfile} subdivisionProfile - Active subdivision profile
    * @param {GenerationConfig} config - Generation configuration
+   * @param {number} chordDuration - Duration of the active chord slot
    * @returns {MelodyNote} Rhythm-adjusted note
    * @private
    */
-  _adjustNoteRhythm(note, template, subdivisionProfile, config) {
-    const sixteenthStep = this._noteToSixteenthStep(note);
+  _adjustNoteRhythm(note, template, subdivisionProfile, config, chordDuration) {
+    const sixteenthStep = this._noteToSixteenthStep(note, chordDuration);
     const templateIndex = sixteenthStep % this.stepsPerMeasure;
     const templateHit = template.grid[templateIndex];
 
-    // Density roll: only play if within density threshold
-    const densityRoll = Math.random() < this.density;
+    // Density roll: only play if within density threshold.
+    // Structural and cadence notes are essential skeleton notes and should not be randomly dropped.
+    const isEssential = note.role === 'structural' || note.role === 'cadence';
+    const densityRoll = isEssential ? true : (Math.random() < this.density);
 
     // If template says rest and density roll fails, return a rest (duration 0)
     if (!templateHit || !densityRoll) {
@@ -325,13 +334,14 @@ export class RhythmEngine {
   /**
    * Convert a note's startTime to a sixteenth-step index within a measure.
    * @param {MelodyNote} note - Note to convert
+   * @param {number} chordDuration - Duration of the active chord slot
    * @returns {number} Sixteenth step index (0-15)
    * @private
    */
-  _noteToSixteenthStep(note) {
-    const measureStart = Math.floor(note.startTime / this.chordSlotDuration) * this.chordSlotDuration;
+  _noteToSixteenthStep(note, chordDuration) {
+    const measureStart = Math.floor(note.startTime / chordDuration) * chordDuration;
     const offsetInMeasure = note.startTime - measureStart;
-    return Math.round((offsetInMeasure / this.chordSlotDuration) * this.stepsPerMeasure) % this.stepsPerMeasure;
+    return Math.round((offsetInMeasure / chordDuration) * this.stepsPerMeasure) % this.stepsPerMeasure;
   }
 
   /**

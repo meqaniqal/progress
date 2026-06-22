@@ -6,25 +6,27 @@ This document contains the immediate objectives and active task checklists. To p
 
 ## 🎯 Current Objectives
 
-1. **Melody Structural Paradigm Shift (Next Session Priority)**:
-   - Transition the melody generation engine from local note-level constraints to a **Hierarchical Structural Tone Layer** as outlined in [melodymechanics.md#10-chatgpt-architectural-advice--paradigm-shift-june-2026](file:///Users/sheldonlawrence/Desktop/progress/melodymechanics.md#10-chatgpt-architectural-advice--paradigm-shift-june-2026).
-   - Implement structural melody planning (planning a singular target structural pitch per bar before generating decorations).
-   - Integrate high-level phrase intent roles (`antecedent`, `consequent`, `climax`, `release`) and manage climax peaks to avoid redundant high notes.
-   - Refactor motivic development to prioritize human transformations (rhythmic variation, partial recall, expansion/compression) over geometric alterations.
+1. **Investigate Mgen-to-Progress Translation Discrepancies (Next Session Priority)**:
+   - Identify why melody generation sounds better in the standalone `mgen` testing app compared to playback in the main `progress` app.
+   - Investigate note timing (start beats, durations) and pitch translation/interpretation during the bridge phase (`melodyGenResultToProgressNotes`) and playback scheduling in `melodyScheduler.js`.
+   - Eliminate isolated off-notes (notes outside the active scale/harmony or poorly timed) to match the harmonic alignment improvements.
+
+2. **Melody Structural Paradigm Shift (Completed ✅)**:
+   - Transitioned the melody generation engine to a Hierarchical Structural Tone Layer.
+   - Implemented structural target planning (Pass A / StructuralPlanner), cadence resolution rules (Pass B / CadencePlanner), connective fills (Pass C / ConnectorPlanner), and expressiveness (Pass D / OrnamentPlanner).
+   - Refactored `RhythmEngine` to support dynamic chord slot durations and protect essential structural/cadence notes.
 
 ---
 
 ## 📝 Active Task Checklist
 
-### 1. Structural Tone Layer & Hierarchical Melody Generation (Planned ⏳)
-- [ ] **Structural Planner**: Implement first-pass planner to select key structural targets per bar based on active chord progression.
-- [ ] **Decorative Fill Engine**: Refactor note-generation loop to treat intermediate pitches strictly as resolutions or connective decorations around targets.
-- [ ] **Phrase Intent Roles**: Map `phraseRole` states to control ending pitches (preventing tonic resolution on antecedents).
-- [ ] **Climax Management**: Add `phraseHighestPitch` / `songHighestPitch` checks to restrict multiple climax repetitions.
-- [ ] **Human Motivic Transforms**: Implement partial recall and rhythmic motif variation.
+### 1. Mgen-to-Progress Playback & Note Translation Audit (Planned ⏳)
+- [ ] **Timing Analysis**: Trace how beats are scaled from mgen output to the progress BPM/divisions in `melodyGenResultToProgressNotes`.
+- [ ] **Pitch & Harmony Audit**: Check if chord slots in the main app swap notes/tuning scales in a way that differs from what `mgen` processed during pregeneration.
+- [ ] **Off-note Elimination**: Implement final filtering or snapping checks in the playback bridge to eliminate isolated off-keys/clashing steps.
 
 ---
 
 ## 🔍 Verification & Testing Goals
-- Confirm that tests in [melodyGenerator.test.js](file:///Users/sheldonlawrence/Desktop/progress/melodyGenerator.test.js) pass successfully.
-- Manually audit generated output to ensure structural grounding and check that isolated notes no longer clank outside the home key.
+- Run `npm test` to ensure all 728 unit and integration tests remain green.
+- Verify playback in both the standalone dashboard (`mgen/fulltest.html`) and the main application to ensure auditory parity.

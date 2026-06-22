@@ -40,13 +40,15 @@ export class Chord {
    * @param {number} beatStart - Beat position where this chord begins
    * @param {number} [scaleDegrees] - Scale degrees that form the chord
    * @param {number} [duration] - Duration of the chord in beats
+   * @param {number[]} [notes] - Raw sounding notes of the chord
    */
-  constructor(root, quality, beatStart, scaleDegrees = [], duration = 2) {
+  constructor(root, quality, beatStart, scaleDegrees = [], duration = 2, notes = []) {
     this.root = root;
     this.quality = quality;
     this.beatStart = beatStart;
     this.scaleDegrees = scaleDegrees;
     this.duration = duration;
+    this.notes = notes;
   }
 }
 
