@@ -30,3 +30,12 @@ This document contains the immediate objectives and active task checklists. To p
 ## 🔍 Verification & Testing Goals
 - Run `npm test` to ensure all 728 unit and integration tests remain green.
 - Verify playback in both the standalone dashboard (`mgen/fulltest.html`) and the main application to ensure auditory parity.
+
+---
+
+## 🎯 Added From User Prompt (To Be Re-evaluated)
+
+- **Console Debugging**: Add console debugging for `mgen`'s generated notes while using it within `progress`.
+- **Rhythmic & Tonal Evaluator Module**: Implement an evaluator module within `progress` to determine if generated notes are rhythmically and tonally compatible with melodic and rhythmic information present at any time in the `progress` timeline.
+- **Robust Musical Tests**: Ensure tests for `mgen` components are robust enough to test for truly professional musical results (aligned with studies on what sounds enjoyable, innovative, professional, and highly advanced), rather than just passing basic programmatic/incorrect musical assumptions.
+

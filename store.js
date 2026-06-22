@@ -673,6 +673,8 @@ export function undoState() {
     return true;
 }
 
+let persistTimer = null;
+
 export function persistAppState() {
     // Ensure the active section is perfectly updated before saving
     if (state.activeSectionId && state.sections[state.activeSectionId]) {
@@ -683,7 +685,21 @@ export function persistAppState() {
     if (typeof window !== 'undefined') {
         window.__customChords = state.customChords;
     }
-    saveState(state);
+    
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+        saveState(state);
+        persistTimer = null;
+    }, 500);
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => {
+        if (persistTimer) {
+            clearTimeout(persistTimer);
+            saveState(state);
+        }
+    });
 }
 
 export function resetSession() {

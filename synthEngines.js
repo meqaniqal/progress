@@ -482,7 +482,6 @@ export const SYNTH_REGISTRY = {
         burstSource.stop(startTime + period);
         
         const dummyOsc = ctx.createOscillator();
-        dummyOsc.connect(ctx.destination);
         dummyOsc.start(startTime);
         
         if (env.releaseStartsAtDuration) {

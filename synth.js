@@ -253,6 +253,7 @@ export function midiToFreq(m) {
 }
 
 export function playTone(freq, startTime, duration, type = 'sine', destBus = null, pan = 0, vol = 1.0, extraParams = {}) {
+    startTime = Math.max(0, startTime);
     const engine = SYNTH_REGISTRY[type];
     if (!engine) return;
 
@@ -374,6 +375,7 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
 }
 
 export function playDrum(type, startTime, velocity = 1.0, customCtx = null, customDest = null) {
+    startTime = Math.max(0, startTime);
     if (!audioCtx && !customCtx) initAudio();
     
     const ctx = customCtx || audioCtx;
@@ -388,7 +390,10 @@ export function playDrum(type, startTime, velocity = 1.0, customCtx = null, cust
                 const nodes = engine(ctx, startTime, velocity, dest, customDrumBuffers[type], (deadNode) => {
                     activeOscillators = activeOscillators.filter(o => o !== deadNode);
                 }, params);
-                if (nodes) activeOscillators.push(...nodes);
+                if (nodes) {
+                    const sources = nodes.filter(n => typeof n.stop === 'function');
+                    activeOscillators.push(...sources);
+                }
             }
             return;
         }
@@ -398,7 +403,10 @@ export function playDrum(type, startTime, velocity = 1.0, customCtx = null, cust
             const nodes = engine(ctx, startTime, velocity, dest, noiseBuffer, (deadNode) => {
                 activeOscillators = activeOscillators.filter(o => o !== deadNode);
             }, params);
-            if (nodes) activeOscillators.push(...nodes);
+            if (nodes) {
+                const sources = nodes.filter(n => typeof n.stop === 'function');
+                activeOscillators.push(...sources);
+            }
         }
     } catch (e) {
         console.warn(`Failed to play drum: ${type}`, e);
@@ -408,8 +416,12 @@ export function playDrum(type, startTime, velocity = 1.0, customCtx = null, cust
 export function stopOscillators() {
     activeOscillators.forEach(osc => {
         try {
-            osc.stop();
-            osc.disconnect();
+            if (typeof osc.stop === 'function') {
+                osc.stop();
+            }
+            if (typeof osc.disconnect === 'function') {
+                osc.disconnect();
+            }
         } catch (e) { /* Ignore InvalidStateError */ }
     });
     activeOscillators = [];

@@ -9,6 +9,7 @@ import { RhythmEngine } from './mgen/src/engines/RhythmEngine.js';
 import { PhraseEngine } from './mgen/src/engines/PhraseEngine.js';
 import { ExpectationEngine } from './mgen/src/engines/ExpectationEngine.js';
 import { VoiceLeadingEngine } from './mgen/src/engines/VoiceLeadingEngine.js';
+import { MicrotonalEngine } from './mgen/src/engines/MicrotonalEngine.js';
 import { StyleEngine } from './mgen/src/engines/StyleEngine.js';
 import { getChordNotes, getEffectiveTuning, snapToGrid, midiToFreq } from './theory.js';
 import {
@@ -110,6 +111,13 @@ export async function pregenerateMgenMelody(appState = state) {
 
     // Register Voice Leading Engine
     orchestrator.registerPass(new VoiceLeadingEngine());
+
+    // Register Microtonal Engine
+    let mgenTuningId = '12tet';
+    if (stateClone.divisions === 24) {
+      mgenTuningId = 'quartertone';
+    }
+    orchestrator.registerPass(new MicrotonalEngine({ tuningSystem: mgenTuningId }));
 
     // Execute pipeline
     const mgenResult = await orchestrator.execute(config);

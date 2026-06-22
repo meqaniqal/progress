@@ -12,6 +12,27 @@ import { getGrooveOffset } from './grooveEngine.js';
 let uiTimeouts = [];
 let sequenceHighlightTimeouts = [];
 
+// Voice-leading memoization cache
+let cachedPlayableNotes = null;
+let cachedPlayableNotesKey = null;
+
+function getCachedPlayableNotes(progression, appState) {
+    const chordsPart = progression.map(c => {
+        const customNotesStr = c.customNotes 
+            ? c.customNotes.map(cn => typeof cn === 'object' ? cn.pitch : cn).join('-') 
+            : '';
+        return `${c.symbol}-${c.key}-${c.divisions || appState.divisions || 12}-${c.inversionOffset || 0}-[${customNotesStr}]`;
+    }).join(',');
+    
+    const key = `${chordsPart}:${appState.divisions}:${appState.useVoiceLeading}:${appState.globalVoicing || 'auto'}`;
+    
+    if (cachedPlayableNotesKey !== key) {
+        cachedPlayableNotesKey = key;
+        cachedPlayableNotes = getPlayableNotes(progression, appState);
+    }
+    return cachedPlayableNotes;
+}
+
 function clearSequenceHighlights() {
     sequenceHighlightTimeouts.forEach(clearTimeout);
     sequenceHighlightTimeouts = [];
@@ -176,7 +197,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         const absBeatStart = getAbsoluteBeatPos(activeProg, absIndex);
         
         // Must calculate from the full progression to get proper voice leading and inversion context
-        const allPlayableNotes = getPlayableNotes(activeProg, state);
+        const allPlayableNotes = getCachedPlayableNotes(activeProg, state);
         const notesToPlay = allPlayableNotes[absIndex];
         
         if (!notesToPlay) return;
@@ -565,7 +586,7 @@ function scheduleChordAudition(chordSymbol, baseKey, specificNotes, divisions, s
 }
 
 function getAuditionNotesForSeq(progression, idx, appState) {
-    let notesToPlay = getPlayableNotes(progression, appState)[idx];
+    let notesToPlay = getCachedPlayableNotes(progression, appState)[idx];
     if (!notesToPlay) return null;
     
     const chord = progression[idx];

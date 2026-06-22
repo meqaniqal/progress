@@ -613,6 +613,10 @@ function playMelody() {
     const chordPitches = chord.scaleDegrees.map(deg => rootIndex + (deg - rootIndex + 60));
     const chordDuration = _getChordDuration(chord, chords);
 
+    const startTime = Math.max(0, now + chord.beatStart);
+    const sustainTime = Math.max(startTime, now + chord.beatStart + chordDuration * 0.85);
+    const stopTime = Math.max(sustainTime, now + chord.beatStart + chordDuration);
+
     chordPitches.forEach(pitch => {
       const frequency = 440 * Math.pow(2, (pitch - 69) / 12);
       const oscillator = audioContext.createOscillator();
@@ -621,38 +625,47 @@ function playMelody() {
       oscillator.type = 'triangle';
       oscillator.frequency.value = frequency;
 
-      gainNode.gain.setValueAtTime(0.15, now + chord.beatStart);
-      gainNode.gain.setValueAtTime(0.15, now + chord.beatStart + chordDuration * 0.85);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, now + chord.beatStart + chordDuration);
+      gainNode.gain.setValueAtTime(0.15, startTime);
+      gainNode.gain.setValueAtTime(0.15, sustainTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, stopTime);
 
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
 
-      oscillator.start(now + chord.beatStart);
-      oscillator.stop(now + chord.beatStart + chordDuration);
+      oscillator.start(startTime);
+      oscillator.stop(stopTime);
     });
   });
 
   // Play melody notes
   notes.forEach(note => {
+    // If the note finishes entirely before beat 0 (relative to current playback), skip playing it
+    if (note.startTime + note.duration <= 0) return;
+
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
 
-    // MIDI to frequency
-    const frequency = 440 * Math.pow(2, (note.pitch - 69) / 12);
+    // MIDI to frequency (with microtonal metadata fallback)
+    const frequency = (note.metadata && typeof note.metadata.frequency === 'number')
+      ? note.metadata.frequency
+      : 440 * Math.pow(2, (note.pitch - 69) / 12);
 
     oscillator.type = 'sine';
     oscillator.frequency.value = frequency;
 
-    gainNode.gain.setValueAtTime(0.3, now + note.startTime);
-    gainNode.gain.setValueAtTime(0.3, now + note.startTime + note.duration * 0.8);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, now + note.startTime + note.duration);
+    const startTime = Math.max(0, now + note.startTime);
+    const sustainTime = Math.max(startTime, now + note.startTime + note.duration * 0.8);
+    const stopTime = Math.max(sustainTime, now + note.startTime + note.duration);
+
+    gainNode.gain.setValueAtTime(0.3, startTime);
+    gainNode.gain.setValueAtTime(0.3, sustainTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, stopTime);
 
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
 
-    oscillator.start(now + note.startTime);
-    oscillator.stop(now + note.startTime + note.duration);
+    oscillator.start(startTime);
+    oscillator.stop(stopTime);
   });
 }
 

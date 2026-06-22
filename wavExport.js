@@ -312,7 +312,8 @@ export async function exportToWav(state, buttonElement) {
         const startIndex = state.loopStart ?? 0;
         const endIndex = (state.loopEnd > startIndex) ? state.loopEnd : state.currentProgression.length;
         const totalBeats = state.currentProgression.slice(startIndex, endIndex).reduce((sum, chord) => sum + (Number(chord.duration) || 2), 0) * (state.exportPasses || 1);
-        const exactRenderDurationSec = (60.0 / state.bpm) * totalBeats;
+        const tailPadding = CONFIG.EXPORT_TAIL_PADDING !== undefined ? CONFIG.EXPORT_TAIL_PADDING : 0.5;
+        const exactRenderDurationSec = (60.0 / state.bpm) * totalBeats + tailPadding;
         
         const sampleRate = 44100;
         const lengthFrames = Math.max(1, Math.ceil(sampleRate * exactRenderDurationSec));
