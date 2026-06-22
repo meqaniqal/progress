@@ -1,6 +1,47 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
+    <script>
+        // Catch and display initialization/runtime errors directly on the loading screen
+        (function() {
+            function showMobileError(title, details) {
+                var interval = setInterval(function() {
+                    var loader = document.getElementById('loading-screen');
+                    if (loader) {
+                        clearInterval(interval);
+                        var errDiv = document.getElementById('error-display');
+                        if (!errDiv) {
+                            errDiv = document.createElement('div');
+                            errDiv.id = 'error-display';
+                            errDiv.style.color = '#f87171';
+                            errDiv.style.background = 'rgba(239, 68, 68, 0.15)';
+                            errDiv.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+                            errDiv.style.borderRadius = '6px';
+                            errDiv.style.padding = '12px';
+                            errDiv.style.marginTop = '20px';
+                            errDiv.style.fontFamily = 'monospace';
+                            errDiv.style.fontSize = '12px';
+                            errDiv.style.textAlign = 'left';
+                            errDiv.style.whiteSpace = 'pre-wrap';
+                            errDiv.style.maxWidth = '90%';
+                            errDiv.style.wordBreak = 'break-all';
+                            loader.appendChild(errDiv);
+                        }
+                        errDiv.textContent = title + '\n' + details;
+                    }
+                }, 100);
+            }
+            window.addEventListener('error', function(e) {
+                showMobileError('Uncaught Error:', e.message + '\nat ' + e.filename + ':' + e.lineno + ':' + e.colno);
+            });
+            window.addEventListener('unhandledrejection', function(e) {
+                var reason = e.reason;
+                var details = (reason && typeof reason === 'object') ? (reason.message || JSON.stringify(reason)) : String(reason);
+                if (reason && reason.stack) details += '\n' + reason.stack;
+                showMobileError('Unhandled Promise Rejection:', details);
+            });
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Progress</title>
