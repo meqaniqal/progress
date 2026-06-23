@@ -1,8 +1,9 @@
-import { state, persistAppState, getActiveProgression } from './store.js';
+import { state, persistAppState, getActiveProgression, setGlobalTuning } from './store.js';
 import { setTrackVolume, setSynthParam, clearCustomDrumSamples, hasCustomDrumSamples, setBassDrive, setBassHarmonicDrive, decodeCustomBassSample, clearCustomBassSample, decodeCustomMelodySample, clearCustomMelodySample, decodeCustomCountermelodySample, clearCustomCountermelodySample, customDrumBuffers, decodeCustomDrumSample, clearCustomDrumSample, playDrum, getAudioCurrentTime } from './synth.js';
 import { exportScalaFile, exportTunFile } from './midi.js';
 import { exitSongMode } from './songController.js';
-import { auditionChord } from './sequencer.js';
+import { auditionChord, clearVoiceLeadingCache } from './sequencer.js';
+
 import { isPlaybackActive } from './transportController.js';
 import { DEFAULT_DRUM_PARAMS } from './rhythmConfig.js';
 import { initMotifEditors, loadActiveMotifInEditor, getCroppedMotifNotes } from './motifEditor.js';
@@ -676,26 +677,25 @@ export function initSettingsUI({ onRenderProgression }) {
                 const restoreVal = state.previousTuning || '12';
                 
                 // If the restored tuning is also custom, find and activate it
+                let newDivisions = 12;
+                let newCustomTuning = null;
                 if (restoreVal.startsWith('ct-')) {
                     const found = state.importedTunings.find(t => t.id === restoreVal);
                     if (found) {
-                        state.customTuning = found;
-                        if (typeof window !== 'undefined') window.__customTuning = found;
-                        state.divisions = found.divisions || 12;
+                        newCustomTuning = found;
+                        newDivisions = found.divisions || 12;
                     } else {
                         // If that custom tuning was deleted or not found, fall back to standard 12-TET
-                        state.customTuning = null;
-                        if (typeof window !== 'undefined') window.__customTuning = null;
-                        state.divisions = 12;
                         state.previousTuning = '12';
                     }
                 } else {
-                    state.customTuning = null;
-                    if (typeof window !== 'undefined') window.__customTuning = null;
-                    state.divisions = isNaN(restoreVal) ? restoreVal : (parseInt(restoreVal, 10) || 12);
+                    newDivisions = isNaN(restoreVal) ? restoreVal : (parseInt(restoreVal, 10) || 12);
                 }
                 
-                persistAppState();
+                if (typeof window !== 'undefined') window.__customTuning = newCustomTuning;
+                clearVoiceLeadingCache();
+                setGlobalTuning(newDivisions, newCustomTuning);
+                
                 updateMicrotonalSettingsUI();
                 updateCustomTuningUI();
                 
@@ -715,10 +715,9 @@ export function initSettingsUI({ onRenderProgression }) {
                     if (tuningSelector && tuningSelector.value !== 'import-action' && tuningSelector.value !== 'prune-action') {
                         state.previousTuning = tuningSelector.value;
                     }
-                    state.customTuning = found;
                     if (typeof window !== 'undefined') window.__customTuning = found;
-                    state.divisions = found.divisions || 12;
-                    persistAppState();
+                    clearVoiceLeadingCache();
+                    setGlobalTuning(found.divisions || 12, found);
                     updateMicrotonalSettingsUI();
                     updateCustomTuningUI();
                     syncSettingsUI();
@@ -729,11 +728,10 @@ export function initSettingsUI({ onRenderProgression }) {
             
             // Selecting any standard tuning clears custom tuning but remembers previous tuning choice
             state.previousTuning = val;
-            state.customTuning = null;
+            const newDivisions = isNaN(val) ? val : (parseInt(val, 10) || 12);
             if (typeof window !== 'undefined') window.__customTuning = null;
-            
-            state.divisions = isNaN(val) ? val : (parseInt(val, 10) || 12);
-            persistAppState();
+            clearVoiceLeadingCache();
+            setGlobalTuning(newDivisions, null);
             updateMicrotonalSettingsUI();
             updateCustomTuningUI();
             if (onRenderProgression) onRenderProgression();
@@ -766,11 +764,10 @@ export function initSettingsUI({ onRenderProgression }) {
                     
                     // Add to imported list
                     state.importedTunings.push(parsed);
-                    state.customTuning = parsed;
                     if (typeof window !== 'undefined') window.__customTuning = parsed;
-                    state.divisions = parsed.divisions || 12;
+                    clearVoiceLeadingCache();
+                    setGlobalTuning(parsed.divisions || 12, parsed);
                     
-                    persistAppState();
                     updateMicrotonalSettingsUI();
                     updateCustomTuningUI();
                     if (tuningSelector) tuningSelector.value = parsed.id;

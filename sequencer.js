@@ -16,6 +16,11 @@ let sequenceHighlightTimeouts = [];
 let cachedPlayableNotes = null;
 let cachedPlayableNotesKey = null;
 
+export function clearVoiceLeadingCache() {
+    cachedPlayableNotes = null;
+    cachedPlayableNotesKey = null;
+}
+
 function getCachedPlayableNotes(progression, appState) {
     const chordsPart = progression.map(c => {
         const customNotesStr = c.customNotes 
@@ -24,7 +29,9 @@ function getCachedPlayableNotes(progression, appState) {
         return `${c.symbol}-${c.key}-${c.divisions || appState.divisions || 12}-${c.inversionOffset || 0}-[${customNotesStr}]`;
     }).join(',');
     
-    const key = `${chordsPart}:${appState.divisions}:${appState.useVoiceLeading}:${appState.globalVoicing || 'auto'}`;
+    const customTuning = appState.customTuning || (typeof window !== 'undefined' ? window.__customTuning : null);
+    const customTuningPart = customTuning ? `${customTuning.id || 'ct'}-${customTuning.divisions}-${customTuning.periodSize}` : 'none';
+    const key = `${chordsPart}:${appState.divisions}:${customTuningPart}:${appState.useVoiceLeading}:${appState.globalVoicing || 'auto'}`;
     
     if (cachedPlayableNotesKey !== key) {
         cachedPlayableNotesKey = key;
@@ -32,6 +39,7 @@ function getCachedPlayableNotes(progression, appState) {
     }
     return cachedPlayableNotes;
 }
+
 
 function clearSequenceHighlights() {
     sequenceHighlightTimeouts.forEach(clearTimeout);
