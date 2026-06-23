@@ -16,25 +16,52 @@ let sequenceHighlightTimeouts = [];
 let cachedPlayableNotes = null;
 let cachedPlayableNotesKey = null;
 
+let lastProgressionRef = null;
+let lastChordRefs = [];
+let lastDivisions = null;
+let lastUseVoiceLeading = null;
+let lastGlobalVoicing = null;
+let lastCustomTuning = null;
+
 export function clearVoiceLeadingCache() {
     cachedPlayableNotes = null;
     cachedPlayableNotesKey = null;
+    lastProgressionRef = null;
+    lastChordRefs = [];
+    lastDivisions = null;
+    lastUseVoiceLeading = null;
+    lastGlobalVoicing = null;
+    lastCustomTuning = null;
 }
 
 function getCachedPlayableNotes(progression, appState) {
-    const chordsPart = progression.map(c => {
-        const customNotesStr = c.customNotes 
-            ? c.customNotes.map(cn => typeof cn === 'object' ? cn.pitch : cn).join('-') 
-            : '';
-        return `${c.symbol}-${c.key}-${c.divisions || appState.divisions || 12}-${c.inversionOffset || 0}-[${customNotesStr}]`;
-    }).join(',');
-    
     const customTuning = appState.customTuning || (typeof window !== 'undefined' ? window.__customTuning : null);
-    const customTuningPart = customTuning ? `${customTuning.id || 'ct'}-${customTuning.divisions}-${customTuning.periodSize}` : 'none';
-    const key = `${chordsPart}:${appState.divisions}:${customTuningPart}:${appState.useVoiceLeading}:${appState.globalVoicing || 'auto'}`;
     
-    if (cachedPlayableNotesKey !== key) {
-        cachedPlayableNotesKey = key;
+    let hasChanged = !cachedPlayableNotes ||
+                     progression !== lastProgressionRef ||
+                     progression.length !== lastChordRefs.length ||
+                     appState.divisions !== lastDivisions ||
+                     appState.useVoiceLeading !== lastUseVoiceLeading ||
+                     appState.globalVoicing !== lastGlobalVoicing ||
+                     customTuning !== lastCustomTuning;
+
+    if (!hasChanged) {
+        for (let i = 0; i < progression.length; i++) {
+            if (progression[i] !== lastChordRefs[i]) {
+                hasChanged = true;
+                break;
+            }
+        }
+    }
+
+    if (hasChanged) {
+        lastProgressionRef = progression;
+        lastChordRefs = [...progression];
+        lastDivisions = appState.divisions;
+        lastUseVoiceLeading = appState.useVoiceLeading;
+        lastGlobalVoicing = appState.globalVoicing;
+        lastCustomTuning = customTuning;
+        
         cachedPlayableNotes = getPlayableNotes(progression, appState);
     }
     return cachedPlayableNotes;

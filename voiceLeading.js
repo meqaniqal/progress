@@ -324,6 +324,15 @@ function _buildQuartalVoicing(notes, periodSize = CONFIG.VL_OCTAVE_SHIFT) {
 }
 
 export function calculateDistance(chordA, chordB) {
+    const len = chordA.length;
+    if (len === chordB.length) {
+        let dist = 0;
+        for (let i = 0; i < len; i++) {
+            dist += Math.abs(chordA[i] - chordB[i]);
+        }
+        return dist;
+    }
+    
     let sortedA = [...chordA].sort((a,b)=>a-b);
     let sortedB = [...chordB].sort((a,b)=>a-b);
     

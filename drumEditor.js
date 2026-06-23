@@ -3,6 +3,8 @@ import { initDrumPattern, addDrumHit, removeDrumHit, updateDrumHit } from './pat
 import { playDrum, getAudioCurrentTime } from './synth.js';
 import { DRUM_ROWS } from './rhythmConfig.js';
 
+let lastScrollCheckTime = 0;
+
 export function highlightDrumHit(hitId, chordIndex = null) {
     if (editorState.activeTab !== 'drumPattern') return;
     if (!editorState.isGlobal && chordIndex !== null && chordIndex !== editorState.activeIndex) return;
@@ -18,16 +20,20 @@ export function highlightDrumHit(hitId, chordIndex = null) {
         }, 150);
 
         if (editorState.isGlobal && !editorState.draggedHitId && !editorState.isPanning) {
-            const container = document.getElementById('rhythm-timeline');
-            if (!container) return;
-            const hitRect = hitEl.getBoundingClientRect();
-            const containerRect = container.getBoundingClientRect();
+            const now = Date.now();
+            if (now - lastScrollCheckTime > 150) {
+                lastScrollCheckTime = now;
+                const container = document.getElementById('rhythm-timeline');
+                if (!container) return;
+                const hitRect = hitEl.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
 
-            // Check if hit is outside the visible timeline window (with a 30px buffer)
-            if (hitRect.left < containerRect.left + 48 || hitRect.right > containerRect.right - 30) {
-                const offset = hitRect.left - containerRect.left;
-                // Scroll to position the hit on the left side, leaving room for the label
-                container.scrollTo({ left: container.scrollLeft + offset - 60, behavior: 'auto' });
+                // Check if hit is outside the visible timeline window (with a 30px buffer)
+                if (hitRect.left < containerRect.left + 48 || hitRect.right > containerRect.right - 30) {
+                    const offset = hitRect.left - containerRect.left;
+                    // Scroll to position the hit on the left side, leaving room for the label
+                    container.scrollTo({ left: container.scrollLeft + offset - 60, behavior: 'auto' });
+                }
             }
         }
     }

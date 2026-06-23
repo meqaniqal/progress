@@ -6,7 +6,7 @@ import { state } from './store.js';
 
 let audioCtx;
 let decodeCtx; // Used to decode audio on page load without triggering Autoplay warnings
-let activeOscillators = [];
+let activeOscillators = new Set();
 let masterCompressor; // Module-scoped, but only initialized once
 let lastScheduledNotes = {};
 
@@ -362,12 +362,12 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
     }
 
     const osc = engine(audioCtx, finalFreq, startTime, duration, finalDest, (deadOsc) => {
-        activeOscillators = activeOscillators.filter(o => o !== deadOsc);
+        activeOscillators.delete(deadOsc);
         if (panner) panner.disconnect();
     }, engineParams);
     
     if (osc) {
-        activeOscillators.push(osc);
+        activeOscillators.add(osc);
         if (destBus === 'melody' || destBus === 'countermelody') {
             lastScheduledNotes[destBus] = osc;
         }
@@ -388,11 +388,11 @@ export function playDrum(type, startTime, velocity = 1.0, customCtx = null, cust
             const engine = DRUM_REGISTRY['sample'];
             if (engine) {
                 const nodes = engine(ctx, startTime, velocity, dest, customDrumBuffers[type], (deadNode) => {
-                    activeOscillators = activeOscillators.filter(o => o !== deadNode);
+                    activeOscillators.delete(deadNode);
                 }, params);
                 if (nodes) {
                     const sources = nodes.filter(n => typeof n.stop === 'function');
-                    activeOscillators.push(...sources);
+                    sources.forEach(s => activeOscillators.add(s));
                 }
             }
             return;
@@ -401,11 +401,11 @@ export function playDrum(type, startTime, velocity = 1.0, customCtx = null, cust
         const engine = DRUM_REGISTRY[type];
         if (engine) {
             const nodes = engine(ctx, startTime, velocity, dest, noiseBuffer, (deadNode) => {
-                activeOscillators = activeOscillators.filter(o => o !== deadNode);
+                activeOscillators.delete(deadNode);
             }, params);
             if (nodes) {
                 const sources = nodes.filter(n => typeof n.stop === 'function');
-                activeOscillators.push(...sources);
+                sources.forEach(s => activeOscillators.add(s));
             }
         }
     } catch (e) {
@@ -424,7 +424,7 @@ export function stopOscillators() {
             }
         } catch (e) { /* Ignore InvalidStateError */ }
     });
-    activeOscillators = [];
+    activeOscillators.clear();
     lastScheduledNotes = {};
 }
 
