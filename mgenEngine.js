@@ -32,11 +32,17 @@ export function getMgenMelodyNotes() {
 
 export async function pregenerateMgenMelody(appState = state) {
   if (isGenerating) return;
+  if (!appState.melodySettings || !appState.melodySettings.enabled) {
+    mgenCachedNotes = null;
+    return;
+  }
   isGenerating = true;
+  const startTime = performance.now();
   try {
     const activeProg = getActiveProgression();
     if (!activeProg || activeProg.length === 0) {
       mgenCachedNotes = [];
+      isGenerating = false;
       return;
     }
 
@@ -121,6 +127,10 @@ export async function pregenerateMgenMelody(appState = state) {
 
     // Execute pipeline
     const mgenResult = await orchestrator.execute(config);
+    const elapsed = performance.now() - startTime;
+    if (elapsed > 120) {
+      import('./modalController.js').then(m => m.showPerformanceWarning('mgen', elapsed));
+    }
 
     // Convert back to Progress notes
     const progressNotes = melodyGenResultToProgressNotes(mgenResult, stateClone.bpm || 120);

@@ -161,7 +161,8 @@ export function handleSongForm(context, absIndex, chordKey, keyRoot, divisions, 
             context.phraseRhythmTemplate = [...context.sectionARhythmTemplate];
         }
 
-        if (typeof console !== 'undefined') {
+        const showLogs = typeof navigator !== 'undefined' && (!/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (typeof window !== 'undefined' && window.location.search.includes('debug=1')));
+        if (showLogs && typeof console !== 'undefined') {
             console.log(`[SongForm] A' recall at absIndex ${absIndex}: rootShift=${referenceShiftSteps} steps`);
         }
 

@@ -379,3 +379,65 @@ function _initManualModal() {
         }
     }
 }
+
+let hasShownPerformanceWarning = false;
+
+export function showPerformanceWarning(engineType, elapsedMs) {
+    if (hasShownPerformanceWarning) return;
+    hasShownPerformanceWarning = true;
+
+    // Create the modal element if it doesn't exist
+    let modal = document.getElementById('perf-warning-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'perf-warning-modal';
+        modal.className = 'modal-overlay';
+        modal.style.display = 'none';
+        modal.style.zIndex = '3000'; // Make sure it sits on top of everything
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 450px; text-align: center; gap: 16px; display: flex; flex-direction: column;">
+                <h3 style="color: #ef4444; margin: 0; font-size: 18px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    ⚠️ Performance Warning
+                </h3>
+                <p style="margin: 0; line-height: 1.5; font-size: 14px; color: var(--text-main);">
+                    Melody generation is taking <span id="perf-warning-ms" style="font-weight: bold; color: #f59e0b;"></span>ms to calculate on your device. This can cause audio stuttering, crackling, or lag, especially on mobile devices.
+                </p>
+                <p style="margin: 0; line-height: 1.5; font-size: 14px; color: var(--text-muted);">
+                    Would you like to turn off melody generation to ensure smooth audio playback?
+                </p>
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+                    <button id="btn-perf-disable" class="control-btn primary" style="background-color: #ef4444; border-color: #ef4444;">Disable Melody</button>
+                    <button id="btn-perf-keep" class="control-btn secondary">Keep Enabled</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('btn-perf-disable').addEventListener('click', () => {
+            state.melodySettings.enabled = false;
+            persistAppState();
+            import('./settingsController.js').then(m => m.syncSettingsUI());
+
+            modal.classList.remove('visible');
+            setTimeout(() => modal.style.display = 'none', 200);
+        });
+
+        document.getElementById('btn-perf-keep').addEventListener('click', () => {
+            modal.classList.remove('visible');
+            setTimeout(() => modal.style.display = 'none', 200);
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('visible');
+                setTimeout(() => modal.style.display = 'none', 200);
+            }
+        });
+    }
+
+    document.getElementById('perf-warning-ms').textContent = elapsedMs.toFixed(1);
+
+    modal.style.display = 'flex';
+    modal.offsetHeight; // trigger reflow
+    modal.classList.add('visible');
+}

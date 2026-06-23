@@ -32,7 +32,11 @@ export function scheduleMelody(
     playToneFn,
     voiceEvents = []
 ) {
-    if (state.melodySettings && state.melodySettings.enabled && state.melodySettings.engine === 'mgen') {
+    if (!state.melodySettings || !state.melodySettings.enabled) {
+        return;
+    }
+
+    if (state.melodySettings.engine === 'mgen') {
         return scheduleMgenMelody(
             time,
             chordObj,
@@ -50,7 +54,8 @@ export function scheduleMelody(
     }
 
     const context = testContext || activeContext;
-    return schedMelody(
+    const startTime = performance.now();
+    const result = schedMelody(
         context,
         time,
         chordObj,
@@ -65,4 +70,9 @@ export function scheduleMelody(
         playToneFn,
         voiceEvents
     );
+    const elapsed = performance.now() - startTime;
+    if (elapsed > 15) {
+        import('./modalController.js').then(m => m.showPerformanceWarning('legacy', elapsed));
+    }
+    return result;
 }

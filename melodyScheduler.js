@@ -1907,26 +1907,29 @@ export function scheduleMelody(
     }
 
     // Detailed melody generator diagnostics for real-time monitoring in browser console
-    console.group(`🎵 Slot ${absIndex} (${chordObj.symbol}, Key ${chordKey}): ${slotAestheticMode} | Act ${slotActivity.toFixed(2)} | Den ${settings.density} | Rests ${settings.restProbability} | Limit ${settings.shortestNoteLimit || 16} | Chords: [${(chordNotes || []).join(', ')}]`);
-    if (melodyScheduled.length > 0) {
-        const mStr = melodyScheduled.map(n => {
-            const isChordTone = chordTonePcSet.has(Math.round(((n.pitch % periodSize + periodSize) % periodSize) * 100) / 100);
-            const isScaleTone = activeScalePcSet.has(Math.round(((n.pitch % periodSize + periodSize) % periodSize) * 100) / 100);
-            const type = isChordTone ? 'Chord' : (isScaleTone ? 'Scale' : 'Color');
-            const flags = [type];
-            if (n.isAnchor1Step) flags.push('A1');
-            if (n.isAnchor2Step) flags.push('A2');
-            return `${n.pitch}@${n.step}(${n.noteDuration.toFixed(2)}s)[${flags.join(',')}]`;
-        }).join(', ');
-        console.log(`Melody: ${mStr}`);
-    } else {
-        console.log("Melody: none");
+    const showLogs = typeof navigator !== 'undefined' && (!/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (typeof window !== 'undefined' && window.location.search.includes('debug=1')));
+    if (showLogs) {
+        console.group(`🎵 Slot ${absIndex} (${chordObj.symbol}, Key ${chordKey}): ${slotAestheticMode} | Act ${slotActivity.toFixed(2)} | Den ${settings.density} | Rests ${settings.restProbability} | Limit ${settings.shortestNoteLimit || 16} | Chords: [${(chordNotes || []).join(', ')}]`);
+        if (melodyScheduled.length > 0) {
+            const mStr = melodyScheduled.map(n => {
+                const isChordTone = chordTonePcSet.has(Math.round(((n.pitch % periodSize + periodSize) % periodSize) * 100) / 100);
+                const isScaleTone = activeScalePcSet.has(Math.round(((n.pitch % periodSize + periodSize) % periodSize) * 100) / 100);
+                const type = isChordTone ? 'Chord' : (isScaleTone ? 'Scale' : 'Color');
+                const flags = [type];
+                if (n.isAnchor1Step) flags.push('A1');
+                if (n.isAnchor2Step) flags.push('A2');
+                return `${n.pitch}@${n.step}(${n.noteDuration.toFixed(2)}s)[${flags.join(',')}]`;
+            }).join(', ');
+            console.log(`Melody: ${mStr}`);
+        } else {
+            console.log("Melody: none");
+        }
+        if (counterScheduled.length > 0) {
+            const cStr = counterScheduled.map(n => `${n.pitch}@${n.step}(${n.noteDuration.toFixed(2)}s)`).join(', ');
+            console.log(`Counter: ${cStr}`);
+        }
+        console.groupEnd();
     }
-    if (counterScheduled.length > 0) {
-        const cStr = counterScheduled.map(n => `${n.pitch}@${n.step}(${n.noteDuration.toFixed(2)}s)`).join(', ');
-        console.log(`Counter: ${cStr}`);
-    }
-    console.groupEnd();
 
     // Write back updated state to the context object before exiting
     context.motifCache = motifCache;
