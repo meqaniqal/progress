@@ -348,7 +348,7 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
 
     if (destBus === 'melody' || destBus === 'countermelody') {
         const prevNode = lastScheduledNotes[destBus];
-        if (prevNode && prevNode.gainNode && prevNode.endTime > startTime) {
+        if (prevNode && prevNode.gainNode && prevNode.endTime > startTime && prevNode.startTime <= startTime) {
             const fadeDuration = 0.010; // 10ms fade to avoid clicks
             const fadeStart = Math.max(prevNode.startTime, startTime - fadeDuration);
             try {

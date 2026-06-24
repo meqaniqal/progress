@@ -80,24 +80,85 @@ export function auditionChord(chordSymbol, baseKey, specificNotes = null, divisi
     initAudio();
 
     const tuning = getEffectiveTuning(chordSymbol, divisions || state.divisions || 12);
-    let chordNotes = specificNotes;
-    if (!chordNotes) {
-        chordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
-    }
-    if (!chordNotes) return;
-
-    const rootNoteMidi = getBassNote(chordNotes, tuning);
     const now = getAudioCurrentTime();
-    const dropSize = tuning.periodSize > 14 ? 12.0 : tuning.periodSize;
-    const notesToPlay = specificNotes || chordNotes.map(n => n - dropSize);
-
     const chordInst = state.instruments && state.instruments.chords ? state.instruments.chords : 'sawtooth';
     const bassInst = 'sine';
 
     const panL = state.autoPanLeading ? -0.75 : 0;
     const panR = state.autoPanLeading ? 0.75 : 0;
 
-    // Play chord and bass note without interrupting main playback loop
+    // Case 1: Tray Auditioning (Structured sequence object passed as specificNotes)
+    if (specificNotes && typeof specificNotes === 'object' && specificNotes.chordSlices) {
+        const { chord, voicedNotes, chordSlices, bassSlices } = specificNotes;
+        
+        // Duration of the chord at a standard 120 BPM
+        const beats = Number(chord.duration) || 2;
+        const totalDuration = beats * 0.5; // 0.5s per beat (120 BPM)
+
+        // Schedule Chord Slices
+        chordSlices.forEach(slice => {
+            const sliceStart = now + slice.startTime * totalDuration;
+            const sliceDur = slice.duration * totalDuration;
+            const segmented = segmentMicrotonalCluster(slice.notes);
+            segmented.core.forEach(note => playTone(midiToFreq(note), sliceStart, sliceDur, chordInst, 'chords', 0));
+            segmented.frictionLeft.forEach(note => playTone(midiToFreq(note), sliceStart, sliceDur, chordInst, 'chords', panL));
+            segmented.frictionRight.forEach(note => playTone(midiToFreq(note), sliceStart, sliceDur, chordInst, 'chords', panR));
+        });
+
+        // Schedule Bass Slices
+        bassSlices.forEach(slice => {
+            const sliceStart = now + slice.startTime * totalDuration;
+            const sliceDur = slice.duration * totalDuration;
+            playTone(midiToFreq(slice.pitch), sliceStart, sliceDur, bassInst, 'bass');
+        });
+        return;
+    }
+
+    // Case 2: Chord Chooser / Palette Auditioning (Single chord / no slices)
+    let chordNotes = Array.isArray(specificNotes) ? specificNotes : null;
+    let isVoiced = !!chordNotes;
+    
+    if (!chordNotes) {
+        // Voice it relative to the selected chord in the tray, or last chord, or around 60 (C4)
+        const activeProg = getActiveProgression();
+        if (activeProg.length > 0) {
+            const refIdx = state.selectedChordIndex !== null && state.selectedChordIndex < activeProg.length
+                ? state.selectedChordIndex 
+                : activeProg.length - 1;
+            const refChord = activeProg[refIdx];
+            const tempProg = [
+                refChord,
+                { symbol: chordSymbol, key: baseKey, divisions: divisions || state.divisions || 12 }
+            ];
+            const voiced = getPlayableNotes(tempProg, state);
+            if (voiced && voiced[1] && voiced[1].length > 0) {
+                chordNotes = voiced[1];
+                isVoiced = true;
+            }
+        }
+        
+        if (!isVoiced) {
+            const tempProg = [{ symbol: chordSymbol, key: baseKey, divisions: divisions || state.divisions || 12 }];
+            const voiced = getPlayableNotes(tempProg, state);
+            if (voiced && voiced[0] && voiced[0].length > 0) {
+                chordNotes = voiced[0];
+                isVoiced = true;
+            }
+        }
+    }
+
+    if (!chordNotes) {
+        chordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
+    }
+    if (!chordNotes) return;
+
+    const rawChordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
+    const rootNoteMidi = getBassNote(rawChordNotes || chordNotes, tuning);
+
+    const dropSize = tuning.periodSize > 14 ? 12.0 : tuning.periodSize;
+    const notesToPlay = isVoiced ? chordNotes : chordNotes.map(n => n - dropSize);
+
+    // Play chord and bass note
     const segmented = segmentMicrotonalCluster(notesToPlay);
     segmented.core.forEach(note => playTone(midiToFreq(note), now, CONFIG.AUDITION_DURATION_SEC, chordInst, 'chords', 0));
     segmented.frictionLeft.forEach(note => playTone(midiToFreq(note), now, CONFIG.AUDITION_DURATION_SEC, chordInst, 'chords', panL));
@@ -602,7 +663,8 @@ function scheduleChordAudition(chordSymbol, baseKey, specificNotes, divisions, s
     }
     if (!chordNotes) return;
 
-    const rootNoteMidi = getBassNote(chordNotes, tuning);
+    const rawChordNotes = getChordNotes(chordSymbol, baseKey, tuning.divisions);
+    const rootNoteMidi = getBassNote(rawChordNotes || chordNotes, tuning);
     const dropSize = tuning.periodSize > 14 ? 12.0 : tuning.periodSize;
     const notesToPlay = specificNotes || chordNotes.map(n => n - dropSize);
 
@@ -631,11 +693,17 @@ function getAuditionNotesForSeq(progression, idx, appState) {
     }
     
     if (pattern && pattern.instances && pattern.instances.length > 0) {
-        const instances = [...pattern.instances].sort((a, b) => a.startTime - b.startTime);
-        const firstInstance = instances[0];
-        if (firstInstance) {
+        let targetInstance = null;
+        if (appState.editorState && appState.editorState.activeIndex === idx) {
+            targetInstance = pattern.instances.find(inst => inst.isSelected);
+        }
+        if (!targetInstance) {
+            const instances = [...pattern.instances].sort((a, b) => a.startTime - b.startTime);
+            targetInstance = instances[0];
+        }
+        if (targetInstance) {
             const tuning = getEffectiveTuning(chord.symbol, chord.divisions || appState.divisions || 12);
-            notesToPlay = applyInstanceOffsets(notesToPlay, firstInstance, chord, tuning);
+            notesToPlay = applyInstanceOffsets(notesToPlay, targetInstance, chord, tuning);
         }
     }
     return notesToPlay;

@@ -297,9 +297,13 @@ export function getConstrainedAnchorGlobal(fromPitch, targetRaw, maxOffset, glob
 }
 
 export function isPassingContext(gridSteps, currentGridIndex, stepPlaysMap, activeChordTones) {
+    const currentStep = gridSteps[currentGridIndex];
+    if (!currentStep) return false;
     for (let j = currentGridIndex + 1; j < gridSteps.length; j++) {
-        if (stepPlaysMap[gridSteps[j].step]) {
-            return activeChordTones.length > 0;
+        const nextStep = gridSteps[j];
+        if (stepPlaysMap[nextStep.step]) {
+            const diff = nextStep.sixteenthStep - currentStep.sixteenthStep;
+            return activeChordTones.length > 0 && diff <= 4;
         }
     }
     return false;

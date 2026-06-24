@@ -371,6 +371,226 @@ describe('Melody Generator Composition Rules', () => {
             }
         });
     });
+
+    test('Micro-rests are successfully introduced at low rest probabilities', () => {
+        state.divisions = 12;
+        state.melodySettings.genre = 'generic';
+        state.melodySettings.density = 1.0;
+        state.melodySettings.restProbability = 0.25; // Low rest probability
+
+        playedNotes = [];
+        const chordObj = { symbol: 'I', duration: 4 };
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 0, 1, [60, 64, 67], mockPlayTone);
+
+        // Under 1.0 density and 0.0 rest probability, we would get a continuous run of notes.
+        // With 0.25 rest probability, micro-rests should be introduced, meaning there should be gaps.
+        // We verify that the notes scheduled have gaps in time that correspond to rests.
+        const stepTimes = playedNotes.map(n => n.startTime);
+        let hasGap = false;
+        for (let i = 1; i < stepTimes.length; i++) {
+            const timeDiff = stepTimes[i] - stepTimes[i - 1];
+            // If the time diff is significantly larger than a single 16th step step duration, it's a rest gap.
+            // 120 bpm = 2 beats per second. 4 beats = 2.0 seconds. 16 steps in 4 beats means each step is 0.125 seconds.
+            // A gap of > 0.18s indicates a rest gap (e.g. at least 2 sixteenth steps apart).
+            if (timeDiff > 0.18) {
+                hasGap = true;
+                break;
+            }
+        }
+        expect(hasGap).toBe(true);
+    });
+
+    test('Passing color notes are resolved stepwise and never precede long rests', () => {
+        state.divisions = 12;
+        state.melodySettings.genre = 'generic';
+        state.melodySettings.density = 0.5;
+        state.melodySettings.restProbability = 0.3;
+
+        playedNotes = [];
+        const chordObj = { symbol: 'I', duration: 4 };
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 0, 1, [60, 64, 67], mockPlayTone);
+
+        const chordTonePcs = [0, 4, 7];
+        const scalePcs = [0, 2, 4, 5, 7, 9, 11]; // C Major scale
+
+        for (let i = 0; i < playedNotes.length; i++) {
+            const note = playedNotes[i];
+            const pc = (note.midi % 12 + 12) % 12;
+            const isChordTone = chordTonePcs.includes(pc);
+            const isScaleTone = scalePcs.includes(pc);
+            const isColorTone = !isChordTone && !isScaleTone;
+
+            if (isColorTone) {
+                // If it is a color/passing tone, verify that the next note exists and is close
+                expect(i).toBeLessThan(playedNotes.length - 1);
+                const nextNote = playedNotes[i + 1];
+                const timeDiff = nextNote.startTime - note.startTime;
+                expect(timeDiff).toBeLessThanOrEqual(0.18); // Close (within 1 beat)
+
+                // Verify that the next note is a chord tone
+                const nextPc = (nextNote.midi % 12 + 12) % 12;
+                expect(chordTonePcs).toContain(nextPc);
+
+                // Verify stepwise resolution
+                const interval = Math.abs(nextNote.midi - note.midi);
+                expect(interval).toBeLessThanOrEqual(2);
+            }
+        }
+    });
+
+    test('Blues mode does not generate consecutive blue notes and remains mostly in scale', () => {
+        state.divisions = 12;
+        state.melodySettings.genre = 'blues';
+        state.melodySettings.density = 0.8;
+        state.melodySettings.restProbability = 0.1;
+
+        playedNotes = [];
+        const chordObj = { symbol: 'I', duration: 4 };
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 0, 1, [60, 64, 67], mockPlayTone);
+
+        const chordTonePcs = [0, 4, 7];
+        const scalePcs = [0, 2, 4, 5, 7, 9, 11]; // C Major scale
+
+        let consecutiveBlueCount = 0;
+        for (let i = 0; i < playedNotes.length; i++) {
+            const note = playedNotes[i];
+            const pc = (note.midi % 12 + 12) % 12;
+            const isScaleTone = scalePcs.includes(pc);
+            
+            // A blue note in this context is off-key/non-scale tone
+            if (!isScaleTone) {
+                consecutiveBlueCount++;
+                expect(consecutiveBlueCount).toBeLessThanOrEqual(1); // Never consecutive
+            } else {
+                consecutiveBlueCount = 0;
+            }
+        }
+    });
+
+    test('Rests slider successfully increases number of rests in generated melody', () => {
+        state.divisions = 12;
+        state.melodySettings.genre = 'generic';
+        state.melodySettings.density = 0.8;
+        
+        // Test with low rest probability
+        state.melodySettings.restProbability = 0.05;
+        playedNotes = [];
+        scheduleMelody(0, { symbol: 'I', duration: 4 }, null, null, 2.0, 4, 120, 0, 1, [60, 64, 67], mockPlayTone);
+        const lowRestNoteCount = playedNotes.length;
+
+        // Test with high rest probability
+        state.melodySettings.restProbability = 0.95;
+        playedNotes = [];
+        scheduleMelody(0, { symbol: 'I', duration: 4 }, null, null, 2.0, 4, 120, 0, 1, [60, 64, 67], mockPlayTone);
+        const highRestNoteCount = playedNotes.length;
+
+        expect(highRestNoteCount).toBeLessThan(lowRestNoteCount);
+    });
+
+    test('Grace notes in Classical/Baroque mode are not scheduled with insufficient space', () => {
+        state.divisions = 12;
+        state.melodySettings.genre = 'classical';
+        state.melodySettings.density = 0.9;
+        state.melodySettings.restProbability = 0.0;
+        state.melodySettings.ornamentIntensity = 1.0;
+
+        let preciseTones = [];
+        const mockPlayTonePrecise = (freq, startTime, duration, inst, bus) => {
+            preciseTones.push({ freq, startTime, duration, bus });
+        };
+
+        scheduleMelody(0, { symbol: 'I', duration: 4 }, null, null, 2.0, 4, 120, 0, 1, [60, 64, 67], mockPlayTonePrecise);
+
+        const graceNotes = preciseTones.filter(n => n.duration === 0.04);
+        const melodyNotes = preciseTones.filter(n => n.bus === 'melody' && n.duration !== 0.04);
+
+        graceNotes.forEach(g => {
+            // Find the main note that starts right after the grace note
+            const mainNote = melodyNotes.find(m => Math.abs(m.startTime - (g.startTime + 0.05)) < 0.001);
+            expect(mainNote).toBeDefined();
+
+            // Find the previous note and verify there is enough space
+            const prevNote = melodyNotes.find(m => m.startTime < g.startTime);
+            if (prevNote) {
+                const space = g.startTime - (prevNote.startTime + prevNote.duration);
+                expect(space).toBeGreaterThanOrEqual(0.03); // Ornaments start at least 30ms after previous note ends
+            }
+        });
+    });
+
+    test('Blues mode does not approach blue notes from one half-step below and resolve to it', () => {
+        state.divisions = 12;
+        state.melodySettings.genre = 'blues';
+        state.melodySettings.density = 0.9;
+        state.melodySettings.restProbability = 0.0;
+
+        playedNotes = [];
+        const chordObj = { symbol: 'I', duration: 4 };
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 0, 1, [60, 64, 67], mockPlayTone);
+
+        const scalePcs = [0, 2, 4, 5, 7, 9, 11]; // C Major scale
+
+        for (let i = 1; i < playedNotes.length - 1; i++) {
+            const prevNote = playedNotes[i - 1];
+            const note = playedNotes[i];
+            const nextNote = playedNotes[i + 1];
+
+            const notePc = (note.midi % 12 + 12) % 12;
+            const isScaleTone = scalePcs.includes(notePc);
+
+            // If this is a blue note
+            if (!isScaleTone) {
+                const isPrevHalfStepBelow = Math.abs(prevNote.midi - (note.midi - 1)) < 0.01;
+                const isNextHalfStepBelow = Math.abs(nextNote.midi - (note.midi - 1)) < 0.01;
+                
+                // It should not be approached from one half-step below AND resolved back to one half-step below
+                expect(isPrevHalfStepBelow && isNextHalfStepBelow).toBe(false);
+            }
+        }
+    });
+
+    test('Blues mode voice leading rules for flat 3rd and flat 5th are correctly enforced', () => {
+        state.divisions = 12;
+        state.melodySettings.genre = 'blues';
+        state.melodySettings.density = 0.95;
+        state.melodySettings.restProbability = 0.0;
+
+        playedNotes = [];
+        const chordObj = { symbol: 'I', duration: 4 }; // C major chord, C root (chordKey = 60, pc = 0)
+        scheduleMelody(0, chordObj, null, null, 2.0, 4, 120, 0, 1, [60, 64, 67], mockPlayTone);
+
+        for (let i = 0; i < playedNotes.length; i++) {
+            const note = playedNotes[i];
+            const pc = (note.midi % 12 + 12) % 12;
+            
+            // Check flat 5 (pc = 6 relative to C root is 6)
+            if (pc === 6) {
+                // Must be in the middle of a chromatic run (prev note must be pc 5 or pc 7, and next note must continue the direction)
+                expect(i).toBeGreaterThan(0);
+                expect(i).toBeLessThan(playedNotes.length - 1);
+                const prev = playedNotes[i - 1];
+                const next = playedNotes[i + 1];
+                const prevPc = (prev.midi % 12 + 12) % 12;
+                const nextPc = (next.midi % 12 + 12) % 12;
+                
+                expect([5, 7].includes(prevPc)).toBe(true);
+                if (prevPc === 5) {
+                    expect(nextPc).toBe(7);
+                } else if (prevPc === 7) {
+                    expect(nextPc).toBe(5);
+                }
+            }
+            
+            // Check flat 3 (pc = 3 relative to C root is 3)
+            if (pc === 3) {
+                // Must act as an approach note that resolves a half-step up to major 3rd (pc = 4)
+                expect(i).toBeLessThan(playedNotes.length - 1);
+                const next = playedNotes[i + 1];
+                const nextPc = (next.midi % 12 + 12) % 12;
+                expect(nextPc).toBe(4);
+            }
+        }
+    });
 });
 
 

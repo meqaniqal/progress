@@ -6,7 +6,11 @@ This document contains the immediate objectives and active task checklists. To p
 
 ## 🎯 Current Objectives
 
-1. **Investigate Mgen-to-Progress Translation Discrepancies (Next Session Priority)**:
+1. **Investigate Macro Planner Tonal Conflicts (Next Session Priority)**:
+   - Identify why enabling the macro planner causes bad/off note choices, whereas disabling it yields much better melody generation results.
+   - Audit how macro slot targets constrain the pitch selection ranges in `melodyScheduler.js`.
+
+2. **Investigate Mgen-to-Progress Translation Discrepancies**:
    - Identify why melody generation sounds better in the standalone `mgen` testing app compared to playback in the main `progress` app.
    - Investigate note timing (start beats, durations) and pitch translation/interpretation during the bridge phase (`melodyGenResultToProgressNotes`) and playback scheduling in `melodyScheduler.js`.
    - Eliminate isolated off-notes (notes outside the active scale/harmony or poorly timed) to match the harmonic alignment improvements.

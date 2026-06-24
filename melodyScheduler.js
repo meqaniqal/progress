@@ -151,9 +151,7 @@ export function scheduleMelody(
 
     // Initialize macro Target Plan if enabled
     if (settings.macroPlannerEnabled) {
-        if (!macroTargetPlan || macroTargetPlan.length !== totalChords) {
-            macroTargetPlan = planMacroMelodyTargets(totalChords, keyRoot, divisions, state.mode || 'major', settings);
-        }
+        macroTargetPlan = planMacroMelodyTargets(totalChords, keyRoot, divisions, state.mode || 'major', settings);
     }
 
     // Reset phrase bound motif index at phrase start boundaries and select phrase aesthetic mode
@@ -202,10 +200,10 @@ export function scheduleMelody(
             activeRole = macroSlotTarget.role;
             if (activeRole === 'climax' || activeRole === 'build') {
                 activeDensity = Math.max(0.65, activeDensity);
-                restProbability = Math.max(0.0, Math.min(0.125, restProbability));
+                restProbability = settings.restProbability * 0.4;
             } else if (activeRole === 'release' || activeRole === 'resolution') {
                 activeDensity = Math.min(0.35, activeDensity);
-                restProbability = Math.max(0.45, restProbability);
+                restProbability = Math.max(settings.restProbability, 0.45 + (settings.restProbability * 0.55));
             }
         }
     }
@@ -634,27 +632,6 @@ export function scheduleMelody(
 
     // Phase B: Rhythmic Motif Variation (Bar-by-bar mutation)
     let slotRhythmTemplate = [...phraseRhythmTemplate];
-    const density = settings.density !== undefined ? settings.density : 0.5;
-
-    // Apply dynamic density scaling (Change 1B)
-    if (settings.genre !== 'none' && slotRhythmTemplate.length > 0) {
-        slotRhythmTemplate = slotRhythmTemplate.map((val, idx) => {
-            if (idx === 0) return val; // Keep downbeat stable
-            if (val === 1) {
-                if (rng.next() < (1.0 - density)) {
-                    return 0;
-                }
-            } else if (val === 0) {
-                if (density > 0.5) {
-                    const fillProb = (density - 0.5) / 0.5;
-                    if (rng.next() < fillProb) {
-                        return 1;
-                    }
-                }
-            }
-            return val;
-        });
-    }
 
     if (absIndex % 4 !== 0 && settings.genre !== 'none' && phraseRhythmTemplate.length > 0) {
         const barIdx = absIndex % 4;
@@ -1085,48 +1062,102 @@ export function scheduleMelody(
             } else {
                 if (g.sixteenthStep === totalSteps - 1) plays = false;
             }
-
             stepPlaysMap[g.step] = plays;
-            if (plays) {
-                if (g.sub === 0 || settings.genre === 'none' || g.subdivision !== 4) {
-                    noteCountThisPhrase++;
+        }
+        const maskedSteps = new Set();
+
+        // First Pass (Rests): Apply layered masking rules based on restProbability
+        {
+            const restProb = restProbability !== undefined ? restProbability : 0.2;
+
+            if (restProb > 0.0 && restProb <= 0.3) {
+                // Low Rest Probability: Micro-rests (breath marks) - turn individual active steps into rests
+                let lastWasMasked = false;
+                for (let i = 0; i < gridSteps.length; i++) {
+                    const g = gridSteps[i];
+                    if (g.isAnchor1Step || g.isAnchor2Step) continue;
+                    if (stepPlaysMap[g.step]) {
+                        if (!lastWasMasked && rng.next() < restProb) {
+                            maskedSteps.add(g.step);
+                            lastWasMasked = true;
+                        } else {
+                            lastWasMasked = false;
+                        }
+                    } else {
+                        lastWasMasked = false;
+                    }
+                }
+            } else if (restProb > 0.3 && restProb <= 0.7) {
+                // Mid Rest Probability: Group-rests (mask 2 to 4 contiguous steps)
+                let skipUntilIndex = -1;
+                const maskContiguousProb = (restProb - 0.3) * 0.5 + 0.1;
+                for (let i = 0; i < gridSteps.length; i++) {
+                    if (i < skipUntilIndex) continue;
+                    const g = gridSteps[i];
+                    if (g.isAnchor1Step || g.isAnchor2Step) continue;
+                    if (stepPlaysMap[g.step]) {
+                        if (rng.next() < maskContiguousProb) {
+                            const groupSize = Math.floor(rng.next() * 3) + 2; // 2, 3, or 4 steps
+                            for (let k = 0; k < groupSize && (i + k) < gridSteps.length; k++) {
+                                const targetStep = gridSteps[i + k];
+                                if (!targetStep.isAnchor1Step && !targetStep.isAnchor2Step) {
+                                    maskedSteps.add(targetStep.step);
+                                }
+                            }
+                            skipUntilIndex = i + groupSize;
+                        }
+                    }
+                }
+            } else if (restProb > 0.7) {
+                // High Rest Probability: Heavy masking, keep only isolated structural notes at key anchor beats
+                const keepProb = Math.max(0.05, 1.0 - (restProb - 0.7) / 0.3);
+                for (let i = 0; i < gridSteps.length; i++) {
+                    const g = gridSteps[i];
+                    const isKeyAnchor = g.isAnchor1Step || g.isAnchor2Step || (g.sub === 0 && g.beat % 2 === 0);
+                    if (!isKeyAnchor) {
+                        if (rng.next() > keepProb) {
+                            maskedSteps.add(g.step);
+                        }
+                    }
+                }
+            }
+
+            for (const step of maskedSteps) {
+                stepPlaysMap[step] = false;
+            }
+        }
+
+        // Second Pass (Density): Thin out if low density, fill in if high density
+        {
+            const dens = settings.density !== undefined ? settings.density : 0.5;
+            for (const g of gridSteps) {
+                if (g.isAnchor1Step || g.isAnchor2Step) continue;
+                if (maskedSteps.has(g.step)) continue; // Keep rests intact
+                
+                const isCurrentlyActive = stepPlaysMap[g.step];
+                if (isCurrentlyActive) {
+                    if (dens < 0.5) {
+                        const keepProb = dens * 2.0;
+                        if (rng.next() > keepProb) {
+                            stepPlaysMap[g.step] = false;
+                        }
+                    }
+                } else {
+                    if (dens > 0.5) {
+                        const fillProb = (dens - 0.5) / 0.5;
+                        if (rng.next() < fillProb) {
+                            stepPlaysMap[g.step] = true;
+                        }
+                    }
                 }
             }
         }
 
-        // Gap filling should only engage at very high density settings.
-        // At moderate density the template IS the rhythmic hook; don't fill it.
-        if (settings.genre !== 'none' && settings.density > 0.75) {
-            const activeIndices = [];
-            for (let i = 0; i < gridSteps.length; i++) {
-                if (stepPlaysMap[gridSteps[i].step]) {
-                    activeIndices.push(i);
-                }
-            }
-            for (let k = 0; k < activeIndices.length - 1; k++) {
-                const idx1 = activeIndices[k];
-                const idx2 = activeIndices[k + 1];
-                const g1 = gridSteps[idx1];
-                const g2 = gridSteps[idx2];
-                const gapBeats = (g2.stepTime - g1.stepTime) / beatDuration;
-                if (gapBeats > 1.05) {
-                    const stepsBetween = idx2 - idx1;
-                    if (stepsBetween > 1) {
-                        const addProb = (settings.density - 0.75) / 0.25;
-                        if (rng.next() < addProb) {
-                            if (stepsBetween === 4) {
-                                stepPlaysMap[gridSteps[idx1 + 2].step] = true;
-                            } else if (stepsBetween > 4) {
-                                const mid = Math.floor(stepsBetween / 2);
-                                stepPlaysMap[gridSteps[idx1 + mid].step] = true;
-                                if (rng.next() < 0.5) {
-                                    stepPlaysMap[gridSteps[idx1 + Math.floor(mid / 2)].step] = true;
-                                }
-                            } else {
-                                stepPlaysMap[gridSteps[idx1 + 1].step] = true;
-                            }
-                        }
-                    }
+        // Count notes in the final stepPlaysMap
+        for (const g of gridSteps) {
+            if (stepPlaysMap[g.step]) {
+                if (g.sub === 0 || settings.genre === 'none' || g.subdivision !== 4) {
+                    noteCountThisPhrase++;
                 }
             }
         }
@@ -1290,6 +1321,10 @@ export function scheduleMelody(
         // Phase C: Playback / Pitch Selection Pass
         let prevCounterTemplateStep = null;
         let counterNoteCount = 0;
+        let prevWasBlue = false;
+        let lastBluePitch = null;
+        let b5ResolutionDirection = null;
+        let b3ResolutionForced = false;
         for (let gIndex = 0; gIndex < gridSteps.length; gIndex++) {
             const g = gridSteps[gIndex];
             let melodyPlays = stepPlaysMap[g.step];
@@ -1321,9 +1356,18 @@ export function scheduleMelody(
 
             let pitch = prevPitch;
             if (melodyPlays) {
-                // Pre-gate isolated notes / cluster role constraint
-                const isIsolated = isolatedStepsSet.has(g.step);
                 let effectiveValidPitches = validPitches;
+                const semitone = 12 / divisions;
+                if (b5ResolutionDirection !== null && lastBluePitch !== null) {
+                    pitch = lastBluePitch + b5ResolutionDirection;
+                    b5ResolutionDirection = null;
+                } else if (b3ResolutionForced && lastBluePitch !== null) {
+                    pitch = lastBluePitch + semitone;
+                    b3ResolutionForced = false;
+                } else {
+                    // Pre-gate isolated notes / cluster role constraint
+                    const isIsolated = isolatedStepsSet.has(g.step);
+                    effectiveValidPitches = validPitches;
                 if (settings.genre !== 'none') {
                     const nextChordTones = (nextChordNotes || []).map(n => {
                         let note = n;
@@ -1363,6 +1407,10 @@ export function scheduleMelody(
                 }
                 if (effectiveValidPitches.length === 0) {
                     effectiveValidPitches = validPitches;
+                }
+
+                if (prevWasBlue && lastBluePitch !== null) {
+                    effectiveValidPitches = effectiveValidPitches.filter(p => Math.abs(p - (lastBluePitch - 1)) > 0.01);
                 }
 
                 // Color tone constraint (Pass 2)
@@ -1497,8 +1545,6 @@ export function scheduleMelody(
                 }
                 stepsSinceLastSurprise++;
 
-                pitch = applyGenreRules(pitch, settings.genre, g.sixteenthStep, effectiveValidPitches, divisions, chromaticProb, rng);
-
                 if (lastInterval !== 0 && (Math.abs(lastInterval) > 4 || forceContraryNext) && !(melodyScheduled.length === 0 && settings.macroPlannerEnabled && macroSlotTarget)) {
                     const contraryDirection = lastInterval > 0 ? -1 : 1;
                     const currentInterval = pitch - prevPitch;
@@ -1538,6 +1584,7 @@ export function scheduleMelody(
                 if (isolatedStepsSet.has(g.step)) {
                     const stableTones = getStableTones(activeChordTones, chordKey, keyRoot, periodSize, effectiveValidPitches);
                     pitch = findClosest(pitch, stableTones);
+                }
                 }
 
                 if (settings.macroPlannerEnabled && macroSlotTarget) {
@@ -1584,6 +1631,43 @@ export function scheduleMelody(
                     }
                 }
 
+                const scalePitch = pitch;
+                let isAltered = false;
+                if (!prevWasBlue) {
+                    const semitone = 12 / divisions;
+                    const proposedBluePitch = scalePitch - semitone;
+                    
+                    // b5 is pc=6, b3 is pc=3 relative to chord root (chordKey)
+                    const proposedPc = (proposedBluePitch - chordKey % 12 + 12) % 12;
+                    let canApplyBlue = false;
+                    let isB5 = Math.abs(proposedPc - 6) < 0.1;
+                    let isB3 = Math.abs(proposedPc - 3) < 0.1;
+
+                    if (isB5) {
+                        // b5 must be in the middle of a chromatic run (prev note must be 1 semitone away)
+                        if (prevPitch !== null && Math.abs(Math.abs(prevPitch - proposedBluePitch) - semitone) < 0.05) {
+                            canApplyBlue = true;
+                            b5ResolutionDirection = proposedBluePitch - prevPitch; // continue same direction
+                        }
+                    } else if (isB3) {
+                        // b3 is a start note, followed by a half-step above
+                        canApplyBlue = true;
+                        b3ResolutionForced = true;
+                    }
+
+                    if (canApplyBlue) {
+                        pitch = applyGenreRules(pitch, settings.genre, g.sixteenthStep, effectiveValidPitches, divisions, chromaticProb, rng);
+                        if (pitch !== scalePitch) {
+                            isAltered = true;
+                            lastBluePitch = pitch;
+                        } else {
+                            b5ResolutionDirection = null;
+                            b3ResolutionForced = false;
+                        }
+                    }
+                }
+                prevWasBlue = isAltered;
+
                 const melodyInst = state.instruments.melody || 'sine';
 
                 melodyScheduled.push({
@@ -1606,7 +1690,7 @@ export function scheduleMelody(
                 }
 
                 lastInterval = pitch - prevPitch;
-                prevPitch = pitch;
+                prevPitch = scalePitch;
                 const pitchPc = Math.round(((pitch % periodSize + periodSize) % periodSize) * 100) / 100;
                 prevPitchIsColor = !activeScalePcSet.has(pitchPc) && !chordTonePcSet.has(pitchPc);
             }
@@ -1750,6 +1834,28 @@ export function scheduleMelody(
 
             const silenceDuration = nextTime - (n.stepTime + n.noteDuration);
 
+            // 0. Sanitation Pass: Resolve passing/color notes (non-chord tones that are also non-scale tones)
+            if (settings.genre !== 'none' && settings.genre !== 'jazz' && settings.genre !== 'blues') {
+                const pc = Math.round(((n.pitch % periodSize + periodSize) % periodSize) * 100) / 100;
+                const isColorTone = !chordTonePcSet.has(pc) && !activeScalePcSet.has(pc);
+                if (isColorTone && activeChordTones.length > 0) {
+                    const nextActiveNote = (i < melodyScheduled.length - 1) ? melodyScheduled[i + 1] : null;
+                    const isNextClose = nextActiveNote && (nextActiveNote.sixteenthStep - n.sixteenthStep <= 4);
+                    
+                    if (!isNextClose) {
+                        n.pitch = findClosest(n.pitch, activeChordTones);
+                    } else {
+                        const nextPc = Math.round(((nextActiveNote.pitch % periodSize + periodSize) % periodSize) * 100) / 100;
+                        const isNextChordTone = chordTonePcSet.has(nextPc);
+                        const isStepwise = Math.abs(n.pitch - nextActiveNote.pitch) <= 2.01;
+                        
+                        if (!isNextChordTone || !isStepwise) {
+                            n.pitch = findClosest(n.pitch, activeChordTones);
+                        }
+                    }
+                }
+            }
+
             // 1. Foreshadowing / Anticipation / Resolution for long silences
             // Avoid hijacking downbeats or early notes; only apply if the note is late in the slot (sixteenthStep >= 12)
             const isConsequentFinal = (i === melodyScheduled.length - 1) && isConsequentPhrase && !isDominantChord(chordObj);
@@ -1818,8 +1924,10 @@ export function scheduleMelody(
         const gapAfter = nextTime - (n.stepTime + n.noteDuration);
 
         playToneFn(midiToFreq(pitch), n.stepTime, n.noteDuration, n.melodyInst, 'melody', 0, 1.0, { gapAfter, step: n.step });
-        if (!n.isIsolated) {
-            applyOrnaments(n.pitch, n.stepTime, n.noteDuration, settings.genre, ornamentProb, n.melodyInst, 'melody', playToneFn, rng);
+        const prevNote = idx > 0 ? melodyScheduled[idx - 1] : null;
+        const spaceBefore = prevNote ? (n.stepTime - (prevNote.stepTime + prevNote.noteDuration)) : 1.0;
+        if (!n.isIsolated && spaceBefore >= 0.08) {
+            applyOrnaments(n.pitch, n.stepTime, n.noteDuration, settings.genre, ornamentProb, n.melodyInst, 'melody', playToneFn, rng, validPitches);
         }
         debugNotes.push({ step: n.step, type: 'Melody', pitch: n.pitch });
         melodyHistory.push(n.pitch);

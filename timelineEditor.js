@@ -751,9 +751,11 @@ export function initTimelineInteractions(timeline) {
                     const originalPlayable = getPlayableNotes(activeProg, app.state)[activeIndex];
                     if (originalPlayable) {
                         const pattern = getCurrentPattern();
-                        const inst = pattern.instances.find(i => i.id === editorState.draggedInstanceId);
-                        if (inst) {
-                            const modifiedNotes = originalPlayable.map((n, i) => n + (inst.pitchOffsets?.[i] || inst.pitchOffset || 0));
+                        const downbeatInst = pattern.instances && pattern.instances.length > 0
+                            ? [...pattern.instances].sort((a, b) => a.startTime - b.startTime)[0]
+                            : null;
+                        if (downbeatInst) {
+                            const modifiedNotes = originalPlayable.map((n, i) => n + (downbeatInst.pitchOffsets?.[i] || downbeatInst.pitchOffset || 0));
                             const newSymbol = identifyChord(modifiedNotes, app.state.baseKey);
                             if (newSymbol && newSymbol !== chord.symbol) {
                                 app.saveHistoryState();

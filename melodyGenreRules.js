@@ -15,21 +15,30 @@ export function applyGenreRules(pitch, genre, step, scalePitches, divisions, chr
     if (genre === 'blues') {
         const prob = 0.2 + chromaticProb;
         if (step % 4 === 2 && randVal() < prob) {
-            return pitch - 0.5 * (12 / divisions);
+            const shiftAmt = divisions <= 12 ? 1.0 : 0.5;
+            return pitch - shiftAmt * (12 / divisions);
         }
     }
     return pitch;
 }
 
-export function applyOrnaments(pitch, stepTime, noteDuration, genre, intensity, inst, bus, playToneFn, rng = null) {
+export function applyOrnaments(pitch, stepTime, noteDuration, genre, intensity, inst, bus, playToneFn, rng = null, scalePitches = []) {
     const randVal = () => (rng ? rng.next() : Math.random());
     if (randVal() > intensity) return;
 
     if (genre === 'classical' && randVal() < 0.5) {
-        const gracePitch = pitch - 1;
+        let gracePitch = pitch - 1;
+        if (scalePitches && scalePitches.length > 0) {
+            const idx = findScaleIndex(pitch, scalePitches, 12);
+            if (idx > 0) {
+                gracePitch = scalePitches[idx - 1];
+            }
+        }
         playToneFn(midiToFreq(gracePitch), stepTime - 0.05, 0.04, inst, bus);
     } else if (genre === 'blues' && randVal() < 0.4) {
-        const bendPitch = pitch - 0.5;
+        const divisions = 12; // default fallback if divisions is not in scope
+        const shiftAmt = divisions <= 12 ? 1.0 : 0.5;
+        const bendPitch = pitch - shiftAmt;
         playToneFn(midiToFreq(bendPitch), stepTime, noteDuration * 0.3, inst, bus);
     }
 }

@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { getChordNotes, getPlayableNotes, getPitchEditorTuning, snapToGrid, HAND_CURATED_CATEGORIES, getEffectiveTuning } from './theory.js';
+import { getChordNotes, getPlayableNotes, getPitchEditorTuning, snapToGrid, HAND_CURATED_CATEGORIES, getEffectiveTuning, getBassNote } from './theory.js';
 import { initAudio, getAudioCurrentTime, midiToFreq, playTone, loadPersistedDrumSamples } from './synth.js';
 import { auditionChord, playProgression, stopAllAudio, auditionThreeChordSequence } from './sequencer.js';
 import { initDragAndDrop } from './dragdrop.js';
@@ -17,24 +17,48 @@ import { initSettingsUI, syncSettingsUI, updateCustomDrumsUI } from './settingsC
 import { identifyChord } from './chordAnalyzer.js';
 
 function getAuditionNotes(progression, index, appState) {
-    let notesToPlay = getPlayableNotes(progression, appState)[index];
-    if (!notesToPlay) return null;
-
     const chord = progression[index];
-    let pattern = chord.chordPattern;
-    if (pattern && !pattern.isLocalOverride && appState.globalPatterns && appState.globalPatterns.chordPattern) {
-        pattern = appState.globalPatterns.chordPattern;
-    }
+    if (!chord) return null;
 
-    if (pattern && pattern.instances && pattern.instances.length > 0) {
-        const instances = [...pattern.instances].sort((a, b) => a.startTime - b.startTime);
-        const firstInstance = instances[0];
-        if (firstInstance) {
-            const tuning = getEffectiveTuning(chord.symbol, chord.divisions || appState.divisions || 12);
-            notesToPlay = applyInstanceOffsets(notesToPlay, firstInstance, chord, tuning);
-        }
+    const voicedNotes = getPlayableNotes(progression, appState)[index];
+    if (!voicedNotes) return null;
+
+    const tuning = getEffectiveTuning(chord.symbol, chord.divisions || appState.divisions || 12);
+
+    // Resolve Chord Pattern
+    let cPattern = chord.chordPattern;
+    if (cPattern && !cPattern.isLocalOverride && appState.globalPatterns && appState.globalPatterns.chordPattern) {
+        cPattern = appState.globalPatterns.chordPattern;
     }
-    return notesToPlay;
+    const cInstances = cPattern && cPattern.instances ? cPattern.instances : [{ startTime: 0.0, duration: 1.0 }];
+
+    // Resolve Bass Pattern
+    let bPattern = chord.bassPattern;
+    if (bPattern && !bPattern.isLocalOverride && appState.globalPatterns && appState.globalPatterns.bassPattern) {
+        bPattern = appState.globalPatterns.bassPattern;
+    }
+    const bInstances = bPattern && bPattern.instances ? bPattern.instances : [{ startTime: 0.0, duration: 1.0 }];
+
+    return {
+        chord,
+        voicedNotes,
+        chordSlices: cInstances.map(inst => ({
+            startTime: inst.startTime,
+            duration: inst.duration,
+            notes: applyInstanceOffsets(voicedNotes, inst, chord, tuning)
+        })),
+        bassSlices: bInstances.map(inst => {
+            const rootChordNotes = getChordNotes(chord, chord.key, tuning.divisions);
+            const rootBassNote = rootChordNotes ? getBassNote(rootChordNotes, tuning) : 60 - 24;
+            const editorTuning = getPitchEditorTuning(chord.symbol, chord.divisions || appState.divisions || 12);
+            const snappedOffset = snapToGrid(60 + (inst.pitchOffset || 0), editorTuning) - 60;
+            return {
+                startTime: inst.startTime,
+                duration: inst.duration,
+                pitch: rootBassNote + snappedOffset
+            };
+        })
+    };
 }
 
 function undo() {
@@ -522,10 +546,9 @@ function _setupGlobalDoubleTap() {
     let lastTapTime = 0;
 
     document.addEventListener('pointerdown', (e) => {
-        // Ignore taps on all interactive elements, timelines, panels, and controls
-        const ignoredSelectors = 'button, input, select, textarea, .progression-item, .chord-btn, .rhythm-instance, .drum-hit, .bracket-element, .controls, .pattern-tab, .swap-menu, .rhythm-timeline-container, .drum-row-label, .piano-cell, .piano-note-block, .piano-key, .piano-row';
+        const ignoredSelectors = 'button, input, select, textarea, label, .progression-item, .chord-btn, .rhythm-instance, .drum-hit, .bracket-element, .controls, .pattern-tab, .swap-menu, .rhythm-timeline-container, .drum-row-label, .piano-cell, .piano-note-block, .piano-key, .piano-row';
         // CORRECT_PATTERN: Text nodes don't have .closest, so we must guard this call.
-        if (e.target.closest && (e.target.closest(ignoredSelectors) || e.target.closest('#palette-custom-builder') || e.target.closest('#settings-modal'))) {
+        if (e.target.closest && (e.target.closest(ignoredSelectors) || e.target.closest('#palette-custom-builder'))) {
             lastTapTime = 0;
             return;
         }
