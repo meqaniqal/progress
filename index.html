@@ -875,8 +875,9 @@
                                     <div class="mixer-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Melody Engine</span>
                                         <select id="melody-engine" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
-                                            <option value="progress">Progress Engine (Default)</option>
-                                            <option value="mgen">mgen Engine (Experimental)</option>
+                                            <option value="progress">Progress</option>
+                                            <option value="pro">Professional</option>
+                                            <option value="mgen">Mgen (Exp)</option>
                                         </select>
                                     </div>
                                     <div id="mgen-warning-notice" style="display: none; font-size: 10px; color: var(--borrowed-text); background: rgba(245, 158, 11, 0.1); border: 1px solid var(--borrowed-border); padding: 6px; border-radius: 4px; line-height: 1.3;">
@@ -1017,9 +1018,9 @@
                                         <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Rest Frequency</span>
                                         <input type="range" id="melody-rests" min="0.0" max="0.9" step="0.05" value="0.3" class="mixer-slider" style="flex: 1;">
                                     </div>
-                                    <div class="mixer-row" id="row-melody-shortest-note" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                                        <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Shortest Note Run</span>
-                                        <select id="melody-shortest-note" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
+                                    <div class="mixer-row" id="row-melody-max-note-speed" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                        <span class="settings-label-sm" style="width: 140px; font-size: 11px;">Max Note Speed</span>
+                                        <select id="melody-max-note-speed" class="rhythm-select" style="flex: 1; padding: 4px; font-size: 11px; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); border-radius: 4px;">
                                             <option value="64">1/64 Note</option>
                                             <option value="32">1/32 Note</option>
                                             <option value="16">1/16 Note</option>

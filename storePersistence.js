@@ -77,6 +77,7 @@ export function loadAndApplyInitialState(explicitState = null) {
             state.melodySettings = {
                 enabled: Boolean(savedState.melodySettings.enabled),
                 genre: savedState.melodySettings.genre || 'none',
+                engine: savedState.melodySettings.engine || 'progress',
                 motifRecurrence: typeof savedState.melodySettings.motifRecurrence === 'number' ? savedState.melodySettings.motifRecurrence : 0.5,
                 variationDepth: typeof savedState.melodySettings.variationDepth === 'number' ? savedState.melodySettings.variationDepth : 0.5,
                 density: typeof savedState.melodySettings.density === 'number' ? savedState.melodySettings.density : 0.5,
@@ -92,7 +93,7 @@ export function loadAndApplyInitialState(explicitState = null) {
                 midiExtractionMode: savedState.melodySettings.midiExtractionMode || 'highest',
                 macroPlannerEnabled: typeof savedState.melodySettings.macroPlannerEnabled !== 'undefined' ? Boolean(savedState.melodySettings.macroPlannerEnabled) : true,
                 macroContourArchetype: savedState.melodySettings.macroContourArchetype || 'auto',
-                shortestNoteLimit: typeof savedState.melodySettings.shortestNoteLimit === 'number' ? savedState.melodySettings.shortestNoteLimit : 16
+                maxNoteSpeed: typeof (savedState.melodySettings.maxNoteSpeed ?? savedState.melodySettings.shortestNoteLimit) === 'number' ? (savedState.melodySettings.maxNoteSpeed ?? savedState.melodySettings.shortestNoteLimit) : 16
             };
         }
         if (savedState.userMotifs) {

@@ -47,5 +47,51 @@ export const defaultContext = (rng = null) => ({
         lowRegisterBars: 0,
         motifRepeats: 0,
         phraseSubdivisions: []
+    },
+    // Professional Melody Generator State
+    proPhraseArch: {
+        climaxStep: null,
+        climaxPitch: null,
+        contourShape: null,
+        phraseType: null,
+        tensionCurve: [],
+        cadenceTarget: null,
+        cadenceMelodyDeg: null,
+        cadenceStartStep: null,
+        phraseLengthSteps: 16
+    },
+    proMotifRegistry: {
+        stored: [],
+        active: null,
+        barsSinceReuse: 0,
+        lastOperation: 'NONE',
+        sequenceStreak: 0,
+        lastSequenceInterval: 0
+    },
+    proTensionTracker: {
+        value: 0.0,
+        target: 0.0,
+        consecutiveLeaps: 0,
+        stepsInHighReg: 0,
+        pendingResolution: false,
+        resolutionDir: 0,
+        dissonanceDebt: 0.0,
+        blueNoteDebt: false
+    },
+    proRegisterTracker: {
+        recent: [],
+        phrasePeak: null,
+        phraseFloor: null,
+        climaxDelivered: false,
+        stepsAtPeak: 0,
+        lastLeapStep: -1
+    },
+    proRhythmicCohesion: {
+        motif: [],
+        established: false,
+        syncopationUsed: 0,
+        syncopationBudget: 4,
+        lastNoteDuration: 0.0,
+        hemiolaActive: false
     }
 });

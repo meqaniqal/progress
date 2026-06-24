@@ -22,6 +22,7 @@ describe('Melody Generator Composition Rules', () => {
         state.melodySettings = {
             enabled: true,
             genre: 'none',
+            engine: 'progress',
             motifRecurrence: 0.8,
             variationDepth: 0.5,
             density: 0.9, // High density to get more notes for statistical significance
@@ -31,7 +32,7 @@ describe('Melody Generator Composition Rules', () => {
             behaviorDuringArp: 'simplify',
             behaviorDuringTransitions: 'simplify',
             tensionCurve: 'flat',
-            shortestNoteLimit: 16
+            maxNoteSpeed: 16
         };
     });
 
@@ -552,6 +553,7 @@ describe('Melody Generator Composition Rules', () => {
     test('Blues mode voice leading rules for flat 3rd and flat 5th are correctly enforced', () => {
         state.divisions = 12;
         state.melodySettings.genre = 'blues';
+        state.melodySettings.engine = 'pro';
         state.melodySettings.density = 0.95;
         state.melodySettings.restProbability = 0.0;
 

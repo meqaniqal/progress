@@ -65,7 +65,7 @@ export const state = {
         midiExtractionMode: 'highest',
         macroPlannerEnabled: false,
         macroContourArchetype: 'auto',
-        shortestNoteLimit: 16
+        maxNoteSpeed: 16
     },
     userMotifs: [
         {
@@ -848,7 +848,7 @@ export function resetSession() {
         midiExtractionMode: 'highest',
         macroPlannerEnabled: false,
         macroContourArchetype: 'auto',
-        shortestNoteLimit: 16
+        maxNoteSpeed: 16
     };
     state.userMotifs = [
         {

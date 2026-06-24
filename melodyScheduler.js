@@ -801,7 +801,7 @@ export function scheduleMelody(
     let runStartStep = -1;
     let runLength = 0;
 
-    const shortestLimitStep = settings.shortestNoteLimit || 16;
+    const shortestLimitStep = settings.maxNoteSpeed || settings.shortestNoteLimit || 16;
     let stepsPerBeat = 4;
     if (shortestLimitStep === 32) stepsPerBeat = 8;
     else if (shortestLimitStep === 64) stepsPerBeat = 16;
@@ -2017,7 +2017,7 @@ export function scheduleMelody(
     // Detailed melody generator diagnostics for real-time monitoring in browser console
     const showLogs = typeof navigator !== 'undefined' && (!/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (typeof window !== 'undefined' && window.location.search.includes('debug=1')));
     if (showLogs) {
-        console.group(`🎵 Slot ${absIndex} (${chordObj.symbol}, Key ${chordKey}): ${slotAestheticMode} | Act ${slotActivity.toFixed(2)} | Den ${settings.density} | Rests ${settings.restProbability} | Limit ${settings.shortestNoteLimit || 16} | Chords: [${(chordNotes || []).join(', ')}]`);
+        console.group(`🎵 Slot ${absIndex} (${chordObj.symbol}, Key ${chordKey}): ${slotAestheticMode} | Act ${slotActivity.toFixed(2)} | Den ${settings.density} | Rests ${settings.restProbability} | Limit ${settings.maxNoteSpeed || settings.shortestNoteLimit || 16} | Chords: [${(chordNotes || []).join(', ')}]`);
         if (melodyScheduled.length > 0) {
             const mStr = melodyScheduled.map(n => {
                 const isChordTone = chordTonePcSet.has(Math.round(((n.pitch % periodSize + periodSize) % periodSize) * 100) / 100);

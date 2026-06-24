@@ -330,7 +330,7 @@ export function syncSettingsUI() {
             'row-melody-motif-recurrence',
             'row-melody-variation-depth',
             'row-melody-rests',
-            'row-melody-shortest-note',
+            'row-melody-max-note-speed',
             'row-melody-ornaments',
             'row-melody-macro-planner',
             'row-melody-macro-contour',
@@ -387,10 +387,10 @@ export function syncSettingsUI() {
         const restsEl = document.getElementById('melody-rests');
         if (restsEl) restsEl.value = state.melodySettings.restProbability || 0.3;
 
-        const shortestEl = document.getElementById('melody-shortest-note');
-        const shortestValEl = document.getElementById('melody-shortest-note-val');
+        const shortestEl = document.getElementById('melody-max-note-speed');
+        const shortestValEl = document.getElementById('melody-max-note-speed-val');
         if (shortestEl) {
-            let limit = state.melodySettings.shortestNoteLimit !== undefined ? state.melodySettings.shortestNoteLimit : 16;
+            let limit = state.melodySettings.maxNoteSpeed !== undefined ? state.melodySettings.maxNoteSpeed : 16;
             limit = Math.max(2, limit);
             shortestEl.value = limit;
             if (shortestValEl) {
@@ -962,7 +962,7 @@ export function initSettingsUI({ onRenderProgression }) {
                 'row-melody-motif-recurrence',
                 'row-melody-variation-depth',
                 'row-melody-rests',
-                'row-melody-shortest-note',
+                'row-melody-max-note-speed',
                 'row-melody-ornaments',
                 'row-melody-macro-planner',
                 'row-melody-macro-contour',
@@ -1040,12 +1040,12 @@ export function initSettingsUI({ onRenderProgression }) {
         });
     }
 
-    const melodyShortestEl = document.getElementById('melody-shortest-note');
+    const melodyShortestEl = document.getElementById('melody-max-note-speed');
     if (melodyShortestEl) {
         melodyShortestEl.addEventListener('change', (e) => {
             const val = Math.max(2, parseInt(e.target.value, 10));
-            state.melodySettings.shortestNoteLimit = val;
-            const valEl = document.getElementById('melody-shortest-note-val');
+            state.melodySettings.maxNoteSpeed = val;
+            const valEl = document.getElementById('melody-max-note-speed-val');
             if (valEl) {
                 const labels = {
                     64: '1/64 Note',

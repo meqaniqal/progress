@@ -12,7 +12,7 @@ describe('melodyMacro Phrase and Song Form Planning', () => {
             genre: 'classical',
             density: 0.5,
             restProbability: 0.1,
-            shortestNoteLimit: 16,
+            maxNoteSpeed: 16,
             variationDepth: 0.5,
             macroPlannerEnabled: false,
             tensionCurve: 'flat',
