@@ -170,9 +170,9 @@ export class CadencePlanner {
    * @private
    */
   _getChordTones(chord) {
+    // If chord has explicit notes, use them as absolute MIDI pitches (no baseRegister adjustment)
     if (chord.notes && chord.notes.length > 0) {
-      const pitchClasses = new Set(chord.notes.map(n => ((n % 12) + 12) % 12));
-      return [...pitchClasses].map(pc => this.baseRegister + pc);
+      return [...chord.notes];
     }
     const rootMidi = this._noteNameToMidi(chord.root);
     const intervals = this._getChordIntervals(chord.quality);

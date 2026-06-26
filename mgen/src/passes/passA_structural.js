@@ -171,13 +171,13 @@ export class StructuralPlanner {
    * @private
    */
   _getChordTones(chord) {
+    // If chord has explicit notes, use them as absolute MIDI pitches (no baseRegister adjustment)
     if (chord.notes && chord.notes.length > 0) {
-      const pitchClasses = new Set(chord.notes.map(n => ((n % 12) + 12) % 12));
-      return [...pitchClasses].map(pc => this.baseRegister + pc);
+      return [...chord.notes];
     }
+    // Fallback: derive from chord symbol using baseRegister
     const rootMidi = this._noteNameToMidi(chord.root);
     const intervals = this._getChordIntervals(chord.quality);
-
     return intervals.map((interval) => rootMidi + interval);
   }
 
@@ -270,13 +270,13 @@ export class StructuralPlanner {
     * @returns {number} MIDI pitch
     * @private
     */
-   _fallbackRegister(chord, toneIndex) {
-     const rootMidi = this._noteNameToMidi(chord.root);
-     // Use the chord's actual root in a reasonable register (C3-B3 range: 48-59)
-     // rather than forcing everything into C4 (60)
-     const baseRegister = 48; // C3
-     return baseRegister + (rootMidi % 12) + toneIndex * 3;
-   }
+    _fallbackRegister(chord, toneIndex) {
+      const rootMidi = this._noteNameToMidi(chord.root);
+      // Use the chord's actual root in a reasonable register (C4-B4 range: 60-71)
+      // matching the Progress app's default melody range, rather than C3 (48)
+      const baseRegister = 60; // C4
+      return baseRegister + (rootMidi % 12) + toneIndex * 3;
+    }
 
   /**
    * Select highest chord tone.

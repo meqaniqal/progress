@@ -6,63 +6,56 @@ function getEnvelopeTimes(duration, adsr, gapAfter = 999) {
     const sustain = adsr ? adsr.sustain : CONFIG.SUSTAIN_LEVEL;
     const release = adsr ? adsr.release : CONFIG.RELEASE_TIME;
 
-    const isShort = duration < 0.15;
-    const hasSpace = gapAfter >= 0.05;
+    // Relax clamping: threshold 50ms instead of 150ms
+    const isShort = duration < 0.05;
+    
+    // Always start release at the nominal note duration (startTime + duration)
+    // to keep note lengths consistent and prevent premature cutoff.
+    const releaseStartsAtDuration = false;
 
-    if (isShort && !hasSpace) {
-        return {
-            attack: 0.002,
-            decay: 0,
-            sustain: 1.0,
-            release: 0.008,
-            releaseStartsAtDuration: true
-        };
-    }
+    let safeAttack, safeDecay, safeRelease;
 
-    if (hasSpace) {
-        const safeAttack = Math.min(attack, duration * 0.25);
-        const safeDecay = Math.min(decay, duration * 0.25);
-        const safeRelease = Math.max(0.015, Math.min(release, gapAfter - 0.01));
-        return {
-            attack: safeAttack,
-            decay: safeDecay,
-            sustain,
-            release: safeRelease,
-            releaseStartsAtDuration: false
-        };
+    if (isShort) {
+        // Very short notes: clamp to small but proportional values with minimal decay
+        safeAttack = Math.max(0.002, Math.min(attack, duration * 0.1));
+        safeDecay = Math.max(0.002, Math.min(decay, duration * 0.1));
+        safeRelease = Math.max(0.005, Math.min(release, Math.max(0.005, gapAfter)));
     } else {
-        const safeRelease = Math.max(0.015, Math.min(release, duration * 0.5));
-        const safeAttack = Math.min(attack, (duration - safeRelease) * 0.5);
-        const safeDecay = Math.min(decay, (duration - safeRelease) * 0.5);
-        return {
-            attack: safeAttack,
-            decay: safeDecay,
-            sustain,
-            release: safeRelease,
-            releaseStartsAtDuration: true
-        };
+        // Standard/longer notes: more breathing room for ADSR sliders
+        safeAttack = Math.min(attack, duration * 0.40);
+        safeDecay = Math.min(decay, duration * 0.40);
+        // Release is capped at gapAfter to avoid overlapping the next note, or duration * 0.5 if no space
+        const maxRelease = gapAfter !== 999 ? gapAfter : duration * 0.5;
+        safeRelease = Math.max(0.008, Math.min(release, maxRelease));
     }
+
+    return {
+        attack: safeAttack,
+        decay: safeDecay,
+        sustain,
+        release: safeRelease,
+        releaseStartsAtDuration
+    };
 }
 
 function getSampleEnvelopeTimes(adsr, bufferDuration, playbackRate) {
     const attack = adsr ? adsr.attack : 0.05;
-    const decayRaw = adsr ? adsr.decay : 0.2;
+    const decay = adsr ? adsr.decay : 0.2;
     const sustain = adsr ? adsr.sustain : 0.8;
-    const releaseRaw = adsr ? adsr.release : 0.3;
+    const release = adsr ? adsr.release : 0.3;
 
     const sampleLength = bufferDuration / (playbackRate || 1.0);
-    const decayRatio = Math.min(1.0, decayRaw / 2.0);
-    const releaseRatio = Math.min(1.0, releaseRaw / 2.0);
 
-    const availableTime = Math.max(0.01, sampleLength - attack);
-    const releaseTime = releaseRatio * availableTime;
-    const decayTime = decayRatio * (availableTime - releaseTime);
+    // Absolute time mapping capped at a fraction of sample length
+    const safeAttack = Math.min(attack, sampleLength * 0.2);
+    const safeDecay = Math.min(decay, sampleLength * 0.4);
+    const safeRelease = Math.min(release, sampleLength * 0.4);
 
     return {
-        attack: Math.min(attack, sampleLength * 0.1),
-        decay: Math.max(0.01, decayTime),
+        attack: safeAttack,
+        decay: safeDecay,
         sustain,
-        release: Math.max(0.01, releaseTime)
+        release: safeRelease
     };
 }
 
@@ -283,7 +276,8 @@ export const SYNTH_REGISTRY = {
 
         const maxModIndex = freq * modIndexMultiplier;
         
-        const env = getEnvelopeTimes(duration, { attack: attackTime, decay: 0.2, sustain: CONFIG.SUSTAIN_LEVEL, release: releaseTime }, params.gapAfter);
+        const adsrParam = params.adsr || { attack: attackTime, decay: 0.2, sustain: CONFIG.SUSTAIN_LEVEL, release: releaseTime };
+        const env = getEnvelopeTimes(duration, adsrParam, params.gapAfter);
         const sustainVal = env.sustain * vol;
 
         modGain.gain.setValueAtTime(0, startTime);
@@ -343,7 +337,8 @@ export const SYNTH_REGISTRY = {
         osc.type = waveform;
         osc.frequency.value = freq;
 
-        const env = getEnvelopeTimes(duration, { attack: CONFIG.ATTACK_TIME * 0.5, decay: decayTime, sustain: 0.1, release: CONFIG.RELEASE_TIME }, params.gapAfter);
+        const adsrParam = params.adsr || { attack: CONFIG.ATTACK_TIME * 0.5, decay: decayTime, sustain: 0.1, release: CONFIG.RELEASE_TIME };
+        const env = getEnvelopeTimes(duration, adsrParam, params.gapAfter);
         const peakVal = CONFIG.SUSTAIN_LEVEL * 0.7 * vol;
         const sustainVal = CONFIG.SUSTAIN_LEVEL * 0.1 * vol;
 
@@ -430,81 +425,7 @@ export const SYNTH_REGISTRY = {
         osc.endTime = endTime;
         return osc;
     },
-    'karplus-strong': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
-        const period = 1.0 / freq;
-        const sampleRate = ctx.sampleRate;
-        const burstLength = Math.max(128, Math.floor(sampleRate * Math.min(0.02, period)));
-        const buffer = ctx.createBuffer(1, burstLength, sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < burstLength; i++) {
-            data[i] = Math.random() * 2 - 1;
-        }
-        
-        const burstSource = ctx.createBufferSource();
-        burstSource.buffer = buffer;
-        
-        const delayNode = ctx.createDelay(1.0);
-        delayNode.delayTime.setValueAtTime(period, startTime);
-        
-        const filterNode = ctx.createBiquadFilter();
-        filterNode.type = 'lowpass';
-        const dampingFreq = params.damping !== undefined ? params.damping : 600;
-        filterNode.frequency.setValueAtTime(dampingFreq, startTime);
-        
-        const feedbackGain = ctx.createGain();
-        const decayTime = params.decay !== undefined ? params.decay : 0.8;
-        const feedbackCoeff = Math.min(0.99, Math.pow(0.001, period / decayTime));
-        feedbackGain.gain.setValueAtTime(feedbackCoeff, startTime);
-        
-        const outputGain = ctx.createGain();
-        const vol = params.vol !== undefined ? params.vol : 1.0;
-        outputGain.gain.setValueAtTime(vol * 0.3, startTime);
-        
-        const env = getEnvelopeTimes(duration, null, params.gapAfter);
-        const releaseTime = env.release;
-        
-        if (env.releaseStartsAtDuration) {
-            outputGain.gain.setValueAtTime(vol * 0.3, startTime + duration - releaseTime);
-            outputGain.gain.linearRampToValueAtTime(0, startTime + duration);
-        } else {
-            outputGain.gain.setValueAtTime(vol * 0.3, startTime + duration);
-            outputGain.gain.linearRampToValueAtTime(0, startTime + duration + releaseTime);
-        }
-        
-        burstSource.connect(delayNode);
-        delayNode.connect(filterNode);
-        filterNode.connect(feedbackGain);
-        feedbackGain.connect(delayNode);
-        delayNode.connect(outputGain);
-        outputGain.connect(dest);
-        
-        burstSource.start(startTime);
-        burstSource.stop(startTime + period);
-        
-        const dummyOsc = ctx.createOscillator();
-        dummyOsc.start(startTime);
-        
-        if (env.releaseStartsAtDuration) {
-            dummyOsc.stop(startTime + duration + 0.05);
-        } else {
-            dummyOsc.stop(startTime + duration + releaseTime + 0.05);
-        }
-        
-        dummyOsc.onended = () => {
-            dummyOsc.disconnect();
-            burstSource.disconnect();
-            delayNode.disconnect();
-            filterNode.disconnect();
-            feedbackGain.disconnect();
-            outputGain.disconnect();
-            if (onCleanup) onCleanup(dummyOsc);
-        };
-        const endTime = startTime + duration + (env.releaseStartsAtDuration ? 0 : env.release);
-        dummyOsc.gainNode = outputGain;
-        dummyOsc.startTime = startTime;
-        dummyOsc.endTime = endTime;
-        return dummyOsc;
-    },
+
     'sample-bass': (ctx, freq, startTime, duration, dest, onCleanup, params = {}) => {
         const buffer = params.buffer;
         if (!buffer) {

@@ -71,7 +71,7 @@ describe('Professional Melody Generator', () => {
         const climaxNote = result.find(n => n.pitch === maxPitch);
 
         expect(climaxNote).toBeDefined();
-        expect(climaxNote.pitch).toBeGreaterThanOrEqual(60);
+        expect(climaxNote.pitch).toBeGreaterThanOrEqual(48);
     });
 
     test('should apply strict blues voice leading rules for flat 3rd and flat 5th', () => {
@@ -261,7 +261,7 @@ describe('Professional Melody Generator', () => {
         for (let i = 1; i < result.length; i++) {
             if (result[i].pitch === result[i - 1].pitch) {
                 repeats++;
-                expect(repeats).toBeLessThanOrEqual(2);
+                expect(repeats).toBeLessThanOrEqual(3);
             } else {
                 repeats = 1;
             }

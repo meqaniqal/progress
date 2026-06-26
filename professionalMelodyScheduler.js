@@ -1,3 +1,6 @@
+// NOTE: Melody construction is strictly CHORD-DRIVEN. 
+// The global scale/key from the chord chooser is NOT the source of truth for melody generation.
+// Pitch selection is guided primarily by the chord notes themselves and surrounding chords as context.
 import { state } from './store.js';
 import { getChordNotes, getEffectiveTuning, midiToFreq, deduceSourceMode } from './theory.js';
 import { playTone } from './synth.js';
@@ -53,8 +56,8 @@ function planPhraseArchitecture(context, absIndex, settings, chordNotes, stepsPe
     arch.climaxStep = Math.round(climaxRatio * arch.phraseLengthSteps);
 
     // 4. Climax Pitch
-    const rangeMin = settings.rangeMin || 60;
-    const rangeMax = settings.rangeMax || 84;
+    const rangeMin = settings.rangeMin || 48;
+    const rangeMax = settings.rangeMax || 72;
     const tessituraCenter = (rangeMin + rangeMax) / 2;
     arch.climaxPitch = rangeMax - 4;
 
@@ -218,8 +221,8 @@ export function scheduleMelody(
     const chordRoot = chordNotes.length > 0 ? chordNotes[0] : 60;
     const chordTonePcSet = new Set(chordNotes.map(n => Math.round(((n % 12 + 12) % 12) * 100) / 100));
     
-    const rangeMin = settings.rangeMin || 60;
-    const rangeMax = settings.rangeMax || 84;
+    const rangeMin = settings.rangeMin || 48;
+    const rangeMax = settings.rangeMax || 72;
     const tessituraCenter = (rangeMin + rangeMax) / 2;
 
     const scaleMode = getLocalScaleMode(chordObj.quality || 'major', settings.genre);
@@ -281,7 +284,15 @@ export function scheduleMelody(
                     currentNCTType = 'PASSING_TONE';
                 } else if (rng.next() < 0.2) {
                     const neighborDir = tension.value > 0.5 ? 1 : -1;
-                    effectiveValidPitches = [prevPitch + neighborDir * semitone, prevPitch + neighborDir * 2 * semitone].filter(p => p >= rangeMin && p <= rangeMax);
+                    const neighborCandidates = [prevPitch + neighborDir * semitone, prevPitch + neighborDir * 2 * semitone].filter(p => p >= rangeMin && p <= rangeMax);
+                    // Constrain neighbor tones to current chord/scale context to avoid off-key notes
+                    if (chordTones.length > 0) {
+                        // Prefer chord tones that are stepwise from prevPitch
+                        const stepwiseChordTones = chordTones.filter(p => Math.abs(p - prevPitch) <= 2 * semitone);
+                        effectiveValidPitches = stepwiseChordTones.length > 0 ? stepwiseChordTones : chordTones;
+                    } else {
+                        effectiveValidPitches = neighborCandidates.length > 0 ? neighborCandidates : validPitches;
+                    }
                     currentNCTType = 'NEIGHBOR_TONE';
                 }
             }
@@ -413,7 +424,9 @@ export function scheduleMelody(
                 melodyInst,
                 step: g.step,
                 sixteenthStep: g.sixteenthStep,
-                isIsolated
+                isIsolated,
+                isAnchor1Step: g.step === 0,
+                isAnchor2Step: (arch.phraseLengthSteps - g.sixteenthStep <= 2)
             });
 
             prevPitch = pitch;
@@ -462,7 +475,7 @@ export function scheduleMelody(
     melodyScheduled.forEach((n, idx) => {
         const nextTime = (idx < melodyScheduled.length - 1) ? melodyScheduled[idx + 1].stepTime : (time + chordSlotDuration);
         const gapAfter = nextTime - (n.stepTime + n.noteDuration);
-        playToneFn(midiToFreq(n.pitch), n.stepTime, n.noteDuration, n.melodyInst, 'melody', 0, 1.0, { gapAfter, step: n.step });
+        playToneFn(midiToFreq(n.pitch), n.stepTime, n.noteDuration, n.melodyInst, 'melody', 0, 1.0, { gapAfter, step: n.step, isAnchor1Step: n.isAnchor1Step, isAnchor2Step: n.isAnchor2Step });
         
         const prevNote = idx > 0 ? melodyScheduled[idx - 1] : null;
         const spaceBefore = prevNote ? (n.stepTime - (prevNote.stepTime + prevNote.noteDuration)) : 1.0;

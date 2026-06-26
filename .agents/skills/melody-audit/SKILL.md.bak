@@ -1,0 +1,242 @@
+---
+name: melody-audit
+description: Audits melody generation systems for pitch correctness, timing accuracy, envelope behavior, and cross-engine consistency. Produces a structured, verifiable audit report optimized for token-efficient handoff to another LLM, with explicit design-choice vs bug classification and inline comment format for author override.
+---
+
+# SKILL: Melody Generator Audit
+
+**Load this before auditing any melody/pitch/timing generation code.**
+**Trigger:** Review of melody generator quality, off-key notes, timing anomalies, envelope inconsistency, or cross-engine behavior differences.
+
+---
+
+## GOAL
+
+Produce a **high-confidence, token-efficient audit report** that:
+
+1. Identifies real bugs vs intentional design choices
+2. For design choices, states the intended benefit and what breaks it
+3. Allows the author to inject conflicting preferences **without requiring the next LLM to redo the analysis**
+4. Uses targeted verification to minimize false positives and context bloat
+
+---
+
+## PHASE 1: TARGETED DISCOVERY (VERIFICATION FIRST)
+
+Do NOT audit from memory. Verify every claim with minimal, targeted tool calls.
+
+### 1.1 Locate Relevant Files
+
+Use `Glob` to find melody/pitch/timing/envelope modules. Typical patterns:
+
+```
+melody*.js, synth*.js, mgen*.js, bassGenerator*.js, professional*.js
+```
+
+Use `Read` on each to confirm file exists and get line counts.
+
+### 1.2 Verify Specific Claims With Targeted Reads
+
+For each potential issue, read **only the relevant lines** (use `offset` + `limit`). Do NOT read entire files unless necessary.
+
+**Verification checklist per claim:**
+
+| Claim Type | What to Verify | Tool |
+|---|---|---|
+| Envelope clamping | `getEnvelopeTimes()` or equivalent, lines around clamping logic | Read with offset/limit |
+| Pitch selection | `findClosest()`, `validPitches` construction, chord-tone mapping | Read with offset/limit |
+| Timing/cluster | Cluster creation, rubato warps, duration scaling | Read with offset/limit |
+| Cross-engine diff | How each engine calls the shared synthesis function | Read with offset/limit |
+| Parameter passing | Whether ADSR/gapAfter/clusterRole are passed or ignored | Read with offset/limit |
+
+**Rule:** If a code path is disabled (e.g., feature flag, commented-out code, disabled oscillator), note it as **DISABLED** — do not report as an active issue.
+
+### 1.3 Minimal Shell Commands (Only When Needed)
+
+Use shell commands ONLY for facts that cannot be determined from code reading:
+
+```bash
+# Count total lines in a file (confirms scope)
+wc -l <file>
+
+# Find all calls to a function across the codebase
+grep -rn "functionName(" --include="*.js" .
+
+# Find all references to a state property
+grep -rn "state\.propertyName" --include="*.js" .
+
+# Check if a feature is conditionally disabled
+grep -rn "disabled\|DISABLED\|TODO\|FIXME" --include="*.js" .
+```
+
+**Rule:** Each shell command must answer ONE specific question. Do not run broad searches.
+
+---
+
+## PHASE 2: CLASSIFY — BUG vs DESIGN CHOICE
+
+Every finding MUST be classified:
+
+| Category | Definition |
+|---|---|
+| **BUG** | Code behaves contrary to its own documented intent, crashes, produces clearly wrong output, or has no plausible musical justification |
+| **DESIGN CHOICE** | Code behaves intentionally, produces musically defensible output, and has a plausible reason for the behavior — even if it creates side effects |
+| **DESIGN FLAW** | Intentional design, but the side effects undermine the intended benefit |
+
+### For DESIGN CHOICE findings, answer:
+
+1. **What benefit does this design provide?** (e.g., "clamping envelopes on short notes prevents click artifacts")
+2. **What undermines that benefit?** (e.g., "clamping is too aggressive, making sliders useless even when they should work")
+3. **Is there a middle ground?** (e.g., "allow partial envelope on notes > 50ms, clamp only on < 50ms")
+
+### For DESIGN FLAW findings, answer:
+
+1. **What was the intent?**
+2. **Why does it fail in practice?** (specific code path, edge case, or interaction)
+3. **What is the minimal fix that preserves the intent?**
+
+---
+
+## PHASE 3: STRUCTURE THE REPORT
+
+Produce a markdown report with this exact structure:
+
+```markdown
+# [App Name] Melody Generator Audit
+
+## Executive Summary
+[2-3 sentences: overall quality, what works, what doesn't, why one mode may sound better]
+
+## 1. [CATEGORY] — [BRIEF TOPIC]
+
+### Issue N.N: [Descriptive Title]
+**Category:** BUG / DESIGN CHOICE / DESIGN FLAW
+**Location:** `file.js:lines`
+**Verified:** [Yes/No — what was read/checked]
+
+**Current behavior:** [What the code actually does, with code references]
+
+**If BUG:**
+**Impact:** [What the user hears or what breaks]
+**Fix:** [Specific, minimal change]
+
+**If DESIGN CHOICE:**
+**Intended benefit:** [Why this exists]
+**What undermines it:** [Side effects, edge cases, or interactions that cause problems]
+**Suggested middle ground:** [How to preserve benefit while reducing side effects]
+
+**If DESIGN FLAW:**
+**Intent:** [What the code was trying to do]
+**Why it fails:** [Specific code path]
+**Minimal fix:** [Preserves intent, fixes the break]
+```
+
+### Inline Comment Format for Author Override
+
+When the author wants to inject conflicting preferences, use this format **within the existing issue block** — do NOT create separate sections:
+
+```markdown
+<!-- AUTHOR NOTE: [your comment here] -->
+```
+
+Place the `<!-- AUTHOR NOTE: ... -->` immediately after the **Impact** or **Intended benefit** section of the relevant issue. This allows the next LLM to:
+
+- See the original analysis intact
+- See the author's conflicting preference clearly marked
+- Reconcile both without redoing the analysis
+
+**Example:**
+```markdown
+### Issue 1.1: Envelope Sliders Overridden by Clamping
+**Category:** DESIGN CHOICE
+**Location:** `synthEngines.js:3-45`
+**Verified:** Yes — read synthEngines.js lines 1-50
+
+**Intended benefit:** Prevents click artifacts on very short notes by forcing minimal attack/release times.
+
+<!-- AUTHOR NOTE: I think this is by design, but short notes should still have some envelope shape rather than clicking. The sustain phase should be allowed to extend if there's room, with minimal decay between notes. -->
+
+**What undermines it:** Clamping is so aggressive that decay, sustain, and release sliders have no effect even on long notes when gapAfter is small. The timing variations the user hears are about WHEN notes happen, not envelope shape.
+```
+
+---
+
+## PHASE 4: SUMMARY & PRIORITIZATION
+
+End the report with:
+
+### Summary of Root Causes
+[Bullet list of 3-7 root causes, grouped by category: pitch, timing, envelope, architecture]
+
+### Priority Matrix
+| Priority | Issue | Category | File | Lines | Impact |
+|---|---|---|---|---|---|
+| P0/P1/P2/P3 | [Brief description] | BUG/DESIGN CHOICE/DESIGN FLAW | `file.js` | lines | User-visible impact |
+
+### Why [X] Mode Sounds Better
+[If applicable: explain which mode avoids which problematic code paths]
+
+---
+
+## TOKEN-EFFICIENCY RULES
+
+1. **Read only what you need.** Use `offset` + `limit` on `Read`. Never read a file you haven't confirmed exists.
+2. **One shell command per question.** No broad `grep` without a specific target.
+3. **No code dumps.** Reference file:line, don't paste code into the report.
+4. **Classify every finding.** If you can't classify it, mark it `UNCERTAIN` and note what additional verification is needed.
+5. **Keep the executive summary to 2-3 sentences.** If it's longer, you're describing, not summarizing.
+6. **Use the AUTHOR NOTE format** for author feedback — it's designed to be parsed by the next LLM without rewriting the analysis.
+
+---
+
+## EXAMPLE OUTPUT (Abbreviated)
+
+```markdown
+# Progress Melody Generator Audit
+
+## Executive Summary
+The melody generators produce musically interesting results but suffer from aggressive envelope clamping that makes sliders non-functional for fast passages, foreshadowing logic that occasionally lands off-key notes, and inconsistent gapAfter handling across engines. Professional mode sounds better because it avoids cluster creation and post-processing pitch overwrites, not because it has fewer underlying issues.
+
+## 1. ENVELOPE SYSTEM
+
+### Issue 1.1: Slider Values Overridden by Clamping
+**Category:** DESIGN CHOICE
+**Location:** `synthEngines.js:3-45`
+**Verified:** Yes — read synthEngines.js lines 1-50
+
+**Intended benefit:** Prevents click artifacts on very short notes.
+**What undermines it:** Clamping is so aggressive that sliders have no effect even on long notes when gapAfter is small.
+
+<!-- AUTHOR NOTE: I want short notes to still have envelope shape, not click. Allow partial envelope on notes > 50ms. -->
+
+## Summary of Root Causes
+1. Envelope clamping overrides user sliders for fast passages
+2. Foreshadowing logic selects next-chord tones played during current chord
+3. Inconsistent gapAfter handling across engines
+
+## Priority Matrix
+| Priority | Issue | Category | File | Lines |
+|---|---|---|---|---|
+| P0 | Envelope clamping | DESIGN CHOICE | synthEngines.js | 3-45 |
+| P1 | Foreshadow off-key | BUG | melodyScheduler.js | 1431-1463 |
+```
+
+---
+
+## PROJECT NOTES
+
+*Edit this section per project. The examples below are for the Progress app — adapt for your project.*
+
+**Typical files to audit:**
+- `melodyScheduler.js` — pitch selection, clustering, foreshadowing, timing
+- `professionalMelodyScheduler.js` — professional mode melody generation
+- `mgen/src/orchestrator.js` — MGEN multi-pass generation
+- `synthEngines.js` — envelope generation (ADSR)
+- `synth.js` — tone playback, synthesis routing
+- `melodyCountermelody.js` — counterpoint generation
+- `melodyTuning.js` — pitch snapping, scale mapping
+
+**Typical state properties to trace:**
+- `state.melodyAdsr` — envelope sliders
+- `state.synthParams.*` — per-synth parameters
+- `context.proPhraseArch` — professional mode state

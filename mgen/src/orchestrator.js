@@ -497,6 +497,21 @@ export class CompositionOrchestrator {
   }
 
   /**
+   * Count notes by role across all passes.
+   * Returns { structural: N, cadence: N, connector: N, ornament: N, expectation: N }.
+   * Useful for benchmarking which passes contribute what.
+   * @returns {Object} Role distribution
+   */
+  getRoleDistribution() {
+    const dist = { structural: 0, cadence: 0, connector: 0, ornament: 0, expectation: 0 };
+    for (const entry of this.executionLog) {
+      const notes = this._passNotes?.get(entry.passName) || [];
+      notes.forEach(n => { dist[n.role] = (dist[n.role] || 0) + 1; });
+    }
+    return dist;
+  }
+
+  /**
     * Get intermediate output from a specific pass by name.
     * @param {string} passName - Name of the pass (e.g., 'PassA_Structural')
     * @returns {Object|null} Pass result or null if not found

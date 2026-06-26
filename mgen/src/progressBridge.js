@@ -227,11 +227,15 @@ export function progressStateToGenerationConfig(state) {
     density: state.melodySettings.density,
     pitchDiversityWeight: state.melodySettings.pitchDiversityWeight !== undefined ? state.melodySettings.pitchDiversityWeight : 0.0,
     maxLeap: 12,
-    baseRegister: state.baseKey,
+    baseRegister: undefined,
     aestheticMode: aestheticMode,
     tensionCurve: state.melodySettings.tensionCurve,
     snapToHarmonicContext: state.melodySettings.snapToHarmonicContext !== undefined ? state.melodySettings.snapToHarmonicContext : true,
     maxFeedbackIterations: state.melodySettings.maxFeedbackIterations !== undefined ? state.melodySettings.maxFeedbackIterations : 5,
+    registerRange: {
+      min: state.melodySettings.rangeMin !== undefined ? state.melodySettings.rangeMin : 48,
+      max: state.melodySettings.rangeMax !== undefined ? state.melodySettings.rangeMax : 72,
+    },
   });
 }
 

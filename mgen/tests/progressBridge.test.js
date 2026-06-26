@@ -212,7 +212,7 @@ describe('progressBridge', () => {
       expect(result.options.genre).toBe(state.melodySettings.genre);
       expect(result.options.density).toBe(state.melodySettings.density);
       expect(result.options.maxLeap).toBe(12);
-      expect(result.options.baseRegister).toBe(state.baseKey);
+      expect(result.options.baseRegister).toBeUndefined();
     });
 
     it('should pass aestheticMode to options derived from first chord quality', () => {

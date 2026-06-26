@@ -1,3 +1,6 @@
+// NOTE: Melody construction is strictly CHORD-DRIVEN. 
+// The global scale/key from the chord chooser is NOT the source of truth for melody generation.
+// Pitch selection is guided primarily by the chord notes themselves and surrounding chords as context.
 import { state, getActiveProgression } from './store.js';
 import { CompositionOrchestrator } from './mgen/src/orchestrator.js';
 import { StructuralPlanner } from './mgen/src/passes/passA_structural.js';
@@ -137,6 +140,19 @@ export async function pregenerateMgenMelody(appState = state) {
 
     // Cache the notes
     mgenCachedNotes = progressNotes;
+
+    // Expose scored metadata for benchmarking (NEW)
+    mgenCachedNotes._scoredMetadata = {
+      globalScore: mgenResult.metadata.globalScore,
+      safeModeTriggered: mgenResult.metadata.safeModeTriggered,
+      backtrackCount: mgenResult.metadata.backtrackCount,
+      feedbackIterations: mgenResult.metadata.feedbackIterations,
+      executionTimeMs: mgenResult.metadata.executionTimeMs,
+      roleDistribution: orchestrator.getRoleDistribution(),
+      passScores: mgenResult.metadata.passResults.map(p => ({
+        name: p.passName, score: p.metrics.score, noteCount: p.notes.length
+      }))
+    };
 
     // Log debugging information
     // await logMgenDebugInfo(mgenResult, progressNotes, chordsWithBeatStart, stateClone);
@@ -332,10 +348,11 @@ export function scheduleMgenMelody(
     });
   }
 
-  // Filter notes belonging to this slot
+  // Filter notes belonging to this slot and sort them by stepTime
   const slotNotes = mgenCachedNotes.filter(n => n.stepTime >= slotStartBeat && n.stepTime < slotEndBeat);
+  const sortedSlotNotes = [...slotNotes].sort((a, b) => a.stepTime - b.stepTime);
 
-  slotNotes.forEach(note => {
+  sortedSlotNotes.forEach((note, idx) => {
     // Map relative beat inside chord slot to absolute time in seconds
     const beatOffset = note.stepTime - slotStartBeat;
     const noteStartTime = time + (beatOffset * beatLen);
@@ -361,6 +378,9 @@ export function scheduleMgenMelody(
     const finalMidiNote = snapToGrid(adjustedMidiNote, tuning);
     const frequency = midiToFreq(finalMidiNote);
     
+    const nextNote = sortedSlotNotes[idx + 1];
+    const gapAfterSeconds = nextNote ? ((nextNote.stepTime - (note.stepTime + note.noteDuration)) * beatLen) : 999;
+
     // Play the note using playToneFn
     playToneFn(
       frequency,
@@ -368,7 +388,14 @@ export function scheduleMgenMelody(
       noteDuration,
       state.instruments.melody || 'sine',
       'melody',
-      0
+      0,
+      1.0,
+      {
+        isAnchor1Step: note.isAnchor1Step,
+        isAnchor2Step: note.isAnchor2Step,
+        clusterRole: note.clusterRole,
+        gapAfter: gapAfterSeconds
+      }
     );
   });
 }

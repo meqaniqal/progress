@@ -685,6 +685,15 @@ export class PhraseEngine {
 
       newPitch = Math.max(0, Math.min(127, Math.round(newPitch)));
 
+      // Apply register floor to keep consequent notes in valid register range
+      const options = config.options || {};
+      const baseRegister = (arc.options && arc.options.baseRegister) || 60;
+      const stepSize = 12.0 / (options.divisions || 12);
+      const registerFloor = baseRegister + (stepSize * 0.25);
+      if (newPitch < registerFloor) {
+        newPitch = Math.round(registerFloor);
+      }
+
       const consequentNote = new MelodyNote(
         newPitch,
         note.startTime + shiftOffset,
