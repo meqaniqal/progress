@@ -7,155 +7,155 @@ import { DEFAULT_DRUM_PARAMS } from './rhythmConfig.js';
 
 export let analyseChordsOnLoad = true;
 
-export const state = {
-    sections: {}, // Map of sectionId -> { id, name, progression, globalPatterns }
-    songSequence: [], // Array of sectionIds
-    activeSectionId: null,
-    currentProgression: [],
-    customChords: [], // Up to 3 user-designed custom chords
-    temporarySwaps: {}, // Map of index -> temporary chord string (e.g. { 1: 'vi' })
-    history: [], // Stores progression snapshots for Undo
-    baseKey: 60, // C4
-    bpm: 120,
-    isLooping: true, // Hardcoded to always loop
-    useVoiceLeading: true,
-    autoPanLeading: true,
-    midiExportRouting: 'mpe',
-    globalVoicing: 'auto', // 'auto', 'close', 'spread', 'quartal'
-    divisions: 12, // Standard Equal Temperament
-    customTuning: null, // Custom loaded .scl/.tun file mapping/parameters
-    importedTunings: [], // List of imported custom tuning objects
-    previousTuning: '12', // Remembers previous tuning choice to restore on prune
-    tuningImportSource: 'server', // 'local' or 'server'
-    swing: 0.0, // Swing amount (0 to 1)
-    groovePreset: 'none', // 'none', 'swing', 'shuffle', 'latin', 'african', 'custom'
-    grooveTemplate: null, // Array of { step, offset, velocityScale } for custom groove
-    loopStart: 0,
-    loopEnd: 0,
-    macroLoopStart: 0,
-    macroLoopEnd: 0,
-    theme: 'dark',
-    mode: 'major',
-    activeEmotion: 'mournful',
-    generatorPersona: 'normal',
-    syncTransitionsToDrums: true,
-    snapTransitionsToScale: true,
-    exportPasses: 1,
-    volumes: { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8, melody: 0.8, countermelody: 0.0 }, // 0.8 provides headroom for mixing
-    instruments: { chords: 'sawtooth', bass: 'sine', bassSecondary: 'sawtooth', melody: 'sine', countermelody: 'sine' },
-    melodySettings: {
-        enabled: false,
-        genre: 'none',
-        engine: 'progress',
-        pitchDiversityWeight: 0.0,
-        tensionLevel: 0.5,
-        isAntecedent: false,
-        motifRecurrence: 0.5,
-        variationDepth: 0.5,
-        density: 0.5,
-        restProbability: 0.3,
-        ornamentIntensity: 0.5,
-        countermelodyEnabled: false,
-        countermelodyMode: 'contrary',
-        behaviorDuringArp: 'simplify',
-        behaviorDuringTransitions: 'simplify',
-        tensionCurve: 'arch',
-        seedSource: 'procedural',
-        activeMotifId: 'preset-rise',
-        midiExtractionMode: 'highest',
-        macroPlannerEnabled: false,
-        macroContourArchetype: 'auto',
-        maxNoteSpeed: 16
-    },
-    userMotifs: [
-        {
-            id: 'preset-rise',
-            name: 'Arpeggiated Rise',
-            notes: [
-                { time: 0.0, duration: 0.5, pitchOffset: 0, voiceIndex: 0 },
-                { time: 0.5, duration: 0.5, pitchOffset: 2, voiceIndex: 0 },
-                { time: 1.0, duration: 0.5, pitchOffset: 4, voiceIndex: 0 },
-                { time: 1.5, duration: 0.5, pitchOffset: 7, voiceIndex: 0 }
-            ]
+export function getDefaultState() {
+    const defaultId = 'sec-' + Math.random().toString(36).substring(2, 10);
+    const defaultPatterns = initPatternSet();
+    const defaultProgression = [];
+    return {
+        sections: {
+            [defaultId]: {
+                id: defaultId,
+                name: 'Section 1',
+                progression: defaultProgression,
+                globalPatterns: defaultPatterns,
+                loopStart: 0,
+                loopEnd: 0,
+                temporarySwaps: {}
+            }
         },
-        {
-            id: 'preset-dip',
-            name: 'Passing Tone Dip',
-            notes: [
-                { time: 0.0, duration: 0.5, pitchOffset: 4, voiceIndex: 0 },
-                { time: 0.5, duration: 0.5, pitchOffset: 3, voiceIndex: 0 },
-                { time: 1.0, duration: 0.5, pitchOffset: 2, voiceIndex: 0 },
-                { time: 1.5, duration: 0.5, pitchOffset: 0, voiceIndex: 0 }
-            ]
+        songSequence: [defaultId],
+        activeSectionId: defaultId,
+        currentProgression: defaultProgression,
+        customChords: [], // Up to 3 user-designed custom chords
+        temporarySwaps: {}, // Map of index -> temporary chord string (e.g. { 1: 'vi' })
+        history: [], // Stores progression snapshots for Undo
+        baseKey: 60, // C4
+        bpm: 120,
+        isLooping: true, // Hardcoded to always loop
+        useVoiceLeading: true,
+        autoPanLeading: true,
+        midiExportRouting: 'mpe',
+        globalVoicing: 'auto', // 'auto', 'close', 'spread', 'quartal'
+        divisions: 12, // Standard Equal Temperament
+        customTuning: null, // Custom loaded .scl/.tun file mapping/parameters
+        importedTunings: [], // List of imported custom tuning objects
+        previousTuning: '12', // Remembers previous tuning choice to restore on prune
+        tuningImportSource: 'server', // 'local' or 'server'
+        swing: 0.0, // Swing amount (0 to 1)
+        groovePreset: 'none', // 'none', 'swing', 'shuffle', 'latin', 'african', 'custom'
+        grooveTemplate: null, // Array of { step, offset, velocityScale } for custom groove
+        loopStart: 0,
+        loopEnd: 0,
+        macroLoopStart: 0,
+        macroLoopEnd: 0,
+        theme: 'dark',
+        mode: 'major',
+        activeEmotion: 'mournful',
+        generatorPersona: 'normal',
+        syncTransitionsToDrums: true,
+        snapTransitionsToScale: true,
+        exportPasses: 1,
+        volumes: { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8, melody: 0.8, countermelody: 0.0 }, // 0.8 provides headroom for mixing
+        instruments: { chords: 'sawtooth', bass: 'sine', bassSecondary: 'sawtooth', melody: 'sine', countermelody: 'sine' },
+        melodySettings: {
+            enabled: false,
+            genre: 'none',
+            engine: 'progress',
+            pitchDiversityWeight: 0.0,
+            tensionLevel: 0.5,
+            isAntecedent: false,
+            motifRecurrence: 0.5,
+            variationDepth: 0.5,
+            density: 0.5,
+            restProbability: 0.3,
+            ornamentIntensity: 0.5,
+            countermelodyEnabled: false,
+            countermelodyMode: 'contrary',
+            behaviorDuringArp: 'simplify',
+            behaviorDuringTransitions: 'simplify',
+            tensionCurve: 'arch',
+            seedSource: 'procedural',
+            activeMotifId: 'preset-rise',
+            midiExtractionMode: 'highest',
+            macroPlannerEnabled: false,
+            macroContourArchetype: 'auto',
+            maxNoteSpeed: 16
+        },
+        userMotifs: [
+            {
+                id: 'preset-rise',
+                name: 'Arpeggiated Rise',
+                notes: [
+                    { time: 0.0, duration: 0.5, pitchOffset: 0, voiceIndex: 0 },
+                    { time: 0.5, duration: 0.5, pitchOffset: 2, voiceIndex: 0 },
+                    { time: 1.0, duration: 0.5, pitchOffset: 4, voiceIndex: 0 },
+                    { time: 1.5, duration: 0.5, pitchOffset: 7, voiceIndex: 0 }
+                ]
+            },
+            {
+                id: 'preset-dip',
+                name: 'Passing Tone Dip',
+                notes: [
+                    { time: 0.0, duration: 0.5, pitchOffset: 4, voiceIndex: 0 },
+                    { time: 0.5, duration: 0.5, pitchOffset: 3, voiceIndex: 0 },
+                    { time: 1.0, duration: 0.5, pitchOffset: 2, voiceIndex: 0 },
+                    { time: 1.5, duration: 0.5, pitchOffset: 0, voiceIndex: 0 }
+                ]
+            }
+        ],
+        bassDrive: 1.0,
+        bassHarmonicDrive: 1.0,
+        bassAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0, octaveDrop: false },
+        chordAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 },
+        melodyAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 },
+        countermelodyAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 },
+        bassKsDamping: 400,
+        bassKsDecay: 0.95,
+        synthParams: {
+            fm: { ratio: 2, modIndex: 3, attack: 0.1, release: 0.5 },
+            'plucked-square': { waveform: 'square', cutoff: 4, resonance: 1.5, decay: 0.4 }
+        },
+        drumParams: structuredClone(DEFAULT_DRUM_PARAMS),
+        selectedChordIndex: null,
+        globalPatterns: defaultPatterns,
+        showManualOnStartup: true,
+        isAdvancedMode: true,
+        editorState: {
+            activeIndex: null,
+            activeOverlayId: null,
+            isDragging: false,
+            isResizing: null,
+            isDrawModeEnabled: false,
+            isDrawing: false,
+            isPitchModeEnabled: false,
+            isTransitionsModeEnabled: false,
+            drawStartRatio: null,
+            drawModeAction: null,
+            drawStartPattern: null,
+            draggedInstanceId: null,
+            focusedSliceId: null,
+            draggedHitId: null,
+            draggedTransitionId: null,
+            selectedHitId: null,
+            clipboardPattern: null,
+            gridStepIndex: 4,
+            isGridEnabled: true,
+            zoomLevel: 1.0,
+            isPanning: false,
+            activeTab: 'chordPattern',
+            isGlobal: false,
+            emotionPage: 0,
+            swapPage: 0,
+            chordChooserCategoryPage: 0,
+            inspectorCategoryPage: 0,
+            inspectorActiveEmotion: 'substitutes',
+            isAuditionEnabled: true,
+            activeBuilderTab: 'standard'
         }
-    ],
-    bassDrive: 1.0,
-    bassHarmonicDrive: 1.0,
-    bassAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0, octaveDrop: false },
-    chordAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 },
-    melodyAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 },
-    countermelodyAdsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.3, pitch: 0 },
-    bassKsDamping: 400,
-    bassKsDecay: 0.95,
-    synthParams: {
-        fm: { ratio: 2, modIndex: 3, attack: 0.1, release: 0.5 },
-        'plucked-square': { waveform: 'square', cutoff: 4, resonance: 1.5, decay: 0.4 }
-    },
-    drumParams: structuredClone(DEFAULT_DRUM_PARAMS),
-    selectedChordIndex: null,
-    globalPatterns: initPatternSet(),
-    showManualOnStartup: true,
-    isAdvancedMode: true,
-    editorState: {
-        activeIndex: null,
-        activeOverlayId: null,
-        isDragging: false,
-        isResizing: null,
-        isDrawModeEnabled: false,
-        isDrawing: false,
-        isPitchModeEnabled: false,
-        isTransitionsModeEnabled: false,
-        drawStartRatio: null,
-        drawModeAction: null,
-        drawStartPattern: null,
-        draggedInstanceId: null,
-        focusedSliceId: null,
-        draggedHitId: null,
-        draggedTransitionId: null,
-        selectedHitId: null,
-        clipboardPattern: null,
-        gridStepIndex: 4,
-        isGridEnabled: true,
-        zoomLevel: 1.0,
-        isPanning: false,
-        activeTab: 'chordPattern',
-        isGlobal: false,
-        emotionPage: 0,
-        swapPage: 0,
-        chordChooserCategoryPage: 0,
-        inspectorCategoryPage: 0,
-        inspectorActiveEmotion: 'substitutes',
-        isAuditionEnabled: true,
-        activeBuilderTab: 'standard'
-    }
-};
+    };
+}
 
-// Initialize default section pointers to prevent circular dependency on load
-const initialSectionId = 'sec-' + Math.random().toString(36).substring(2, 10);
-const initialPatterns = initPatternSet();
-state.sections[initialSectionId] = {
-    id: initialSectionId,
-    name: 'Section 1',
-    progression: [],
-    globalPatterns: initialPatterns,
-    loopStart: 0,
-    loopEnd: 0,
-    temporarySwaps: {}
-};
-state.songSequence = [initialSectionId];
-state.activeSectionId = initialSectionId;
-state.currentProgression = state.sections[initialSectionId].progression;
-state.globalPatterns = state.sections[initialSectionId].globalPatterns;
+export const state = getDefaultState();
 
 // Resolves the progression with any active temporary swaps applied
 export function getActiveProgression() {
@@ -775,136 +775,26 @@ if (typeof window !== 'undefined') {
 }
 
 export function resetSession() {
+    saveHistoryState();
     clearState();
     
-    const defaultId = 'sec-' + Math.random().toString(36).substring(2, 10);
-    state.sections = {
-        [defaultId]: {
-            id: defaultId,
-            name: 'Section 1',
-            progression: [],
-            globalPatterns: initPatternSet(),
-            loopStart: 0,
-            loopEnd: 0,
-            temporarySwaps: {}
-        }
-    };
-    state.songSequence = [defaultId];
-    state.activeSectionId = defaultId;
-    state.currentProgression = state.sections[defaultId].progression;
-    state.globalPatterns = state.sections[defaultId].globalPatterns;
+    const historyBackup = state.history;
+    const defaults = getDefaultState();
     
-    state.temporarySwaps = {};
-    state.customChords = [];
-    state.history = [];
-    state.baseKey = 60;
-    state.bpm = 120;
-    state.isLooping = true;
-    state.useVoiceLeading = true;
-    state.autoPanLeading = true;
-    state.midiExportRouting = 'mpe';
-    state.globalVoicing = 'auto';
-    state.divisions = 12;
-    state.loopStart = 0;
-    state.loopEnd = 0;
-    state.macroLoopStart = 0;
-    state.macroLoopEnd = 0;
-    state.theme = 'dark';
-    state.mode = 'major';
-    state.activeEmotion = 'mournful';
-    state.generatorPersona = 'normal';
-    state.syncTransitionsToDrums = true;
-    state.snapTransitionsToScale = true;
-    state.exportPasses = 1;
-    state.tuningImportSource = 'server';
-    state.swing = 0.0;
-    state.groovePreset = 'none';
-    state.grooveTemplate = null;
-    state.volumes = { chords: 0.8, bass: 0.8, bassHarmonic: 0.0, drums: 0.8, melody: 0.8, countermelody: 0.0 };
-    state.instruments = { chords: 'sawtooth', bass: 'sine', bassSecondary: 'sawtooth', melody: 'sine', countermelody: 'sine' };
-    state.synthParams = {
-        fm: { ratio: 2, modIndex: 3, attack: 0.1, release: 0.5 },
-        'plucked-square': { waveform: 'square', cutoff: 4, resonance: 1.5, decay: 0.4 }
-    };
-    state.melodySettings = {
-        enabled: false,
-        genre: 'none',
-        engine: 'progress',
-        pitchDiversityWeight: 0.0,
-        tensionLevel: 0.5,
-        isAntecedent: false,
-        motifRecurrence: 0.5,
-        variationDepth: 0.5,
-        density: 0.5,
-        restProbability: 0.3,
-        ornamentIntensity: 0.5,
-        countermelodyEnabled: false,
-        countermelodyMode: 'contrary',
-        behaviorDuringArp: 'simplify',
-        behaviorDuringTransitions: 'simplify',
-        tensionCurve: 'arch',
-        seedSource: 'procedural',
-        activeMotifId: 'preset-rise',
-        midiExtractionMode: 'highest',
-        macroPlannerEnabled: false,
-        macroContourArchetype: 'auto',
-        maxNoteSpeed: 16
-    };
-    state.userMotifs = [
-        {
-            id: 'preset-rise',
-            name: 'Arpeggiated Rise',
-            notes: [
-                { time: 0.0, duration: 0.5, pitchOffset: 0, voiceIndex: 0 },
-                { time: 0.5, duration: 0.5, pitchOffset: 2, voiceIndex: 0 },
-                { time: 1.0, duration: 0.5, pitchOffset: 4, voiceIndex: 0 },
-                { time: 1.5, duration: 0.5, pitchOffset: 7, voiceIndex: 0 }
-            ]
-        },
-        {
-            id: 'preset-dip',
-            name: 'Passing Tone Dip',
-            notes: [
-                { time: 0.0, duration: 0.5, pitchOffset: 4, voiceIndex: 0 },
-                { time: 0.5, duration: 0.5, pitchOffset: 3, voiceIndex: 0 },
-                { time: 1.0, duration: 0.5, pitchOffset: 2, voiceIndex: 0 },
-                { time: 1.5, duration: 0.5, pitchOffset: 0, voiceIndex: 0 }
-            ]
-        }
-    ];
-    state.selectedChordIndex = null;
-    state.showManualOnStartup = true;
-    state.isAdvancedMode = true;
-    state.editorState = {
-        activeIndex: null,
-        activeOverlayId: null,
-        isDragging: false,
-        isResizing: null,
-        isDrawModeEnabled: false,
-        isDrawing: false,
-        isPitchModeEnabled: false,
-        isTransitionsModeEnabled: false,
-        drawStartRatio: null,
-        drawModeAction: null,
-        drawStartPattern: null,
-        draggedInstanceId: null,
-        focusedSliceId: null,
-        draggedHitId: null,
-        draggedTransitionId: null,
-        selectedHitId: null,
-        clipboardPattern: null,
-        gridStepIndex: 4,
-        isGridEnabled: true,
-        zoomLevel: 1.0,
-        isPanning: false,
-        justPushedToGlobalIndex: null,
-        emotionPage: 0,
-        swapPage: 0,
-        chordChooserCategoryPage: 0,
-        inspectorCategoryPage: 0,
-        inspectorActiveEmotion: 'substitutes',
-        isAuditionEnabled: false
-    };
+    // Clear all existing keys on the state object
+    for (const key of Object.keys(state)) {
+        delete state[key];
+    }
+    // Repopulate with the default state properties
+    Object.assign(state, defaults);
+    
+    state.currentProgression = state.sections[state.activeSectionId].progression;
+    state.globalPatterns = state.sections[state.activeSectionId].globalPatterns;
+    state.history = historyBackup;
+    
+    // Dynamically clear caches to avoid circular dependency
+    import('./sequencer.js').then(m => m.clearVoiceLeadingCache()).catch(() => {});
+    import('./melodyGenerator.js').then(m => m.clearMelodyMemory()).catch(() => {});
 }
 
 export { loadAndApplyInitialState } from './storePersistence.js';

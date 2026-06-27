@@ -11,6 +11,7 @@ import { getGrooveOffset } from './grooveEngine.js';
 
 let uiTimeouts = [];
 let sequenceHighlightTimeouts = [];
+let schedulerGen = 0;
 
 // Voice-leading memoization cache
 let cachedPlayableNotes = null;
@@ -234,6 +235,9 @@ function getActive(secState) {
 export function playProgression(getState, onHighlight, onComplete, onDrumPlay, onSlicePlay) {
     initAudio();
 
+    schedulerGen++;
+    const myGen = schedulerGen;
+
     let nextNoteTime = 0.0;
     let currentChordIndexRel = 0;
     let currentMacroIndex = 0;
@@ -275,8 +279,8 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         const sliceLength = bounds.end - bounds.start;
         
         if (sliceLength === 0) {
-            const delayMs = (time - getAudioCurrentTime()) * 1000;
             const highlightId = setTimeout(() => {
+                if (schedulerGen !== myGen) return;
                 if (onHighlight) onHighlight(-1, secState.sectionId, currentMacroIndex);
                 uiTimeouts = uiTimeouts.filter(id => id !== highlightId);
             }, Math.max(0, delayMs));
@@ -335,6 +339,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                 const durationMs = instance.duration * chordSlotDuration * 1000;
                 const delayMs = (instanceStartTime - getAudioCurrentTime()) * 1000;
                 const tId = setTimeout(() => {
+                    if (schedulerGen !== myGen) return;
                     onSlicePlay(instance.id, durationMs, absIndex);
                     uiTimeouts = uiTimeouts.filter(id => id !== tId);
                 }, Math.max(0, delayMs));
@@ -427,6 +432,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                     const delayMs = (instanceStartTime - getAudioCurrentTime()) * 1000;
                     const durationMs = instanceDuration * 1000;
                     const tId = setTimeout(() => {
+                        if (schedulerGen !== myGen) return;
                         onSlicePlay(instance.id, durationMs, absIndex);
                         uiTimeouts = uiTimeouts.filter(id => id !== tId);
                     }, Math.max(0, delayMs));
@@ -484,6 +490,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                     if (onDrumPlay && hit.id) {
                         const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
                         const tId = setTimeout(() => {
+                            if (schedulerGen !== myGen) return;
                             onDrumPlay(hit.id, absIndex);
                             uiTimeouts = uiTimeouts.filter(id => id !== tId);
                         }, Math.max(0, delayMs));
@@ -522,6 +529,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
                             if (onDrumPlay && hit.id) {
                                 const delayMs = (hitTimeSec - getAudioCurrentTime()) * 1000;
                                 const tId = setTimeout(() => {
+                                    if (schedulerGen !== myGen) return;
                                     onDrumPlay(hit.id, absIndex);
                                     uiTimeouts = uiTimeouts.filter(id => id !== tId);
                                 }, Math.max(0, delayMs));
@@ -539,6 +547,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
         const highlightSectionId = secState.sectionId;
         const highlightMacroIndex = currentMacroIndex;
         const highlightId = setTimeout(() => {
+            if (schedulerGen !== myGen) return;
             if (onHighlight) onHighlight(absIndex, highlightSectionId, highlightMacroIndex);
             uiTimeouts = uiTimeouts.filter(id => id !== highlightId);
         }, Math.max(0, delayMs));
@@ -613,6 +622,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
             if (!keepGoing) {
                 const remainingTimeMs = (nextNoteTime - getAudioCurrentTime()) * 1000;
                 setTimeout(() => {
+                    if (schedulerGen !== myGen) return;
                     stopThisPlayback();
                     if (onComplete) onComplete();
                 }, Math.max(0, remainingTimeMs));
@@ -643,6 +653,7 @@ export function playProgression(getState, onHighlight, onComplete, onDrumPlay, o
 
 // Export a general stop function that can be called if no specific playback instance is available
 export function stopAllAudio(onHighlightCallback, keepMelodyCache = false) {
+    schedulerGen++;
     uiTimeouts.forEach(clearTimeout);
     uiTimeouts = [];
     clearSequenceHighlights();

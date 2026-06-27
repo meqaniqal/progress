@@ -65,8 +65,13 @@ export function getChordSignature(chordNotes, periodSize = 12.0) {
     }).sort((a, b) => a - b).join(',');
 }
 
-export function getChordNotes(symbolOrChord, baseKey, divisions = 12, customTuning = null, skipCustomLookup = false) {
+export function getChordNotes(symbolOrChord, baseKey, divisions = 12, customTuning = null, skipCustomLookup = false, visited = new Set()) {
     if (symbolOrChord && typeof symbolOrChord === 'object') {
+        const sym = symbolOrChord.symbol;
+        if (sym) {
+            if (visited.has(sym)) return null;
+            visited.add(sym);
+        }
         if (symbolOrChord.customNotes && symbolOrChord.customNotes.length > 0) {
             const customNotes = symbolOrChord.customNotes;
             const isLegacy = typeof customNotes[0] === 'number';
@@ -80,7 +85,7 @@ export function getChordNotes(symbolOrChord, baseKey, divisions = 12, customTuni
                 return customNotes.map(n => n.pitch);
             }
             const chordKey = symbolOrChord.key !== undefined ? symbolOrChord.key : baseKey;
-            const computedNotes = getChordNotes(symbolOrChord.symbol, chordKey, chordDivisions, customTuning, true);
+            const computedNotes = getChordNotes(symbolOrChord.symbol, chordKey, chordDivisions, customTuning, true, visited);
             return customNotes.map((noteObj, i) => {
                 if (noteObj.isMicrotonal) {
                     return noteObj.pitch;
@@ -88,7 +93,7 @@ export function getChordNotes(symbolOrChord, baseKey, divisions = 12, customTuni
                 return computedNotes && computedNotes[i] !== undefined ? computedNotes[i] : noteObj.pitch;
             });
         }
-        return getChordNotes(symbolOrChord.symbol, symbolOrChord.key !== undefined ? symbolOrChord.key : baseKey, symbolOrChord.divisions || divisions, customTuning, skipCustomLookup);
+        return getChordNotes(symbolOrChord.symbol, symbolOrChord.key !== undefined ? symbolOrChord.key : baseKey, symbolOrChord.divisions || divisions, customTuning, skipCustomLookup, visited);
     }
     let symbol = symbolOrChord;
     if (!symbol || typeof symbol !== 'string') return null;
@@ -96,7 +101,11 @@ export function getChordNotes(symbolOrChord, baseKey, divisions = 12, customTuni
 
     if (!skipCustomLookup && typeof window !== 'undefined' && window.__customChords) {
         const found = window.__customChords.find(c => c.symbol === symbol);
-        if (found) return getChordNotes(found, baseKey, divisions, customTuning, true);
+        if (found) {
+            if (visited.has(symbol)) return null;
+            visited.add(symbol);
+            return getChordNotes(found, baseKey, divisions, customTuning, true, visited);
+        }
     }
 
     const tuning = getEffectiveTuning(symbol, divisions, customTuning);
@@ -855,6 +864,9 @@ export function parseScl(content) {
     
     const name = cleanLines[0];
     const noteCount = parseInt(cleanLines[1], 10);
+    if (isNaN(noteCount) || noteCount <= 0 || cleanLines.length < 2 + noteCount) {
+        return null;
+    }
     const offsets = [0.0];
     
     for (let i = 2; i < 2 + noteCount; i++) {

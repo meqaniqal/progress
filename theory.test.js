@@ -444,4 +444,47 @@ note 69 = 440.0`;
             expect(notes[2]).toBeCloseTo(67.0196, 3);
         });
     });
+
+    describe('Audit fixes validation tests', () => {
+        it('should return null when getChordNotes encounters a circular custom chord reference', () => {
+            const cycleA = { symbol: 'CYCLE_B' };
+            const cycleB = { symbol: 'CYCLE_A' };
+            
+            // Set up a mutual reference loop
+            cycleA.symbol = 'CYCLE_B';
+            cycleB.symbol = 'CYCLE_A';
+            
+            const originalCustomChords = global.window ? global.window.__customChords : undefined;
+            if (!global.window) {
+                global.window = {};
+            }
+            
+            global.window.__customChords = [
+                { symbol: 'CYCLE_A', customNotes: [ { pitch: 60 } ] },
+                { symbol: 'CYCLE_B', customNotes: [ { pitch: 62 } ] }
+            ];
+            
+            // We can pass a visited set containing CYCLE_A to simulate a cycle during traversal
+            const visited = new Set(['CYCLE_A']);
+            const result = getChordNotes(cycleA, 60, 12, null, false, visited);
+            expect(result).toBeNull();
+
+            // Cleanup
+            if (originalCustomChords === undefined) {
+                delete global.window.__customChords;
+            } else {
+                global.window.__customChords = originalCustomChords;
+            }
+        });
+
+        it('should return null from parseScl if note count exceeds actual pitch lines', () => {
+            const malformedScl = `! malformed.scl
+Scale with too few lines
+5
+100.0
+200.0`;
+            const parsed = parseScl(malformedScl);
+            expect(parsed).toBeNull();
+        });
+    });
 });

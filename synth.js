@@ -227,6 +227,7 @@ export async function loadPersistedDrumSamples() {
 }
 
 export async function clearCustomDrumSamples() {
+    decodeCtx = null;
     customDrumBuffers.kick = null;
     customDrumBuffers.snare = null;
     customDrumBuffers.chh = null;
@@ -239,6 +240,7 @@ export async function clearCustomDrumSamples() {
 }
 
 export async function clearCustomDrumSample(type) {
+    decodeCtx = null;
     customDrumBuffers[type] = null;
     customDrumPeaks[type] = null;
     await deleteDrumSample(type);
@@ -361,10 +363,20 @@ export function playTone(freq, startTime, duration, type = 'sine', destBus = nul
         }
     }
 
-    const osc = engine(audioCtx, finalFreq, startTime, duration, finalDest, (deadOsc) => {
-        activeOscillators.delete(deadOsc);
-        if (panner) panner.disconnect();
-    }, engineParams);
+    let osc;
+    try {
+        osc = engine(audioCtx, finalFreq, startTime, duration, finalDest, (deadOsc) => {
+            activeOscillators.delete(deadOsc);
+            if (panner) {
+                try { panner.disconnect(); } catch (err) {}
+            }
+        }, engineParams);
+    } catch (e) {
+        if (panner) {
+            try { panner.disconnect(); } catch (err) {}
+        }
+        throw e;
+    }
     
     if (osc) {
         activeOscillators.add(osc);
@@ -467,6 +479,7 @@ export async function loadPersistedBassSample() {
 }
 
 export async function clearCustomBassSample() {
+    decodeCtx = null;
     customBassBuffer = null;
     await deleteDrumSample('bassSample');
 }
@@ -498,6 +511,7 @@ export async function loadPersistedChordSample() {
 }
 
 export async function clearCustomChordSample() {
+    decodeCtx = null;
     customChordBuffer = null;
     await deleteDrumSample('chordSample');
 }
@@ -529,6 +543,7 @@ export async function loadPersistedMelodySample() {
 }
 
 export async function clearCustomMelodySample() {
+    decodeCtx = null;
     customMelodyBuffer = null;
     await deleteDrumSample('melodySample');
 }
@@ -560,6 +575,7 @@ export async function loadPersistedCountermelodySample() {
 }
 
 export async function clearCustomCountermelodySample() {
+    decodeCtx = null;
     customCountermelodyBuffer = null;
     await deleteDrumSample('countermelodySample');
 }
