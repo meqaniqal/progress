@@ -80,6 +80,15 @@ export class CompositionOrchestrator {
 
     let feedbackIteration = 0;
 
+    // Filter passes into structural and post-processing (refinement)
+    const structuralPasses = this.passes.filter(p => {
+      const name = p.name || p.constructor.name;
+      return name !== 'PhraseEngine' && name !== 'ExpectationEngine' && name !== 'VoiceLeadingEngine';
+    });
+    const phraseEngineTask = this.passes.find(p => (p.name || p.constructor.name) === 'PhraseEngine');
+    const expectationEngineTask = this.passes.find(p => (p.name || p.constructor.name) === 'ExpectationEngine');
+    const voiceLeadingEngineTask = this.passes.find(p => (p.name || p.constructor.name) === 'VoiceLeadingEngine');
+
     while (feedbackIteration < maxFeedbackIterations) {
       feedbackIteration++;
       
@@ -93,8 +102,9 @@ export class CompositionOrchestrator {
         this._applyFeedbackAdjustments(config, config.options.feedbackAdjustments);
       }
 
-      while (i < this.passes.length) {
-        const task = this.passes[i];
+      // Step 1: Run structural passes sequentially with backtracking
+      while (i < structuralPasses.length) {
+        const task = structuralPasses[i];
 
         // Check if time budget is running low (over 70% elapsed) to preserve real-time play
         if (this.timeBudget && this.timeBudget !== Infinity) {
@@ -147,11 +157,78 @@ export class CompositionOrchestrator {
       }
 
       // If we exited early due to time budget, exit the feedback loop
-      if (passResults.length < this.passes.length) {
+      if (passResults.length < structuralPasses.length) {
         break;
       }
 
-      // Assemble candidate melody
+      // Step 2: Run post-processing refinement loop
+      if (phraseEngineTask && expectationEngineTask && voiceLeadingEngineTask) {
+        // Run PhraseEngine first to establish phrase structure
+        const accumulatedStructural = this._accumulateNotes(passResults);
+        const phraseResult = await this._executePassWithRegeneration(phraseEngineTask, config, accumulatedStructural);
+        
+        this._passNotes.set(phraseResult.passName, [...phraseResult.notes]);
+        passResults.push(phraseResult);
+        this.executionLog.push({
+          passName: phraseResult.passName,
+          score: phraseResult.metrics.score,
+          issues: phraseResult.metrics.issues,
+          noteCount: phraseResult.notes.length,
+        });
+
+        let currentRefinementNotes = [...phraseResult.notes];
+        let previousIterationNotes = [];
+
+        const maxRefinementIterations = 3;
+        for (let refIter = 1; refIter <= maxRefinementIterations; refIter++) {
+          if (this.timeBudget && this.timeBudget !== Infinity) {
+            const elapsed = performance.now() - this._startTime;
+            if (elapsed > this.timeBudget * 0.9) {
+              console.warn(`[Orchestrator] Time budget low (${elapsed.toFixed(1)}ms). Exiting refinement early.`);
+              break;
+            }
+          }
+
+          previousIterationNotes = [...currentRefinementNotes];
+
+          // Run ExpectationEngine
+          const expResult = await this._executePassWithRegeneration(expectationEngineTask, config, currentRefinementNotes);
+          
+          // Run VoiceLeadingEngine on ExpectationEngine's output
+          const vlResult = await this._executePassWithRegeneration(voiceLeadingEngineTask, config, expResult.notes);
+
+          currentRefinementNotes = [...vlResult.notes];
+
+          // Update the recorded pass results and log entries
+          const expIdx = passResults.findIndex(r => r.passName === expResult.passName);
+          if (expIdx !== -1) passResults[expIdx] = expResult;
+          else passResults.push(expResult);
+
+          const vlIdx = passResults.findIndex(r => r.passName === vlResult.passName);
+          if (vlIdx !== -1) passResults[vlIdx] = vlResult;
+          else passResults.push(vlResult);
+
+          this._passNotes.set(expResult.passName, [...expResult.notes]);
+          this._passNotes.set(vlResult.passName, [...vlResult.notes]);
+
+          const expLogIdx = this.executionLog.findIndex(e => e.passName === expResult.passName);
+          const expLogEntry = { passName: expResult.passName, score: expResult.metrics.score, issues: expResult.metrics.issues, noteCount: expResult.notes.length };
+          if (expLogIdx !== -1) this.executionLog[expLogIdx] = expLogEntry;
+          else this.executionLog.push(expLogEntry);
+
+          const vlLogIdx = this.executionLog.findIndex(e => e.passName === vlResult.passName);
+          const vlLogEntry = { passName: vlResult.passName, score: vlResult.metrics.score, issues: vlResult.metrics.issues, noteCount: vlResult.notes.length };
+          if (vlLogIdx !== -1) this.executionLog[vlLogIdx] = vlLogEntry;
+          else this.executionLog.push(vlLogEntry);
+
+          // Exit early if notes stabilized
+          if (this._areNotesEqual(previousIterationNotes, currentRefinementNotes)) {
+            break;
+          }
+        }
+      }
+
+      // Assemble candidate melody from current pass results
       const finalAccumulatedNotes = this._accumulateNotes(passResults);
       const deduplicated = this._deduplicateOverlappingNotes(finalAccumulatedNotes);
       const soundingNotes = deduplicated.filter(n => n.duration > 0);
@@ -171,19 +248,33 @@ export class CompositionOrchestrator {
       // Evaluate globally
       const globalEvaluation = this._evaluateMelodyGlobally(snappedNotes, config);
 
-      if (globalEvaluation.score > bestScore) {
-        bestScore = globalEvaluation.score;
+      // Evaluate subcomponents and compatibility
+      const subcomponentScores = this._evaluateSubcomponents(passResults, snappedNotes, config);
+      const compatibilityEvaluation = this._evaluateCompatibility(snappedNotes, passResults, config);
+
+      // Combine global evaluation issues and compatibility issues
+      const allIssues = [
+        ...globalEvaluation.issues,
+        ...compatibilityEvaluation.issues
+      ];
+
+      // Update global score to be influenced by subcomponent coherence and compatibility
+      const avgSubcomponentScore = Object.values(subcomponentScores).reduce((a, b) => a + b, 0) / Object.keys(subcomponentScores).length;
+      const combinedScore = (globalEvaluation.score * 0.5) + (avgSubcomponentScore * 0.3) + (compatibilityEvaluation.score * 0.2);
+
+      if (combinedScore > bestScore) {
+        bestScore = combinedScore;
         bestNotes = snappedNotes;
         bestPassResults = [...passResults];
         bestExecutionLog = [...this.executionLog];
       }
 
       // If score passes threshold (>= 0.75), or we are in safeMode, stop iterating
-      if (globalEvaluation.passesThreshold || config.options.safeMode) {
+      if ((combinedScore >= 0.75 && compatibilityEvaluation.score >= 0.8) || config.options.safeMode) {
         break;
       }
 
-      config.options.feedbackAdjustments = globalEvaluation.issues;
+      config.options.feedbackAdjustments = allIssues;
     }
 
     return new MelodyResult(bestNotes || [], {
@@ -199,6 +290,21 @@ export class CompositionOrchestrator {
       globalScore: bestScore,
       executionTimeMs: performance.now() - this._startTime
     });
+  }
+
+  /**
+   * Helper to check if two sets of MelodyNotes are identical in pitch and duration.
+   * @private
+   */
+  _areNotesEqual(notesA, notesB) {
+    if (!notesA || !notesB) return false;
+    if (notesA.length !== notesB.length) return false;
+    for (let i = 0; i < notesA.length; i++) {
+      if (!notesA[i].equals(notesB[i])) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
@@ -296,6 +402,203 @@ export class CompositionOrchestrator {
   }
 
   /**
+   * Evaluate subcomponents individually to verify specialized coherence.
+   * @private
+   */
+  _evaluateSubcomponents(passResults, notes, config) {
+    const scores = {};
+
+    // 1. PhraseEngine
+    const phrasePass = passResults.find(r => r.passName === 'PhraseEngine');
+    if (phrasePass && phrasePass.metadata && phrasePass.metadata.arc) {
+      const arc = phrasePass.metadata.arc;
+      let climaxScore = 1.0;
+      if (notes.length > 0) {
+        const maxPitch = Math.max(...notes.map(n => n.pitch));
+        const climaxNotes = notes.filter(n => {
+          const isClimaxSlot = Math.round(n.startTime) === arc.climaxSlot;
+          const isClimaxPos = arc.climaxPositions && arc.climaxPositions.includes(Math.round(n.startTime));
+          return isClimaxSlot || isClimaxPos;
+        });
+        const hasHighestAtClimax = climaxNotes.some(n => Math.abs(n.pitch - maxPitch) <= 1);
+        if (!hasHighestAtClimax) climaxScore = 0.5;
+      }
+      
+      const baseRegister = config.options?.baseRegister || 60;
+      const stepSize = 12.0 / (config.options?.divisions || 12);
+      let insideEnvelopeCount = 0;
+      let totalChecked = 0;
+      notes.forEach(note => {
+        const slotIndex = Math.round(note.startTime);
+        if (slotIndex >= 0 && slotIndex < arc.registers.length) {
+          const registerFraction = arc.registers[slotIndex];
+          const registerCeiling = baseRegister + 12 + (registerFraction * stepSize * 0.5);
+          const registerFloor = baseRegister + (registerFraction * stepSize * 0.25);
+          totalChecked++;
+          if (note.pitch >= registerFloor && note.pitch <= registerCeiling) {
+            insideEnvelopeCount++;
+          }
+        }
+      });
+      const registerScore = totalChecked > 0 ? insideEnvelopeCount / totalChecked : 1.0;
+      scores.PhraseEngine = (climaxScore + registerScore) / 2;
+    } else {
+      scores.PhraseEngine = 1.0;
+    }
+
+    // 2. MotifEngine
+    const motifNotes = notes.filter(n => n.metadata && n.metadata.motifId);
+    const motifRatio = notes.length > 0 ? motifNotes.length / notes.length : 1.0;
+    const validTransformations = ['transposition', 'sequence', 'inversion', 'retrograde', 'augmentation', 'diminution'];
+    let validTransformCount = 0;
+    motifNotes.forEach(n => {
+      if (n.metadata.motifTransformation && validTransformations.includes(n.metadata.motifTransformation)) {
+        validTransformCount++;
+      }
+    });
+    const transformScore = motifNotes.length > 0 ? validTransformCount / motifNotes.length : 1.0;
+    scores.MotifEngine = (motifRatio + transformScore) / 2;
+
+    // 3. StyleEngine
+    const stylePass = passResults.find(r => r.passName === 'StyleEngine');
+    const activeStyle = stylePass?.metadata?.activeStyle || config.options?.style || 'pop';
+    const maxInterval = activeStyle === 'baroque' ? 8 : (activeStyle === 'jazz' ? 14 : 12);
+    let styleViolations = 0;
+    for (let i = 1; i < notes.length; i++) {
+      if (Math.abs(notes[i].pitch - notes[i-1].pitch) > maxInterval) {
+        styleViolations++;
+      }
+    }
+    scores.StyleEngine = notes.length > 1 ? 1.0 - (styleViolations / (notes.length - 1)) : 1.0;
+
+    // 4. RhythmEngine
+    const targetDensity = config.options?.density ?? 0.5;
+    const activeNotes = notes.filter(n => n.duration > 0).length;
+    const actualDensity = notes.length > 0 ? activeNotes / notes.length : 0;
+    const densityScore = 1.0 - Math.abs(actualDensity - targetDensity);
+    scores.RhythmEngine = Math.max(0, densityScore);
+
+    // 5. ExpectationEngine
+    const expectationAdjusted = notes.filter(n => n.metadata && n.metadata.expectationAdjusted);
+    const resolvedPayoffs = expectationAdjusted.filter(n => n.metadata.adjustmentReason === 'payoff' || n.metadata.adjustmentReason === 'compensation');
+    const expectationScore = expectationAdjusted.length > 0 ? resolvedPayoffs.length / expectationAdjusted.length : 1.0;
+    scores.ExpectationEngine = expectationScore;
+
+    // 6. VoiceLeadingEngine
+    let totalLeaps = 0;
+    let compensatedLeaps = 0;
+    for (let i = 1; i < notes.length - 1; i++) {
+      const prev = notes[i - 1].pitch;
+      const curr = notes[i].pitch;
+      const next = notes[i + 1].pitch;
+      const interval1 = curr - prev;
+      const interval2 = next - curr;
+      if (Math.abs(interval1) > 7) {
+        totalLeaps++;
+        if (Math.sign(interval1) !== Math.sign(interval2)) {
+          compensatedLeaps++;
+        }
+      }
+    }
+    scores.VoiceLeadingEngine = totalLeaps > 0 ? compensatedLeaps / totalLeaps : 1.0;
+
+    return scores;
+  }
+
+  /**
+   * Evaluate compatibility cross-engine relationships.
+   * @private
+   */
+  _evaluateCompatibility(notes, passResults, config) {
+    const issues = [];
+    let score = 1.0;
+
+    const phrasePass = passResults.find(r => r.passName === 'PhraseEngine');
+    const rhythmPass = passResults.find(r => r.passName === 'RhythmEngine');
+
+    if (notes.length === 0) return { score: 1.0, issues: [] };
+
+    // 1. Phrase arc roles check
+    if (phrasePass && phrasePass.metadata && phrasePass.metadata.arc) {
+      const arc = phrasePass.metadata.arc;
+      let phraseMismatches = 0;
+      notes.forEach(note => {
+        const slotIndex = Math.round(note.startTime);
+        if (slotIndex >= 0 && slotIndex < arc.roles.length) {
+          const expectedRole = arc.roles[slotIndex];
+          if (note.role === 'structural' && expectedRole && note.metadata.phraseRole && note.metadata.phraseRole !== expectedRole) {
+            phraseMismatches++;
+          }
+        }
+      });
+      if (phraseMismatches > notes.length * 0.3) {
+        issues.push('rhythm-phrase-role-mismatch');
+        score -= 0.15;
+      }
+    }
+
+    // 2. Voice-leading preserving motif identity check
+    const vlAdjustedMotifNotes = notes.filter(n => n.metadata && n.metadata.voiceLeadingAdjusted && n.metadata.motifId);
+    let motifCorruptions = 0;
+    vlAdjustedMotifNotes.forEach(n => {
+      if (n.metadata.pitchOffset && Math.abs(n.metadata.pitchOffset) > 2) {
+        motifCorruptions++;
+      }
+    });
+    if (motifCorruptions > 0) {
+      issues.push('voice-leading-motif-disruption');
+      score -= 0.15;
+    }
+
+    // 3. Expectation vs Style constraints check
+    const stylePass = passResults.find(r => r.passName === 'StyleEngine');
+    const activeStyle = stylePass?.metadata?.activeStyle || config.options?.style || 'pop';
+    const maxInterval = activeStyle === 'baroque' ? 8 : (activeStyle === 'jazz' ? 14 : 12);
+    let expectationStyleViolations = 0;
+    for (let i = 1; i < notes.length; i++) {
+      const isExpectationAdjusted = notes[i].metadata && notes[i].metadata.expectationAdjusted;
+      if (isExpectationAdjusted) {
+        const interval = Math.abs(notes[i].pitch - notes[i - 1].pitch);
+        if (interval > maxInterval) {
+          expectationStyleViolations++;
+        }
+      }
+    }
+    if (expectationStyleViolations > 0) {
+      issues.push('expectation-style-violation');
+      score -= 0.15;
+    }
+
+    // 4. Ornament consistency with Rhythm template
+    if (rhythmPass && rhythmPass.metadata && rhythmPass.metadata.activeTemplate) {
+      const template = rhythmPass.metadata.activeTemplate;
+      const stepsPerMeasure = this.stepsPerMeasure || 16;
+      const activeChord = config.chords?.[0];
+      const chordDuration = activeChord ? (activeChord.duration || 2) : 4;
+
+      let inconsistentOrnaments = 0;
+      const ornaments = notes.filter(n => n.role === 'ornament' && n.duration > 0);
+      ornaments.forEach(note => {
+        const measureStart = Math.floor(note.startTime / chordDuration) * chordDuration;
+        const offsetInMeasure = note.startTime - measureStart;
+        const sixteenthStep = Math.round((offsetInMeasure / chordDuration) * stepsPerMeasure) % stepsPerMeasure;
+        if (template.grid && template.grid[sixteenthStep] === 0) {
+          inconsistentOrnaments++;
+        }
+      });
+      if (ornaments.length > 0 && (inconsistentOrnaments / ornaments.length) > 0.5) {
+        issues.push('ornament-rhythm-inconsistency');
+        score -= 0.15;
+      }
+    }
+
+    return {
+      score: Math.max(0.0, Math.min(1.0, score)),
+      issues
+    };
+  }
+
+  /**
    * Adjust parameters in GenerationConfig based on feedback issues.
    * @param {GenerationConfig} config - Target configuration
    * @param {string[]} issues - List of issues detected in evaluation
@@ -310,6 +613,7 @@ export class CompositionOrchestrator {
           break;
         case 'excessive-uncompensated-leaps':
           config.options.maxLeap = Math.max(4, (config.options.maxLeap || 12) - 2);
+          config.options.leapThreshold = Math.max(4, (config.options.leapThreshold || 7) - 1);
           break;
         case 'weak-harmonic-responsiveness':
           config.options.strictChordTones = true;
@@ -319,6 +623,18 @@ export class CompositionOrchestrator {
           break;
         case 'low-motivic-coherence':
           config.options.pitchDiversityWeight = Math.max(0.1, (config.options.pitchDiversityWeight || 0.0) - 0.2);
+          break;
+        case 'rhythm-phrase-role-mismatch':
+          config.options.density = Math.max(0.2, (config.options.density || 0.5) - 0.1);
+          break;
+        case 'voice-leading-motif-disruption':
+          config.options.transformProbability = Math.max(0.1, (config.options.transformProbability || 0.5) - 0.15);
+          break;
+        case 'expectation-style-violation':
+          config.options.leapThreshold = Math.max(4, (config.options.leapThreshold || 7) - 1);
+          break;
+        case 'ornament-rhythm-inconsistency':
+          config.options.density = Math.max(0.1, (config.options.density || 0.3) - 0.1);
           break;
       }
     });

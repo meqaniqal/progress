@@ -76,4 +76,38 @@ describe('Adaptive Orchestrator & Safe Mode Fallbacks', () => {
       expect(note.pitch).toBeLessThanOrEqual(76);
     });
   });
+
+  describe('Hierarchical Composable Modeling', () => {
+    test('should compute valid subcomponent scores', async () => {
+      const orchestrator = new CompositionOrchestrator();
+      const notes = [
+        new MelodyNote(60, 0, 1.0, 'structural', { motifId: 'motif_1', motifTransformation: 'transposition' }),
+        new MelodyNote(64, 1, 1.0, 'structural', { motifId: 'motif_1', motifTransformation: 'transposition' }),
+      ];
+      const config = new GenerationConfig(chords, phraseContext);
+      const passResults = [
+        { passName: 'PhraseEngine', metadata: { arc: { climaxSlot: 1, climaxPositions: [1], registers: [0.5, 0.9], roles: ['statement', 'climax'] } } }
+      ];
+
+      const subcomponentScores = orchestrator._evaluateSubcomponents(passResults, notes, config);
+      expect(subcomponentScores.PhraseEngine).toBeDefined();
+      expect(subcomponentScores.MotifEngine).toBe(1.0);
+      expect(subcomponentScores.StyleEngine).toBe(1.0);
+    });
+
+    test('should detect compatibility issues and enforce refinement', async () => {
+      const orchestrator = new CompositionOrchestrator();
+      const notes = [
+        new MelodyNote(60, 0, 1.0, 'structural', { phraseRole: 'climax' }), // Mismatch with expected role
+      ];
+      const config = new GenerationConfig(chords, phraseContext);
+      const passResults = [
+        { passName: 'PhraseEngine', metadata: { arc: { roles: ['statement'] } } }
+      ];
+
+      const compat = orchestrator._evaluateCompatibility(notes, passResults, config);
+      expect(compat.issues).toContain('rhythm-phrase-role-mismatch');
+      expect(compat.score).toBeLessThan(1.0);
+    });
+  });
 });
