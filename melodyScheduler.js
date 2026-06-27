@@ -60,6 +60,19 @@ import { generateCountermelodyNote } from './melodyCountermelody.js';
 
 const MAX_COUNTER_NOTES_PER_SLOT = 8;
 
+function hasPc(set, pc, periodSize = 12) {
+    const pcMod = ((pc % periodSize) + periodSize) % periodSize;
+    for (const item of set) {
+        const itemMod = ((item % periodSize) + periodSize) % periodSize;
+        let diff = Math.abs(itemMod - pcMod);
+        if (diff > periodSize / 2) {
+            diff = periodSize - diff;
+        }
+        if (diff < 0.01) return true;
+    }
+    return false;
+}
+
 
 
 /**
@@ -296,7 +309,7 @@ export function scheduleMelody(
         // Overlap compatibility check: count how many pitch classes are shared with globalScalePitches
         let sharedCount = 0;
         candidateScalePcSet.forEach(pc => {
-            if (globalScalePcSet.has(pc)) sharedCount++;
+            if (hasPc(globalScalePcSet, pc, periodSize)) sharedCount++;
         });
 
         if (sharedCount >= 3) {
@@ -327,7 +340,7 @@ export function scheduleMelody(
     const prunedScalePitches = scalePitches.filter(sp => {
         return !activeChordTones.some(ct => {
             const ctPc = Math.round(((ct % periodSize + periodSize) % periodSize) * 100) / 100;
-            const isChromaticChordTone = !activeScalePcSet.has(ctPc);
+            const isChromaticChordTone = !hasPc(activeScalePcSet, ctPc, periodSize);
             if (isChromaticChordTone) {
                 const diff = Math.abs(sp - ct);
                 return diff > 0.01 && diff < 0.5;
@@ -465,7 +478,7 @@ export function scheduleMelody(
     const counterPrunedScalePitches = counterScalePitches.filter(sp => {
         return !counterActiveChordTones.some(ct => {
             const ctPc = Math.round(((ct % periodSize + periodSize) % periodSize) * 100) / 100;
-            const isChromaticChordTone = !counterActiveScalePcSet.has(ctPc);
+            const isChromaticChordTone = !hasPc(counterActiveScalePcSet, ctPc, periodSize);
             if (isChromaticChordTone) {
                 const diff = Math.abs(sp - ct);
                 return diff > 0.01 && diff < 1.1;
@@ -486,13 +499,13 @@ export function scheduleMelody(
         if (!nextChordNotes || nextChordNotes.length === 0) return null;
         const chromaticNextTones = nextChordNotes.filter(n => {
             const pc = Math.round(((n % periodSize + periodSize) % periodSize) * 100) / 100;
-            return !activeScalePcSet.has(pc);
+            return !hasPc(activeScalePcSet, pc, periodSize);
         });
         if (chromaticNextTones.length > 0) return chromaticNextTones[0];
 
         const newNextTones = nextChordNotes.filter(n => {
             const pc = Math.round(((n % periodSize + periodSize) % periodSize) * 100) / 100;
-            return !chordTonePcSet.has(pc);
+            return !hasPc(chordTonePcSet, pc, periodSize);
         });
         if (newNextTones.length > 0) return newNextTones[0];
 
@@ -757,6 +770,12 @@ export function scheduleMelody(
     const isConsequentPhrase = (absIndex % 2 === 1);
 
     let prevPitch = globalPrevPitch !== null ? globalPrevPitch : (melodyRangeStart + 6);
+    if (isLocalScale && globalPrevPitch !== null) {
+        const prevPc = ((prevPitch % periodSize) + periodSize) % periodSize;
+        if (!hasPc(activeScalePcSet, prevPc, periodSize)) {
+            prevPitch = findClosest(prevPitch, scalePitches);
+        }
+    }
     let prevCounterPitch = globalPrevCounterPitch !== null ? globalPrevCounterPitch : counterRangeStart + 6;
     let lastInterval = globalLastInterval;
 
@@ -1200,12 +1219,12 @@ export function scheduleMelody(
 
                         const activatedSteps = [];
                         if (clusterType < 0.4) {
-                            if (i > 0) activatedSteps.push(gridSteps[i - 1]);
-                            if (i < gridSteps.length - 1) activatedSteps.push(gridSteps[i + 1]);
+                            if (i > 1) activatedSteps.push(gridSteps[i - 2]);
+                            if (i < gridSteps.length - 2) activatedSteps.push(gridSteps[i + 2]);
                         } else if (clusterType < 0.7) {
-                            if (i < gridSteps.length - 2) activatedSteps.push(gridSteps[i + 1], gridSteps[i + 2]);
+                            if (i < gridSteps.length - 4) activatedSteps.push(gridSteps[i + 2], gridSteps[i + 4]);
                         } else {
-                            if (i > 2) activatedSteps.push(gridSteps[i - 1], gridSteps[i - 2]);
+                            if (i > 3) activatedSteps.push(gridSteps[i - 2], gridSteps[i - 4]);
                         }
 
                         activatedSteps.forEach(neighbor => {
@@ -1221,8 +1240,8 @@ export function scheduleMelody(
                                 allClusterSteps[1].clusterRole = 'foreshadow_note';
                             } else if (M >= 3) {
                                 allClusterSteps[0].clusterRole = 'reinforce';
-                                allClusterSteps[1].clusterRole = 'foreshadow_note';
-                                for (let j = 2; j < M; j++) {
+                                allClusterSteps[M - 1].clusterRole = 'foreshadow_note';
+                                for (let j = 1; j < M - 1; j++) {
                                     allClusterSteps[j].clusterRole = 'foreshadow_glue';
                                 }
                             } else {
@@ -1281,6 +1300,9 @@ export function scheduleMelody(
             }
 
             // Rubato / Timing Warp for Flourish Runs
+            activeSteps.forEach(g => {
+                g.warpedStepTime = g.stepTime;
+            });
             if (slotHasFlourish) {
                 const runSteps = activeSteps.filter(g => g.sixteenthStep >= runStartStep && g.sixteenthStep < runStartStep + runLength);
                 if (runSteps.length > 2) {
@@ -1306,7 +1328,7 @@ export function scheduleMelody(
 
                     for (let i = 0; i < N; i++) {
                         const x = i / N;
-                        runSteps[i].stepTime = t_start + D * warpFn(x);
+                        runSteps[i].warpedStepTime = t_start + D * warpFn(x);
                     }
                 }
             }
@@ -1314,10 +1336,10 @@ export function scheduleMelody(
             // Legato note duration scaling
             for (let i = 0; i < activeSteps.length; i++) {
                 const current = activeSteps[i];
-                const nextTime = (i < activeSteps.length - 1) ? activeSteps[i + 1].stepTime : (time + chordSlotDuration);
-                const gap = nextTime - current.stepTime;
+                const nextTime = (i < activeSteps.length - 1) ? activeSteps[i + 1].warpedStepTime : (time + chordSlotDuration);
+                const gap = nextTime - current.warpedStepTime;
                 const mult = Math.max(0.4, 0.9 - (settings.rests || 0.1) * 0.5);
-                current.noteDuration = gap * mult;
+                current.noteDuration = Math.max((60 / bpm) / 4, gap * mult);
             }
         }
 
@@ -1384,7 +1406,7 @@ export function scheduleMelody(
                         if (g.clusterRole === 'reinforce') {
                             effectiveValidPitches = validPitches.filter(p => {
                                 const pc = Math.round(((p % periodSize + periodSize) % periodSize) * 100) / 100;
-                                return chordTonePcSet.has(pc);
+                                return hasPc(chordTonePcSet, pc, periodSize);
                             });
                         } else if (g.clusterRole === 'foreshadow_note') {
                             effectiveValidPitches = nextChordTones.length > 0 ? nextChordTones : validPitches;
@@ -1395,25 +1417,34 @@ export function scheduleMelody(
                         } else if (g.clusterRole === 'commontone') {
                             effectiveValidPitches = validPitches.filter(p => {
                                 const pc = Math.round(((p % periodSize + periodSize) % periodSize) * 100) / 100;
-                                return chordTonePcSet.has(pc) && nextChordTonePcSet.has(pc);
+                                return hasPc(chordTonePcSet, pc, periodSize) && hasPc(nextChordTonePcSet, pc, periodSize);
                             });
                         }
-                        if (effectiveValidPitches.length === 0) {
+                        if (effectiveValidPitches.length < 3) {
                             effectiveValidPitches = validPitches.filter(p => {
                                 const pc = Math.round(((p % periodSize + periodSize) % periodSize) * 100) / 100;
-                                return chordTonePcSet.has(pc);
+                                return hasPc(chordTonePcSet, pc, periodSize);
                             });
+                        }
+                        if (effectiveValidPitches.length < 3) {
+                            effectiveValidPitches = validPitches;
                         }
                     } else if (isIsolated) {
                         effectiveValidPitches = getStableTones(activeChordTones, chordKey, keyRoot, periodSize, validPitches);
+                        if (effectiveValidPitches.length < 3) {
+                            effectiveValidPitches = validPitches;
+                        }
                     }
                 }
-                if (effectiveValidPitches.length === 0) {
+                if (effectiveValidPitches.length < 3) {
                     effectiveValidPitches = validPitches;
                 }
 
                 if (prevWasBlue && lastBluePitch !== null) {
-                    effectiveValidPitches = effectiveValidPitches.filter(p => Math.abs(p - (lastBluePitch - 1)) > 0.01);
+                    const filtered = effectiveValidPitches.filter(p => Math.abs(p - (lastBluePitch - 1)) > 0.01);
+                    if (filtered.length >= 3) {
+                        effectiveValidPitches = filtered;
+                    }
                 }
 
                 // Color tone constraint (Pass 2)
@@ -1422,10 +1453,13 @@ export function scheduleMelody(
                     && g.beat !== 0 && g.beat !== 2;
 
                 if (!canUseColorTone && settings.genre !== 'none') {
-                    effectiveValidPitches = effectiveValidPitches.filter(p => {
+                    const filtered = effectiveValidPitches.filter(p => {
                         const pc = Math.round(((p % periodSize + periodSize) % periodSize) * 100) / 100;
-                        return activeScalePcSet.has(pc) || chordTonePcSet.has(pc);
+                        return hasPc(activeScalePcSet, pc, periodSize) || hasPc(chordTonePcSet, pc, periodSize);
                     });
+                    if (filtered.length >= 3) {
+                        effectiveValidPitches = filtered;
+                    }
                 }
 
                 if (g.clusterRole === 'foreshadow_note' && settings.genre !== 'none') {
@@ -1437,7 +1471,11 @@ export function scheduleMelody(
                         pitch = findClosest(target, effectiveValidPitches);
                         
                         if (nextChordNotes && nextChordNotes.length > 0) {
-                            const isNextChordTone = nextChordNotes.some(n => Math.abs((n % 12) - (pitch % 12)) < 0.5);
+                            const isNextChordTone = nextChordNotes.some(n => {
+                                let diff = Math.abs((n % periodSize) - (pitch % periodSize));
+                                if (diff > periodSize / 2) diff = periodSize - diff;
+                                return diff < 0.5;
+                            });
                             if (!isNextChordTone) {
                                 const nextChordTonesMapped = nextChordNotes.map(n => {
                                     let note = n;
@@ -1446,11 +1484,6 @@ export function scheduleMelody(
                                     return note;
                                 });
                                 pitch = findClosest(target, nextChordTonesMapped);
-                                // Ensure the fallback pitch is valid for the current chord context
-                                const isValidPitch = effectiveValidPitches.some(p => Math.abs(p - pitch) < 0.5);
-                                if (!isValidPitch) {
-                                    pitch = findClosest(target, effectiveValidPitches);
-                                }
                             }
                         }
                     } else {
@@ -1465,23 +1498,22 @@ export function scheduleMelody(
                     }).filter(n => n >= melodyRangeStart && n <= melodyRangeEnd);
                     const resolutionTarget = nextChordTones.length > 0 ? findClosest(prevPitch, nextChordTones) : prevPitch;
 
-                    const nextScaleIntervals = nextChordObj ? getScaleIntervals(deduceSourceMode(nextChordObj.symbol, state.mode || 'major') || state.mode || 'major', settings.genre, divisions) : globalScaleIntervals;
-                    const nextScalePitchesRaw = buildScalePitches(nextChordObj && nextChordObj.key !== undefined ? Number(nextChordObj.key) : keyRoot, nextScaleIntervals, divisions, melodyRangeStart, melodyRangeEnd, periodSize);
-                    const nextScalePitches = adjustScalePitches(nextScalePitchesRaw);
-
                     const stepDir = resolutionTarget > prevPitch ? 1 : (resolutionTarget < prevPitch ? -1 : (rng.next() > 0.5 ? 1 : -1));
-                    const prevIdxInNextScale = findScaleIndex(findClosest(prevPitch, nextScalePitches), nextScalePitches, divisions);
+                    const prevIdxInCurrentScale = findScaleIndex(findClosest(prevPitch, scalePitches), scalePitches, divisions);
                     let gluePitch = prevPitch;
-                    if (prevIdxInNextScale !== -1) {
-                        const glueIdx = Math.max(0, Math.min(nextScalePitches.length - 1, prevIdxInNextScale + stepDir));
-                        gluePitch = nextScalePitches[glueIdx];
+                    if (prevIdxInCurrentScale !== -1) {
+                        const glueIdx = Math.max(0, Math.min(scalePitches.length - 1, prevIdxInCurrentScale + stepDir));
+                        gluePitch = scalePitches[glueIdx];
                     } else {
                         gluePitch = prevPitch + stepDir * (12 / divisions);
                     }
+                    const nextScaleIntervals = nextChordObj ? getScaleIntervals(deduceSourceMode(nextChordObj.symbol, state.mode || 'major') || state.mode || 'major', settings.genre, divisions) : globalScaleIntervals;
+                    const nextScalePitchesRaw = buildScalePitches(nextChordObj && nextChordObj.key !== undefined ? Number(nextChordObj.key) : keyRoot, nextScaleIntervals, divisions, melodyRangeStart, melodyRangeEnd, periodSize);
+                    const nextScalePitches = adjustScalePitches(nextScalePitchesRaw);
                     const nextScalePcSet = new Set(nextScalePitches.map(p => Math.round(((p % periodSize + periodSize) % periodSize) * 100) / 100));
                     const commonScalePitches = effectiveValidPitches.filter(p => {
                         const pc = Math.round(((p % periodSize + periodSize) % periodSize) * 100) / 100;
-                        return activeScalePcSet.has(pc) && nextScalePcSet.has(pc);
+                        return hasPc(activeScalePcSet, pc, periodSize) && hasPc(nextScalePcSet, pc, periodSize);
                     });
 
                     if (commonScalePitches.length > 0) {
@@ -1707,7 +1739,7 @@ export function scheduleMelody(
 
                 melodyScheduled.push({
                     pitch,
-                    stepTime: g.stepTime,
+                    stepTime: g.warpedStepTime || g.stepTime,
                     noteDuration: g.noteDuration,
                     melodyInst,
                     step: g.sixteenthStep,
@@ -1862,9 +1894,9 @@ export function scheduleMelody(
             const n = melodyScheduled[i];
             const nextTime = (i < melodyScheduled.length - 1) ? melodyScheduled[i + 1].stepTime : (time + chordSlotDuration);
 
-            // Ensure note duration does not overlap with the next scheduled note
+             // Ensure note duration does not overlap with the next scheduled note
             if (n.stepTime + n.noteDuration > nextTime) {
-                n.noteDuration = Math.max(0.01, nextTime - n.stepTime);
+                n.noteDuration = Math.max(0.01, nextTime - n.stepTime - 0.015);
             }
 
             const silenceDuration = nextTime - (n.stepTime + n.noteDuration);
@@ -1872,7 +1904,7 @@ export function scheduleMelody(
             // 0. Sanitation Pass: Resolve passing/color notes (non-chord tones that are also non-scale tones)
             if (settings.genre !== 'none' && settings.genre !== 'jazz' && settings.genre !== 'blues') {
                 const pc = Math.round(((n.pitch % periodSize + periodSize) % periodSize) * 100) / 100;
-                const isColorTone = !chordTonePcSet.has(pc) && !activeScalePcSet.has(pc);
+                const isColorTone = !hasPc(chordTonePcSet, pc, periodSize) && !hasPc(activeScalePcSet, pc, periodSize);
                 if (isColorTone && activeChordTones.length > 0) {
                     const nextActiveNote = (i < melodyScheduled.length - 1) ? melodyScheduled[i + 1] : null;
                     const isNextClose = nextActiveNote && (nextActiveNote.sixteenthStep - n.sixteenthStep <= 4);
@@ -1881,12 +1913,12 @@ export function scheduleMelody(
                         n.pitch = findClosest(n.pitch, activeChordTones);
                     } else {
                         const nextPc = Math.round(((nextActiveNote.pitch % periodSize + periodSize) % periodSize) * 100) / 100;
-                        const isNextChordTone = chordTonePcSet.has(nextPc);
+                        const isNextChordTone = hasPc(chordTonePcSet, nextPc, periodSize);
                         const isStepwise = Math.abs(n.pitch - nextActiveNote.pitch) <= 2.01;
                         
                         const prevActiveNote = (i > 0) ? melodyScheduled[i - 1] : null;
                         const prevPc = prevActiveNote ? Math.round(((prevActiveNote.pitch % periodSize + periodSize) % periodSize) * 100) / 100 : null;
-                        const isPrevChordTone = prevPc !== null && chordTonePcSet.has(prevPc);
+                        const isPrevChordTone = prevPc !== null && hasPc(chordTonePcSet, prevPc, periodSize);
                         
                         if (!isNextChordTone || !isStepwise || !isPrevChordTone) {
                             n.pitch = findClosest(n.pitch, activeChordTones);
@@ -1900,10 +1932,10 @@ export function scheduleMelody(
             const isConsequentFinal = (i === melodyScheduled.length - 1) && isConsequentPhrase && !isDominantChord(chordObj);
             const timeToNextChord = (time + chordSlotDuration) - n.stepTime;
             const isCloseToNextChord = timeToNextChord <= beatLen + 0.01;
-            if (silenceDuration > 0.6 * beatLen && !isConsequentFinal && isCloseToNextChord) {
+            if (silenceDuration > 0.8 * beatLen && !isConsequentFinal && isCloseToNextChord && (n.sixteenthStep % 4 === 0)) {
                 if (nextChordObj && nextChordNotes.length > 0) {
                     const origPc = Math.round(((n.pitch % periodSize + periodSize) % periodSize) * 100) / 100;
-                    const isOrigChordTone = chordTonePcSet.has(origPc);
+                    const isOrigChordTone = hasPc(chordTonePcSet, origPc, periodSize);
                     
                     const candidatePitches = nextChordNotes.map(ct => getClosestOctaveEquivalent(n.pitch, ct, periodSize));
                     let target = findClosest(n.pitch, candidatePitches);
@@ -1966,6 +1998,35 @@ export function scheduleMelody(
         }
     }
 
+    // Final Sanitation Pass
+    if (settings.genre !== 'none' && settings.genre !== 'jazz' && settings.genre !== 'blues') {
+        melodyScheduled.forEach((n, i) => {
+            const pc = Math.round(((n.pitch % periodSize + periodSize) % periodSize) * 100) / 100;
+            const isColorTone = !hasPc(chordTonePcSet, pc, periodSize) && !hasPc(activeScalePcSet, pc, periodSize);
+            if (isColorTone && activeChordTones.length > 0) {
+                const prevNote = (i > 0) ? melodyScheduled[i - 1] : null;
+                const nextNote = (i < melodyScheduled.length - 1) ? melodyScheduled[i + 1] : null;
+                
+                let isSurrounded = false;
+                let isStepwise = false;
+                
+                if (prevNote && nextNote) {
+                    const prevPc = Math.round(((prevNote.pitch % periodSize + periodSize) % periodSize) * 100) / 100;
+                    const nextPc = Math.round(((nextNote.pitch % periodSize + periodSize) % periodSize) * 100) / 100;
+                    const isPrevChordTone = hasPc(chordTonePcSet, prevPc, periodSize);
+                    const isNextChordTone = hasPc(chordTonePcSet, nextPc, periodSize);
+                    
+                    isSurrounded = isPrevChordTone && isNextChordTone;
+                    isStepwise = Math.abs(n.pitch - prevNote.pitch) <= 2.01 && Math.abs(nextNote.pitch - n.pitch) <= 2.01;
+                }
+                
+                if (!isSurrounded || !isStepwise) {
+                    n.pitch = findClosest(n.pitch, activeChordTones);
+                }
+            }
+        });
+    }
+
     // Play/Schedule all collected melody notes
     melodyScheduled.forEach((n, idx) => {
         let pitch = n.pitch;
@@ -1990,7 +2051,7 @@ export function scheduleMelody(
     counterScheduled.forEach((n, idx) => {
         const nextTime = (idx < counterScheduled.length - 1) ? counterScheduled[idx + 1].stepTime : (time + chordSlotDuration);
         if (n.stepTime + n.noteDuration > nextTime) {
-            n.noteDuration = Math.max(0.01, nextTime - n.stepTime);
+            n.noteDuration = Math.max(0.01, nextTime - n.stepTime - 0.015);
         }
         const gapAfter = nextTime - (n.stepTime + n.noteDuration);
 
@@ -2011,7 +2072,7 @@ export function scheduleMelody(
             lastInterval = 0;
         }
         const finalPc = Math.round(((finalNote.pitch % periodSize + periodSize) % periodSize) * 100) / 100;
-        globalPrevPitchIsColor = !activeScalePcSet.has(finalPc) && !chordTonePcSet.has(finalPc);
+        globalPrevPitchIsColor = !hasPc(activeScalePcSet, finalPc, periodSize) && !hasPc(chordTonePcSet, finalPc, periodSize);
     } else {
         globalPrevPitchIsColor = false;
     }
@@ -2070,8 +2131,8 @@ export function scheduleMelody(
         console.group(`🎵 Slot ${absIndex} (${chordObj.symbol}, Key ${chordKey}): ${slotAestheticMode} | Act ${slotActivity.toFixed(2)} | Den ${settings.density} | Rests ${settings.restProbability} | Limit ${settings.maxNoteSpeed || settings.shortestNoteLimit || 16} | Chords: [${(chordNotes || []).join(', ')}]`);
         if (melodyScheduled.length > 0) {
             const mStr = melodyScheduled.map(n => {
-                const isChordTone = chordTonePcSet.has(Math.round(((n.pitch % periodSize + periodSize) % periodSize) * 100) / 100);
-                const isScaleTone = activeScalePcSet.has(Math.round(((n.pitch % periodSize + periodSize) % periodSize) * 100) / 100);
+                const isChordTone = hasPc(chordTonePcSet, n.pitch, periodSize);
+                const isScaleTone = hasPc(activeScalePcSet, n.pitch, periodSize);
                 const type = isChordTone ? 'Chord' : (isScaleTone ? 'Scale' : 'Color');
                 const flags = [type];
                 if (n.isAnchor1Step) flags.push('A1');
